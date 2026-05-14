@@ -2,9 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  addScanRoot,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   listCatalogVideos,
+  listScanRoots,
+  removeScanRoot,
   saveFfmpegConfiguration
 } from "./tauriCommands";
 
@@ -47,6 +50,40 @@ describe("Tauri commands", () => {
       }
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_catalog_videos");
+  });
+
+  it("calls the typed Rust command for persisted Scan Roots", async () => {
+    mockedInvoke.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos"
+      }
+    ]);
+
+    const scanRoots = await listScanRoots();
+
+    expect(scanRoots).toEqual([
+      {
+        path: "/Volumes/Archive/Videos"
+      }
+    ]);
+    expect(mockedInvoke).toHaveBeenCalledWith("list_scan_roots");
+  });
+
+  it("adds a Scan Root through the Rust command", async () => {
+    await addScanRoot("/Volumes/Archive/Videos");
+
+    expect(mockedInvoke).toHaveBeenCalledWith("add_scan_root", {
+      path: "/Volumes/Archive/Videos"
+    });
+  });
+
+  it("removes a Scan Root through the Rust command with the selected catalog policy", async () => {
+    await removeScanRoot("/Volumes/Archive/Videos", "preserveMissingVideos");
+
+    expect(mockedInvoke).toHaveBeenCalledWith("remove_scan_root", {
+      path: "/Volumes/Archive/Videos",
+      removalPolicy: "preserveMissingVideos"
+    });
   });
 
   it("calls the typed Rust command for FFmpeg tools status", async () => {

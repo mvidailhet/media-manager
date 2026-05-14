@@ -8,7 +8,7 @@ use std::{
     sync::Mutex,
 };
 
-use catalog::{Catalog, CatalogVideo};
+use catalog::{Catalog, CatalogVideo, ScanRoot};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
@@ -70,6 +70,13 @@ struct FfmpegToolStatus {
     is_available: bool,
     resolved_path: Option<String>,
     status_message: String,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+enum ScanRootRemovalPolicy {
+    PreserveMissingVideos,
+    ForgetFromCatalog,
 }
 
 fn discover_ffmpeg_tools_status(
@@ -229,6 +236,50 @@ fn list_catalog_videos(
 }
 
 #[tauri::command]
+fn list_scan_roots(catalog_state: tauri::State<'_, CatalogState>) -> Result<Vec<ScanRoot>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.list_scan_roots()
+}
+
+#[tauri::command]
+fn add_scan_root(
+    catalog_state: tauri::State<'_, CatalogState>,
+    path: String,
+) -> Result<ScanRoot, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.add_scan_root(Path::new(&path))
+}
+
+#[tauri::command]
+fn remove_scan_root(
+    catalog_state: tauri::State<'_, CatalogState>,
+    path: String,
+    removal_policy: ScanRootRemovalPolicy,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    match removal_policy {
+        ScanRootRemovalPolicy::PreserveMissingVideos => {
+            catalog.remove_scan_root_preserving_missing_videos(&path)
+        }
+        ScanRootRemovalPolicy::ForgetFromCatalog => {
+            catalog.remove_scan_root_forgetting_catalog_videos(&path)
+        }
+    }
+}
+
+#[tauri::command]
 fn get_ffmpeg_tools_status(app: tauri::AppHandle) -> Result<FfmpegToolsStatus, String> {
     let settings_path = ffmpeg_settings_path(&app)?;
     let configuration = load_ffmpeg_configuration(&settings_path)?;
@@ -256,6 +307,7 @@ fn save_ffmpeg_configuration(
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             initialize_catalog(app)
                 .map_err(|error| Box::<dyn std::error::Error>::from(std::io::Error::other(error)))
@@ -263,6 +315,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_local_desktop_app_status,
             list_catalog_videos,
+            list_scan_roots,
+            add_scan_root,
+            remove_scan_root,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration
         ])
