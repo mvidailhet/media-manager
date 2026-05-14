@@ -283,6 +283,19 @@ fn remove_scan_root(
 }
 
 #[tauri::command]
+fn forget_catalog_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.forget_catalog_video(video_id)
+}
+
+#[tauri::command]
 fn get_ffmpeg_tools_status(app: tauri::AppHandle) -> Result<FfmpegToolsStatus, String> {
     let settings_path = ffmpeg_settings_path(&app)?;
     let configuration = load_ffmpeg_configuration(&settings_path)?;
@@ -427,6 +440,7 @@ pub fn run() {
             list_scan_roots,
             add_scan_root,
             remove_scan_root,
+            forget_catalog_video,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             refresh_scan_root,

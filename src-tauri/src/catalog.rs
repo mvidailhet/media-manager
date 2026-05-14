@@ -308,6 +308,30 @@ impl Catalog {
         transaction.commit().map_err(|error| error.to_string())
     }
 
+    pub fn forget_catalog_video(&self, video_id: i64) -> Result<(), String> {
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+        let deleted_video_count = transaction
+            .execute(
+                "DELETE FROM videos
+                 WHERE id = ?1
+                   AND NOT EXISTS (
+                    SELECT 1
+                    FROM file_locations
+                    WHERE file_locations.video_id = videos.id
+                   )",
+                params![video_id],
+            )
+            .map_err(|error| error.to_string())?;
+        if deleted_video_count == 0 {
+            return Err("Only Missing Videos can be forgotten from the Catalog".to_string());
+        }
+
+        transaction.commit().map_err(|error| error.to_string())
+    }
+
     pub fn refresh_scan_root<P: VideoFileProbe>(
         &self,
         scan_root_path: &str,
@@ -1430,6 +1454,79 @@ mod tests {
         assert_eq!(count_rows(&database, "scan_roots"), 0);
         assert_eq!(count_rows(&database, "file_locations"), 0);
         assert_eq!(count_rows(&database, "videos"), 0);
+    }
+
+    #[test]
+    fn forgetting_one_missing_catalog_video_removes_metadata_without_touching_the_file() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let family_trip_path = temporary_folder.path().join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+
+        let database = catalog_test_database(&catalog_path);
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-one", 1_i64, "Family Trip", 3723000_i64),
+            )
+            .expect("video persists");
+
+        catalog
+            .forget_catalog_video(1)
+            .expect("catalog video metadata is forgotten");
+
+        assert!(family_trip_path.exists());
+        assert_eq!(count_rows(&database, "file_locations"), 0);
+        assert_eq!(count_rows(&database, "videos"), 0);
+    }
+
+    #[test]
+    fn forgetting_one_available_catalog_video_is_rejected() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+
+        let database = catalog_test_database(&catalog_path);
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-one", 1_i64, "Family Trip", 3723000_i64),
+            )
+            .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    1_i64,
+                    1_i64,
+                    family_trip_path.to_string_lossy().into_owned(),
+                    17_i64,
+                    "2026-05-14T16:35:48Z",
+                ),
+            )
+            .expect("file location persists");
+
+        let forget_error = catalog
+            .forget_catalog_video(1)
+            .expect_err("available catalog video is rejected");
+
+        assert_eq!(
+            forget_error,
+            "Only Missing Videos can be forgotten from the Catalog"
+        );
+        assert_eq!(count_rows(&database, "file_locations"), 1);
+        assert_eq!(count_rows(&database, "videos"), 1);
     }
 
     #[test]
