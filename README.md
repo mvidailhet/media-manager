@@ -4,6 +4,12 @@ A local desktop app for organizing local videos with previews and tags, so you c
 
 ## Local development
 
+Before running the desktop app, install:
+
+- Node.js 20 or newer.
+- Rust with Cargo available on `PATH`.
+- Tauri's macOS prerequisites, including Xcode Command Line Tools.
+
 Install JavaScript dependencies:
 
 ```sh
