@@ -2,6 +2,9 @@ import { invoke } from "@tauri-apps/api/core";
 
 const localDesktopAppStatusCommand = "get_local_desktop_app_status";
 const listCatalogVideosCommand = "list_catalog_videos";
+const listScanRootsCommand = "list_scan_roots";
+const addScanRootCommand = "add_scan_root";
+const removeScanRootCommand = "remove_scan_root";
 const ffmpegToolsStatusCommand = "get_ffmpeg_tools_status";
 const saveFfmpegConfigurationCommand = "save_ffmpeg_configuration";
 
@@ -11,6 +14,14 @@ export interface CatalogVideo {
   fileSizeBytes: number;
   fileLocationPath: string;
 }
+
+export interface ScanRoot {
+  path: string;
+}
+
+export type ScanRootRemovalPolicy =
+  | "preserveMissingVideos"
+  | "forgetFromCatalog";
 
 export type FfmpegConfiguration = {
   ffmpegPath: string | null;
@@ -36,6 +47,21 @@ export async function getLocalDesktopAppStatus(): Promise<string> {
 
 export async function listCatalogVideos(): Promise<CatalogVideo[]> {
   return invoke<CatalogVideo[]>(listCatalogVideosCommand);
+}
+
+export async function listScanRoots(): Promise<ScanRoot[]> {
+  return invoke<ScanRoot[]>(listScanRootsCommand);
+}
+
+export async function addScanRoot(path: string): Promise<ScanRoot> {
+  return invoke<ScanRoot>(addScanRootCommand, { path });
+}
+
+export async function removeScanRoot(
+  path: string,
+  removalPolicy: ScanRootRemovalPolicy
+): Promise<void> {
+  return invoke<void>(removeScanRootCommand, { path, removalPolicy });
 }
 
 export async function getFfmpegToolsStatus(): Promise<FfmpegToolsStatus> {

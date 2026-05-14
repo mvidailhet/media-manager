@@ -1,9 +1,15 @@
 import { useEffect, useState } from "react";
+import { open } from "@tauri-apps/plugin-dialog";
 
 import {
   FfmpegToolsStatus,
+  ScanRoot,
+  ScanRootRemovalPolicy,
+  addScanRoot,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
+  listScanRoots,
+  removeScanRoot,
   saveFfmpegConfiguration
 } from "./tauriCommands";
 
@@ -11,6 +17,8 @@ const loadingStatusMessage = "Checking Rust command...";
 const commandErrorMessage = "Rust command unavailable";
 const ffmpegLoadingMessage = "Checking FFmpeg tools...";
 const ffmpegErrorMessage = "FFmpeg status unavailable";
+const scanRootsLoadingMessage = "Loading Scan Roots...";
+const scanRootsErrorMessage = "Scan Roots unavailable";
 
 function normalizeConfiguredPath(value: string) {
   const trimmedValue = value.trim();
@@ -25,6 +33,13 @@ export default function App() {
     useState<FfmpegToolsStatus | null>(null);
   const [ffmpegStatusMessage, setFfmpegStatusMessage] =
     useState(ffmpegLoadingMessage);
+  const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
+  const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
+    scanRootsLoadingMessage
+  );
+  const [manualScanRootPath, setManualScanRootPath] = useState("");
+  const [scanRootPendingRemoval, setScanRootPendingRemoval] =
+    useState<ScanRoot | null>(null);
   const [ffmpegPath, setFfmpegPath] = useState("");
   const [ffprobePath, setFfprobePath] = useState("");
 
@@ -79,6 +94,31 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    let canUpdateScanRoots = true;
+
+    async function loadScanRoots() {
+      try {
+        const storedScanRoots = await listScanRoots();
+
+        if (canUpdateScanRoots) {
+          setScanRoots(storedScanRoots);
+          setScanRootsStatusMessage("");
+        }
+      } catch {
+        if (canUpdateScanRoots) {
+          setScanRootsStatusMessage(scanRootsErrorMessage);
+        }
+      }
+    }
+
+    void loadScanRoots();
+
+    return () => {
+      canUpdateScanRoots = false;
+    };
+  }, []);
+
   async function saveConfiguredFfmpegPaths(event: React.FormEvent) {
     event.preventDefault();
 
@@ -97,6 +137,64 @@ export default function App() {
     }
   }
 
+  async function chooseScanRootFolder() {
+    const selectedFolder = await open({
+      directory: true,
+      multiple: false
+    });
+
+    if (typeof selectedFolder === "string") {
+      await persistScanRoot(selectedFolder);
+    }
+  }
+
+  async function addManualScanRoot(event: React.FormEvent) {
+    event.preventDefault();
+    await persistScanRoot(manualScanRootPath);
+  }
+
+  async function persistScanRoot(path: string) {
+    const scanRootPath = path.trim();
+
+    if (!scanRootPath) {
+      return;
+    }
+
+    try {
+      const scanRoot = await addScanRoot(scanRootPath);
+      setScanRoots((currentScanRoots) =>
+        [...currentScanRoots, scanRoot].sort((left, right) =>
+          left.path.localeCompare(right.path)
+        )
+      );
+      setManualScanRootPath("");
+      setScanRootsStatusMessage("");
+    } catch (error) {
+      setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function confirmScanRootRemoval(removalPolicy: ScanRootRemovalPolicy) {
+    if (!scanRootPendingRemoval) {
+      return;
+    }
+
+    const removedScanRoot = scanRootPendingRemoval;
+
+    try {
+      await removeScanRoot(removedScanRoot.path, removalPolicy);
+      setScanRoots((currentScanRoots) =>
+        currentScanRoots.filter(
+          (scanRoot) => scanRoot.path !== removedScanRoot.path
+        )
+      );
+      setScanRootPendingRemoval(null);
+      setScanRootsStatusMessage("");
+    } catch (error) {
+      setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="workspace-header" aria-labelledby="videos-view-title">
@@ -112,6 +210,80 @@ export default function App() {
         <span className="status-label">Tauri bridge</span>
         <strong>{localDesktopAppStatus}</strong>
       </section>
+
+      <section className="scan-roots-panel" aria-label="Scan Roots">
+        <div className="panel-heading">
+          <div>
+            <span className="status-label">Catalog sources</span>
+            <h2>Scan Roots</h2>
+          </div>
+          <button type="button" onClick={chooseScanRootFolder}>
+            Choose folder
+          </button>
+        </div>
+
+        {scanRootsStatusMessage ? <p>{scanRootsStatusMessage}</p> : null}
+
+        <form className="scan-root-form" onSubmit={addManualScanRoot}>
+          <label>
+            <span>Manual path</span>
+            <input
+              type="text"
+              value={manualScanRootPath}
+              onChange={(event) => setManualScanRootPath(event.target.value)}
+              placeholder="/Volumes/Archive/Videos"
+            />
+          </label>
+          <button type="submit">Add path</button>
+        </form>
+
+        {scanRoots.length > 0 ? (
+          <div className="scan-root-list">
+            {scanRoots.map((scanRoot) => (
+              <article className="scan-root" key={scanRoot.path}>
+                <code>{scanRoot.path}</code>
+                <button
+                  type="button"
+                  onClick={() => setScanRootPendingRemoval(scanRoot)}
+                >
+                  Remove
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p>No Scan Roots added.</p>
+        )}
+      </section>
+
+      {scanRootPendingRemoval ? (
+        <section
+          className="removal-panel"
+          aria-label="Remove Scan Root confirmation"
+        >
+          <h2>Remove Scan Root</h2>
+          <code>{scanRootPendingRemoval.path}</code>
+          <div className="removal-actions">
+            <button
+              type="button"
+              onClick={() =>
+                void confirmScanRootRemoval("preserveMissingVideos")
+              }
+            >
+              Preserve as Missing Videos
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmScanRootRemoval("forgetFromCatalog")}
+            >
+              Forget From Catalog
+            </button>
+            <button type="button" onClick={() => setScanRootPendingRemoval(null)}>
+              Cancel
+            </button>
+          </div>
+        </section>
+      ) : null}
 
       <section className="ffmpeg-panel" aria-label="FFmpeg tools status">
         <div>
@@ -172,4 +344,12 @@ export default function App() {
       </section>
     </main>
   );
+}
+
+function errorMessage(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return String(error);
 }
