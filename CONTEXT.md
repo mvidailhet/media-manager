@@ -80,6 +80,10 @@ _Avoid_: Thumbnail, trailer
 A **Preview Strip** that has not been generated yet.
 _Avoid_: Missing video
 
+**Failed Preview Strip**:
+A **Preview Strip** that could not be generated for an otherwise valid **Video**.
+_Avoid_: Unprocessable video candidate
+
 **Search Filter**:
 A structured constraint used to narrow the **Catalog** results.
 _Avoid_: Search term, query
@@ -197,7 +201,14 @@ _Avoid_: Metadata suggestion
 - A **Preview Strip** belongs to a **Video**, not to a specific **File Location**.
 - A **Preview Strip** defaults to 20 evenly sampled frames across the **Video**.
 - A **Preview Strip** samples from inside the **Video** timeline rather than exact first and last frames.
+- Hovering a **Video** preview scrubs across **Preview Strip** frames by horizontal pointer position.
 - A **Pending Preview Strip** belongs to a **Video** that has been cataloged before its preview is ready.
+- A **Pending Preview Strip** shows a neutral placeholder and generation state without blocking the **Video** from appearing.
+- A **Failed Preview Strip** does not stop its **Video** from appearing in search.
+- A **Failed Preview Strip** can be ignored until manually retried, or until the **Video** file or FFmpeg configuration changes.
+- **Preview Strip** generation is queued automatically after cataloging and can be paused or resumed globally.
+- v1 runs one **Preview Strip** generation job at a time by default.
+- v1 **Background Jobs** run only while the **Local Desktop App** is open.
 - Active **Search Filters** combine to narrow the set of matching **Videos**.
 - Text search matches **Title** and current filename in v1.
 - Multiple selected **Tags** require every selected **Tag**.
@@ -220,7 +231,7 @@ _Avoid_: Metadata suggestion
 - A **Rejected Metadata Suggestion** suppresses repeated suggestions from the same source and value.
 - A **Metadata Suggestion** can normalize display text while preserving the original folder name as its source.
 - Accepting a **Metadata Suggestion** creates a **Tag** or **Performer** unless it matches or is merged into an existing value.
-- A **Review Queue** includes **Duplicate Locations**, **Metadata Suggestions**, **Unprocessable Video Candidates**, **Missing Videos**, and **Unavailable Scan Roots**.
+- A **Review Queue** includes **Duplicate Locations**, **Metadata Suggestions**, **Unprocessable Video Candidates**, **Missing Videos**, **Unavailable Scan Roots**, and **Failed Preview Strips**.
 - **Forget From Catalog** is available from the **Review Queue** for **Missing Videos**.
 - **Forget From Catalog** requires confirmation and is final in v1.
 - v1 has **Videos View**, **Favorites View**, **Recently Opened View**, and **Review Queue** as top-level workspaces.
@@ -318,6 +329,9 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Where do cleanup tasks and scan issues appear?"
 > **Domain expert:** "In the **Review Queue**, not mixed into normal **Video** search results."
 >
+> **Dev:** "Where do failed preview generations appear?"
+> **Domain expert:** "In the **Review Queue**, with retry or ignore-for-now actions."
+>
 > **Dev:** "What are the main v1 workspaces?"
 > **Domain expert:** "**Videos View**, **Favorites View**, **Recently Opened View**, and **Review Queue**."
 >
@@ -357,8 +371,29 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Should preview sampling include the exact first and last frames?"
 > **Domain expert:** "No. Sampling should avoid the edges where black frames or fades are common."
 >
+> **Dev:** "How should hover preview choose which frame to show?"
+> **Domain expert:** "Horizontal pointer position over the preview scrubs across the **Preview Strip** frames."
+>
 > **Dev:** "Should a **Video** wait for its **Preview Strip** before appearing in search?"
 > **Domain expert:** "No. The **Video** appears once cataloged; its **Preview Strip** can be pending until generation finishes."
+>
+> **Dev:** "What appears before a **Preview Strip** is ready?"
+> **Domain expert:** "A neutral placeholder with pending or generating state."
+>
+> **Dev:** "If preview generation fails, is the **Video** invalid?"
+> **Domain expert:** "No. It has a **Failed Preview Strip**, but remains a valid searchable **Video**."
+>
+> **Dev:** "When should an ignored **Failed Preview Strip** be retried?"
+> **Domain expert:** "On manual retry, or when the **Video** file or FFmpeg configuration changes."
+>
+> **Dev:** "Should preview generation start only when I hover?"
+> **Domain expert:** "No. It is queued after cataloging, with global pause and resume controls."
+>
+> **Dev:** "How many previews should generate at once?"
+> **Domain expert:** "v1 generates one **Preview Strip** at a time by default to keep the Mac responsive."
+>
+> **Dev:** "Should preview generation continue after the app quits?"
+> **Domain expert:** "No. v1 **Background Jobs** run only while the app is open."
 >
 > **Dev:** "If I search by text, two **Tags**, and a **Performer**, how do results combine?"
 > **Domain expert:** "The **Video** must satisfy every active **Search Filter**: match the text, have all selected **Tags**, and include any selected **Performer**."

@@ -50,7 +50,7 @@ This repo uses the single-context layout: root `CONTEXT.md` plus root `docs/adr/
 ### TDD and tests
 Use TDD. Follow RED-GREEN-REFACTOR.
 
-Prefer tests that lock behavior, intent, and invariants, not tweakable implementation details.
+IMPORTANT : Prefer tests that lock behavior, intent, and invariants, not tweakable implementation details.
 - Test ranges, ordering, presence, visibility, and relationships when possible.
 - Avoid pinning exact visual tuning numbers unless they are part of the contract.
 - For balance and rendering tweaks, prefer broad guards like "visible enough", "smaller than body", or "pulses within a safe range".
