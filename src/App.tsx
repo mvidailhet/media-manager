@@ -1,4 +1,18 @@
 import { useEffect, useState } from "react";
+import {
+  Badge,
+  Box,
+  Button,
+  Code,
+  Divider,
+  Group,
+  Paper,
+  SimpleGrid,
+  Stack,
+  Text,
+  TextInput,
+  Title
+} from "@mantine/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import {
@@ -369,338 +383,426 @@ export default function App() {
   );
 
   return (
-    <main className="app-shell">
-      <section className="workspace-header" aria-labelledby="videos-view-title">
-        <p className="workspace-label">Local Desktop App</p>
-        <h1 id="videos-view-title">Videos View</h1>
-        <p className="workspace-summary">
+    <Box component="main" className="app-shell">
+      <Box component="section" maw={720} aria-labelledby="videos-view-title">
+        <Text c="dimmed" fw={700} size="sm" tt="uppercase">
+          Local Desktop App
+        </Text>
+        <Title id="videos-view-title" order={1} mt={8} mb={12}>
+          Videos View
+        </Title>
+        <Text c="dimmed" lh={1.6}>
           A local catalog workspace for organizing videos without a network
           dependency.
-        </p>
-      </section>
+        </Text>
+      </Box>
 
-      <section className="status-panel" aria-label="Tauri command status">
-        <span className="status-label">Tauri bridge</span>
-        <strong>{localDesktopAppStatus}</strong>
-      </section>
+      <Paper component="section" aria-label="Tauri command status" p="md" maw={420}>
+        <Stack gap={8}>
+          <Text c="dimmed" fw={700} size="sm" tt="uppercase">
+            Tauri bridge
+          </Text>
+          <Text c="teal" fw={700}>
+            {localDesktopAppStatus}
+          </Text>
+        </Stack>
+      </Paper>
 
-      <section className="catalog-videos-panel" aria-label="Catalog Videos">
-        <div className="panel-heading">
-          <div>
-            <span className="status-label">Catalog results</span>
-            <h2>Videos</h2>
-          </div>
-        </div>
+      <Paper component="section" aria-label="Catalog Videos" p="md" maw={760}>
+        <Stack gap="md">
+          <SectionHeader label="Catalog results" title="Videos" />
 
-        {catalogVideosStatusMessage ? (
-          <p>{catalogVideosStatusMessage}</p>
-        ) : null}
+          {catalogVideosStatusMessage ? (
+            <Text>{catalogVideosStatusMessage}</Text>
+          ) : null}
 
-        {!catalogVideosStatusMessage && catalogVideos.length === 0 ? (
-          <p>{catalogVideosEmptyMessage}</p>
-        ) : null}
+          {!catalogVideosStatusMessage && catalogVideos.length === 0 ? (
+            <Text c="dimmed">{catalogVideosEmptyMessage}</Text>
+          ) : null}
 
-        {catalogVideos.length > 0 ? (
-          <div className="catalog-video-list">
-            {catalogVideos.map((catalogVideo) => (
-              <article
-                className="catalog-video"
-                key={catalogVideo.id}
-              >
-                <div>
-                  <div className="catalog-video-title-row">
-                    <h3>{catalogVideo.title}</h3>
-                    <strong
-                      className={
-                        catalogVideo.isAvailable
-                          ? "availability available"
-                          : "availability missing"
-                      }
-                    >
-                      {catalogVideo.isAvailable ? "Available" : "Unavailable"}
-                    </strong>
-                  </div>
-                  <p>{formatDuration(catalogVideo.durationMilliseconds)}</p>
-                </div>
-                <dl className="catalog-video-details">
-                  <div>
-                    <dt>File Location</dt>
-                    <dd>
+          {catalogVideos.length > 0 ? (
+            <Stack gap="sm">
+              {catalogVideos.map((catalogVideo) => (
+                <Stack component="article" gap="sm" key={catalogVideo.id}>
+                  <Divider />
+                  <Box>
+                    <Group gap="xs" align="center">
+                      <Title order={3} size="h4">
+                        {catalogVideo.title}
+                      </Title>
+                      <AvailabilityBadge isAvailable={catalogVideo.isAvailable} />
+                    </Group>
+                    <Text c="dimmed">
+                      {formatDuration(catalogVideo.durationMilliseconds)}
+                    </Text>
+                  </Box>
+                  <Box component="dl" className="definition-list">
+                    <DefinitionTerm label="File Location">
                       {catalogVideo.fileLocationPath ? (
-                        <code>{catalogVideo.fileLocationPath}</code>
+                        <Code>{catalogVideo.fileLocationPath}</Code>
                       ) : (
                         "Missing"
                       )}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>File Size</dt>
-                    <dd>{formatFileSize(catalogVideo.fileSizeBytes)}</dd>
-                  </div>
-                </dl>
-              </article>
-            ))}
-          </div>
-        ) : null}
-      </section>
+                    </DefinitionTerm>
+                    <DefinitionTerm label="File Size">
+                      {formatFileSize(catalogVideo.fileSizeBytes)}
+                    </DefinitionTerm>
+                  </Box>
+                </Stack>
+              ))}
+            </Stack>
+          ) : null}
+        </Stack>
+      </Paper>
 
-      <section className="review-queue-panel" aria-label="Review Queue">
-        <div className="panel-heading">
-          <div>
-            <span className="status-label">Scan issues</span>
-            <h2>Review Queue</h2>
-          </div>
-        </div>
+      <Paper component="section" aria-label="Review Queue" p="md" maw={760}>
+        <Stack gap="md">
+          <SectionHeader label="Scan issues" title="Review Queue" />
 
-        {reviewQueueStatusMessage ? <p>{reviewQueueStatusMessage}</p> : null}
+          {reviewQueueStatusMessage ? <Text>{reviewQueueStatusMessage}</Text> : null}
 
-        <div className="review-queue-columns">
-          <section aria-labelledby="missing-videos-title">
-            <h3 id="missing-videos-title">Missing Videos</h3>
-            {missingVideos.length > 0 ? (
-              <div className="review-queue-list">
-                {missingVideos.map((missingVideo) => (
-                  <article className="review-queue-item" key={missingVideo.id}>
-                    <div>
-                      <h4>{missingVideo.title}</h4>
-                      <p>{formatDuration(missingVideo.durationMilliseconds)}</p>
-                    </div>
-                    <button
+          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+            <Stack component="section" gap="xs" aria-labelledby="missing-videos-title">
+              <Title order={3} id="missing-videos-title" size="h4">
+                Missing Videos
+              </Title>
+              {missingVideos.length > 0 ? (
+                <Stack gap="sm">
+                  {missingVideos.map((missingVideo) => (
+                    <Stack component="article" gap="xs" key={missingVideo.id}>
+                      <Divider />
+                      <Box>
+                        <Title order={4} size="h5">
+                          {missingVideo.title}
+                        </Title>
+                        <Text c="dimmed">
+                          {formatDuration(missingVideo.durationMilliseconds)}
+                        </Text>
+                      </Box>
+                      <Button
+                        type="button"
+                        size="xs"
+                        variant="light"
+                        onClick={() => setMissingVideoPendingForget(missingVideo)}
+                      >
+                        Forget From Catalog
+                      </Button>
+                    </Stack>
+                  ))}
+                </Stack>
+              ) : (
+                <Text c="dimmed">No Missing Videos.</Text>
+              )}
+            </Stack>
+
+            <Stack
+              component="section"
+              gap="xs"
+              aria-labelledby="unavailable-scan-roots-title"
+            >
+              <Title order={3} id="unavailable-scan-roots-title" size="h4">
+                Unavailable Scan Roots
+              </Title>
+              {unavailableScanRoots.length > 0 ? (
+                <Stack gap="sm">
+                  {unavailableScanRoots.map((scanRoot) => (
+                    <Stack component="article" gap="xs" key={scanRoot.path}>
+                      <Divider />
+                      <Code>{scanRoot.path}</Code>
+                    </Stack>
+                  ))}
+                </Stack>
+              ) : (
+                <Text c="dimmed">No Unavailable Scan Roots.</Text>
+              )}
+            </Stack>
+
+            <Stack
+              component="section"
+              gap="xs"
+              aria-labelledby="unprocessable-candidates-title"
+            >
+              <Title order={3} id="unprocessable-candidates-title" size="h4">
+                Unprocessable Video Candidates
+              </Title>
+              {unprocessableVideoCandidates.length > 0 ? (
+                <Stack gap="sm">
+                  {unprocessableVideoCandidates.map((candidate) => (
+                    <Stack component="article" gap="xs" key={candidate.path}>
+                      <Divider />
+                      <Code>{candidate.path}</Code>
+                      <Box component="dl" className="definition-list">
+                        <DefinitionTerm label="Failure Reason">
+                          {candidate.reason}
+                        </DefinitionTerm>
+                        <DefinitionTerm label="File Size">
+                          {formatFileSize(candidate.fileSizeBytes)}
+                        </DefinitionTerm>
+                      </Box>
+                    </Stack>
+                  ))}
+                </Stack>
+              ) : (
+                <Text c="dimmed">No Unprocessable Video Candidates.</Text>
+              )}
+            </Stack>
+          </SimpleGrid>
+        </Stack>
+      </Paper>
+
+      <Paper component="section" aria-label="Scan Roots" p="md" maw={760}>
+        <Stack gap="md">
+          <Group justify="space-between" align="start">
+            <SectionHeader label="Catalog sources" title="Scan Roots" />
+            <Group gap="xs">
+              <Button type="button" variant="light" onClick={chooseScanRootFolder}>
+                Choose folder
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                onClick={() => void refreshEveryScanRoot()}
+              >
+                Refresh all Scan Roots
+              </Button>
+            </Group>
+          </Group>
+
+          {scanRootsStatusMessage ? <Text>{scanRootsStatusMessage}</Text> : null}
+
+          <Box component="form" onSubmit={addManualScanRoot}>
+            <Group align="end">
+              <TextInput
+                className="path-input"
+                label="Manual path"
+                value={manualScanRootPath}
+                onChange={(event) => setManualScanRootPath(event.target.value)}
+                placeholder="/Volumes/Archive/Videos"
+              />
+              <Button type="submit">Add path</Button>
+            </Group>
+          </Box>
+
+          {scanRoots.length > 0 ? (
+            <Stack gap="sm">
+              {scanRoots.map((scanRoot) => (
+                <Group
+                  component="article"
+                  gap="sm"
+                  justify="space-between"
+                  key={scanRoot.path}
+                >
+                  <Group gap="xs">
+                    <Code>{scanRoot.path}</Code>
+                    <AvailabilityBadge isAvailable={scanRoot.isAvailable} />
+                  </Group>
+                  <Group gap="xs">
+                    <Button
                       type="button"
-                      onClick={() => setMissingVideoPendingForget(missingVideo)}
+                      size="xs"
+                      variant="default"
+                      onClick={() => void refreshSelectedScanRoot(scanRoot)}
                     >
-                      Forget From Catalog
-                    </button>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p>No Missing Videos.</p>
-            )}
-          </section>
-
-          <section aria-labelledby="unavailable-scan-roots-title">
-            <h3 id="unavailable-scan-roots-title">Unavailable Scan Roots</h3>
-            {unavailableScanRoots.length > 0 ? (
-              <div className="review-queue-list">
-                {unavailableScanRoots.map((scanRoot) => (
-                  <article className="review-queue-item" key={scanRoot.path}>
-                    <code>{scanRoot.path}</code>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p>No Unavailable Scan Roots.</p>
-            )}
-          </section>
-
-          <section aria-labelledby="unprocessable-candidates-title">
-            <h3 id="unprocessable-candidates-title">
-              Unprocessable Video Candidates
-            </h3>
-            {unprocessableVideoCandidates.length > 0 ? (
-              <div className="review-queue-list">
-                {unprocessableVideoCandidates.map((candidate) => (
-                  <article className="review-queue-item" key={candidate.path}>
-                    <code>{candidate.path}</code>
-                    <dl className="catalog-video-details">
-                      <div>
-                        <dt>Failure Reason</dt>
-                        <dd>{candidate.reason}</dd>
-                      </div>
-                      <div>
-                        <dt>File Size</dt>
-                        <dd>{formatFileSize(candidate.fileSizeBytes)}</dd>
-                      </div>
-                    </dl>
-                  </article>
-                ))}
-              </div>
-            ) : (
-              <p>No Unprocessable Video Candidates.</p>
-            )}
-          </section>
-        </div>
-      </section>
-
-      <section className="scan-roots-panel" aria-label="Scan Roots">
-        <div className="panel-heading">
-          <div>
-            <span className="status-label">Catalog sources</span>
-            <h2>Scan Roots</h2>
-          </div>
-          <button type="button" onClick={chooseScanRootFolder}>
-            Choose folder
-          </button>
-          <button type="button" onClick={() => void refreshEveryScanRoot()}>
-            Refresh all Scan Roots
-          </button>
-        </div>
-
-        {scanRootsStatusMessage ? <p>{scanRootsStatusMessage}</p> : null}
-
-        <form className="scan-root-form" onSubmit={addManualScanRoot}>
-          <label>
-            <span>Manual path</span>
-            <input
-              type="text"
-              value={manualScanRootPath}
-              onChange={(event) => setManualScanRootPath(event.target.value)}
-              placeholder="/Volumes/Archive/Videos"
-            />
-          </label>
-          <button type="submit">Add path</button>
-        </form>
-
-        {scanRoots.length > 0 ? (
-          <div className="scan-root-list">
-            {scanRoots.map((scanRoot) => (
-              <article className="scan-root" key={scanRoot.path}>
-                <div>
-                  <code>{scanRoot.path}</code>
-                  <strong
-                    className={
-                      scanRoot.isAvailable
-                        ? "availability available"
-                        : "availability missing"
-                    }
-                  >
-                    {scanRoot.isAvailable ? "Available" : "Unavailable"}
-                  </strong>
-                </div>
-                <div className="scan-root-actions">
-                  <button
-                    type="button"
-                    onClick={() => void refreshSelectedScanRoot(scanRoot)}
-                  >
-                    Refresh
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setScanRootPendingRemoval(scanRoot)}
-                  >
-                    Remove
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <p>No Scan Roots added.</p>
-        )}
-      </section>
+                      Refresh
+                    </Button>
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="light"
+                      color="red"
+                      onClick={() => setScanRootPendingRemoval(scanRoot)}
+                    >
+                      Remove
+                    </Button>
+                  </Group>
+                </Group>
+              ))}
+            </Stack>
+          ) : (
+            <Text c="dimmed">No Scan Roots added.</Text>
+          )}
+        </Stack>
+      </Paper>
 
       {scanRootPendingRemoval ? (
-        <section
-          className="removal-panel"
+        <Paper
+          component="section"
           aria-label="Remove Scan Root confirmation"
+          p="md"
+          maw={760}
         >
-          <h2>Remove Scan Root</h2>
-          <code>{scanRootPendingRemoval.path}</code>
-          <div className="removal-actions">
-            <button
-              type="button"
-              onClick={() =>
-                void confirmScanRootRemoval("preserveMissingVideos")
-              }
-            >
-              Preserve as Missing Videos
-            </button>
-            <button
-              type="button"
-              onClick={() => void confirmScanRootRemoval("forgetFromCatalog")}
-            >
-              Forget From Catalog
-            </button>
-            <button type="button" onClick={() => setScanRootPendingRemoval(null)}>
-              Cancel
-            </button>
-          </div>
-        </section>
+          <Stack gap="sm">
+            <Title order={2} size="h3">
+              Remove Scan Root
+            </Title>
+            <Code>{scanRootPendingRemoval.path}</Code>
+            <Group gap="xs">
+              <Button
+                type="button"
+                onClick={() =>
+                  void confirmScanRootRemoval("preserveMissingVideos")
+                }
+              >
+                Preserve as Missing Videos
+              </Button>
+              <Button
+                type="button"
+                variant="light"
+                color="red"
+                onClick={() => void confirmScanRootRemoval("forgetFromCatalog")}
+              >
+                Forget From Catalog
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                onClick={() => setScanRootPendingRemoval(null)}
+              >
+                Cancel
+              </Button>
+            </Group>
+          </Stack>
+        </Paper>
       ) : null}
 
       {missingVideoPendingForget ? (
-        <section
-          className="removal-panel"
+        <Paper
+          component="section"
           aria-label="Forget Missing Video confirmation"
+          p="md"
+          maw={760}
         >
-          <h2>Forget Missing Video</h2>
-          <p>{missingVideoPendingForget.title}</p>
-          <div className="removal-actions">
-            <button
-              type="button"
-              onClick={() => void confirmMissingVideoForget()}
-            >
-              Confirm Forget From Catalog
-            </button>
-            <button
-              type="button"
-              onClick={() => setMissingVideoPendingForget(null)}
-            >
-              Cancel
-            </button>
-          </div>
-        </section>
+          <Stack gap="sm">
+            <Title order={2} size="h3">
+              Forget Missing Video
+            </Title>
+            <Text>{missingVideoPendingForget.title}</Text>
+            <Group gap="xs">
+              <Button
+                type="button"
+                color="red"
+                onClick={() => void confirmMissingVideoForget()}
+              >
+                Confirm Forget From Catalog
+              </Button>
+              <Button
+                type="button"
+                variant="default"
+                onClick={() => setMissingVideoPendingForget(null)}
+              >
+                Cancel
+              </Button>
+            </Group>
+          </Stack>
+        </Paper>
       ) : null}
 
-      <section className="ffmpeg-panel" aria-label="FFmpeg tools status">
-        <div>
-          <span className="status-label">Video tooling</span>
-          <h2>FFmpeg status</h2>
-        </div>
+      <Paper component="section" aria-label="FFmpeg tools status" p="md" maw={760}>
+        <Stack gap="md">
+          <SectionHeader label="Video tooling" title="FFmpeg status" />
 
-        {ffmpegStatusMessage ? <p>{ffmpegStatusMessage}</p> : null}
+          {ffmpegStatusMessage ? <Text>{ffmpegStatusMessage}</Text> : null}
 
-        {ffmpegToolsStatus ? (
-          <div className="tool-status-list">
-            {[ffmpegToolsStatus.ffmpeg, ffmpegToolsStatus.ffprobe].map(
-              (toolStatus) => (
-                <article className="tool-status" key={toolStatus.binaryName}>
-                  <div>
-                    <h3>{toolStatus.binaryName}</h3>
-                    <p>{toolStatus.statusMessage}</p>
-                    {toolStatus.resolvedPath ? (
-                      <code>{toolStatus.resolvedPath}</code>
-                    ) : null}
-                  </div>
-                  <strong
-                    className={
-                      toolStatus.isAvailable
-                        ? "availability available"
-                        : "availability missing"
-                    }
+          {ffmpegToolsStatus ? (
+            <Stack gap="sm">
+              {[ffmpegToolsStatus.ffmpeg, ffmpegToolsStatus.ffprobe].map(
+                (toolStatus) => (
+                  <Group
+                    component="article"
+                    gap="md"
+                    justify="space-between"
+                    align="start"
+                    key={toolStatus.binaryName}
                   >
-                    {toolStatus.isAvailable ? "Available" : "Missing"}
-                  </strong>
-                </article>
-              )
-            )}
-          </div>
-        ) : null}
+                    <Box>
+                      <Title order={3} size="h4">
+                        {toolStatus.binaryName}
+                      </Title>
+                      <Text c="dimmed" lh={1.5}>
+                        {toolStatus.statusMessage}
+                      </Text>
+                      {toolStatus.resolvedPath ? (
+                        <Code mt={8}>{toolStatus.resolvedPath}</Code>
+                      ) : null}
+                    </Box>
+                    <AvailabilityBadge
+                      isAvailable={toolStatus.isAvailable}
+                      missingLabel="Missing"
+                    />
+                  </Group>
+                )
+              )}
+            </Stack>
+          ) : null}
 
-        <form className="ffmpeg-form" onSubmit={saveConfiguredFfmpegPaths}>
-          <label>
-            <span>FFmpeg path</span>
-            <input
-              type="text"
-              value={ffmpegPath}
-              onChange={(event) => setFfmpegPath(event.target.value)}
-              placeholder="Use PATH discovery"
-            />
-          </label>
-          <label>
-            <span>ffprobe path</span>
-            <input
-              type="text"
-              value={ffprobePath}
-              onChange={(event) => setFfprobePath(event.target.value)}
-              placeholder="Use PATH discovery"
-            />
-          </label>
-          <button type="submit">Save paths</button>
-        </form>
-      </section>
-    </main>
+          <Box component="form" onSubmit={saveConfiguredFfmpegPaths}>
+            <Stack gap="sm">
+              <TextInput
+                label="FFmpeg path"
+                value={ffmpegPath}
+                onChange={(event) => setFfmpegPath(event.target.value)}
+                placeholder="Use PATH discovery"
+              />
+              <TextInput
+                label="ffprobe path"
+                value={ffprobePath}
+                onChange={(event) => setFfprobePath(event.target.value)}
+                placeholder="Use PATH discovery"
+              />
+              <Button type="submit" w="fit-content">
+                Save paths
+              </Button>
+            </Stack>
+          </Box>
+        </Stack>
+      </Paper>
+    </Box>
+  );
+}
+
+function SectionHeader({ label, title }: { label: string; title: string }) {
+  return (
+    <Box>
+      <Text c="dimmed" fw={700} size="sm" tt="uppercase">
+        {label}
+      </Text>
+      <Title order={2} size="h3" mt={6}>
+        {title}
+      </Title>
+    </Box>
+  );
+}
+
+function AvailabilityBadge({
+  isAvailable,
+  missingLabel = "Unavailable"
+}: {
+  isAvailable: boolean;
+  missingLabel?: string;
+}) {
+  return (
+    <Badge color={isAvailable ? "teal" : "red"} variant="light">
+      {isAvailable ? "Available" : missingLabel}
+    </Badge>
+  );
+}
+
+function DefinitionTerm({
+  children,
+  label
+}: {
+  children: React.ReactNode;
+  label: string;
+}) {
+  return (
+    <Box>
+      <Text component="dt" c="dimmed" fw={700} size="xs" tt="uppercase">
+        {label}
+      </Text>
+      <Text component="dd" className="definition-value">
+        {children}
+      </Text>
+    </Box>
   );
 }
 
