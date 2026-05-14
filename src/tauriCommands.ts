@@ -11,8 +11,8 @@ const saveFfmpegConfigurationCommand = "save_ffmpeg_configuration";
 export interface CatalogVideo {
   title: string;
   durationMilliseconds: number;
-  fileSizeBytes: number;
-  fileLocationPath: string;
+  fileSizeBytes: number | null;
+  fileLocationPath: string | null;
 }
 
 export interface ScanRoot {

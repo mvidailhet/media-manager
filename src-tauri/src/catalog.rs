@@ -45,8 +45,8 @@ const CREATE_FILE_LOCATIONS_TABLE: &str = "
 pub struct CatalogVideo {
     pub title: String,
     pub duration_milliseconds: i64,
-    pub file_size_bytes: i64,
-    pub file_location_path: String,
+    pub file_size_bytes: Option<i64>,
+    pub file_location_path: Option<String>,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -81,7 +81,7 @@ impl Catalog {
                         file_locations.file_size_bytes,
                         file_locations.path
                  FROM videos
-                 JOIN file_locations ON file_locations.video_id = videos.id
+                 LEFT JOIN file_locations ON file_locations.video_id = videos.id
                  ORDER BY videos.title, file_locations.path",
             )
             .map_err(|error| error.to_string())?;
@@ -164,15 +164,24 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
         transaction
             .execute(
-                "DELETE FROM videos
-                 WHERE id IN (
-                    SELECT videos.id
-                    FROM videos
-                    JOIN file_locations ON file_locations.video_id = videos.id
-                    JOIN scan_roots ON scan_roots.id = file_locations.scan_root_id
-                    WHERE scan_roots.path = ?1
+                "DELETE FROM file_locations
+                 WHERE scan_root_id IN (
+                    SELECT id
+                    FROM scan_roots
+                    WHERE path = ?1
                  )",
                 params![scan_root_path],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM videos
+                 WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM file_locations
+                    WHERE file_locations.video_id = videos.id
+                 )",
+                [],
             )
             .map_err(|error| error.to_string())?;
         transaction
@@ -313,6 +322,15 @@ mod tests {
         assert_eq!(count_rows(&database, "scan_roots"), 0);
         assert_eq!(count_rows(&database, "file_locations"), 0);
         assert_eq!(count_rows(&database, "videos"), 1);
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                title: "Family Trip".to_string(),
+                duration_milliseconds: 3723000,
+                file_size_bytes: None,
+                file_location_path: None,
+            }]
+        );
     }
 
     #[test]
@@ -355,6 +373,77 @@ mod tests {
         assert_eq!(count_rows(&database, "scan_roots"), 0);
         assert_eq!(count_rows(&database, "file_locations"), 0);
         assert_eq!(count_rows(&database, "videos"), 0);
+    }
+
+    #[test]
+    fn forgetting_scan_root_preserves_videos_with_locations_in_other_scan_roots() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let backup_root = temporary_folder.path().join("Backup");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        std::fs::create_dir_all(&backup_root).expect("backup root exists");
+        let movies_scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        catalog
+            .add_scan_root(&backup_root)
+            .expect("backup scan root adds");
+
+        let database = catalog_test_database(&catalog_path);
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-one", 1_i64, "Family Trip", 3723000_i64),
+            )
+            .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    1_i64,
+                    1_i64,
+                    movies_root.join("family-trip.mp4").to_string_lossy().into_owned(),
+                    80740352_i64,
+                    "2026-05-14T16:35:48Z",
+                ),
+            )
+            .expect("movies file location persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    1_i64,
+                    2_i64,
+                    backup_root.join("family-trip.mp4").to_string_lossy().into_owned(),
+                    80740352_i64,
+                    "2026-05-14T16:35:48Z",
+                ),
+            )
+            .expect("backup file location persists");
+
+        catalog
+            .remove_scan_root_forgetting_catalog_videos(&movies_scan_root.path)
+            .expect("scan root removes");
+
+        assert_eq!(count_rows(&database, "scan_roots"), 1);
+        assert_eq!(count_rows(&database, "file_locations"), 1);
+        assert_eq!(count_rows(&database, "videos"), 1);
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                title: "Family Trip".to_string(),
+                duration_milliseconds: 3723000,
+                file_size_bytes: Some(80740352),
+                file_location_path: Some(
+                    backup_root.join("family-trip.mp4").to_string_lossy().into_owned()
+                ),
+            }]
+        );
     }
 
     #[test]
@@ -479,8 +568,8 @@ mod tests {
             vec![super::CatalogVideo {
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
-                file_size_bytes: 80740352,
-                file_location_path: "/Volumes/Archive/Videos/family-trip.mp4".to_string(),
+                file_size_bytes: Some(80740352),
+                file_location_path: Some("/Volumes/Archive/Videos/family-trip.mp4".to_string()),
             }]
         );
     }
