@@ -5,6 +5,7 @@ const listCatalogVideosCommand = "list_catalog_videos";
 const listScanRootsCommand = "list_scan_roots";
 const addScanRootCommand = "add_scan_root";
 const removeScanRootCommand = "remove_scan_root";
+const forgetCatalogVideoCommand = "forget_catalog_video";
 const refreshScanRootCommand = "refresh_scan_root";
 const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
@@ -84,6 +85,10 @@ export async function removeScanRoot(
   removalPolicy: ScanRootRemovalPolicy
 ): Promise<void> {
   return invoke<void>(removeScanRootCommand, { path, removalPolicy });
+}
+
+export async function forgetCatalogVideo(videoId: number): Promise<void> {
+  return invoke<void>(forgetCatalogVideoCommand, { videoId });
 }
 
 export async function refreshScanRoot(

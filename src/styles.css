@@ -79,6 +79,7 @@ select {
 
 .ffmpeg-panel,
 .catalog-videos-panel,
+.review-queue-panel,
 .scan-roots-panel,
 .removal-panel {
   box-sizing: border-box;
@@ -100,8 +101,12 @@ select {
 
 .ffmpeg-panel h2,
 .catalog-videos-panel h2,
+.review-queue-panel h2,
 .scan-roots-panel h2,
 .removal-panel h2,
+.review-queue-panel h3,
+.review-queue-item h4,
+.review-queue-item p,
 .catalog-video h3,
 .catalog-video p,
 .catalog-video-details,
@@ -113,12 +118,53 @@ select {
 
 .ffmpeg-panel h2,
 .catalog-videos-panel h2,
+.review-queue-panel h2,
 .scan-roots-panel h2,
 .removal-panel h2 {
   margin-top: 6px;
   color: #102030;
   font-size: 1.2rem;
   letter-spacing: 0;
+}
+
+.review-queue-columns {
+  display: grid;
+  gap: 18px;
+}
+
+.review-queue-columns h3 {
+  color: #102030;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.review-queue-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.review-queue-item {
+  display: grid;
+  gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid #edf0f4;
+}
+
+.review-queue-item h4 {
+  color: #102030;
+  font-size: 1rem;
+}
+
+.review-queue-item p {
+  margin-top: 4px;
+  color: #334e68;
+}
+
+.review-queue-item code {
+  overflow-wrap: anywhere;
+  color: #1f2933;
+  font-size: 0.9rem;
 }
 
 .tool-status-list {
@@ -287,6 +333,7 @@ select {
 .ffmpeg-form button,
 .scan-root-form button,
 .scan-roots-panel button,
+.review-queue-panel button,
 .removal-panel button {
   justify-self: start;
   padding: 10px 14px;

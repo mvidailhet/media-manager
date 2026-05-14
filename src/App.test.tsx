@@ -1,12 +1,20 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from "@testing-library/react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
 import {
   addScanRoot,
+  forgetCatalogVideo,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
+  listUnprocessableVideoCandidates,
   listCatalogVideos,
   listScanRoots,
   removeScanRoot,
@@ -21,8 +29,10 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 
 vi.mock("./tauriCommands", () => ({
   addScanRoot: vi.fn(),
+  forgetCatalogVideo: vi.fn(),
   getFfmpegToolsStatus: vi.fn(),
   getLocalDesktopAppStatus: vi.fn(),
+  listUnprocessableVideoCandidates: vi.fn(),
   listCatalogVideos: vi.fn(),
   listScanRoots: vi.fn(),
   removeScanRoot: vi.fn(),
@@ -36,8 +46,12 @@ const mockedGetLocalDesktopAppStatus = vi.mocked(getLocalDesktopAppStatus);
 const mockedGetFfmpegToolsStatus = vi.mocked(getFfmpegToolsStatus);
 const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
 const mockedListCatalogVideos = vi.mocked(listCatalogVideos);
+const mockedListUnprocessableVideoCandidates = vi.mocked(
+  listUnprocessableVideoCandidates
+);
 const mockedListScanRoots = vi.mocked(listScanRoots);
 const mockedAddScanRoot = vi.mocked(addScanRoot);
+const mockedForgetCatalogVideo = vi.mocked(forgetCatalogVideo);
 const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
 const mockedRefreshAllScanRoots = vi.mocked(refreshAllScanRoots);
 const mockedRefreshScanRoot = vi.mocked(refreshScanRoot);
@@ -67,11 +81,13 @@ describe("Videos View shell", () => {
     mockedGetFfmpegToolsStatus.mockResolvedValue(availableFfmpegToolsStatus);
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
     mockedListCatalogVideos.mockResolvedValue([]);
+    mockedListUnprocessableVideoCandidates.mockResolvedValue([]);
     mockedListScanRoots.mockResolvedValue([]);
     mockedAddScanRoot.mockImplementation(async (path) => ({
       path,
       isAvailable: true
     }));
+    mockedForgetCatalogVideo.mockResolvedValue(undefined);
     mockedRemoveScanRoot.mockResolvedValue(undefined);
     mockedRefreshScanRoot.mockResolvedValue({
       scannedVideoCount: 0,
@@ -130,9 +146,13 @@ describe("Videos View shell", () => {
 
     render(<App />);
 
-    expect(await screen.findByText("Family Trip")).toBeInTheDocument();
-    expect(screen.getByText("Unavailable")).toBeInTheDocument();
-    expect(screen.getByText("Missing")).toBeInTheDocument();
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos"
+    });
+
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Unavailable")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Missing")).toBeInTheDocument();
   });
 
   it("shows an empty state when the Catalog has no Videos", async () => {
@@ -311,5 +331,99 @@ describe("Videos View shell", () => {
 
     expect(mockedRefreshAllScanRoots).toHaveBeenCalled();
     expect(await screen.findByText("Unavailable")).toBeInTheDocument();
+  });
+
+  it("lists scan-related issues in the Review Queue", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: null,
+        fileLocationPath: null,
+        isAvailable: false
+      },
+      {
+        id: 2,
+        title: "Available Trip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 1024,
+        fileLocationPath: "/Volumes/Archive/Videos/available-trip.mp4",
+        isAvailable: true
+      }
+    ]);
+    mockedListScanRoots.mockResolvedValue([
+      {
+        path: "/Volumes/Missing/Videos",
+        isAvailable: false
+      },
+      {
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true
+      }
+    ]);
+    mockedListUnprocessableVideoCandidates.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos/broken.mkv",
+        reason: "missing moov atom",
+        fileSizeBytes: 2048
+      }
+    ]);
+
+    render(<App />);
+
+    const reviewQueue = await screen.findByRole("region", {
+      name: "Review Queue"
+    });
+    expect(
+      within(reviewQueue).getByRole("heading", { name: "Review Queue" })
+    ).toBeInTheDocument();
+    expect(
+      within(reviewQueue).getByRole("heading", { name: "Missing Videos" })
+    ).toBeInTheDocument();
+    expect(within(reviewQueue).getByText("Family Trip")).toBeInTheDocument();
+    expect(within(reviewQueue).queryByText("Available Trip")).not.toBeInTheDocument();
+    expect(
+      within(reviewQueue).getByText("/Volumes/Missing/Videos")
+    ).toBeInTheDocument();
+    expect(
+      within(reviewQueue).getByText("/Volumes/Archive/Videos/broken.mkv")
+    ).toBeInTheDocument();
+    expect(within(reviewQueue).getByText("missing moov atom")).toBeInTheDocument();
+  });
+
+  it("requires confirmation before forgetting a Missing Video from the Catalog", async () => {
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: null,
+          fileLocationPath: null,
+          isAvailable: false
+        }
+      ])
+      .mockResolvedValueOnce([]);
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Forget From Catalog" })
+    );
+
+    expect(mockedForgetCatalogVideo).not.toHaveBeenCalled();
+    expect(
+      screen.getByRole("heading", { name: "Forget Missing Video" })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm Forget From Catalog" })
+    );
+
+    await waitFor(() => {
+      expect(mockedForgetCatalogVideo).toHaveBeenCalledWith(1);
+    });
+    expect(screen.queryByText("Family Trip")).not.toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   addScanRoot,
+  forgetCatalogVideo,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   listUnprocessableVideoCandidates,
@@ -92,6 +93,14 @@ describe("Tauri commands", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("remove_scan_root", {
       path: "/Volumes/Archive/Videos",
       removalPolicy: "preserveMissingVideos"
+    });
+  });
+
+  it("forgets one Catalog Video through the Rust command", async () => {
+    await forgetCatalogVideo(7);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("forget_catalog_video", {
+      videoId: 7
     });
   });
 

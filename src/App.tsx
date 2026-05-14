@@ -6,11 +6,14 @@ import {
   FfmpegToolsStatus,
   ScanRoot,
   ScanRootRemovalPolicy,
+  UnprocessableVideoCandidate,
   addScanRoot,
+  forgetCatalogVideo,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   listCatalogVideos,
   listScanRoots,
+  listUnprocessableVideoCandidates,
   removeScanRoot,
   refreshAllScanRoots,
   refreshScanRoot,
@@ -26,6 +29,8 @@ const catalogVideosEmptyMessage = "No Videos in the Catalog.";
 const catalogVideosErrorMessage = "Videos unavailable";
 const scanRootsLoadingMessage = "Loading Scan Roots...";
 const scanRootsErrorMessage = "Scan Roots unavailable";
+const reviewQueueLoadingMessage = "Loading Review Queue...";
+const reviewQueueErrorMessage = "Review Queue unavailable";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
 const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
@@ -53,9 +58,16 @@ export default function App() {
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
     scanRootsLoadingMessage
   );
+  const [unprocessableVideoCandidates, setUnprocessableVideoCandidates] =
+    useState<UnprocessableVideoCandidate[]>([]);
+  const [reviewQueueStatusMessage, setReviewQueueStatusMessage] = useState(
+    reviewQueueLoadingMessage
+  );
   const [manualScanRootPath, setManualScanRootPath] = useState("");
   const [scanRootPendingRemoval, setScanRootPendingRemoval] =
     useState<ScanRoot | null>(null);
+  const [missingVideoPendingForget, setMissingVideoPendingForget] =
+    useState<CatalogVideo | null>(null);
   const [ffmpegPath, setFfmpegPath] = useState("");
   const [ffprobePath, setFfprobePath] = useState("");
 
@@ -83,6 +95,20 @@ export default function App() {
     }
   }
 
+  async function loadReviewQueue(shouldClearStatusMessage = true) {
+    try {
+      const storedUnprocessableVideoCandidates =
+        await listUnprocessableVideoCandidates();
+
+      setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
+      if (shouldClearStatusMessage) {
+        setReviewQueueStatusMessage("");
+      }
+    } catch {
+      setReviewQueueStatusMessage(reviewQueueErrorMessage);
+    }
+  }
+
   useEffect(() => {
     let canUpdateStatus = true;
 
@@ -104,6 +130,32 @@ export default function App() {
 
     return () => {
       canUpdateStatus = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let canUpdateReviewQueue = true;
+
+    async function loadInitialReviewQueue() {
+      try {
+        const storedUnprocessableVideoCandidates =
+          await listUnprocessableVideoCandidates();
+
+        if (canUpdateReviewQueue) {
+          setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
+          setReviewQueueStatusMessage("");
+        }
+      } catch {
+        if (canUpdateReviewQueue) {
+          setReviewQueueStatusMessage(reviewQueueErrorMessage);
+        }
+      }
+    }
+
+    void loadInitialReviewQueue();
+
+    return () => {
+      canUpdateReviewQueue = false;
     };
   }, []);
 
@@ -256,8 +308,24 @@ export default function App() {
       setScanRootPendingRemoval(null);
       setScanRootsStatusMessage("");
       await loadCatalogVideos();
+      await loadReviewQueue(false);
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function confirmMissingVideoForget() {
+    if (!missingVideoPendingForget) {
+      return;
+    }
+
+    try {
+      await forgetCatalogVideo(missingVideoPendingForget.id);
+      setMissingVideoPendingForget(null);
+      setReviewQueueStatusMessage("");
+      await loadCatalogVideos();
+    } catch (error) {
+      setReviewQueueStatusMessage(errorMessage(error));
     }
   }
 
@@ -271,6 +339,7 @@ export default function App() {
       );
       await loadScanRoots(false);
       await loadCatalogVideos();
+      await loadReviewQueue(false);
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
     }
@@ -286,10 +355,18 @@ export default function App() {
       );
       await loadScanRoots(false);
       await loadCatalogVideos();
+      await loadReviewQueue(false);
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
     }
   }
+
+  const missingVideos = catalogVideos.filter(
+    (catalogVideo) => !catalogVideo.isAvailable
+  );
+  const unavailableScanRoots = scanRoots.filter(
+    (scanRoot) => !scanRoot.isAvailable
+  );
 
   return (
     <main className="app-shell">
@@ -365,6 +442,85 @@ export default function App() {
             ))}
           </div>
         ) : null}
+      </section>
+
+      <section className="review-queue-panel" aria-label="Review Queue">
+        <div className="panel-heading">
+          <div>
+            <span className="status-label">Scan issues</span>
+            <h2>Review Queue</h2>
+          </div>
+        </div>
+
+        {reviewQueueStatusMessage ? <p>{reviewQueueStatusMessage}</p> : null}
+
+        <div className="review-queue-columns">
+          <section aria-labelledby="missing-videos-title">
+            <h3 id="missing-videos-title">Missing Videos</h3>
+            {missingVideos.length > 0 ? (
+              <div className="review-queue-list">
+                {missingVideos.map((missingVideo) => (
+                  <article className="review-queue-item" key={missingVideo.id}>
+                    <div>
+                      <h4>{missingVideo.title}</h4>
+                      <p>{formatDuration(missingVideo.durationMilliseconds)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMissingVideoPendingForget(missingVideo)}
+                    >
+                      Forget From Catalog
+                    </button>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p>No Missing Videos.</p>
+            )}
+          </section>
+
+          <section aria-labelledby="unavailable-scan-roots-title">
+            <h3 id="unavailable-scan-roots-title">Unavailable Scan Roots</h3>
+            {unavailableScanRoots.length > 0 ? (
+              <div className="review-queue-list">
+                {unavailableScanRoots.map((scanRoot) => (
+                  <article className="review-queue-item" key={scanRoot.path}>
+                    <code>{scanRoot.path}</code>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p>No Unavailable Scan Roots.</p>
+            )}
+          </section>
+
+          <section aria-labelledby="unprocessable-candidates-title">
+            <h3 id="unprocessable-candidates-title">
+              Unprocessable Video Candidates
+            </h3>
+            {unprocessableVideoCandidates.length > 0 ? (
+              <div className="review-queue-list">
+                {unprocessableVideoCandidates.map((candidate) => (
+                  <article className="review-queue-item" key={candidate.path}>
+                    <code>{candidate.path}</code>
+                    <dl className="catalog-video-details">
+                      <div>
+                        <dt>Failure Reason</dt>
+                        <dd>{candidate.reason}</dd>
+                      </div>
+                      <div>
+                        <dt>File Size</dt>
+                        <dd>{formatFileSize(candidate.fileSizeBytes)}</dd>
+                      </div>
+                    </dl>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p>No Unprocessable Video Candidates.</p>
+            )}
+          </section>
+        </div>
       </section>
 
       <section className="scan-roots-panel" aria-label="Scan Roots">
@@ -457,6 +613,30 @@ export default function App() {
               Forget From Catalog
             </button>
             <button type="button" onClick={() => setScanRootPendingRemoval(null)}>
+              Cancel
+            </button>
+          </div>
+        </section>
+      ) : null}
+
+      {missingVideoPendingForget ? (
+        <section
+          className="removal-panel"
+          aria-label="Forget Missing Video confirmation"
+        >
+          <h2>Forget Missing Video</h2>
+          <p>{missingVideoPendingForget.title}</p>
+          <div className="removal-actions">
+            <button
+              type="button"
+              onClick={() => void confirmMissingVideoForget()}
+            >
+              Confirm Forget From Catalog
+            </button>
+            <button
+              type="button"
+              onClick={() => setMissingVideoPendingForget(null)}
+            >
               Cancel
             </button>
           </div>
