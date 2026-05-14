@@ -12,6 +12,10 @@ _Avoid_: Media item, asset
 A durable identity for a **Video** derived from stable properties of its file rather than from its path.
 _Avoid_: Path, filename
 
+**Fingerprint Version**:
+The algorithm version used to produce a **Video Fingerprint**.
+_Avoid_: App version
+
 **Tag**:
 A flat reusable label attached to a **Video** for filtering and discovery.
 _Avoid_: Category, folder
@@ -124,6 +128,10 @@ _Avoid_: Confirmed metadata, online metadata
 A reviewable proposal to turn **Inferred Metadata** into accepted **Local Metadata**.
 _Avoid_: Tag, performer
 
+**Inference Rule**:
+A **Scan Root** setting that controls how folder path segments become **Metadata Suggestions**.
+_Avoid_: Search filter
+
 **Rejected Metadata Suggestion**:
 A **Metadata Suggestion** that should not be proposed again for the same source and value.
 _Avoid_: Deleted metadata
@@ -143,6 +151,10 @@ _Avoid_: Review queue
 **First Vertical Slice**:
 The initial usable path that adds a **Scan Root**, scans it, stores discovered **Videos**, and lists them in the **Videos View**.
 _Avoid_: Prototype shell
+
+**Preview Slice**:
+The implementation path that generates and displays **Preview Strips** after the **First Vertical Slice**.
+_Avoid_: Metadata inference
 
 **Favorites View**:
 A shortcut workspace showing **Videos** marked **Favorite**.
@@ -167,6 +179,7 @@ _Avoid_: Metadata suggestion
 - Adding a **Scan Root** indexes files in place and does not copy **Videos**.
 - Removing a **Scan Root** asks whether to preserve affected **Videos** as **Missing Videos** or **Forget From Catalog**.
 - v1 rejects nested or overlapping **Scan Roots**.
+- Adding a **Scan Root** lightly configures **Inference Rules** with safe defaults.
 - A **Scan Root** can have a **Drive Identity** in addition to its folder path.
 - A **Scan Root** can become an **Unavailable Scan Root** when its drive or folder is not reachable.
 - A **Scan Root** is searched for files matching the **Video Extension Allowlist** before video probing validates them.
@@ -178,7 +191,9 @@ _Avoid_: Metadata suggestion
 - A **Video** is stored as a file on the local filesystem.
 - A **Video** has one **Video Fingerprint** used to reconnect it with its file after moves or renames.
 - A **Video Fingerprint** is based on file size, duration, and partial content hashes.
+- A **Video Fingerprint** has one **Fingerprint Version** so future algorithms can coexist with v1 fingerprints.
 - A **Video** keeps its metadata when its **Video Fingerprint** is found in a different **Scan Root**.
+- If a file at the same path gets a different **Video Fingerprint**, it is a different **Video**.
 - A **Video** has one **Title** used for display and name search.
 - **Title** is editable in v1.
 - A **Video** has one **Duration** shown by default.
@@ -197,7 +212,9 @@ _Avoid_: Metadata suggestion
 - A **Preview Strip** belongs to a **Video**, not to a specific **File Location**.
 - A **Preview Strip** defaults to 20 evenly sampled frames across the **Video**.
 - A **Preview Strip** samples from inside the **Video** timeline rather than exact first and last frames.
+- Hovering a **Video** preview scrubs across **Preview Strip** frames by horizontal pointer position.
 - A **Pending Preview Strip** belongs to a **Video** that has been cataloged before its preview is ready.
+- A **Pending Preview Strip** shows a neutral placeholder and generation state without blocking the **Video** from appearing.
 - Active **Search Filters** combine to narrow the set of matching **Videos**.
 - Text search matches **Title** and current filename in v1.
 - Multiple selected **Tags** require every selected **Tag**.
@@ -216,17 +233,24 @@ _Avoid_: Metadata suggestion
 - **No Network Dependency** applies to cataloging, search, preview generation, and metadata editing.
 - **Tags**, **Performers**, and **Titles** are **Local Metadata**.
 - **Inferred Metadata** can suggest **Tags** or **Performers** but does not become confirmed **Local Metadata** until accepted.
+- A **Scan Root** can have **Inference Rules** for Tag suggestions, optional Performer suggestions, and ignored folder names.
 - A **Metadata Suggestion** can be accepted or rejected for multiple **Videos** at once.
 - A **Rejected Metadata Suggestion** suppresses repeated suggestions from the same source and value.
 - A **Metadata Suggestion** can normalize display text while preserving the original folder name as its source.
+- A **Metadata Suggestion** records the folder or path segment that produced it.
+- v1 **Metadata Suggestions** do not use numeric confidence scores.
 - Accepting a **Metadata Suggestion** creates a **Tag** or **Performer** unless it matches or is merged into an existing value.
+- Accepted **Metadata Suggestions** can keep lightweight provenance without changing their status as **Local Metadata**.
 - A **Review Queue** includes **Duplicate Locations**, **Metadata Suggestions**, **Unprocessable Video Candidates**, **Missing Videos**, and **Unavailable Scan Roots**.
 - **Forget From Catalog** is available from the **Review Queue** for **Missing Videos**.
 - **Forget From Catalog** requires confirmation and is final in v1.
 - v1 has **Videos View**, **Favorites View**, **Recently Opened View**, and **Review Queue** as top-level workspaces.
 - The **First Vertical Slice** proves **Scan Root** selection, scanning, SQLite storage, FFmpeg probing, and listing **Videos**.
+- The **Preview Slice** comes after the **First Vertical Slice** and before metadata inference work.
 - A **Metadata Merge** preserves affected **Video** relationships under the chosen **Tag** or **Performer**.
 - Normal **Search Filters** use accepted **Local Metadata**, not unaccepted **Inferred Metadata**.
+- Moving a **Video** can create new **Metadata Suggestions** but never removes or replaces accepted **Local Metadata**.
+- Changing **Inference Rules** can regenerate unaccepted **Metadata Suggestions** for that **Scan Root** but never changes accepted **Local Metadata**.
 - Normal **Search Filters** include **Missing Videos** by default, clearly marked as unavailable.
 - Normal **Search Filters** exclude **Trashed Videos** by default.
 - **Tag** and **Performer** search is case-insensitive while display names can preserve title casing.
@@ -246,8 +270,14 @@ _Avoid_: Metadata suggestion
 > **Dev:** "What makes two files the same **Video**?"
 > **Domain expert:** "A matching **Video Fingerprint** based on file size, duration, and partial content hashes."
 >
+> **Dev:** "If the fingerprint algorithm changes later, how do we know what produced old fingerprints?"
+> **Domain expert:** "Each **Video Fingerprint** stores its **Fingerprint Version**."
+>
 > **Dev:** "If a file moves from one **Scan Root** to another, is it a new **Video**?"
 > **Domain expert:** "No. If the **Video Fingerprint** matches, the **Video** keeps its metadata across **Scan Roots**."
+>
+> **Dev:** "If a path now contains a file with a different **Video Fingerprint**, is it the same **Video**?"
+> **Domain expert:** "No. The old **Video** becomes missing if no other **File Location** has its fingerprint, and the new file is a different **Video**."
 >
 > **Dev:** "When two **Tags** are selected, should a **Video** match either one or both?"
 > **Domain expert:** "Both. Multi-tag search only returns a **Video** that has every selected **Tag**."
@@ -294,6 +324,9 @@ _Avoid_: Metadata suggestion
 > **Dev:** "How are **Scan Roots** added?"
 > **Domain expert:** "Through a folder picker, with manual path entry as an advanced fallback."
 >
+> **Dev:** "Do I need to configure metadata inference before scanning?"
+> **Domain expert:** "Only lightly. **Scan Root** setup provides safe default **Inference Rules** that can change later."
+>
 > **Dev:** "Does adding a **Scan Root** copy files into the app?"
 > **Domain expert:** "No. It indexes **Videos** in place."
 >
@@ -323,6 +356,9 @@ _Avoid_: Metadata suggestion
 >
 > **Dev:** "What should the first usable implementation prove?"
 > **Domain expert:** "The **First Vertical Slice** adds a **Scan Root**, scans it, stores discovered **Videos**, and lists them in the **Videos View**."
+>
+> **Dev:** "What should come after the **First Vertical Slice**?"
+> **Domain expert:** "The **Preview Slice**, so scanned **Videos** can show generated **Preview Strips** before metadata inference work."
 >
 > **Dev:** "If a drive is unplugged, should its **Videos** disappear from the **Catalog**?"
 > **Domain expert:** "No. They become **Missing Videos** until a refresh finds their **File Locations** again."
@@ -357,8 +393,14 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Should preview sampling include the exact first and last frames?"
 > **Domain expert:** "No. Sampling should avoid the edges where black frames or fades are common."
 >
+> **Dev:** "How should hover preview choose which frame to show?"
+> **Domain expert:** "Horizontal pointer position over the preview scrubs across the **Preview Strip** frames."
+>
 > **Dev:** "Should a **Video** wait for its **Preview Strip** before appearing in search?"
 > **Domain expert:** "No. The **Video** appears once cataloged; its **Preview Strip** can be pending until generation finishes."
+>
+> **Dev:** "What appears before a **Preview Strip** is ready?"
+> **Domain expert:** "A neutral placeholder with pending or generating state."
 >
 > **Dev:** "If I search by text, two **Tags**, and a **Performer**, how do results combine?"
 > **Domain expert:** "The **Video** must satisfy every active **Search Filter**: match the text, have all selected **Tags**, and include any selected **Performer**."
@@ -405,6 +447,15 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Can folder names help create metadata?"
 > **Domain expert:** "Yes, but only as **Inferred Metadata** until accepted, because folder hierarchy is not consistently clean."
 >
+> **Dev:** "Can different **Scan Roots** interpret folder names differently?"
+> **Domain expert:** "Yes. **Inference Rules** let a **Scan Root** decide which path segments suggest **Tags**, **Performers**, or nothing."
+>
+> **Dev:** "If moving a **Video** creates different folder-derived suggestions, should accepted metadata change?"
+> **Domain expert:** "No. New **Metadata Suggestions** can appear, but accepted **Local Metadata** remains until edited."
+>
+> **Dev:** "If I change **Inference Rules**, should accepted **Tags** be rewritten?"
+> **Domain expert:** "No. Only unaccepted **Metadata Suggestions** can be regenerated."
+>
 > **Dev:** "Should a suggested **Tag** affect normal search before it is accepted?"
 > **Domain expert:** "No. Normal **Search Filters** use accepted **Local Metadata** only."
 >
@@ -420,8 +471,17 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Should folder name `jane_doe` become a suggestion exactly as written?"
 > **Domain expert:** "No. It can be displayed as `Jane Doe`, while keeping `jane_doe` as the source."
 >
+> **Dev:** "Should I be able to see where a **Metadata Suggestion** came from?"
+> **Domain expert:** "Yes. It records the folder or path segment that produced it."
+>
+> **Dev:** "Should **Metadata Suggestions** have confidence percentages?"
+> **Domain expert:** "No. v1 explains suggestions by source and rule instead of numeric confidence."
+>
 > **Dev:** "When I accept a new suggested **Tag**, does it create the **Tag**?"
 > **Domain expert:** "Yes, unless it matches or is merged into an existing **Tag**."
+>
+> **Dev:** "After accepting a **Metadata Suggestion**, is it still just a suggestion?"
+> **Domain expert:** "No. It becomes accepted **Local Metadata**, though the app can keep lightweight provenance."
 >
 > **Dev:** "If I reject folder-derived Tag `Misc`, should it appear again after every rescan?"
 > **Domain expert:** "No. A **Rejected Metadata Suggestion** should stay suppressed for the same source and value."
