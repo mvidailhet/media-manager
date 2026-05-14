@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getLocalDesktopAppStatus } from "./tauriCommands";
+import { getLocalDesktopAppStatus, listCatalogVideos } from "./tauriCommands";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn()
@@ -19,5 +19,28 @@ describe("Tauri commands", () => {
 
     expect(status).toBe("Local command response");
     expect(mockedInvoke).toHaveBeenCalledWith("get_local_desktop_app_status");
+  });
+
+  it("calls the typed Rust command for listed Catalog Videos", async () => {
+    mockedInvoke.mockResolvedValue([
+      {
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+      }
+    ]);
+
+    const videos = await listCatalogVideos();
+
+    expect(videos).toEqual([
+      {
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+      }
+    ]);
+    expect(mockedInvoke).toHaveBeenCalledWith("list_catalog_videos");
   });
 });
