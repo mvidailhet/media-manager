@@ -5,6 +5,9 @@ const listCatalogVideosCommand = "list_catalog_videos";
 const listScanRootsCommand = "list_scan_roots";
 const addScanRootCommand = "add_scan_root";
 const removeScanRootCommand = "remove_scan_root";
+const refreshScanRootCommand = "refresh_scan_root";
+const listUnprocessableVideoCandidatesCommand =
+  "list_unprocessable_video_candidates";
 const ffmpegToolsStatusCommand = "get_ffmpeg_tools_status";
 const saveFfmpegConfigurationCommand = "save_ffmpeg_configuration";
 
@@ -18,6 +21,21 @@ export interface CatalogVideo {
 export interface ScanRoot {
   path: string;
 }
+
+export interface ScanRootRefreshSummary {
+  scannedVideoCount: number;
+  unprocessableCandidateCount: number;
+}
+
+export interface UnprocessableVideoCandidate {
+  path: string;
+  reason: string;
+  fileSizeBytes: number;
+}
+
+export type VideoExtensionAllowlist = {
+  extensions: string[];
+};
 
 export type ScanRootRemovalPolicy =
   | "preserveMissingVideos"
@@ -62,6 +80,24 @@ export async function removeScanRoot(
   removalPolicy: ScanRootRemovalPolicy
 ): Promise<void> {
   return invoke<void>(removeScanRootCommand, { path, removalPolicy });
+}
+
+export async function refreshScanRoot(
+  path: string,
+  videoExtensionAllowlist?: VideoExtensionAllowlist
+): Promise<ScanRootRefreshSummary> {
+  return invoke<ScanRootRefreshSummary>(refreshScanRootCommand, {
+    path,
+    videoExtensionAllowlist: videoExtensionAllowlist ?? null
+  });
+}
+
+export async function listUnprocessableVideoCandidates(): Promise<
+  UnprocessableVideoCandidate[]
+> {
+  return invoke<UnprocessableVideoCandidate[]>(
+    listUnprocessableVideoCandidatesCommand
+  );
 }
 
 export async function getFfmpegToolsStatus(): Promise<FfmpegToolsStatus> {

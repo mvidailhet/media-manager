@@ -5,9 +5,11 @@ import {
   addScanRoot,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
+  listUnprocessableVideoCandidates,
   listCatalogVideos,
   listScanRoots,
   removeScanRoot,
+  refreshScanRoot,
   saveFfmpegConfiguration
 } from "./tauriCommands";
 
@@ -84,6 +86,60 @@ describe("Tauri commands", () => {
       path: "/Volumes/Archive/Videos",
       removalPolicy: "preserveMissingVideos"
     });
+  });
+
+  it("refreshes one selected Scan Root through the Rust command", async () => {
+    mockedInvoke.mockResolvedValue({
+      scannedVideoCount: 1,
+      unprocessableCandidateCount: 0
+    });
+
+    const refreshSummary = await refreshScanRoot("/Volumes/Archive/Videos");
+
+    expect(refreshSummary).toEqual({
+      scannedVideoCount: 1,
+      unprocessableCandidateCount: 0
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("refresh_scan_root", {
+      path: "/Volumes/Archive/Videos",
+      videoExtensionAllowlist: null
+    });
+  });
+
+  it("passes a configured Video Extension Allowlist to Scan Root refresh", async () => {
+    const videoExtensionAllowlist = {
+      extensions: [".mp4", ".flv"]
+    };
+
+    await refreshScanRoot("/Volumes/Archive/Videos", videoExtensionAllowlist);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("refresh_scan_root", {
+      path: "/Volumes/Archive/Videos",
+      videoExtensionAllowlist
+    });
+  });
+
+  it("calls the typed Rust command for Unprocessable Video Candidates", async () => {
+    mockedInvoke.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos/broken.mkv",
+        reason: "missing moov atom",
+        fileSizeBytes: 1024
+      }
+    ]);
+
+    const candidates = await listUnprocessableVideoCandidates();
+
+    expect(candidates).toEqual([
+      {
+        path: "/Volumes/Archive/Videos/broken.mkv",
+        reason: "missing moov atom",
+        fileSizeBytes: 1024
+      }
+    ]);
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "list_unprocessable_video_candidates"
+    );
   });
 
   it("calls the typed Rust command for FFmpeg tools status", async () => {

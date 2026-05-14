@@ -134,6 +134,12 @@ select {
   border-top: 1px solid #edf0f4;
 }
 
+.scan-root-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 8px;
+}
+
 .scan-root code,
 .removal-panel code {
   overflow-wrap: anywhere;
@@ -250,5 +256,9 @@ select {
   .scan-root,
   .scan-root-form {
     display: grid;
+  }
+
+  .scan-root-actions {
+    flex-wrap: wrap;
   }
 }

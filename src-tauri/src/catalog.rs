@@ -1,7 +1,19 @@
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashSet,
+    fs,
+    io::{Read, Seek, SeekFrom},
+    path::{Path, PathBuf},
+    process::Command,
+};
 
-use rusqlite::{params, Connection};
-use serde::Serialize;
+use rusqlite::{params, Connection, OptionalExtension};
+use serde::{Deserialize, Serialize};
+
+const FINGERPRINT_VERSION: i64 = 1;
+const DEFAULT_VIDEO_EXTENSIONS: [&str; 7] = ["flv", "mp4", "mov", "mkv", "avi", "webm", "m4v"];
+const FINGERPRINT_SAMPLE_SIZE_BYTES: usize = 64 * 1024;
+const FNV_OFFSET_BASIS: u64 = 14_695_981_039_346_656_037;
+const FNV_PRIME: u64 = 1_099_511_628_211;
 
 const CREATE_SCAN_ROOTS_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS scan_roots (
@@ -40,6 +52,20 @@ const CREATE_FILE_LOCATIONS_TABLE: &str = "
     );
 ";
 
+const CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS unprocessable_video_candidates (
+        id INTEGER PRIMARY KEY,
+        scan_root_id INTEGER NOT NULL,
+        path TEXT NOT NULL UNIQUE,
+        reason TEXT NOT NULL,
+        file_size_bytes INTEGER NOT NULL,
+        last_seen_at TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE
+    );
+";
+
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogVideo {
@@ -53,6 +79,80 @@ pub struct CatalogVideo {
 #[serde(rename_all = "camelCase")]
 pub struct ScanRoot {
     pub path: String,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct UnprocessableVideoCandidate {
+    pub path: String,
+    pub reason: String,
+    pub file_size_bytes: i64,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanRootRefreshSummary {
+    pub scanned_video_count: i64,
+    pub unprocessable_candidate_count: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "camelCase")]
+pub struct VideoExtensionAllowlist {
+    extensions: Vec<String>,
+}
+
+pub struct VideoProbe {
+    pub duration_milliseconds: i64,
+}
+
+pub trait VideoFileProbe {
+    fn probe_video_file(&self, video_path: &Path) -> Result<VideoProbe, String>;
+}
+
+pub struct FfprobeVideoFileProbe {
+    ffprobe_path: PathBuf,
+}
+
+impl FfprobeVideoFileProbe {
+    pub fn new(ffprobe_path: PathBuf) -> Self {
+        Self { ffprobe_path }
+    }
+}
+
+impl VideoFileProbe for FfprobeVideoFileProbe {
+    fn probe_video_file(&self, video_path: &Path) -> Result<VideoProbe, String> {
+        let output = Command::new(&self.ffprobe_path)
+            .args([
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+            ])
+            .arg(video_path)
+            .output()
+            .map_err(|error| error.to_string())?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+            return Err(if stderr.is_empty() {
+                "ffprobe could not read Duration".to_string()
+            } else {
+                stderr
+            });
+        }
+
+        let duration_seconds = String::from_utf8_lossy(&output.stdout)
+            .trim()
+            .parse::<f64>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(VideoProbe {
+            duration_milliseconds: (duration_seconds * 1000.0).round() as i64,
+        })
+    }
 }
 
 pub struct Catalog {
@@ -194,6 +294,76 @@ impl Catalog {
         transaction.commit().map_err(|error| error.to_string())
     }
 
+    pub fn refresh_scan_root<P: VideoFileProbe>(
+        &self,
+        scan_root_path: &str,
+        video_file_probe: &P,
+        video_extension_allowlist: &VideoExtensionAllowlist,
+    ) -> Result<ScanRootRefreshSummary, String> {
+        let scan_root_id = self.scan_root_id(scan_root_path)?;
+        let video_candidate_paths =
+            discover_video_candidate_paths(Path::new(scan_root_path), video_extension_allowlist)?;
+        let mut scanned_video_count = 0;
+        let mut unprocessable_candidate_count = 0;
+
+        for video_candidate_path in video_candidate_paths {
+            let file_size_bytes = file_size_bytes(&video_candidate_path)?;
+
+            match video_file_probe.probe_video_file(&video_candidate_path) {
+                Ok(video_probe) => {
+                    self.store_scanned_video(
+                        scan_root_id,
+                        &video_candidate_path,
+                        file_size_bytes,
+                        video_probe.duration_milliseconds,
+                    )?;
+                    scanned_video_count += 1;
+                }
+                Err(reason) => {
+                    self.store_unprocessable_video_candidate(
+                        scan_root_id,
+                        &video_candidate_path,
+                        file_size_bytes,
+                        &reason,
+                    )?;
+                    unprocessable_candidate_count += 1;
+                }
+            }
+        }
+
+        Ok(ScanRootRefreshSummary {
+            scanned_video_count,
+            unprocessable_candidate_count,
+        })
+    }
+
+    pub fn list_unprocessable_video_candidates(
+        &self,
+    ) -> Result<Vec<UnprocessableVideoCandidate>, String> {
+        let mut statement = self
+            .database
+            .prepare(
+                "SELECT path, reason, file_size_bytes
+                 FROM unprocessable_video_candidates
+                 ORDER BY path",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let unprocessable_video_candidates = statement
+            .query_map([], |row| {
+                Ok(UnprocessableVideoCandidate {
+                    path: row.get(0)?,
+                    reason: row.get(1)?,
+                    file_size_bytes: row.get(2)?,
+                })
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(unprocessable_video_candidates)
+    }
+
     fn reject_overlapping_scan_root(&self, candidate_path: &Path) -> Result<(), String> {
         let scan_roots = self.list_scan_roots()?;
         let has_overlap = scan_roots.iter().any(|scan_root| {
@@ -214,6 +384,7 @@ impl Catalog {
             CREATE_SCAN_ROOTS_TABLE,
             CREATE_VIDEOS_TABLE,
             CREATE_FILE_LOCATIONS_TABLE,
+            CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE,
         ]
         .join("\n");
 
@@ -221,16 +392,246 @@ impl Catalog {
             .execute_batch(&migration_batch)
             .map_err(|error| error.to_string())
     }
+
+    fn scan_root_id(&self, scan_root_path: &str) -> Result<i64, String> {
+        self.database
+            .query_row(
+                "SELECT id FROM scan_roots WHERE path = ?1",
+                params![scan_root_path],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| "Scan Root is not in the Catalog".to_string())
+    }
+
+    fn store_scanned_video(
+        &self,
+        scan_root_id: i64,
+        video_path: &Path,
+        file_size_bytes: i64,
+        duration_milliseconds: i64,
+    ) -> Result<(), String> {
+        let video_title = video_title(video_path)?;
+        let fingerprint = video_fingerprint(video_path, file_size_bytes, duration_milliseconds)?;
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+
+        transaction
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)
+                 ON CONFLICT(fingerprint) DO UPDATE SET
+                    title = excluded.title,
+                    duration_milliseconds = excluded.duration_milliseconds,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![
+                    fingerprint,
+                    FINGERPRINT_VERSION,
+                    video_title,
+                    duration_milliseconds
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+
+        let video_id: i64 = transaction
+            .query_row(
+                "SELECT id FROM videos WHERE fingerprint = ?1",
+                params![fingerprint],
+                |row| row.get(0),
+            )
+            .map_err(|error| error.to_string())?;
+        let video_path = video_path.to_string_lossy().into_owned();
+
+        transaction
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)
+                 ON CONFLICT(path) DO UPDATE SET
+                    video_id = excluded.video_id,
+                    scan_root_id = excluded.scan_root_id,
+                    file_size_bytes = excluded.file_size_bytes,
+                    last_seen_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![video_id, scan_root_id, video_path, file_size_bytes],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM unprocessable_video_candidates WHERE path = ?1",
+                params![video_path],
+            )
+            .map_err(|error| error.to_string())?;
+
+        transaction.commit().map_err(|error| error.to_string())
+    }
+
+    fn store_unprocessable_video_candidate(
+        &self,
+        scan_root_id: i64,
+        video_path: &Path,
+        file_size_bytes: i64,
+        reason: &str,
+    ) -> Result<(), String> {
+        self.database
+            .execute(
+                "INSERT INTO unprocessable_video_candidates
+                    (scan_root_id, path, reason, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, CURRENT_TIMESTAMP)
+                 ON CONFLICT(path) DO UPDATE SET
+                    scan_root_id = excluded.scan_root_id,
+                    reason = excluded.reason,
+                    file_size_bytes = excluded.file_size_bytes,
+                    last_seen_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![
+                    scan_root_id,
+                    video_path.to_string_lossy().into_owned(),
+                    reason,
+                    file_size_bytes
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
 }
 
 fn canonical_scan_root_path(scan_root_path: &Path) -> std::io::Result<PathBuf> {
     scan_root_path.canonicalize()
 }
 
+impl Default for VideoExtensionAllowlist {
+    fn default() -> Self {
+        Self {
+            extensions: DEFAULT_VIDEO_EXTENSIONS
+                .iter()
+                .map(|extension| extension.to_string())
+                .collect(),
+        }
+    }
+}
+
+impl VideoExtensionAllowlist {
+    fn normalized_extensions(&self) -> HashSet<String> {
+        self.extensions
+            .iter()
+            .map(|extension| extension.trim_start_matches('.').to_ascii_lowercase())
+            .collect()
+    }
+}
+
+fn discover_video_candidate_paths(
+    scan_root_path: &Path,
+    video_extension_allowlist: &VideoExtensionAllowlist,
+) -> Result<Vec<PathBuf>, String> {
+    let allowed_extensions = video_extension_allowlist.normalized_extensions();
+    let mut video_candidate_paths = Vec::new();
+    discover_video_candidate_paths_recursively(
+        scan_root_path,
+        &allowed_extensions,
+        &mut video_candidate_paths,
+    )?;
+    video_candidate_paths.sort();
+
+    Ok(video_candidate_paths)
+}
+
+fn discover_video_candidate_paths_recursively(
+    folder_path: &Path,
+    allowed_extensions: &HashSet<String>,
+    video_candidate_paths: &mut Vec<PathBuf>,
+) -> Result<(), String> {
+    for directory_entry in fs::read_dir(folder_path).map_err(|error| error.to_string())? {
+        let directory_entry = directory_entry.map_err(|error| error.to_string())?;
+        let candidate_path = directory_entry.path();
+        let file_type = directory_entry
+            .file_type()
+            .map_err(|error| error.to_string())?;
+
+        if file_type.is_dir() {
+            discover_video_candidate_paths_recursively(
+                &candidate_path,
+                allowed_extensions,
+                video_candidate_paths,
+            )?;
+        } else if file_type.is_file()
+            && candidate_path
+                .extension()
+                .and_then(|extension| extension.to_str())
+                .map(|extension| allowed_extensions.contains(&extension.to_ascii_lowercase()))
+                .unwrap_or(false)
+        {
+            video_candidate_paths.push(
+                candidate_path
+                    .canonicalize()
+                    .map_err(|error| error.to_string())?,
+            );
+        }
+    }
+
+    Ok(())
+}
+
+fn file_size_bytes(video_path: &Path) -> Result<i64, String> {
+    let file_size_bytes = video_path
+        .metadata()
+        .map_err(|error| error.to_string())?
+        .len();
+    i64::try_from(file_size_bytes).map_err(|error| error.to_string())
+}
+
+fn video_title(video_path: &Path) -> Result<String, String> {
+    video_path
+        .file_stem()
+        .and_then(|file_name| file_name.to_str())
+        .map(|file_name| file_name.to_string())
+        .ok_or_else(|| "Video Title could not be read from filename".to_string())
+}
+
+fn video_fingerprint(
+    video_path: &Path,
+    file_size_bytes: i64,
+    duration_milliseconds: i64,
+) -> Result<String, String> {
+    let first_sample_hash = content_sample_hash(video_path, SeekFrom::Start(0))?;
+    let last_sample_offset = (file_size_bytes - FINGERPRINT_SAMPLE_SIZE_BYTES as i64).max(0) as u64;
+    let last_sample_hash = content_sample_hash(video_path, SeekFrom::Start(last_sample_offset))?;
+
+    Ok(format!(
+        "v{FINGERPRINT_VERSION}:{file_size_bytes}:{duration_milliseconds}:{first_sample_hash:016x}:{last_sample_hash:016x}"
+    ))
+}
+
+fn content_sample_hash(video_path: &Path, sample_offset: SeekFrom) -> Result<u64, String> {
+    let mut video_file = fs::File::open(video_path).map_err(|error| error.to_string())?;
+    let mut sample_buffer = vec![0; FINGERPRINT_SAMPLE_SIZE_BYTES];
+
+    video_file
+        .seek(sample_offset)
+        .map_err(|error| error.to_string())?;
+    let bytes_read = video_file
+        .read(&mut sample_buffer)
+        .map_err(|error| error.to_string())?;
+
+    Ok(fnv1a_hash(&sample_buffer[..bytes_read]))
+}
+
+fn fnv1a_hash(bytes: &[u8]) -> u64 {
+    bytes.iter().fold(FNV_OFFSET_BASIS, |hash, byte| {
+        let hash_with_byte = hash ^ u64::from(*byte);
+
+        hash_with_byte.wrapping_mul(FNV_PRIME)
+    })
+}
+
 #[cfg(test)]
 mod tests {
-    use super::Catalog;
+    use super::{Catalog, VideoFileProbe, VideoProbe};
     use rusqlite::Connection;
+    use std::path::Path;
 
     #[test]
     fn catalog_persists_scan_roots_and_rejects_overlapping_paths() {
@@ -329,6 +730,113 @@ mod tests {
                 duration_milliseconds: 3723000,
                 file_size_bytes: None,
                 file_location_path: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn refreshing_a_scan_root_recursively_stores_probeable_videos() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = family_folder.join("Family Trip.FLV");
+        std::fs::write(&family_trip_path, "video bytes").expect("video file exists");
+        let video_file_probe = FakeVideoFileProbe::with_duration(3_723_000);
+
+        let refresh_summary = catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+
+        assert_eq!(
+            refresh_summary,
+            super::ScanRootRefreshSummary {
+                scanned_video_count: 1,
+                unprocessable_candidate_count: 0,
+            }
+        );
+        let expected_family_trip_path = family_trip_path
+            .canonicalize()
+            .expect("family trip path canonicalizes");
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                title: "Family Trip".to_string(),
+                duration_milliseconds: 3_723_000,
+                file_size_bytes: Some(11),
+                file_location_path: Some(expected_family_trip_path.to_string_lossy().into_owned()),
+            }]
+        );
+    }
+
+    #[test]
+    fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_progress() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        let broken_video_path = movies_root.join("broken-video.mkv");
+        let ignored_document_path = movies_root.join("notes.txt");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("valid video exists");
+        std::fs::write(&broken_video_path, "broken").expect("broken video exists");
+        std::fs::write(&ignored_document_path, "not video").expect("document exists");
+        let canonical_broken_video_path = broken_video_path
+            .canonicalize()
+            .expect("broken video path canonicalizes");
+        let video_file_probe = FakeVideoFileProbe::failing_for(
+            canonical_broken_video_path.to_string_lossy().into_owned(),
+            "missing moov atom",
+        );
+
+        let refresh_summary = catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+
+        assert_eq!(
+            refresh_summary,
+            super::ScanRootRefreshSummary {
+                scanned_video_count: 1,
+                unprocessable_candidate_count: 1,
+            }
+        );
+        let expected_family_trip_path = family_trip_path
+            .canonicalize()
+            .expect("family trip path canonicalizes");
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                title: "family-trip".to_string(),
+                duration_milliseconds: 1_000,
+                file_size_bytes: Some(17),
+                file_location_path: Some(expected_family_trip_path.to_string_lossy().into_owned()),
+            }]
+        );
+        assert_eq!(
+            catalog
+                .list_unprocessable_video_candidates()
+                .expect("unprocessable candidates list"),
+            vec![super::UnprocessableVideoCandidate {
+                path: canonical_broken_video_path.to_string_lossy().into_owned(),
+                reason: "missing moov atom".to_string(),
+                file_size_bytes: 6,
             }]
         );
     }
@@ -440,7 +948,10 @@ mod tests {
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),
                 file_location_path: Some(
-                    backup_root.join("family-trip.mp4").to_string_lossy().into_owned()
+                    backup_root
+                        .join("family-trip.mp4")
+                        .to_string_lossy()
+                        .into_owned()
                 ),
             }]
         );
@@ -456,7 +967,15 @@ mod tests {
         let database = Connection::open(catalog_path).expect("catalog database opens");
         let table_names = catalog_table_names(&database);
 
-        assert_eq!(table_names, vec!["file_locations", "scan_roots", "videos"]);
+        assert_eq!(
+            table_names,
+            vec![
+                "file_locations",
+                "scan_roots",
+                "unprocessable_video_candidates",
+                "videos"
+            ]
+        );
     }
 
     #[test]
@@ -470,7 +989,15 @@ mod tests {
         let database = Connection::open(catalog_path).expect("catalog database opens");
         let table_names = catalog_table_names(&database);
 
-        assert_eq!(table_names, vec!["file_locations", "scan_roots", "videos"]);
+        assert_eq!(
+            table_names,
+            vec![
+                "file_locations",
+                "scan_roots",
+                "unprocessable_video_candidates",
+                "videos"
+            ]
+        );
     }
 
     #[test]
@@ -523,6 +1050,23 @@ mod tests {
                 "scan_root_id -> scan_roots.id on delete CASCADE",
                 "video_id -> videos.id on delete CASCADE",
             ]
+        );
+        assert_eq!(
+            catalog_columns(&database, "unprocessable_video_candidates"),
+            vec![
+                "id INTEGER optional",
+                "scan_root_id INTEGER required",
+                "path TEXT required",
+                "reason TEXT required",
+                "file_size_bytes INTEGER required",
+                "last_seen_at TEXT required",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_foreign_keys(&database, "unprocessable_video_candidates"),
+            vec!["scan_root_id -> scan_roots.id on delete CASCADE"]
         );
     }
 
@@ -649,5 +1193,41 @@ mod tests {
 
         foreign_keys.sort();
         foreign_keys
+    }
+
+    struct FakeVideoFileProbe {
+        failed_path: Option<String>,
+        failure_reason: String,
+        duration_milliseconds: i64,
+    }
+
+    impl FakeVideoFileProbe {
+        fn with_duration(duration_milliseconds: i64) -> Self {
+            Self {
+                failed_path: None,
+                failure_reason: String::new(),
+                duration_milliseconds,
+            }
+        }
+
+        fn failing_for(failed_path: String, failure_reason: &str) -> Self {
+            Self {
+                failed_path: Some(failed_path),
+                failure_reason: failure_reason.to_string(),
+                duration_milliseconds: 1_000,
+            }
+        }
+    }
+
+    impl VideoFileProbe for FakeVideoFileProbe {
+        fn probe_video_file(&self, video_path: &Path) -> Result<VideoProbe, String> {
+            if self.failed_path.as_deref() == Some(video_path.to_string_lossy().as_ref()) {
+                Err(self.failure_reason.clone())
+            } else {
+                Ok(VideoProbe {
+                    duration_milliseconds: self.duration_milliseconds,
+                })
+            }
+        }
     }
 }
