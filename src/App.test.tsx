@@ -9,6 +9,7 @@ import {
   getLocalDesktopAppStatus,
   listScanRoots,
   removeScanRoot,
+  refreshScanRoot,
   saveFfmpegConfiguration
 } from "./tauriCommands";
 
@@ -22,6 +23,7 @@ vi.mock("./tauriCommands", () => ({
   getLocalDesktopAppStatus: vi.fn(),
   listScanRoots: vi.fn(),
   removeScanRoot: vi.fn(),
+  refreshScanRoot: vi.fn(),
   saveFfmpegConfiguration: vi.fn()
 }));
 
@@ -32,6 +34,7 @@ const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
 const mockedListScanRoots = vi.mocked(listScanRoots);
 const mockedAddScanRoot = vi.mocked(addScanRoot);
 const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
+const mockedRefreshScanRoot = vi.mocked(refreshScanRoot);
 
 const availableFfmpegToolsStatus = {
   ffmpeg: {
@@ -60,6 +63,10 @@ describe("Videos View shell", () => {
     mockedListScanRoots.mockResolvedValue([]);
     mockedAddScanRoot.mockImplementation(async (path) => ({ path }));
     mockedRemoveScanRoot.mockResolvedValue(undefined);
+    mockedRefreshScanRoot.mockResolvedValue({
+      scannedVideoCount: 0,
+      unprocessableCandidateCount: 0
+    });
     mockedOpen.mockResolvedValue(null);
   });
 
@@ -168,5 +175,28 @@ describe("Videos View shell", () => {
       "/Volumes/Archive/Videos",
       "preserveMissingVideos"
     );
+  });
+
+  it("refreshes a selected Scan Root and shows the Catalog summary", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos"
+      }
+    ]);
+    mockedRefreshScanRoot.mockResolvedValue({
+      scannedVideoCount: 2,
+      unprocessableCandidateCount: 1
+    });
+
+    render(<App />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
+
+    expect(mockedRefreshScanRoot).toHaveBeenCalledWith(
+      "/Volumes/Archive/Videos"
+    );
+    expect(
+      await screen.findByText("2 Videos scanned, 1 Unprocessable Video Candidates")
+    ).toBeInTheDocument();
   });
 });

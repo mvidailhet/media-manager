@@ -8,7 +8,10 @@ use std::{
     sync::Mutex,
 };
 
-use catalog::{Catalog, CatalogVideo, ScanRoot};
+use catalog::{
+    Catalog, CatalogVideo, FfprobeVideoFileProbe, ScanRoot, ScanRootRefreshSummary,
+    UnprocessableVideoCandidate, VideoExtensionAllowlist,
+};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
@@ -289,6 +292,21 @@ fn get_ffmpeg_tools_status(app: tauri::AppHandle) -> Result<FfmpegToolsStatus, S
     Ok(discover_ffmpeg_tools_status(&path_value, configuration))
 }
 
+fn configured_or_discovered_ffprobe_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let settings_path = ffmpeg_settings_path(app)?;
+    let configuration = load_ffmpeg_configuration(&settings_path)?;
+    let path_value = env::var_os("PATH").unwrap_or_default();
+    let path_value = path_value.to_string_lossy();
+    let ffmpeg_tools_status = discover_ffmpeg_tools_status(&path_value, configuration);
+
+    ffmpeg_tools_status
+        .ffprobe
+        .resolved_path
+        .filter(|_| ffmpeg_tools_status.ffprobe.is_available)
+        .map(PathBuf::from)
+        .ok_or(ffmpeg_tools_status.ffprobe.status_message)
+}
+
 #[tauri::command]
 fn save_ffmpeg_configuration(
     app: tauri::AppHandle,
@@ -302,6 +320,36 @@ fn save_ffmpeg_configuration(
     let path_value = path_value.to_string_lossy();
 
     Ok(discover_ffmpeg_tools_status(&path_value, configuration))
+}
+
+#[tauri::command]
+fn refresh_scan_root(
+    app: tauri::AppHandle,
+    catalog_state: tauri::State<'_, CatalogState>,
+    path: String,
+    video_extension_allowlist: Option<VideoExtensionAllowlist>,
+) -> Result<ScanRootRefreshSummary, String> {
+    let ffprobe_path = configured_or_discovered_ffprobe_path(&app)?;
+    let video_file_probe = FfprobeVideoFileProbe::new(ffprobe_path);
+    let video_extension_allowlist = video_extension_allowlist.unwrap_or_default();
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.refresh_scan_root(&path, &video_file_probe, &video_extension_allowlist)
+}
+
+#[tauri::command]
+fn list_unprocessable_video_candidates(
+    catalog_state: tauri::State<'_, CatalogState>,
+) -> Result<Vec<UnprocessableVideoCandidate>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.list_unprocessable_video_candidates()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -319,7 +367,9 @@ pub fn run() {
             add_scan_root,
             remove_scan_root,
             get_ffmpeg_tools_status,
-            save_ffmpeg_configuration
+            save_ffmpeg_configuration,
+            refresh_scan_root,
+            list_unprocessable_video_candidates
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

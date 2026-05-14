@@ -10,6 +10,7 @@ import {
   getLocalDesktopAppStatus,
   listScanRoots,
   removeScanRoot,
+  refreshScanRoot,
   saveFfmpegConfiguration
 } from "./tauriCommands";
 
@@ -19,6 +20,7 @@ const ffmpegLoadingMessage = "Checking FFmpeg tools...";
 const ffmpegErrorMessage = "FFmpeg status unavailable";
 const scanRootsLoadingMessage = "Loading Scan Roots...";
 const scanRootsErrorMessage = "Scan Roots unavailable";
+const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
 
 function normalizeConfiguredPath(value: string) {
   const trimmedValue = value.trim();
@@ -195,6 +197,19 @@ export default function App() {
     }
   }
 
+  async function refreshSelectedScanRoot(scanRoot: ScanRoot) {
+    try {
+      setScanRootsStatusMessage(scanRootRefreshStartedMessage);
+      const refreshSummary = await refreshScanRoot(scanRoot.path);
+
+      setScanRootsStatusMessage(
+        `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`
+      );
+    } catch (error) {
+      setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="workspace-header" aria-labelledby="videos-view-title">
@@ -242,12 +257,20 @@ export default function App() {
             {scanRoots.map((scanRoot) => (
               <article className="scan-root" key={scanRoot.path}>
                 <code>{scanRoot.path}</code>
-                <button
-                  type="button"
-                  onClick={() => setScanRootPendingRemoval(scanRoot)}
-                >
-                  Remove
-                </button>
+                <div className="scan-root-actions">
+                  <button
+                    type="button"
+                    onClick={() => void refreshSelectedScanRoot(scanRoot)}
+                  >
+                    Refresh
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setScanRootPendingRemoval(scanRoot)}
+                  >
+                    Remove
+                  </button>
+                </div>
               </article>
             ))}
           </div>
