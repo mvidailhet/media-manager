@@ -61,10 +61,7 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             initialize_catalog(app).map_err(|error| {
-                Box::<dyn std::error::Error>::from(std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    error,
-                ))
+                Box::<dyn std::error::Error>::from(std::io::Error::other(error))
             })
         })
         .invoke_handler(tauri::generate_handler![

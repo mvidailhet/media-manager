@@ -143,6 +143,59 @@ mod tests {
     }
 
     #[test]
+    fn catalog_schema_preserves_the_first_vertical_slice_contract() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+
+        Catalog::open(&catalog_path).expect("catalog opens");
+
+        let database = Connection::open(catalog_path).expect("catalog database opens");
+
+        assert_eq!(
+            catalog_columns(&database, "scan_roots"),
+            vec![
+                "id INTEGER optional",
+                "path TEXT required",
+                "drive_identity TEXT optional",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_columns(&database, "videos"),
+            vec![
+                "id INTEGER optional",
+                "fingerprint TEXT required",
+                "fingerprint_version INTEGER required",
+                "title TEXT required",
+                "duration_milliseconds INTEGER required",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_columns(&database, "file_locations"),
+            vec![
+                "id INTEGER optional",
+                "video_id INTEGER required",
+                "scan_root_id INTEGER required",
+                "path TEXT required",
+                "file_size_bytes INTEGER required",
+                "last_seen_at TEXT required",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_foreign_keys(&database, "file_locations"),
+            vec![
+                "scan_root_id -> scan_roots.id on delete CASCADE",
+                "video_id -> videos.id on delete CASCADE",
+            ]
+        );
+    }
+
+    #[test]
     fn catalog_persists_scan_roots_videos_titles_durations_and_file_sizes() {
         let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
         let catalog_path = temporary_folder.path().join("catalog.sqlite3");
@@ -206,5 +259,52 @@ mod tests {
             .expect("table names query runs")
             .collect::<Result<Vec<_>, _>>()
             .expect("table names load")
+    }
+
+    fn catalog_columns(database: &Connection, table_name: &str) -> Vec<String> {
+        let mut statement = database
+            .prepare(&format!("PRAGMA table_info({table_name})"))
+            .expect("table info query prepares");
+
+        statement
+            .query_map([], |row| {
+                let column_name: String = row.get(1)?;
+                let declared_type: String = row.get(2)?;
+                let is_required: i64 = row.get(3)?;
+                let requirement = if is_required == 1 {
+                    "required"
+                } else {
+                    "optional"
+                };
+
+                Ok(format!("{column_name} {declared_type} {requirement}"))
+            })
+            .expect("table info query runs")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("table info loads")
+    }
+
+    fn catalog_foreign_keys(database: &Connection, table_name: &str) -> Vec<String> {
+        let mut statement = database
+            .prepare(&format!("PRAGMA foreign_key_list({table_name})"))
+            .expect("foreign key query prepares");
+
+        let mut foreign_keys = statement
+            .query_map([], |row| {
+                let referenced_table: String = row.get(2)?;
+                let column_name: String = row.get(3)?;
+                let referenced_column: String = row.get(4)?;
+                let on_delete: String = row.get(6)?;
+
+                Ok(format!(
+                    "{column_name} -> {referenced_table}.{referenced_column} on delete {on_delete}"
+                ))
+            })
+            .expect("foreign key query runs")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("foreign keys load");
+
+        foreign_keys.sort();
+        foreign_keys
     }
 }
