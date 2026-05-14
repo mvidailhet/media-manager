@@ -78,6 +78,7 @@ select {
 }
 
 .ffmpeg-panel,
+.catalog-videos-panel,
 .scan-roots-panel,
 .removal-panel {
   box-sizing: border-box;
@@ -98,8 +99,12 @@ select {
 }
 
 .ffmpeg-panel h2,
+.catalog-videos-panel h2,
 .scan-roots-panel h2,
 .removal-panel h2,
+.catalog-video h3,
+.catalog-video p,
+.catalog-video-details,
 .scan-root p,
 .tool-status h3,
 .tool-status p {
@@ -107,6 +112,7 @@ select {
 }
 
 .ffmpeg-panel h2,
+.catalog-videos-panel h2,
 .scan-roots-panel h2,
 .removal-panel h2 {
   margin-top: 6px;
@@ -118,6 +124,52 @@ select {
 .tool-status-list {
   display: grid;
   gap: 12px;
+}
+
+.catalog-video-list {
+  display: grid;
+  gap: 12px;
+}
+
+.catalog-video {
+  display: grid;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid #edf0f4;
+}
+
+.catalog-video h3 {
+  color: #102030;
+  font-size: 1.05rem;
+}
+
+.catalog-video p {
+  margin-top: 4px;
+  color: #334e68;
+}
+
+.catalog-video-details {
+  display: grid;
+  gap: 10px;
+}
+
+.catalog-video-details dt {
+  color: #51606f;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.catalog-video-details dd {
+  margin: 4px 0 0;
+  color: #1f2933;
+}
+
+.catalog-video-details code {
+  overflow-wrap: anywhere;
+  color: #1f2933;
+  font-size: 0.9rem;
 }
 
 .scan-root-list {

@@ -2,12 +2,14 @@ import { useEffect, useState } from "react";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import {
+  CatalogVideo,
   FfmpegToolsStatus,
   ScanRoot,
   ScanRootRemovalPolicy,
   addScanRoot,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
+  listCatalogVideos,
   listScanRoots,
   removeScanRoot,
   refreshScanRoot,
@@ -18,9 +20,16 @@ const loadingStatusMessage = "Checking Rust command...";
 const commandErrorMessage = "Rust command unavailable";
 const ffmpegLoadingMessage = "Checking FFmpeg tools...";
 const ffmpegErrorMessage = "FFmpeg status unavailable";
+const catalogVideosLoadingMessage = "Loading Videos...";
+const catalogVideosEmptyMessage = "No Videos in the Catalog.";
+const catalogVideosErrorMessage = "Videos unavailable";
 const scanRootsLoadingMessage = "Loading Scan Roots...";
 const scanRootsErrorMessage = "Scan Roots unavailable";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
+const millisecondsPerSecond = 1000;
+const secondsPerMinute = 60;
+const minutesPerHour = 60;
+const bytesPerMegabyte = 1_000_000;
 
 function normalizeConfiguredPath(value: string) {
   const trimmedValue = value.trim();
@@ -35,6 +44,10 @@ export default function App() {
     useState<FfmpegToolsStatus | null>(null);
   const [ffmpegStatusMessage, setFfmpegStatusMessage] =
     useState(ffmpegLoadingMessage);
+  const [catalogVideos, setCatalogVideos] = useState<CatalogVideo[]>([]);
+  const [catalogVideosStatusMessage, setCatalogVideosStatusMessage] = useState(
+    catalogVideosLoadingMessage
+  );
   const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
     scanRootsLoadingMessage
@@ -66,6 +79,31 @@ export default function App() {
 
     return () => {
       canUpdateStatus = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let canUpdateCatalogVideos = true;
+
+    async function loadCatalogVideos() {
+      try {
+        const storedCatalogVideos = await listCatalogVideos();
+
+        if (canUpdateCatalogVideos) {
+          setCatalogVideos(storedCatalogVideos);
+          setCatalogVideosStatusMessage("");
+        }
+      } catch {
+        if (canUpdateCatalogVideos) {
+          setCatalogVideosStatusMessage(catalogVideosErrorMessage);
+        }
+      }
+    }
+
+    void loadCatalogVideos();
+
+    return () => {
+      canUpdateCatalogVideos = false;
     };
   }, []);
 
@@ -226,6 +264,55 @@ export default function App() {
         <strong>{localDesktopAppStatus}</strong>
       </section>
 
+      <section className="catalog-videos-panel" aria-label="Catalog Videos">
+        <div className="panel-heading">
+          <div>
+            <span className="status-label">Catalog results</span>
+            <h2>Videos</h2>
+          </div>
+        </div>
+
+        {catalogVideosStatusMessage ? (
+          <p>{catalogVideosStatusMessage}</p>
+        ) : null}
+
+        {!catalogVideosStatusMessage && catalogVideos.length === 0 ? (
+          <p>{catalogVideosEmptyMessage}</p>
+        ) : null}
+
+        {catalogVideos.length > 0 ? (
+          <div className="catalog-video-list">
+            {catalogVideos.map((catalogVideo) => (
+              <article
+                className="catalog-video"
+                key={`${catalogVideo.title}-${catalogVideo.fileLocationPath ?? "missing"}`}
+              >
+                <div>
+                  <h3>{catalogVideo.title}</h3>
+                  <p>{formatDuration(catalogVideo.durationMilliseconds)}</p>
+                </div>
+                <dl className="catalog-video-details">
+                  <div>
+                    <dt>File Location</dt>
+                    <dd>
+                      {catalogVideo.fileLocationPath ? (
+                        <code>{catalogVideo.fileLocationPath}</code>
+                      ) : (
+                        "Missing"
+                      )}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>File Size</dt>
+                    <dd>{formatFileSize(catalogVideo.fileSizeBytes)}</dd>
+                  </div>
+                </dl>
+              </article>
+            ))}
+          </div>
+        ) : null}
+      </section>
+
       <section className="scan-roots-panel" aria-label="Scan Roots">
         <div className="panel-heading">
           <div>
@@ -375,4 +462,27 @@ function errorMessage(error: unknown) {
   }
 
   return String(error);
+}
+
+function formatDuration(durationMilliseconds: number) {
+  const totalSeconds = Math.round(durationMilliseconds / millisecondsPerSecond);
+  const totalMinutes = Math.floor(totalSeconds / secondsPerMinute);
+  const hours = Math.floor(totalMinutes / minutesPerHour);
+  const minutes = totalMinutes % minutesPerHour;
+
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+
+  return `${minutes}m`;
+}
+
+function formatFileSize(fileSizeBytes: number | null) {
+  if (fileSizeBytes === null) {
+    return "Unknown";
+  }
+
+  const megabytes = fileSizeBytes / bytesPerMegabyte;
+
+  return `${megabytes.toFixed(1)} MB`;
 }
