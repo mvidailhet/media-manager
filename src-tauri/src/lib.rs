@@ -1,5 +1,7 @@
 mod catalog;
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
@@ -115,7 +117,7 @@ fn status_for_candidate(
     candidate_path: &Path,
     source_description: &str,
 ) -> FfmpegToolStatus {
-    if candidate_path.is_file() {
+    if is_executable_file(candidate_path) {
         available_tool_status(
             binary_name,
             candidate_path.to_path_buf(),
@@ -146,8 +148,35 @@ fn available_tool_status(
 
 fn find_binary_on_path(binary_name: &str, path_value: &str) -> Option<PathBuf> {
     env::split_paths(path_value)
-        .map(|path_directory| path_directory.join(binary_name))
-        .find(|candidate_path| candidate_path.is_file())
+        .flat_map(|path_directory| {
+            executable_binary_names(binary_name)
+                .into_iter()
+                .map(move |candidate_name| path_directory.join(candidate_name))
+        })
+        .find(|candidate_path| is_executable_file(candidate_path))
+}
+
+fn executable_binary_names(binary_name: &str) -> Vec<String> {
+    let binary_file_name = binary_name.to_string();
+    let windows_binary_file_name = format!("{binary_name}.exe");
+
+    if binary_name.ends_with(".exe") {
+        vec![binary_file_name]
+    } else {
+        vec![binary_file_name, windows_binary_file_name]
+    }
+}
+
+#[cfg(unix)]
+fn is_executable_file(path: &Path) -> bool {
+    path.metadata()
+        .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
+        .unwrap_or(false)
+}
+
+#[cfg(not(unix))]
+fn is_executable_file(path: &Path) -> bool {
+    path.is_file()
 }
 
 fn load_ffmpeg_configuration(settings_path: &Path) -> Result<FfmpegConfiguration, String> {
@@ -244,10 +273,13 @@ pub fn run() {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    #[cfg(unix)]
+    use std::os::unix::fs::PermissionsExt;
 
     use super::{
-        discover_ffmpeg_tools_status, load_ffmpeg_configuration, local_desktop_app_status,
-        save_ffmpeg_configuration_to_path, FfmpegConfiguration, CATALOG_DATABASE_FILENAME,
+        discover_ffmpeg_tools_status, executable_binary_names, load_ffmpeg_configuration,
+        local_desktop_app_status, save_ffmpeg_configuration_to_path, FfmpegConfiguration,
+        CATALOG_DATABASE_FILENAME,
     };
 
     #[test]
@@ -267,6 +299,8 @@ mod tests {
         fs::create_dir_all(&test_bin_dir).expect("test bin directory should be created");
         fs::write(test_bin_dir.join("ffmpeg"), "").expect("ffmpeg test binary should exist");
         fs::write(test_bin_dir.join("ffprobe"), "").expect("ffprobe test binary should exist");
+        make_test_binary_executable(&test_bin_dir.join("ffmpeg"));
+        make_test_binary_executable(&test_bin_dir.join("ffprobe"));
 
         let ffmpeg_tools_status = discover_ffmpeg_tools_status(
             test_bin_dir.to_string_lossy().as_ref(),
@@ -275,6 +309,55 @@ mod tests {
 
         assert!(ffmpeg_tools_status.ffmpeg.is_available);
         assert!(ffmpeg_tools_status.ffprobe.is_available);
+
+        fs::remove_dir_all(test_bin_dir).expect("test bin directory should be removed");
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn ffmpeg_tools_status_does_not_accept_non_executable_files_from_path() {
+        let test_bin_dir = std::env::temp_dir().join(format!(
+            "media-manager-ffmpeg-non-executable-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&test_bin_dir).expect("test bin directory should be created");
+        fs::write(test_bin_dir.join("ffmpeg"), "").expect("ffmpeg test file should exist");
+
+        let ffmpeg_tools_status = discover_ffmpeg_tools_status(
+            test_bin_dir.to_string_lossy().as_ref(),
+            FfmpegConfiguration::default(),
+        );
+
+        assert!(!ffmpeg_tools_status.ffmpeg.is_available);
+
+        fs::remove_dir_all(test_bin_dir).expect("test bin directory should be removed");
+    }
+
+    #[test]
+    fn executable_binary_names_include_windows_exe_candidate() {
+        let binary_names = executable_binary_names("ffmpeg");
+
+        assert!(binary_names.contains(&"ffmpeg".to_string()));
+        assert!(binary_names.contains(&"ffmpeg.exe".to_string()));
+    }
+
+    #[test]
+    fn ffmpeg_tools_status_discovers_windows_exe_binary_from_path() {
+        let test_bin_dir = std::env::temp_dir().join(format!(
+            "media-manager-ffmpeg-windows-path-test-{}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&test_bin_dir).expect("test bin directory should be created");
+        fs::write(test_bin_dir.join("ffmpeg.exe"), "")
+            .expect("ffmpeg exe test binary should exist");
+        make_test_binary_executable(&test_bin_dir.join("ffmpeg.exe"));
+
+        let ffmpeg_tools_status = discover_ffmpeg_tools_status(
+            test_bin_dir.to_string_lossy().as_ref(),
+            FfmpegConfiguration::default(),
+        );
+
+        assert!(ffmpeg_tools_status.ffmpeg.is_available);
 
         fs::remove_dir_all(test_bin_dir).expect("test bin directory should be removed");
     }
@@ -316,4 +399,16 @@ mod tests {
 
         fs::remove_dir_all(settings_dir).expect("settings directory should be removed");
     }
+
+    #[cfg(unix)]
+    fn make_test_binary_executable(path: &std::path::Path) {
+        let mut permissions = fs::metadata(path)
+            .expect("test binary metadata should be available")
+            .permissions();
+        permissions.set_mode(0o755);
+        fs::set_permissions(path, permissions).expect("test binary should be executable");
+    }
+
+    #[cfg(not(unix))]
+    fn make_test_binary_executable(_path: &std::path::Path) {}
 }
