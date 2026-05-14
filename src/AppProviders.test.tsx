@@ -39,7 +39,7 @@ describe("AppProviders", () => {
     ).toBeInTheDocument();
     expect(document.documentElement).toHaveAttribute(
       "data-mantine-color-scheme",
-      "light"
+      "dark"
     );
     expect(
       screen.getByRole("button", { name: "Open Mantine modal" })

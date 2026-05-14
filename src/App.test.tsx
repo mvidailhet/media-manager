@@ -205,7 +205,7 @@ describe("Videos View shell", () => {
     expect(availableBadge).toBeVisible();
     expect(document.documentElement).toHaveAttribute(
       "data-mantine-color-scheme",
-      "light"
+      "dark"
     );
   });
 

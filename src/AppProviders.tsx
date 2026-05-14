@@ -6,7 +6,7 @@ type AppProvidersProps = {
   children: React.ReactNode;
 };
 
-const defaultColorScheme = "light";
+const defaultColorScheme = "dark";
 const notificationPosition = "top-right";
 
 // ADR-0009 selects Mantine as the app-wide React UI foundation.
