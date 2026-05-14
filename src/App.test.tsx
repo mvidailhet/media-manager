@@ -9,6 +9,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { AppProviders } from "./AppProviders";
 import {
   addScanRoot,
   forgetCatalogVideo,
@@ -75,6 +76,14 @@ const availableFfmpegToolsStatus = {
   }
 };
 
+function renderApp() {
+  return render(
+    <AppProviders>
+      <App />
+    </AppProviders>
+  );
+}
+
 describe("Videos View shell", () => {
   beforeEach(() => {
     mockedGetLocalDesktopAppStatus.mockResolvedValue("Rust command online");
@@ -101,7 +110,7 @@ describe("Videos View shell", () => {
   });
 
   it("renders the Videos View as the initial workspace", async () => {
-    render(<App />);
+    renderApp();
 
     expect(
       screen.getByRole("heading", { name: "Videos View" })
@@ -122,7 +131,7 @@ describe("Videos View shell", () => {
       }
     ]);
 
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText("Family Trip")).toBeInTheDocument();
     expect(screen.getByText("1h 2m")).toBeInTheDocument();
@@ -144,7 +153,7 @@ describe("Videos View shell", () => {
       }
     ]);
 
-    render(<App />);
+    renderApp();
 
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos"
@@ -156,7 +165,7 @@ describe("Videos View shell", () => {
   });
 
   it("shows an empty state when the Catalog has no Videos", async () => {
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByText("No Videos in the Catalog.")
@@ -166,20 +175,38 @@ describe("Videos View shell", () => {
   it("shows loading and error states for Catalog Videos", async () => {
     mockedListCatalogVideos.mockRejectedValue(new Error("Catalog unavailable"));
 
-    render(<App />);
+    renderApp();
 
     expect(screen.getByText("Loading Videos...")).toBeInTheDocument();
     expect(await screen.findByText("Videos unavailable")).toBeInTheDocument();
   });
 
   it("shows FFmpeg and ffprobe availability in the app status", async () => {
-    render(<App />);
+    renderApp();
 
     expect(await screen.findByText("ffmpeg")).toBeInTheDocument();
     expect(screen.getByText("ffprobe")).toBeInTheDocument();
     expect(screen.getAllByText("Available")).toHaveLength(2);
     expect(screen.getByText("/usr/local/bin/ffmpeg")).toBeInTheDocument();
     expect(screen.getByText("/usr/local/bin/ffprobe")).toBeInTheDocument();
+  });
+
+  it("keeps actions, form controls, and status badges visually consistent", async () => {
+    renderApp();
+
+    const chooseFolderButton = await screen.findByRole("button", {
+      name: "Choose folder"
+    });
+    const manualPathInput = screen.getByLabelText("Manual path");
+    const availableBadge = screen.getAllByText("Available")[0];
+
+    expect(chooseFolderButton).toBeVisible();
+    expect(manualPathInput).toBeVisible();
+    expect(availableBadge).toBeVisible();
+    expect(document.documentElement).toHaveAttribute(
+      "data-mantine-color-scheme",
+      "light"
+    );
   });
 
   it("shows a clear status when FFmpeg tools are missing", async () => {
@@ -193,7 +220,7 @@ describe("Videos View shell", () => {
       }
     });
 
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByText("ffmpeg is not available from PATH or settings")
@@ -209,7 +236,7 @@ describe("Videos View shell", () => {
       }
     ]);
 
-    render(<App />);
+    renderApp();
 
     expect(
       await screen.findByText("/Volumes/Archive/Videos")
@@ -219,7 +246,7 @@ describe("Videos View shell", () => {
   it("adds a Scan Root through the folder picker", async () => {
     mockedOpen.mockResolvedValue("/Volumes/Archive/Videos");
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "Choose folder" }));
 
@@ -241,7 +268,7 @@ describe("Videos View shell", () => {
       new Error("Scan Root overlaps with an existing Scan Root")
     );
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "Choose folder" }));
 
@@ -258,7 +285,7 @@ describe("Videos View shell", () => {
       }
     ]);
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
     fireEvent.click(
@@ -295,7 +322,7 @@ describe("Videos View shell", () => {
         }
       ]);
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
 
@@ -323,7 +350,7 @@ describe("Videos View shell", () => {
         }
       ]);
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Refresh all Scan Roots" })
@@ -370,7 +397,7 @@ describe("Videos View shell", () => {
       }
     ]);
 
-    render(<App />);
+    renderApp();
 
     const reviewQueue = await screen.findByRole("region", {
       name: "Review Queue"
@@ -406,7 +433,7 @@ describe("Videos View shell", () => {
       ])
       .mockResolvedValueOnce([]);
 
-    render(<App />);
+    renderApp();
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Forget From Catalog" })
