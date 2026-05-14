@@ -1,0 +1,1 @@
+This project is a local media manager to handle local videos with preview and tags To choose which video you want to watch next
