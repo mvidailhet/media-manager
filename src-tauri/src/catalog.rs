@@ -75,6 +75,7 @@ pub struct CatalogVideo {
     pub duration_milliseconds: i64,
     pub file_size_bytes: Option<i64>,
     pub file_location_path: Option<String>,
+    pub is_available: bool,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -183,7 +184,8 @@ impl Catalog {
                         videos.title,
                         videos.duration_milliseconds,
                         file_locations.file_size_bytes,
-                        file_locations.path
+                        file_locations.path,
+                        file_locations.path IS NOT NULL
                  FROM videos
                  LEFT JOIN file_locations ON file_locations.video_id = videos.id
                  ORDER BY videos.title, file_locations.path",
@@ -198,6 +200,7 @@ impl Catalog {
                     duration_milliseconds: row.get(2)?,
                     file_size_bytes: row.get(3)?,
                     file_location_path: row.get(4)?,
+                    is_available: row.get::<_, i64>(5)? == 1,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -311,17 +314,11 @@ impl Catalog {
         video_file_probe: &P,
         video_extension_allowlist: &VideoExtensionAllowlist,
     ) -> Result<ScanRootRefreshSummary, String> {
-        let scan_root_id = self.scan_root_id(scan_root_path)?;
-        if !Path::new(scan_root_path).is_dir() {
-            self.mark_scan_root_availability(scan_root_id, false)?;
-            self.remove_stale_scan_root_entries(scan_root_id, &HashSet::new())?;
-
-            return Ok(ScanRootRefreshSummary {
-                scanned_video_count: 0,
-                unprocessable_candidate_count: 0,
-            });
+        if let Some(refresh_summary) = self.refresh_scan_root_if_unreachable(scan_root_path)? {
+            return Ok(refresh_summary);
         }
 
+        let scan_root_id = self.scan_root_id(scan_root_path)?;
         self.mark_scan_root_availability(scan_root_id, true)?;
         let video_candidate_paths =
             discover_video_candidate_paths(Path::new(scan_root_path), video_extension_allowlist)?;
@@ -387,6 +384,24 @@ impl Catalog {
         }
 
         Ok(refresh_summary)
+    }
+
+    pub fn refresh_scan_root_if_unreachable(
+        &self,
+        scan_root_path: &str,
+    ) -> Result<Option<ScanRootRefreshSummary>, String> {
+        if Path::new(scan_root_path).is_dir() {
+            return Ok(None);
+        }
+
+        let scan_root_id = self.scan_root_id(scan_root_path)?;
+        self.mark_scan_root_availability(scan_root_id, false)?;
+        self.remove_stale_scan_root_entries(scan_root_id, &HashSet::new())?;
+
+        Ok(Some(ScanRootRefreshSummary {
+            scanned_video_count: 0,
+            unprocessable_candidate_count: 0,
+        }))
     }
 
     pub fn list_unprocessable_video_candidates(
@@ -928,10 +943,85 @@ mod tests {
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
                 id: 1,
+                is_available: false,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
                 file_location_path: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn listed_missing_videos_are_explicitly_unavailable() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+        let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("initial scan root refreshes");
+        std::fs::remove_file(&family_trip_path).expect("video file is removed");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("second scan root refreshes");
+
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                id: 1,
+                is_available: false,
+                title: "family-trip".to_string(),
+                duration_milliseconds: 1_000,
+                file_size_bytes: None,
+                file_location_path: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn unreachable_scan_root_refresh_can_complete_without_a_video_file_probe() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        std::fs::remove_dir_all(&movies_root).expect("scan root becomes unreachable");
+
+        let refresh_summary = catalog
+            .refresh_scan_root_if_unreachable(&scan_root.path)
+            .expect("unreachable scan root refreshes without probe");
+
+        assert_eq!(
+            refresh_summary,
+            Some(super::ScanRootRefreshSummary {
+                scanned_video_count: 0,
+                unprocessable_candidate_count: 0,
+            })
+        );
+        assert_eq!(
+            catalog.list_scan_roots().expect("scan roots list"),
+            vec![super::ScanRoot {
+                is_available: false,
+                path: scan_root.path,
             }]
         );
     }
@@ -996,6 +1086,7 @@ mod tests {
             vec![
                 super::CatalogVideo {
                     id: 2,
+                    is_available: false,
                     title: "archived-trip".to_string(),
                     duration_milliseconds: 1_000,
                     file_size_bytes: None,
@@ -1003,6 +1094,7 @@ mod tests {
                 },
                 super::CatalogVideo {
                     id: 1,
+                    is_available: true,
                     title: "family-trip".to_string(),
                     duration_milliseconds: 1_000,
                     file_size_bytes: Some(17),
@@ -1062,6 +1154,7 @@ mod tests {
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
                 id: 1,
+                is_available: false,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: None,
@@ -1107,6 +1200,7 @@ mod tests {
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
                 id: 1,
+                is_available: true,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3_723_000,
                 file_size_bytes: Some(11),
@@ -1161,6 +1255,7 @@ mod tests {
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
                 id: 1,
+                is_available: true,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: Some(17),
@@ -1220,6 +1315,7 @@ mod tests {
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
                 id: 1,
+                is_available: false,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
@@ -1275,6 +1371,7 @@ mod tests {
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
                 id: 1,
+                is_available: false,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
@@ -1397,6 +1494,7 @@ mod tests {
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
                 id: 1,
+                is_available: true,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),
@@ -1450,6 +1548,45 @@ mod tests {
                 "unprocessable_video_candidates",
                 "videos"
             ]
+        );
+    }
+
+    #[test]
+    fn catalog_migration_adds_scan_root_availability_to_existing_databases() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let database = Connection::open(&catalog_path).expect("catalog database opens");
+        database
+            .execute_batch(
+                "
+                CREATE TABLE scan_roots (
+                    id INTEGER PRIMARY KEY,
+                    path TEXT NOT NULL UNIQUE,
+                    drive_identity TEXT,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                INSERT INTO scan_roots (path, drive_identity)
+                VALUES ('/Volumes/Archive/Videos', NULL);
+                ",
+            )
+            .expect("old scan roots schema exists");
+        drop(database);
+
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+
+        let database = Connection::open(catalog_path).expect("catalog database opens");
+        assert!(
+            super::catalog_table_has_column(&database, "scan_roots", "is_available")
+                .expect("column presence loads")
+        );
+        assert_eq!(
+            catalog.list_scan_roots().expect("scan roots list"),
+            vec![super::ScanRoot {
+                is_available: true,
+                path: "/Volumes/Archive/Videos".to_string(),
+            }]
         );
     }
 
@@ -1565,6 +1702,7 @@ mod tests {
             stored_videos,
             vec![super::CatalogVideo {
                 id: 1,
+                is_available: true,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),

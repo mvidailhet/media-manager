@@ -101,7 +101,8 @@ describe("Videos View shell", () => {
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true
       }
     ]);
 
@@ -113,6 +114,25 @@ describe("Videos View shell", () => {
     expect(
       screen.getByText("/Volumes/Archive/Videos/family-trip.mp4")
     ).toBeInTheDocument();
+  });
+
+  it("marks Missing Videos unavailable in the normal Videos list", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: null,
+        fileLocationPath: null,
+        isAvailable: false
+      }
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByText("Family Trip")).toBeInTheDocument();
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Missing")).toBeInTheDocument();
   });
 
   it("shows an empty state when the Catalog has no Videos", async () => {
@@ -250,7 +270,8 @@ describe("Videos View shell", () => {
           title: "Family Trip",
           durationMilliseconds: 3723000,
           fileSizeBytes: 80740352,
-          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          isAvailable: true
         }
       ]);
 

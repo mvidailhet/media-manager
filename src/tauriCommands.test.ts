@@ -39,7 +39,8 @@ describe("Tauri commands", () => {
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true
       }
     ]);
 
@@ -51,7 +52,8 @@ describe("Tauri commands", () => {
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true
       }
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_catalog_videos");

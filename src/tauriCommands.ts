@@ -18,6 +18,7 @@ export interface CatalogVideo {
   durationMilliseconds: number;
   fileSizeBytes: number | null;
   fileLocationPath: string | null;
+  isAvailable: boolean;
 }
 
 export interface ScanRoot {

@@ -331,7 +331,18 @@ export default function App() {
                 key={catalogVideo.id}
               >
                 <div>
-                  <h3>{catalogVideo.title}</h3>
+                  <div className="catalog-video-title-row">
+                    <h3>{catalogVideo.title}</h3>
+                    <strong
+                      className={
+                        catalogVideo.isAvailable
+                          ? "availability available"
+                          : "availability missing"
+                      }
+                    >
+                      {catalogVideo.isAvailable ? "Available" : "Unavailable"}
+                    </strong>
+                  </div>
                   <p>{formatDuration(catalogVideo.durationMilliseconds)}</p>
                 </div>
                 <dl className="catalog-video-details">
