@@ -1,0 +1,19 @@
+[package]
+name = "media-manager"
+version = "0.1.0"
+description = "A local desktop app for managing videos."
+authors = ["media-manager contributors"]
+license = ""
+repository = ""
+edition = "2021"
+rust-version = "1.77.2"
+
+[lib]
+name = "media_manager_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[dependencies]
+tauri = { version = "2", features = [] }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
