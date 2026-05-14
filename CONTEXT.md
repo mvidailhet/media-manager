@@ -40,6 +40,10 @@ _Avoid_: Duration
 A filesystem path where a **Video** file is currently found.
 _Avoid_: Video identity
 
+**Preferred File Location**:
+The **File Location** used by default when opening a **Video** with multiple available locations.
+_Avoid_: Video identity
+
 **Duplicate Location**:
 An extra **File Location** for a **Video** that already exists elsewhere.
 _Avoid_: Duplicate video
@@ -152,6 +156,10 @@ _Avoid_: Delete, trash
 The primary workspace for searching and filtering normal **Video** results.
 _Avoid_: Review queue
 
+**Video Detail Panel**:
+The focused editing surface for one selected **Video**.
+_Avoid_: Separate detail page
+
 **First Vertical Slice**:
 The initial usable path that adds a **Scan Root**, scans it, stores discovered **Videos**, and lists them in the **Videos View**.
 _Avoid_: Prototype shell
@@ -159,6 +167,10 @@ _Avoid_: Prototype shell
 **Preview Slice**:
 The implementation path that generates and displays **Preview Strips** after the **First Vertical Slice**.
 _Avoid_: Metadata inference
+
+**Metadata Editing Slice**:
+The implementation path for accepted **Local Metadata**, **Search Filters**, and **Batch Metadata Edit** before folder-derived inference.
+_Avoid_: Metadata suggestions
 
 **Favorites View**:
 A shortcut workspace showing **Videos** marked **Favorite**.
@@ -204,6 +216,7 @@ _Avoid_: Metadata suggestion
 - Multiple **Videos** can share the same **Title**.
 - A **Video** has one or more **File Locations**.
 - A **File Location** has one **File Size** available on demand.
+- A **Video** can have one **Preferred File Location**.
 - A **Duplicate Location** belongs to one **Video**.
 - **Duplicate Locations** are created only from exact **Video Fingerprint** matches in v1.
 - Trash actions target **File Locations** when a **Video** has more than one **File Location**.
@@ -241,6 +254,12 @@ _Avoid_: Metadata suggestion
 - The **Local Desktop App** owns the **Catalog** and reads **Videos** from local **Scan Roots**.
 - **No Network Dependency** applies to cataloging, search, preview generation, and metadata editing.
 - **Tags**, **Performers**, and **Titles** are **Local Metadata**.
+- **Tags** and **Performers** can be created inline while editing a **Video** or applying a **Batch Metadata Edit**.
+- Inline creation checks existing **Tags** and **Performers** case-insensitively and can suggest near matches before creating a new value.
+- **Tag** names are case-insensitively unique among **Tags**; **Performer** names are case-insensitively unique among **Performers**.
+- Attached **Tags** and **Performers** should be merged or explicitly detached before deletion.
+- Unused **Tags** and **Performers** are removed from the **Catalog** when they no longer belong to any **Video**.
+- Removing the last use of a **Tag** or **Performer** deletes it on save/apply without extra confirmation during normal editing.
 - **Inferred Metadata** can suggest **Tags** or **Performers** but does not become confirmed **Local Metadata** until accepted.
 - A **Scan Root** can have **Inference Rules** for Tag suggestions, optional Performer suggestions, and ignored folder names.
 - A **Metadata Suggestion** can be accepted or rejected for multiple **Videos** at once.
@@ -254,8 +273,10 @@ _Avoid_: Metadata suggestion
 - **Forget From Catalog** is available from the **Review Queue** for **Missing Videos**.
 - **Forget From Catalog** requires confirmation and is final in v1.
 - v1 has **Videos View**, **Favorites View**, **Recently Opened View**, and **Review Queue** as top-level workspaces.
+- **Favorites View** and **Recently Opened View** reuse the same **Video** result model as **Videos View**.
 - The **First Vertical Slice** proves **Scan Root** selection, scanning, SQLite storage, FFmpeg probing, and listing **Videos**.
 - The **Preview Slice** comes after the **First Vertical Slice** and before metadata inference work.
+- The **Metadata Editing Slice** comes after the **Preview Slice** and before **Inference Rules** or **Metadata Suggestions**.
 - A **Metadata Merge** preserves affected **Video** relationships under the chosen **Tag** or **Performer**.
 - Normal **Search Filters** use accepted **Local Metadata**, not unaccepted **Inferred Metadata**.
 - Moving a **Video** can create new **Metadata Suggestions** but never removes or replaces accepted **Local Metadata**.
@@ -266,7 +287,14 @@ _Avoid_: Metadata suggestion
 - Editing **Local Metadata** changes the **Catalog** only and does not rename or move files.
 - Editing **Title** does not rename any **File Location**.
 - A **Batch Metadata Edit** can apply or remove **Tags**, **Performers**, or **Favorite** across selected **Videos**.
+- v1 **Batch Metadata Edit** appends or removes metadata but does not replace all metadata at once.
+- v1 **Batch Metadata Edit** does not edit **Title**.
+- Batch **Favorite** edits use explicit mark/unmark actions, not toggle.
 - A **Video** can be opened from or revealed at its current **File Location**.
+- Opening a **Video** uses its **Preferred File Location**, falling back to the most recently confirmed available **File Location**.
+- Opening a specific **File Location** manually makes it the **Preferred File Location**.
+- A **Video Detail Panel** edits **Title**, **Tags**, **Performers**, and **Favorite** for one selected **Video**.
+- A **Video Detail Panel** shows all **File Locations** for the selected **Video**.
 - v1 has one local **Catalog**.
 - The **Catalog** is durable app-private storage; the **Preview Cache** can be regenerated.
 - **Forget From Catalog** makes related **Preview Cache** entries eligible for cleanup.
@@ -366,11 +394,17 @@ _Avoid_: Metadata suggestion
 > **Dev:** "What are the main v1 workspaces?"
 > **Domain expert:** "**Videos View**, **Favorites View**, **Recently Opened View**, and **Review Queue**."
 >
+> **Dev:** "Are **Favorites View** and **Recently Opened View** separate catalogs?"
+> **Domain expert:** "No. They are shortcut workspaces over the same **Video** results."
+>
 > **Dev:** "What should the first usable implementation prove?"
 > **Domain expert:** "The **First Vertical Slice** adds a **Scan Root**, scans it, stores discovered **Videos**, and lists them in the **Videos View**."
 >
 > **Dev:** "What should come after the **First Vertical Slice**?"
 > **Domain expert:** "The **Preview Slice**, so scanned **Videos** can show generated **Preview Strips** before metadata inference work."
+>
+> **Dev:** "Should folder-derived metadata inference come before normal metadata editing?"
+> **Domain expert:** "No. Build the **Metadata Editing Slice** first so accepted **Local Metadata** and **Search Filters** exist before suggestions."
 >
 > **Dev:** "If a drive is unplugged, should its **Videos** disappear from the **Catalog**?"
 > **Domain expert:** "No. They become **Missing Videos** until a refresh finds their **File Locations** again."
@@ -471,6 +505,12 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Should **Performers** or **Tags** come from an online database?"
 > **Domain expert:** "No. They are **Local Metadata** managed inside the app."
 >
+> **Dev:** "Do I need a separate screen before assigning a new **Tag**?"
+> **Domain expert:** "No. **Tags** and **Performers** can be created inline while editing."
+>
+> **Dev:** "If I type a new **Performer** while editing, should it be created there?"
+> **Domain expert:** "Yes, after checking existing **Performers** case-insensitively and surfacing near matches."
+>
 > **Dev:** "Can folder names help create metadata?"
 > **Domain expert:** "Yes, but only as **Inferred Metadata** until accepted, because folder hierarchy is not consistently clean."
 >
@@ -516,8 +556,20 @@ _Avoid_: Metadata suggestion
 > **Dev:** "If `Jane_Doe` and `Jane Doe` are the same **Performer**, what should happen?"
 > **Domain expert:** "Use a **Metadata Merge** to combine them into the chosen **Performer**."
 >
+> **Dev:** "Can I delete a **Tag** that is still attached to **Videos**?"
+> **Domain expert:** "Not silently. Merge it or explicitly detach it from affected **Videos** first."
+>
+> **Dev:** "Should unused **Tags** stay available after they are detached from every **Video**?"
+> **Domain expert:** "No. Unused **Tags** and **Performers** are removed from the **Catalog**."
+>
+> **Dev:** "Does removing the last use of a **Tag** need a separate confirmation?"
+> **Domain expert:** "No, not during normal editing; it is deleted on save/apply."
+>
 > **Dev:** "Should `Interview` and `interview` search differently?"
 > **Domain expert:** "No. Search is case-insensitive, while display names can use capitalized words."
+>
+> **Dev:** "Can a **Tag** and **Performer** have the same display name?"
+> **Domain expert:** "Yes. Uniqueness is per metadata type."
 >
 > **Dev:** "When I accept **Inferred Metadata**, should folders or filenames change?"
 > **Domain expert:** "No. Metadata edits update the **Catalog** only."
@@ -525,8 +577,29 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Do I need to edit metadata one **Video** at a time?"
 > **Domain expert:** "No. v1 supports **Batch Metadata Edit** for selected **Videos**."
 >
+> **Dev:** "Can a **Batch Metadata Edit** replace all **Tags** on selected **Videos** in v1?"
+> **Domain expert:** "No. v1 batch editing appends or removes metadata only."
+>
+> **Dev:** "Can a **Batch Metadata Edit** change **Titles**?"
+> **Domain expert:** "No. **Title** is edited per **Video**."
+>
+> **Dev:** "Should batch **Favorite** editing toggle selected **Videos**?"
+> **Domain expert:** "No. It uses explicit mark or unmark actions."
+>
 > **Dev:** "Does v1 need to play **Videos** inside the app?"
 > **Domain expert:** "No. v1 only needs to open a **Video** from its **File Location** or reveal it in Finder."
+>
+> **Dev:** "Where do I edit one **Video**?"
+> **Domain expert:** "In the **Video Detail Panel** opened from the **Videos View**."
+>
+> **Dev:** "If a **Video** has duplicate **File Locations**, where can I see them?"
+> **Domain expert:** "The **Video Detail Panel** shows all **File Locations** for the selected **Video**."
+>
+> **Dev:** "Which location opens when a **Video** has duplicates?"
+> **Domain expert:** "The **Preferred File Location**, or the most recently confirmed available **File Location** if none is set."
+>
+> **Dev:** "If I manually open another **File Location**, should it become preferred?"
+> **Domain expert:** "Yes. Opening a specific location makes it the **Preferred File Location**."
 
 ## Flagged ambiguities
 
