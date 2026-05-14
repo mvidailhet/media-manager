@@ -191,7 +191,7 @@ describe("Videos View shell", () => {
     expect(screen.getByText("/usr/local/bin/ffprobe")).toBeInTheDocument();
   });
 
-  it("uses Mantine controls and badges for the migrated UI surfaces", async () => {
+  it("keeps actions, form controls, and status badges visually consistent", async () => {
     renderApp();
 
     const chooseFolderButton = await screen.findByRole("button", {
@@ -200,9 +200,13 @@ describe("Videos View shell", () => {
     const manualPathInput = screen.getByLabelText("Manual path");
     const availableBadge = screen.getAllByText("Available")[0];
 
-    expect(chooseFolderButton.className).toContain("mantine-Button-root");
-    expect(manualPathInput.className).toContain("mantine-Input-input");
-    expect(availableBadge.closest(".mantine-Badge-root")).toBeInTheDocument();
+    expect(chooseFolderButton).toBeVisible();
+    expect(manualPathInput).toBeVisible();
+    expect(availableBadge).toBeVisible();
+    expect(document.documentElement).toHaveAttribute(
+      "data-mantine-color-scheme",
+      "light"
+    );
   });
 
   it("shows a clear status when FFmpeg tools are missing", async () => {

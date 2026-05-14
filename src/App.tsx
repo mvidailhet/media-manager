@@ -384,245 +384,30 @@ export default function App() {
 
   return (
     <Box component="main" className="app-shell">
-      <Box component="section" maw={720} aria-labelledby="videos-view-title">
-        <Text c="dimmed" fw={700} size="sm" tt="uppercase">
-          Local Desktop App
-        </Text>
-        <Title id="videos-view-title" order={1} mt={8} mb={12}>
-          Videos View
-        </Title>
-        <Text c="dimmed" lh={1.6}>
-          A local catalog workspace for organizing videos without a network
-          dependency.
-        </Text>
-      </Box>
-
-      <Paper component="section" aria-label="Tauri command status" p="md" maw={420}>
-        <Stack gap={8}>
-          <Text c="dimmed" fw={700} size="sm" tt="uppercase">
-            Tauri bridge
-          </Text>
-          <Text c="teal" fw={700}>
-            {localDesktopAppStatus}
-          </Text>
-        </Stack>
-      </Paper>
-
-      <Paper component="section" aria-label="Catalog Videos" p="md" maw={760}>
-        <Stack gap="md">
-          <SectionHeader label="Catalog results" title="Videos" />
-
-          {catalogVideosStatusMessage ? (
-            <Text>{catalogVideosStatusMessage}</Text>
-          ) : null}
-
-          {!catalogVideosStatusMessage && catalogVideos.length === 0 ? (
-            <Text c="dimmed">{catalogVideosEmptyMessage}</Text>
-          ) : null}
-
-          {catalogVideos.length > 0 ? (
-            <Stack gap="sm">
-              {catalogVideos.map((catalogVideo) => (
-                <Stack component="article" gap="sm" key={catalogVideo.id}>
-                  <Divider />
-                  <Box>
-                    <Group gap="xs" align="center">
-                      <Title order={3} size="h4">
-                        {catalogVideo.title}
-                      </Title>
-                      <AvailabilityBadge isAvailable={catalogVideo.isAvailable} />
-                    </Group>
-                    <Text c="dimmed">
-                      {formatDuration(catalogVideo.durationMilliseconds)}
-                    </Text>
-                  </Box>
-                  <Box component="dl" className="definition-list">
-                    <DefinitionTerm label="File Location">
-                      {catalogVideo.fileLocationPath ? (
-                        <Code>{catalogVideo.fileLocationPath}</Code>
-                      ) : (
-                        "Missing"
-                      )}
-                    </DefinitionTerm>
-                    <DefinitionTerm label="File Size">
-                      {formatFileSize(catalogVideo.fileSizeBytes)}
-                    </DefinitionTerm>
-                  </Box>
-                </Stack>
-              ))}
-            </Stack>
-          ) : null}
-        </Stack>
-      </Paper>
-
-      <Paper component="section" aria-label="Review Queue" p="md" maw={760}>
-        <Stack gap="md">
-          <SectionHeader label="Scan issues" title="Review Queue" />
-
-          {reviewQueueStatusMessage ? <Text>{reviewQueueStatusMessage}</Text> : null}
-
-          <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
-            <Stack component="section" gap="xs" aria-labelledby="missing-videos-title">
-              <Title order={3} id="missing-videos-title" size="h4">
-                Missing Videos
-              </Title>
-              {missingVideos.length > 0 ? (
-                <Stack gap="sm">
-                  {missingVideos.map((missingVideo) => (
-                    <Stack component="article" gap="xs" key={missingVideo.id}>
-                      <Divider />
-                      <Box>
-                        <Title order={4} size="h5">
-                          {missingVideo.title}
-                        </Title>
-                        <Text c="dimmed">
-                          {formatDuration(missingVideo.durationMilliseconds)}
-                        </Text>
-                      </Box>
-                      <Button
-                        type="button"
-                        size="xs"
-                        variant="light"
-                        onClick={() => setMissingVideoPendingForget(missingVideo)}
-                      >
-                        Forget From Catalog
-                      </Button>
-                    </Stack>
-                  ))}
-                </Stack>
-              ) : (
-                <Text c="dimmed">No Missing Videos.</Text>
-              )}
-            </Stack>
-
-            <Stack
-              component="section"
-              gap="xs"
-              aria-labelledby="unavailable-scan-roots-title"
-            >
-              <Title order={3} id="unavailable-scan-roots-title" size="h4">
-                Unavailable Scan Roots
-              </Title>
-              {unavailableScanRoots.length > 0 ? (
-                <Stack gap="sm">
-                  {unavailableScanRoots.map((scanRoot) => (
-                    <Stack component="article" gap="xs" key={scanRoot.path}>
-                      <Divider />
-                      <Code>{scanRoot.path}</Code>
-                    </Stack>
-                  ))}
-                </Stack>
-              ) : (
-                <Text c="dimmed">No Unavailable Scan Roots.</Text>
-              )}
-            </Stack>
-
-            <Stack
-              component="section"
-              gap="xs"
-              aria-labelledby="unprocessable-candidates-title"
-            >
-              <Title order={3} id="unprocessable-candidates-title" size="h4">
-                Unprocessable Video Candidates
-              </Title>
-              {unprocessableVideoCandidates.length > 0 ? (
-                <Stack gap="sm">
-                  {unprocessableVideoCandidates.map((candidate) => (
-                    <Stack component="article" gap="xs" key={candidate.path}>
-                      <Divider />
-                      <Code>{candidate.path}</Code>
-                      <Box component="dl" className="definition-list">
-                        <DefinitionTerm label="Failure Reason">
-                          {candidate.reason}
-                        </DefinitionTerm>
-                        <DefinitionTerm label="File Size">
-                          {formatFileSize(candidate.fileSizeBytes)}
-                        </DefinitionTerm>
-                      </Box>
-                    </Stack>
-                  ))}
-                </Stack>
-              ) : (
-                <Text c="dimmed">No Unprocessable Video Candidates.</Text>
-              )}
-            </Stack>
-          </SimpleGrid>
-        </Stack>
-      </Paper>
-
-      <Paper component="section" aria-label="Scan Roots" p="md" maw={760}>
-        <Stack gap="md">
-          <Group justify="space-between" align="start">
-            <SectionHeader label="Catalog sources" title="Scan Roots" />
-            <Group gap="xs">
-              <Button type="button" variant="light" onClick={chooseScanRootFolder}>
-                Choose folder
-              </Button>
-              <Button
-                type="button"
-                variant="default"
-                onClick={() => void refreshEveryScanRoot()}
-              >
-                Refresh all Scan Roots
-              </Button>
-            </Group>
-          </Group>
-
-          {scanRootsStatusMessage ? <Text>{scanRootsStatusMessage}</Text> : null}
-
-          <Box component="form" onSubmit={addManualScanRoot}>
-            <Group align="end">
-              <TextInput
-                className="path-input"
-                label="Manual path"
-                value={manualScanRootPath}
-                onChange={(event) => setManualScanRootPath(event.target.value)}
-                placeholder="/Volumes/Archive/Videos"
-              />
-              <Button type="submit">Add path</Button>
-            </Group>
-          </Box>
-
-          {scanRoots.length > 0 ? (
-            <Stack gap="sm">
-              {scanRoots.map((scanRoot) => (
-                <Group
-                  component="article"
-                  gap="sm"
-                  justify="space-between"
-                  key={scanRoot.path}
-                >
-                  <Group gap="xs">
-                    <Code>{scanRoot.path}</Code>
-                    <AvailabilityBadge isAvailable={scanRoot.isAvailable} />
-                  </Group>
-                  <Group gap="xs">
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="default"
-                      onClick={() => void refreshSelectedScanRoot(scanRoot)}
-                    >
-                      Refresh
-                    </Button>
-                    <Button
-                      type="button"
-                      size="xs"
-                      variant="light"
-                      color="red"
-                      onClick={() => setScanRootPendingRemoval(scanRoot)}
-                    >
-                      Remove
-                    </Button>
-                  </Group>
-                </Group>
-              ))}
-            </Stack>
-          ) : (
-            <Text c="dimmed">No Scan Roots added.</Text>
-          )}
-        </Stack>
-      </Paper>
+      <WorkspaceHeader />
+      <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
+      <CatalogVideosPanel
+        catalogVideos={catalogVideos}
+        catalogVideosStatusMessage={catalogVideosStatusMessage}
+      />
+      <ReviewQueuePanel
+        missingVideos={missingVideos}
+        reviewQueueStatusMessage={reviewQueueStatusMessage}
+        unavailableScanRoots={unavailableScanRoots}
+        unprocessableVideoCandidates={unprocessableVideoCandidates}
+        onRequestMissingVideoForget={setMissingVideoPendingForget}
+      />
+      <ScanRootsPanel
+        manualScanRootPath={manualScanRootPath}
+        scanRoots={scanRoots}
+        scanRootsStatusMessage={scanRootsStatusMessage}
+        onAddManualScanRoot={addManualScanRoot}
+        onChooseScanRootFolder={chooseScanRootFolder}
+        onManualScanRootPathChange={setManualScanRootPath}
+        onRefreshEveryScanRoot={refreshEveryScanRoot}
+        onRefreshSelectedScanRoot={refreshSelectedScanRoot}
+        onRequestScanRootRemoval={setScanRootPendingRemoval}
+      />
 
       {scanRootPendingRemoval ? (
         <Paper
@@ -635,7 +420,7 @@ export default function App() {
             <Title order={2} size="h3">
               Remove Scan Root
             </Title>
-            <Code>{scanRootPendingRemoval.path}</Code>
+            <Code className="wrapping-code">{scanRootPendingRemoval.path}</Code>
             <Group gap="xs">
               <Button
                 type="button"
@@ -697,65 +482,15 @@ export default function App() {
         </Paper>
       ) : null}
 
-      <Paper component="section" aria-label="FFmpeg tools status" p="md" maw={760}>
-        <Stack gap="md">
-          <SectionHeader label="Video tooling" title="FFmpeg status" />
-
-          {ffmpegStatusMessage ? <Text>{ffmpegStatusMessage}</Text> : null}
-
-          {ffmpegToolsStatus ? (
-            <Stack gap="sm">
-              {[ffmpegToolsStatus.ffmpeg, ffmpegToolsStatus.ffprobe].map(
-                (toolStatus) => (
-                  <Group
-                    component="article"
-                    gap="md"
-                    justify="space-between"
-                    align="start"
-                    key={toolStatus.binaryName}
-                  >
-                    <Box>
-                      <Title order={3} size="h4">
-                        {toolStatus.binaryName}
-                      </Title>
-                      <Text c="dimmed" lh={1.5}>
-                        {toolStatus.statusMessage}
-                      </Text>
-                      {toolStatus.resolvedPath ? (
-                        <Code mt={8}>{toolStatus.resolvedPath}</Code>
-                      ) : null}
-                    </Box>
-                    <AvailabilityBadge
-                      isAvailable={toolStatus.isAvailable}
-                      missingLabel="Missing"
-                    />
-                  </Group>
-                )
-              )}
-            </Stack>
-          ) : null}
-
-          <Box component="form" onSubmit={saveConfiguredFfmpegPaths}>
-            <Stack gap="sm">
-              <TextInput
-                label="FFmpeg path"
-                value={ffmpegPath}
-                onChange={(event) => setFfmpegPath(event.target.value)}
-                placeholder="Use PATH discovery"
-              />
-              <TextInput
-                label="ffprobe path"
-                value={ffprobePath}
-                onChange={(event) => setFfprobePath(event.target.value)}
-                placeholder="Use PATH discovery"
-              />
-              <Button type="submit" w="fit-content">
-                Save paths
-              </Button>
-            </Stack>
-          </Box>
-        </Stack>
-      </Paper>
+      <FfmpegStatusPanel
+        ffmpegPath={ffmpegPath}
+        ffmpegStatusMessage={ffmpegStatusMessage}
+        ffmpegToolsStatus={ffmpegToolsStatus}
+        ffprobePath={ffprobePath}
+        onFfmpegPathChange={setFfmpegPath}
+        onFfprobePathChange={setFfprobePath}
+        onSaveConfiguredFfmpegPaths={saveConfiguredFfmpegPaths}
+      />
     </Box>
   );
 }
@@ -770,6 +505,459 @@ function SectionHeader({ label, title }: { label: string; title: string }) {
         {title}
       </Title>
     </Box>
+  );
+}
+
+function WorkspaceHeader() {
+  return (
+    <Box component="section" maw={720} aria-labelledby="videos-view-title">
+      <Text c="dimmed" fw={700} size="sm" tt="uppercase">
+        Local Desktop App
+      </Text>
+      <Title id="videos-view-title" order={1} mt={8} mb={12}>
+        Videos View
+      </Title>
+      <Text c="dimmed" lh={1.6}>
+        A local catalog workspace for organizing videos without a network
+        dependency.
+      </Text>
+    </Box>
+  );
+}
+
+function TauriStatusPanel({
+  localDesktopAppStatus
+}: {
+  localDesktopAppStatus: string;
+}) {
+  return (
+    <Paper component="section" aria-label="Tauri command status" p="md" maw={420}>
+      <Stack gap={8}>
+        <Text c="dimmed" fw={700} size="sm" tt="uppercase">
+          Tauri bridge
+        </Text>
+        <Text c="teal" fw={700}>
+          {localDesktopAppStatus}
+        </Text>
+      </Stack>
+    </Paper>
+  );
+}
+
+function CatalogVideosPanel({
+  catalogVideos,
+  catalogVideosStatusMessage
+}: {
+  catalogVideos: CatalogVideo[];
+  catalogVideosStatusMessage: string;
+}) {
+  return (
+    <Paper component="section" aria-label="Catalog Videos" p="md" maw={760}>
+      <Stack gap="md">
+        <SectionHeader label="Catalog results" title="Videos" />
+
+        {catalogVideosStatusMessage ? (
+          <Text>{catalogVideosStatusMessage}</Text>
+        ) : null}
+
+        {!catalogVideosStatusMessage && catalogVideos.length === 0 ? (
+          <Text c="dimmed">{catalogVideosEmptyMessage}</Text>
+        ) : null}
+
+        {catalogVideos.length > 0 ? (
+          <Stack gap="sm">
+            {catalogVideos.map((catalogVideo) => (
+              <CatalogVideoCard
+                catalogVideo={catalogVideo}
+                key={catalogVideo.id}
+              />
+            ))}
+          </Stack>
+        ) : null}
+      </Stack>
+    </Paper>
+  );
+}
+
+function CatalogVideoCard({ catalogVideo }: { catalogVideo: CatalogVideo }) {
+  return (
+    <Stack component="article" gap="sm">
+      <Divider />
+      <Box>
+        <Group gap="xs" align="center">
+          <Title order={3} size="h4">
+            {catalogVideo.title}
+          </Title>
+          <AvailabilityBadge isAvailable={catalogVideo.isAvailable} />
+        </Group>
+        <Text c="dimmed">
+          {formatDuration(catalogVideo.durationMilliseconds)}
+        </Text>
+      </Box>
+      <Box component="dl" className="definition-list">
+        <DefinitionTerm label="File Location">
+          {catalogVideo.fileLocationPath ? (
+            <Code className="wrapping-code">
+              {catalogVideo.fileLocationPath}
+            </Code>
+          ) : (
+            "Missing"
+          )}
+        </DefinitionTerm>
+        <DefinitionTerm label="File Size">
+          {formatFileSize(catalogVideo.fileSizeBytes)}
+        </DefinitionTerm>
+      </Box>
+    </Stack>
+  );
+}
+
+function ReviewQueuePanel({
+  missingVideos,
+  onRequestMissingVideoForget,
+  reviewQueueStatusMessage,
+  unavailableScanRoots,
+  unprocessableVideoCandidates
+}: {
+  missingVideos: CatalogVideo[];
+  onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
+  reviewQueueStatusMessage: string;
+  unavailableScanRoots: ScanRoot[];
+  unprocessableVideoCandidates: UnprocessableVideoCandidate[];
+}) {
+  return (
+    <Paper component="section" aria-label="Review Queue" p="md" maw={760}>
+      <Stack gap="md">
+        <SectionHeader label="Scan issues" title="Review Queue" />
+
+        {reviewQueueStatusMessage ? <Text>{reviewQueueStatusMessage}</Text> : null}
+
+        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+          <MissingVideosPanel
+            missingVideos={missingVideos}
+            onRequestMissingVideoForget={onRequestMissingVideoForget}
+          />
+          <UnavailableScanRootsPanel unavailableScanRoots={unavailableScanRoots} />
+          <UnprocessableCandidatesPanel
+            unprocessableVideoCandidates={unprocessableVideoCandidates}
+          />
+        </SimpleGrid>
+      </Stack>
+    </Paper>
+  );
+}
+
+function MissingVideosPanel({
+  missingVideos,
+  onRequestMissingVideoForget
+}: {
+  missingVideos: CatalogVideo[];
+  onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
+}) {
+  return (
+    <Stack component="section" gap="xs" aria-labelledby="missing-videos-title">
+      <Title order={3} id="missing-videos-title" size="h4">
+        Missing Videos
+      </Title>
+      {missingVideos.length > 0 ? (
+        <Stack gap="sm">
+          {missingVideos.map((missingVideo) => (
+            <Stack component="article" gap="xs" key={missingVideo.id}>
+              <Divider />
+              <Box>
+                <Title order={4} size="h5">
+                  {missingVideo.title}
+                </Title>
+                <Text c="dimmed">
+                  {formatDuration(missingVideo.durationMilliseconds)}
+                </Text>
+              </Box>
+              <Button
+                type="button"
+                size="xs"
+                variant="light"
+                onClick={() => onRequestMissingVideoForget(missingVideo)}
+              >
+                Forget From Catalog
+              </Button>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Missing Videos.</Text>
+      )}
+    </Stack>
+  );
+}
+
+function UnavailableScanRootsPanel({
+  unavailableScanRoots
+}: {
+  unavailableScanRoots: ScanRoot[];
+}) {
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-labelledby="unavailable-scan-roots-title"
+    >
+      <Title order={3} id="unavailable-scan-roots-title" size="h4">
+        Unavailable Scan Roots
+      </Title>
+      {unavailableScanRoots.length > 0 ? (
+        <Stack gap="sm">
+          {unavailableScanRoots.map((scanRoot) => (
+            <Stack component="article" gap="xs" key={scanRoot.path}>
+              <Divider />
+              <Code className="wrapping-code">{scanRoot.path}</Code>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Unavailable Scan Roots.</Text>
+      )}
+    </Stack>
+  );
+}
+
+function UnprocessableCandidatesPanel({
+  unprocessableVideoCandidates
+}: {
+  unprocessableVideoCandidates: UnprocessableVideoCandidate[];
+}) {
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-labelledby="unprocessable-candidates-title"
+    >
+      <Title order={3} id="unprocessable-candidates-title" size="h4">
+        Unprocessable Video Candidates
+      </Title>
+      {unprocessableVideoCandidates.length > 0 ? (
+        <Stack gap="sm">
+          {unprocessableVideoCandidates.map((candidate) => (
+            <Stack component="article" gap="xs" key={candidate.path}>
+              <Divider />
+              <Code className="wrapping-code">{candidate.path}</Code>
+              <Box component="dl" className="definition-list">
+                <DefinitionTerm label="Failure Reason">
+                  {candidate.reason}
+                </DefinitionTerm>
+                <DefinitionTerm label="File Size">
+                  {formatFileSize(candidate.fileSizeBytes)}
+                </DefinitionTerm>
+              </Box>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Unprocessable Video Candidates.</Text>
+      )}
+    </Stack>
+  );
+}
+
+function ScanRootsPanel({
+  manualScanRootPath,
+  onAddManualScanRoot,
+  onChooseScanRootFolder,
+  onManualScanRootPathChange,
+  onRefreshEveryScanRoot,
+  onRefreshSelectedScanRoot,
+  onRequestScanRootRemoval,
+  scanRoots,
+  scanRootsStatusMessage
+}: {
+  manualScanRootPath: string;
+  onAddManualScanRoot: (event: React.FormEvent) => void;
+  onChooseScanRootFolder: () => void;
+  onManualScanRootPathChange: (path: string) => void;
+  onRefreshEveryScanRoot: () => void;
+  onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
+  onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
+  scanRoots: ScanRoot[];
+  scanRootsStatusMessage: string;
+}) {
+  return (
+    <Paper component="section" aria-label="Scan Roots" p="md" maw={760}>
+      <Stack gap="md">
+        <Group justify="space-between" align="start">
+          <SectionHeader label="Catalog sources" title="Scan Roots" />
+          <Group gap="xs">
+            <Button type="button" variant="light" onClick={onChooseScanRootFolder}>
+              Choose folder
+            </Button>
+            <Button
+              type="button"
+              variant="default"
+              onClick={() => void onRefreshEveryScanRoot()}
+            >
+              Refresh all Scan Roots
+            </Button>
+          </Group>
+        </Group>
+
+        {scanRootsStatusMessage ? <Text>{scanRootsStatusMessage}</Text> : null}
+
+        <Box component="form" onSubmit={onAddManualScanRoot}>
+          <Group align="end">
+            <TextInput
+              className="path-input"
+              label="Manual path"
+              value={manualScanRootPath}
+              onChange={(event) =>
+                onManualScanRootPathChange(event.target.value)
+              }
+              placeholder="/Volumes/Archive/Videos"
+            />
+            <Button type="submit">Add path</Button>
+          </Group>
+        </Box>
+
+        {scanRoots.length > 0 ? (
+          <Stack gap="sm">
+            {scanRoots.map((scanRoot) => (
+              <ScanRootCard
+                key={scanRoot.path}
+                onRefreshSelectedScanRoot={onRefreshSelectedScanRoot}
+                onRequestScanRootRemoval={onRequestScanRootRemoval}
+                scanRoot={scanRoot}
+              />
+            ))}
+          </Stack>
+        ) : (
+          <Text c="dimmed">No Scan Roots added.</Text>
+        )}
+      </Stack>
+    </Paper>
+  );
+}
+
+function ScanRootCard({
+  onRefreshSelectedScanRoot,
+  onRequestScanRootRemoval,
+  scanRoot
+}: {
+  onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
+  onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
+  scanRoot: ScanRoot;
+}) {
+  return (
+    <Group component="article" gap="sm" justify="space-between">
+      <Group gap="xs">
+        <Code className="wrapping-code">{scanRoot.path}</Code>
+        <AvailabilityBadge isAvailable={scanRoot.isAvailable} />
+      </Group>
+      <Group gap="xs">
+        <Button
+          type="button"
+          size="xs"
+          variant="default"
+          onClick={() => void onRefreshSelectedScanRoot(scanRoot)}
+        >
+          Refresh
+        </Button>
+        <Button
+          type="button"
+          size="xs"
+          variant="light"
+          color="red"
+          onClick={() => onRequestScanRootRemoval(scanRoot)}
+        >
+          Remove
+        </Button>
+      </Group>
+    </Group>
+  );
+}
+
+function FfmpegStatusPanel({
+  ffmpegPath,
+  ffmpegStatusMessage,
+  ffmpegToolsStatus,
+  ffprobePath,
+  onFfmpegPathChange,
+  onFfprobePathChange,
+  onSaveConfiguredFfmpegPaths
+}: {
+  ffmpegPath: string;
+  ffmpegStatusMessage: string;
+  ffmpegToolsStatus: FfmpegToolsStatus | null;
+  ffprobePath: string;
+  onFfmpegPathChange: (path: string) => void;
+  onFfprobePathChange: (path: string) => void;
+  onSaveConfiguredFfmpegPaths: (event: React.FormEvent) => void;
+}) {
+  return (
+    <Paper component="section" aria-label="FFmpeg tools status" p="md" maw={760}>
+      <Stack gap="md">
+        <SectionHeader label="Video tooling" title="FFmpeg status" />
+
+        {ffmpegStatusMessage ? <Text>{ffmpegStatusMessage}</Text> : null}
+
+        {ffmpegToolsStatus ? (
+          <Stack gap="sm">
+            {[ffmpegToolsStatus.ffmpeg, ffmpegToolsStatus.ffprobe].map(
+              (toolStatus) => (
+                <FfmpegToolStatusCard
+                  key={toolStatus.binaryName}
+                  toolStatus={toolStatus}
+                />
+              )
+            )}
+          </Stack>
+        ) : null}
+
+        <Box component="form" onSubmit={onSaveConfiguredFfmpegPaths}>
+          <Stack gap="sm">
+            <TextInput
+              label="FFmpeg path"
+              value={ffmpegPath}
+              onChange={(event) => onFfmpegPathChange(event.target.value)}
+              placeholder="Use PATH discovery"
+            />
+            <TextInput
+              label="ffprobe path"
+              value={ffprobePath}
+              onChange={(event) => onFfprobePathChange(event.target.value)}
+              placeholder="Use PATH discovery"
+            />
+            <Button type="submit" w="fit-content">
+              Save paths
+            </Button>
+          </Stack>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+}
+
+function FfmpegToolStatusCard({
+  toolStatus
+}: {
+  toolStatus: FfmpegToolsStatus["ffmpeg"];
+}) {
+  return (
+    <Group component="article" gap="md" justify="space-between" align="start">
+      <Box>
+        <Title order={3} size="h4">
+          {toolStatus.binaryName}
+        </Title>
+        <Text c="dimmed" lh={1.5}>
+          {toolStatus.statusMessage}
+        </Text>
+        {toolStatus.resolvedPath ? (
+          <Code className="wrapping-code" mt={8}>
+            {toolStatus.resolvedPath}
+          </Code>
+        ) : null}
+      </Box>
+      <AvailabilityBadge
+        isAvailable={toolStatus.isAvailable}
+        missingLabel="Missing"
+      />
+    </Group>
   );
 }
 
