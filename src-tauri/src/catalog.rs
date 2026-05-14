@@ -303,11 +303,14 @@ impl Catalog {
         let scan_root_id = self.scan_root_id(scan_root_path)?;
         let video_candidate_paths =
             discover_video_candidate_paths(Path::new(scan_root_path), video_extension_allowlist)?;
+        let mut seen_video_candidate_paths = HashSet::new();
         let mut scanned_video_count = 0;
         let mut unprocessable_candidate_count = 0;
 
         for video_candidate_path in video_candidate_paths {
             let file_size_bytes = file_size_bytes(&video_candidate_path)?;
+            let video_candidate_path_text = video_candidate_path.to_string_lossy().into_owned();
+            seen_video_candidate_paths.insert(video_candidate_path_text.clone());
 
             match video_file_probe.probe_video_file(&video_candidate_path) {
                 Ok(video_probe) => {
@@ -326,10 +329,12 @@ impl Catalog {
                         file_size_bytes,
                         &reason,
                     )?;
+                    self.remove_file_location(&video_candidate_path_text)?;
                     unprocessable_candidate_count += 1;
                 }
             }
         }
+        self.remove_stale_scan_root_entries(scan_root_id, &seen_video_candidate_paths)?;
 
         Ok(ScanRootRefreshSummary {
             scanned_video_count,
@@ -492,6 +497,94 @@ impl Catalog {
                     reason,
                     file_size_bytes
                 ],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn remove_file_location(&self, video_path: &str) -> Result<(), String> {
+        self.database
+            .execute(
+                "DELETE FROM file_locations
+                 WHERE path = ?1",
+                params![video_path],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn remove_stale_scan_root_entries(
+        &self,
+        scan_root_id: i64,
+        seen_video_candidate_paths: &HashSet<String>,
+    ) -> Result<(), String> {
+        let existing_file_location_paths = self.file_location_paths_for_scan_root(scan_root_id)?;
+        for existing_file_location_path in existing_file_location_paths {
+            if !seen_video_candidate_paths.contains(&existing_file_location_path) {
+                self.remove_file_location(&existing_file_location_path)?;
+            }
+        }
+
+        let existing_unprocessable_candidate_paths =
+            self.unprocessable_candidate_paths_for_scan_root(scan_root_id)?;
+        for existing_unprocessable_candidate_path in existing_unprocessable_candidate_paths {
+            if !seen_video_candidate_paths.contains(&existing_unprocessable_candidate_path) {
+                self.remove_unprocessable_video_candidate(&existing_unprocessable_candidate_path)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn file_location_paths_for_scan_root(&self, scan_root_id: i64) -> Result<Vec<String>, String> {
+        let mut statement = self
+            .database
+            .prepare(
+                "SELECT path
+                 FROM file_locations
+                 WHERE scan_root_id = ?1",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let file_location_paths = statement
+            .query_map(params![scan_root_id], |row| row.get(0))
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(file_location_paths)
+    }
+
+    fn unprocessable_candidate_paths_for_scan_root(
+        &self,
+        scan_root_id: i64,
+    ) -> Result<Vec<String>, String> {
+        let mut statement = self
+            .database
+            .prepare(
+                "SELECT path
+                 FROM unprocessable_video_candidates
+                 WHERE scan_root_id = ?1",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let unprocessable_candidate_paths = statement
+            .query_map(params![scan_root_id], |row| row.get(0))
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(unprocessable_candidate_paths)
+    }
+
+    fn remove_unprocessable_video_candidate(&self, video_path: &str) -> Result<(), String> {
+        self.database
+            .execute(
+                "DELETE FROM unprocessable_video_candidates
+                 WHERE path = ?1",
+                params![video_path],
             )
             .map_err(|error| error.to_string())?;
 
@@ -837,6 +930,118 @@ mod tests {
                 path: canonical_broken_video_path.to_string_lossy().into_owned(),
                 reason: "missing moov atom".to_string(),
                 file_size_bytes: 6,
+            }]
+        );
+    }
+
+    #[test]
+    fn refreshing_a_scan_root_removes_file_locations_that_are_no_longer_present() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("valid video exists");
+        let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("initial scan root refreshes");
+        std::fs::remove_file(&family_trip_path).expect("video file is removed");
+
+        let refresh_summary = catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("second scan root refreshes");
+
+        assert_eq!(
+            refresh_summary,
+            super::ScanRootRefreshSummary {
+                scanned_video_count: 0,
+                unprocessable_candidate_count: 0,
+            }
+        );
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                title: "family-trip".to_string(),
+                duration_milliseconds: 1_000,
+                file_size_bytes: None,
+                file_location_path: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn refreshing_a_scan_root_replaces_a_previous_file_location_with_an_unprocessable_candidate() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("valid video exists");
+        let successful_video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &successful_video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("initial scan root refreshes");
+        let canonical_family_trip_path = family_trip_path
+            .canonicalize()
+            .expect("family trip path canonicalizes");
+        let failing_video_file_probe = FakeVideoFileProbe::failing_for(
+            canonical_family_trip_path.to_string_lossy().into_owned(),
+            "missing moov atom",
+        );
+
+        let refresh_summary = catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &failing_video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("second scan root refreshes");
+
+        assert_eq!(
+            refresh_summary,
+            super::ScanRootRefreshSummary {
+                scanned_video_count: 0,
+                unprocessable_candidate_count: 1,
+            }
+        );
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                title: "family-trip".to_string(),
+                duration_milliseconds: 1_000,
+                file_size_bytes: None,
+                file_location_path: None,
+            }]
+        );
+        assert_eq!(
+            catalog
+                .list_unprocessable_video_candidates()
+                .expect("unprocessable candidates list"),
+            vec![super::UnprocessableVideoCandidate {
+                path: canonical_family_trip_path.to_string_lossy().into_owned(),
+                reason: "missing moov atom".to_string(),
+                file_size_bytes: 17,
             }]
         );
     }
