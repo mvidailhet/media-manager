@@ -1,7 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { getLocalDesktopAppStatus, listCatalogVideos } from "./tauriCommands";
+import {
+  getFfmpegToolsStatus,
+  getLocalDesktopAppStatus,
+  listCatalogVideos,
+  saveFfmpegConfiguration
+} from "./tauriCommands";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn()
@@ -42,5 +47,24 @@ describe("Tauri commands", () => {
       }
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_catalog_videos");
+  });
+
+  it("calls the typed Rust command for FFmpeg tools status", async () => {
+    await getFfmpegToolsStatus();
+
+    expect(mockedInvoke).toHaveBeenCalledWith("get_ffmpeg_tools_status");
+  });
+
+  it("persists FFmpeg binary path configuration through the Rust command", async () => {
+    const configuration = {
+      ffmpegPath: "/opt/homebrew/bin/ffmpeg",
+      ffprobePath: "/opt/homebrew/bin/ffprobe"
+    };
+
+    await saveFfmpegConfiguration(configuration);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("save_ffmpeg_configuration", {
+      configuration
+    });
   });
 });

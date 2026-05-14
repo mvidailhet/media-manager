@@ -77,6 +77,115 @@ select {
   font-size: 1rem;
 }
 
+.ffmpeg-panel {
+  box-sizing: border-box;
+  display: grid;
+  gap: 18px;
+  width: min(100%, 760px);
+  padding: 20px;
+  border: 1px solid #d7dde4;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.ffmpeg-panel h2,
+.tool-status h3,
+.tool-status p {
+  margin: 0;
+}
+
+.ffmpeg-panel h2 {
+  margin-top: 6px;
+  color: #102030;
+  font-size: 1.2rem;
+  letter-spacing: 0;
+}
+
+.tool-status-list {
+  display: grid;
+  gap: 12px;
+}
+
+.tool-status {
+  display: flex;
+  gap: 16px;
+  align-items: start;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-top: 1px solid #edf0f4;
+}
+
+.tool-status h3 {
+  color: #102030;
+  font-size: 1rem;
+}
+
+.tool-status p {
+  margin-top: 4px;
+  color: #334e68;
+  line-height: 1.5;
+}
+
+.tool-status code {
+  display: block;
+  margin-top: 8px;
+  overflow-wrap: anywhere;
+  color: #1f2933;
+  font-size: 0.9rem;
+}
+
+.availability {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+}
+
+.availability.available {
+  color: #0f6b4f;
+  background: #e7f6ef;
+}
+
+.availability.missing {
+  color: #9b2c2c;
+  background: #fff0f0;
+}
+
+.ffmpeg-form {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.ffmpeg-form label {
+  display: grid;
+  gap: 6px;
+  color: #334e68;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.ffmpeg-form input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #c8d1dc;
+  border-radius: 6px;
+  color: #102030;
+}
+
+.ffmpeg-form button {
+  justify-self: start;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: 6px;
+  color: #ffffff;
+  background: #1d4f91;
+  font-weight: 700;
+  cursor: pointer;
+}
+
 @media (max-width: 640px) {
   .app-shell {
     padding: 28px 20px;
@@ -84,5 +193,9 @@ select {
 
   .workspace-header h1 {
     font-size: 1.8rem;
+  }
+
+  .tool-status {
+    display: grid;
   }
 }
