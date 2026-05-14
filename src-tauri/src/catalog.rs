@@ -20,6 +20,7 @@ const CREATE_SCAN_ROOTS_TABLE: &str = "
         id INTEGER PRIMARY KEY,
         path TEXT NOT NULL UNIQUE,
         drive_identity TEXT,
+        is_available INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -80,6 +81,7 @@ pub struct CatalogVideo {
 #[serde(rename_all = "camelCase")]
 pub struct ScanRoot {
     pub path: String,
+    pub is_available: bool,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -209,6 +211,7 @@ impl Catalog {
         let canonical_scan_root_path =
             canonical_scan_root_path(scan_root_path).map_err(|error| error.to_string())?;
         let scan_root = ScanRoot {
+            is_available: true,
             path: canonical_scan_root_path.to_string_lossy().into_owned(),
         };
 
@@ -227,14 +230,19 @@ impl Catalog {
         let mut statement = self
             .database
             .prepare(
-                "SELECT path
+                "SELECT path, is_available
                  FROM scan_roots
                  ORDER BY path",
             )
             .map_err(|error| error.to_string())?;
 
         let scan_roots = statement
-            .query_map([], |row| Ok(ScanRoot { path: row.get(0)? }))
+            .query_map([], |row| {
+                Ok(ScanRoot {
+                    path: row.get(0)?,
+                    is_available: row.get::<_, i64>(1)? == 1,
+                })
+            })
             .map_err(|error| error.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| error.to_string())?;
@@ -304,6 +312,17 @@ impl Catalog {
         video_extension_allowlist: &VideoExtensionAllowlist,
     ) -> Result<ScanRootRefreshSummary, String> {
         let scan_root_id = self.scan_root_id(scan_root_path)?;
+        if !Path::new(scan_root_path).is_dir() {
+            self.mark_scan_root_availability(scan_root_id, false)?;
+            self.remove_stale_scan_root_entries(scan_root_id, &HashSet::new())?;
+
+            return Ok(ScanRootRefreshSummary {
+                scanned_video_count: 0,
+                unprocessable_candidate_count: 0,
+            });
+        }
+
+        self.mark_scan_root_availability(scan_root_id, true)?;
         let video_candidate_paths =
             discover_video_candidate_paths(Path::new(scan_root_path), video_extension_allowlist)?;
         let mut seen_video_candidate_paths = HashSet::new();
@@ -343,6 +362,31 @@ impl Catalog {
             scanned_video_count,
             unprocessable_candidate_count,
         })
+    }
+
+    pub fn refresh_all_scan_roots<P: VideoFileProbe>(
+        &self,
+        video_file_probe: &P,
+        video_extension_allowlist: &VideoExtensionAllowlist,
+    ) -> Result<ScanRootRefreshSummary, String> {
+        let scan_roots = self.list_scan_roots()?;
+        let mut refresh_summary = ScanRootRefreshSummary {
+            scanned_video_count: 0,
+            unprocessable_candidate_count: 0,
+        };
+
+        for scan_root in scan_roots {
+            let scan_root_refresh_summary = self.refresh_scan_root(
+                &scan_root.path,
+                video_file_probe,
+                video_extension_allowlist,
+            )?;
+            refresh_summary.scanned_video_count += scan_root_refresh_summary.scanned_video_count;
+            refresh_summary.unprocessable_candidate_count +=
+                scan_root_refresh_summary.unprocessable_candidate_count;
+        }
+
+        Ok(refresh_summary)
     }
 
     pub fn list_unprocessable_video_candidates(
@@ -398,7 +442,24 @@ impl Catalog {
 
         self.database
             .execute_batch(&migration_batch)
-            .map_err(|error| error.to_string())
+            .map_err(|error| error.to_string())?;
+        self.add_scan_root_availability_column_if_missing()
+    }
+
+    fn add_scan_root_availability_column_if_missing(&self) -> Result<(), String> {
+        if catalog_table_has_column(&self.database, "scan_roots", "is_available")? {
+            return Ok(());
+        }
+
+        self.database
+            .execute(
+                "ALTER TABLE scan_roots
+                 ADD COLUMN is_available INTEGER NOT NULL DEFAULT 1",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
     }
 
     fn scan_root_id(&self, scan_root_path: &str) -> Result<i64, String> {
@@ -593,6 +654,43 @@ impl Catalog {
 
         Ok(())
     }
+
+    fn mark_scan_root_availability(
+        &self,
+        scan_root_id: i64,
+        is_available: bool,
+    ) -> Result<(), String> {
+        self.database
+            .execute(
+                "UPDATE scan_roots
+                 SET is_available = ?1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?2",
+                params![i64::from(is_available), scan_root_id],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+}
+
+fn catalog_table_has_column(
+    database: &Connection,
+    table_name: &str,
+    column_name: &str,
+) -> Result<bool, String> {
+    let mut statement = database
+        .prepare(&format!("PRAGMA table_info({table_name})"))
+        .map_err(|error| error.to_string())?;
+    let column_names = statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+
+    Ok(column_names
+        .iter()
+        .any(|existing_column_name| existing_column_name == column_name))
 }
 
 fn canonical_scan_root_path(scan_root_path: &Path) -> std::io::Result<PathBuf> {
@@ -751,6 +849,7 @@ mod tests {
             catalog.list_scan_roots().expect("scan roots list"),
             vec![
                 super::ScanRoot {
+                    is_available: true,
                     path: documentaries_root
                         .canonicalize()
                         .expect("documentaries path canonicalizes")
@@ -758,6 +857,7 @@ mod tests {
                         .into_owned(),
                 },
                 super::ScanRoot {
+                    is_available: true,
                     path: movies_root
                         .canonicalize()
                         .expect("movies path canonicalizes")
@@ -776,6 +876,145 @@ mod tests {
         assert_eq!(
             add_nested_root_error,
             "Scan Root overlaps with an existing Scan Root"
+        );
+    }
+
+    #[test]
+    fn refreshing_an_unreachable_scan_root_marks_it_unavailable_without_discarding_catalog_metadata(
+    ) {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+        let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("initial scan root refreshes");
+        std::fs::remove_dir_all(&movies_root).expect("scan root becomes unreachable");
+
+        let refresh_summary = catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("unreachable scan root refresh completes");
+
+        assert_eq!(
+            refresh_summary,
+            super::ScanRootRefreshSummary {
+                scanned_video_count: 0,
+                unprocessable_candidate_count: 0,
+            }
+        );
+        assert_eq!(
+            catalog.list_scan_roots().expect("scan roots list"),
+            vec![super::ScanRoot {
+                is_available: false,
+                path: scan_root.path,
+            }]
+        );
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                id: 1,
+                title: "family-trip".to_string(),
+                duration_milliseconds: 1_000,
+                file_size_bytes: None,
+                file_location_path: None,
+            }]
+        );
+    }
+
+    #[test]
+    fn refreshing_all_scan_roots_updates_each_root_and_marks_missing_videos() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let available_root = temporary_folder.path().join("Available Movies");
+        let unavailable_root = temporary_folder.path().join("Missing Movies");
+        std::fs::create_dir_all(&available_root).expect("available root exists");
+        std::fs::create_dir_all(&unavailable_root).expect("unavailable root exists");
+        let available_scan_root = catalog
+            .add_scan_root(&available_root)
+            .expect("available scan root adds");
+        let unavailable_scan_root = catalog
+            .add_scan_root(&unavailable_root)
+            .expect("unavailable scan root adds");
+        let family_trip_path = available_root.join("family-trip.mp4");
+        let archived_trip_path = unavailable_root.join("archived-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("family video exists");
+        std::fs::write(&archived_trip_path, "archived video bytes").expect("archived video exists");
+        let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+        catalog
+            .refresh_all_scan_roots(
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("initial all scan roots refresh");
+        std::fs::remove_dir_all(&unavailable_root).expect("one root becomes unavailable");
+
+        let refresh_summary = catalog
+            .refresh_all_scan_roots(
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("all scan roots refresh");
+
+        assert_eq!(
+            refresh_summary,
+            super::ScanRootRefreshSummary {
+                scanned_video_count: 1,
+                unprocessable_candidate_count: 0,
+            }
+        );
+        assert_eq!(
+            catalog.list_scan_roots().expect("scan roots list"),
+            vec![
+                super::ScanRoot {
+                    is_available: true,
+                    path: available_scan_root.path,
+                },
+                super::ScanRoot {
+                    is_available: false,
+                    path: unavailable_scan_root.path,
+                },
+            ]
+        );
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![
+                super::CatalogVideo {
+                    id: 2,
+                    title: "archived-trip".to_string(),
+                    duration_milliseconds: 1_000,
+                    file_size_bytes: None,
+                    file_location_path: None,
+                },
+                super::CatalogVideo {
+                    id: 1,
+                    title: "family-trip".to_string(),
+                    duration_milliseconds: 1_000,
+                    file_size_bytes: Some(17),
+                    file_location_path: Some(
+                        family_trip_path
+                            .canonicalize()
+                            .expect("family trip path canonicalizes")
+                            .to_string_lossy()
+                            .into_owned()
+                    ),
+                },
+            ]
         );
     }
 
@@ -1229,6 +1468,7 @@ mod tests {
                 "id INTEGER optional",
                 "path TEXT required",
                 "drive_identity TEXT optional",
+                "is_available INTEGER required",
                 "created_at TEXT required",
                 "updated_at TEXT required",
             ]

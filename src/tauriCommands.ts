@@ -6,6 +6,7 @@ const listScanRootsCommand = "list_scan_roots";
 const addScanRootCommand = "add_scan_root";
 const removeScanRootCommand = "remove_scan_root";
 const refreshScanRootCommand = "refresh_scan_root";
+const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
   "list_unprocessable_video_candidates";
 const ffmpegToolsStatusCommand = "get_ffmpeg_tools_status";
@@ -21,6 +22,7 @@ export interface CatalogVideo {
 
 export interface ScanRoot {
   path: string;
+  isAvailable: boolean;
 }
 
 export interface ScanRootRefreshSummary {
@@ -89,6 +91,14 @@ export async function refreshScanRoot(
 ): Promise<ScanRootRefreshSummary> {
   return invoke<ScanRootRefreshSummary>(refreshScanRootCommand, {
     path,
+    videoExtensionAllowlist: videoExtensionAllowlist ?? null
+  });
+}
+
+export async function refreshAllScanRoots(
+  videoExtensionAllowlist?: VideoExtensionAllowlist
+): Promise<ScanRootRefreshSummary> {
+  return invoke<ScanRootRefreshSummary>(refreshAllScanRootsCommand, {
     videoExtensionAllowlist: videoExtensionAllowlist ?? null
   });
 }

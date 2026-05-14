@@ -12,6 +12,7 @@ import {
   listCatalogVideos,
   listScanRoots,
   removeScanRoot,
+  refreshAllScanRoots,
   refreshScanRoot,
   saveFfmpegConfiguration
 } from "./tauriCommands";
@@ -66,6 +67,19 @@ export default function App() {
       setCatalogVideosStatusMessage("");
     } catch {
       setCatalogVideosStatusMessage(catalogVideosErrorMessage);
+    }
+  }
+
+  async function loadScanRoots(shouldClearStatusMessage = true) {
+    try {
+      const storedScanRoots = await listScanRoots();
+
+      setScanRoots(storedScanRoots);
+      if (shouldClearStatusMessage) {
+        setScanRootsStatusMessage("");
+      }
+    } catch {
+      setScanRootsStatusMessage(scanRootsErrorMessage);
     }
   }
 
@@ -255,6 +269,22 @@ export default function App() {
       setScanRootsStatusMessage(
         `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`
       );
+      await loadScanRoots(false);
+      await loadCatalogVideos();
+    } catch (error) {
+      setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function refreshEveryScanRoot() {
+    try {
+      setScanRootsStatusMessage(scanRootRefreshStartedMessage);
+      const refreshSummary = await refreshAllScanRoots();
+
+      setScanRootsStatusMessage(
+        `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`
+      );
+      await loadScanRoots(false);
       await loadCatalogVideos();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
@@ -335,6 +365,9 @@ export default function App() {
           <button type="button" onClick={chooseScanRootFolder}>
             Choose folder
           </button>
+          <button type="button" onClick={() => void refreshEveryScanRoot()}>
+            Refresh all Scan Roots
+          </button>
         </div>
 
         {scanRootsStatusMessage ? <p>{scanRootsStatusMessage}</p> : null}
@@ -356,7 +389,18 @@ export default function App() {
           <div className="scan-root-list">
             {scanRoots.map((scanRoot) => (
               <article className="scan-root" key={scanRoot.path}>
-                <code>{scanRoot.path}</code>
+                <div>
+                  <code>{scanRoot.path}</code>
+                  <strong
+                    className={
+                      scanRoot.isAvailable
+                        ? "availability available"
+                        : "availability missing"
+                    }
+                  >
+                    {scanRoot.isAvailable ? "Available" : "Unavailable"}
+                  </strong>
+                </div>
                 <div className="scan-root-actions">
                   <button
                     type="button"
