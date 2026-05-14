@@ -10,6 +10,7 @@ import {
   listCatalogVideos,
   listScanRoots,
   removeScanRoot,
+  refreshAllScanRoots,
   refreshScanRoot,
   saveFfmpegConfiguration
 } from "./tauriCommands";
@@ -25,6 +26,7 @@ vi.mock("./tauriCommands", () => ({
   listCatalogVideos: vi.fn(),
   listScanRoots: vi.fn(),
   removeScanRoot: vi.fn(),
+  refreshAllScanRoots: vi.fn(),
   refreshScanRoot: vi.fn(),
   saveFfmpegConfiguration: vi.fn()
 }));
@@ -37,6 +39,7 @@ const mockedListCatalogVideos = vi.mocked(listCatalogVideos);
 const mockedListScanRoots = vi.mocked(listScanRoots);
 const mockedAddScanRoot = vi.mocked(addScanRoot);
 const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
+const mockedRefreshAllScanRoots = vi.mocked(refreshAllScanRoots);
 const mockedRefreshScanRoot = vi.mocked(refreshScanRoot);
 
 const availableFfmpegToolsStatus = {
@@ -65,9 +68,16 @@ describe("Videos View shell", () => {
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
     mockedListCatalogVideos.mockResolvedValue([]);
     mockedListScanRoots.mockResolvedValue([]);
-    mockedAddScanRoot.mockImplementation(async (path) => ({ path }));
+    mockedAddScanRoot.mockImplementation(async (path) => ({
+      path,
+      isAvailable: true
+    }));
     mockedRemoveScanRoot.mockResolvedValue(undefined);
     mockedRefreshScanRoot.mockResolvedValue({
+      scannedVideoCount: 0,
+      unprocessableCandidateCount: 0
+    });
+    mockedRefreshAllScanRoots.mockResolvedValue({
       scannedVideoCount: 0,
       unprocessableCandidateCount: 0
     });
@@ -91,7 +101,8 @@ describe("Videos View shell", () => {
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true
       }
     ]);
 
@@ -103,6 +114,25 @@ describe("Videos View shell", () => {
     expect(
       screen.getByText("/Volumes/Archive/Videos/family-trip.mp4")
     ).toBeInTheDocument();
+  });
+
+  it("marks Missing Videos unavailable in the normal Videos list", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: null,
+        fileLocationPath: null,
+        isAvailable: false
+      }
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByText("Family Trip")).toBeInTheDocument();
+    expect(screen.getByText("Unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Missing")).toBeInTheDocument();
   });
 
   it("shows an empty state when the Catalog has no Videos", async () => {
@@ -154,7 +184,8 @@ describe("Videos View shell", () => {
   it("loads persisted Scan Roots into the app", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos"
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true
       }
     ]);
 
@@ -202,7 +233,8 @@ describe("Videos View shell", () => {
   it("asks how to handle affected Videos before removing a Scan Root", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos"
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true
       }
     ]);
 
@@ -222,7 +254,8 @@ describe("Videos View shell", () => {
   it("refreshes a selected Scan Root and shows the Catalog summary", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos"
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true
       }
     ]);
     mockedRefreshScanRoot.mockResolvedValue({
@@ -237,7 +270,8 @@ describe("Videos View shell", () => {
           title: "Family Trip",
           durationMilliseconds: 3723000,
           fileSizeBytes: 80740352,
-          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          isAvailable: true
         }
       ]);
 
@@ -252,5 +286,30 @@ describe("Videos View shell", () => {
       await screen.findByText("2 Videos scanned, 1 Unprocessable Video Candidates")
     ).toBeInTheDocument();
     expect(await screen.findByText("Family Trip")).toBeInTheDocument();
+  });
+
+  it("refreshes all Scan Roots and reloads availability", async () => {
+    mockedListScanRoots
+      .mockResolvedValueOnce([
+        {
+          path: "/Volumes/Archive/Videos",
+          isAvailable: true
+        }
+      ])
+      .mockResolvedValueOnce([
+        {
+          path: "/Volumes/Archive/Videos",
+          isAvailable: false
+        }
+      ]);
+
+    render(<App />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Refresh all Scan Roots" })
+    );
+
+    expect(mockedRefreshAllScanRoots).toHaveBeenCalled();
+    expect(await screen.findByText("Unavailable")).toBeInTheDocument();
   });
 });

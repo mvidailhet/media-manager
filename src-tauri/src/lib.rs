@@ -329,6 +329,16 @@ fn refresh_scan_root(
     path: String,
     video_extension_allowlist: Option<VideoExtensionAllowlist>,
 ) -> Result<ScanRootRefreshSummary, String> {
+    {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if let Some(refresh_summary) = catalog.refresh_scan_root_if_unreachable(&path)? {
+            return Ok(refresh_summary);
+        }
+    }
+
     let ffprobe_path = configured_or_discovered_ffprobe_path(&app)?;
     let video_file_probe = FfprobeVideoFileProbe::new(ffprobe_path);
     let video_extension_allowlist = video_extension_allowlist.unwrap_or_default();
@@ -338,6 +348,57 @@ fn refresh_scan_root(
         .map_err(|error| error.to_string())?;
 
     catalog.refresh_scan_root(&path, &video_file_probe, &video_extension_allowlist)
+}
+
+#[tauri::command]
+fn refresh_all_scan_roots(
+    app: tauri::AppHandle,
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_extension_allowlist: Option<VideoExtensionAllowlist>,
+) -> Result<ScanRootRefreshSummary, String> {
+    let scan_roots = {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        catalog.list_scan_roots()?
+    };
+    let has_reachable_scan_root = scan_roots
+        .iter()
+        .any(|scan_root| Path::new(&scan_root.path).is_dir());
+
+    if !has_reachable_scan_root {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        let mut refresh_summary = ScanRootRefreshSummary {
+            scanned_video_count: 0,
+            unprocessable_candidate_count: 0,
+        };
+
+        for scan_root in scan_roots {
+            if let Some(scan_root_refresh_summary) =
+                catalog.refresh_scan_root_if_unreachable(&scan_root.path)?
+            {
+                refresh_summary.scanned_video_count +=
+                    scan_root_refresh_summary.scanned_video_count;
+                refresh_summary.unprocessable_candidate_count +=
+                    scan_root_refresh_summary.unprocessable_candidate_count;
+            }
+        }
+
+        return Ok(refresh_summary);
+    }
+
+    let ffprobe_path = configured_or_discovered_ffprobe_path(&app)?;
+    let video_file_probe = FfprobeVideoFileProbe::new(ffprobe_path);
+    let video_extension_allowlist = video_extension_allowlist.unwrap_or_default();
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+    catalog.refresh_all_scan_roots(&video_file_probe, &video_extension_allowlist)
 }
 
 #[tauri::command]
@@ -369,6 +430,7 @@ pub fn run() {
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             refresh_scan_root,
+            refresh_all_scan_roots,
             list_unprocessable_video_candidates
         ])
         .run(tauri::generate_context!())

@@ -9,6 +9,7 @@ import {
   listCatalogVideos,
   listScanRoots,
   removeScanRoot,
+  refreshAllScanRoots,
   refreshScanRoot,
   saveFfmpegConfiguration
 } from "./tauriCommands";
@@ -38,7 +39,8 @@ describe("Tauri commands", () => {
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true
       }
     ]);
 
@@ -50,7 +52,8 @@ describe("Tauri commands", () => {
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true
       }
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_catalog_videos");
@@ -59,7 +62,8 @@ describe("Tauri commands", () => {
   it("calls the typed Rust command for persisted Scan Roots", async () => {
     mockedInvoke.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos"
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true
       }
     ]);
 
@@ -67,7 +71,8 @@ describe("Tauri commands", () => {
 
     expect(scanRoots).toEqual([
       {
-        path: "/Volumes/Archive/Videos"
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true
       }
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_scan_roots");
@@ -118,6 +123,23 @@ describe("Tauri commands", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("refresh_scan_root", {
       path: "/Volumes/Archive/Videos",
       videoExtensionAllowlist
+    });
+  });
+
+  it("refreshes all Scan Roots through the Rust command", async () => {
+    mockedInvoke.mockResolvedValue({
+      scannedVideoCount: 3,
+      unprocessableCandidateCount: 1
+    });
+
+    const refreshSummary = await refreshAllScanRoots();
+
+    expect(refreshSummary).toEqual({
+      scannedVideoCount: 3,
+      unprocessableCandidateCount: 1
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("refresh_all_scan_roots", {
+      videoExtensionAllowlist: null
     });
   });
 
