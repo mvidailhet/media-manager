@@ -308,6 +308,28 @@ impl Catalog {
         transaction.commit().map_err(|error| error.to_string())
     }
 
+    pub fn forget_catalog_video(&self, video_id: i64) -> Result<(), String> {
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM file_locations
+                 WHERE video_id = ?1",
+                params![video_id],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "DELETE FROM videos
+                 WHERE id = ?1",
+                params![video_id],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())
+    }
+
     pub fn refresh_scan_root<P: VideoFileProbe>(
         &self,
         scan_root_path: &str,
@@ -1428,6 +1450,50 @@ mod tests {
 
         let database = catalog_test_database(&catalog_path);
         assert_eq!(count_rows(&database, "scan_roots"), 0);
+        assert_eq!(count_rows(&database, "file_locations"), 0);
+        assert_eq!(count_rows(&database, "videos"), 0);
+    }
+
+    #[test]
+    fn forgetting_one_catalog_video_removes_metadata_without_touching_the_file() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+
+        let database = catalog_test_database(&catalog_path);
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-one", 1_i64, "Family Trip", 3723000_i64),
+            )
+            .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    1_i64,
+                    1_i64,
+                    family_trip_path.to_string_lossy().into_owned(),
+                    17_i64,
+                    "2026-05-14T16:35:48Z",
+                ),
+            )
+            .expect("file location persists");
+
+        catalog
+            .forget_catalog_video(1)
+            .expect("catalog video metadata is forgotten");
+
+        assert!(family_trip_path.exists());
         assert_eq!(count_rows(&database, "file_locations"), 0);
         assert_eq!(count_rows(&database, "videos"), 0);
     }
