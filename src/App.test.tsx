@@ -87,6 +87,7 @@ describe("Videos View shell", () => {
   it("loads Catalog Videos into the Videos View", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
+        id: 1,
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
@@ -110,6 +111,15 @@ describe("Videos View shell", () => {
     expect(
       await screen.findByText("No Videos in the Catalog.")
     ).toBeInTheDocument();
+  });
+
+  it("shows loading and error states for Catalog Videos", async () => {
+    mockedListCatalogVideos.mockRejectedValue(new Error("Catalog unavailable"));
+
+    render(<App />);
+
+    expect(screen.getByText("Loading Videos...")).toBeInTheDocument();
+    expect(await screen.findByText("Videos unavailable")).toBeInTheDocument();
   });
 
   it("shows FFmpeg and ffprobe availability in the app status", async () => {
@@ -219,6 +229,17 @@ describe("Videos View shell", () => {
       scannedVideoCount: 2,
       unprocessableCandidateCount: 1
     });
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+        }
+      ]);
 
     render(<App />);
 
@@ -230,5 +251,6 @@ describe("Videos View shell", () => {
     expect(
       await screen.findByText("2 Videos scanned, 1 Unprocessable Video Candidates")
     ).toBeInTheDocument();
+    expect(await screen.findByText("Family Trip")).toBeInTheDocument();
   });
 });

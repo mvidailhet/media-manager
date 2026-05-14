@@ -58,6 +58,17 @@ export default function App() {
   const [ffmpegPath, setFfmpegPath] = useState("");
   const [ffprobePath, setFfprobePath] = useState("");
 
+  async function loadCatalogVideos() {
+    try {
+      const storedCatalogVideos = await listCatalogVideos();
+
+      setCatalogVideos(storedCatalogVideos);
+      setCatalogVideosStatusMessage("");
+    } catch {
+      setCatalogVideosStatusMessage(catalogVideosErrorMessage);
+    }
+  }
+
   useEffect(() => {
     let canUpdateStatus = true;
 
@@ -85,7 +96,7 @@ export default function App() {
   useEffect(() => {
     let canUpdateCatalogVideos = true;
 
-    async function loadCatalogVideos() {
+    async function loadInitialCatalogVideos() {
       try {
         const storedCatalogVideos = await listCatalogVideos();
 
@@ -100,7 +111,7 @@ export default function App() {
       }
     }
 
-    void loadCatalogVideos();
+    void loadInitialCatalogVideos();
 
     return () => {
       canUpdateCatalogVideos = false;
@@ -230,6 +241,7 @@ export default function App() {
       );
       setScanRootPendingRemoval(null);
       setScanRootsStatusMessage("");
+      await loadCatalogVideos();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
     }
@@ -243,6 +255,7 @@ export default function App() {
       setScanRootsStatusMessage(
         `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`
       );
+      await loadCatalogVideos();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
     }
@@ -285,7 +298,7 @@ export default function App() {
             {catalogVideos.map((catalogVideo) => (
               <article
                 className="catalog-video"
-                key={`${catalogVideo.title}-${catalogVideo.fileLocationPath ?? "missing"}`}
+                key={catalogVideo.id}
               >
                 <div>
                   <h3>{catalogVideo.title}</h3>

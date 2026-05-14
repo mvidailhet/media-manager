@@ -12,6 +12,7 @@ const ffmpegToolsStatusCommand = "get_ffmpeg_tools_status";
 const saveFfmpegConfigurationCommand = "save_ffmpeg_configuration";
 
 export interface CatalogVideo {
+  id: number;
   title: string;
   durationMilliseconds: number;
   fileSizeBytes: number | null;
