@@ -178,13 +178,15 @@ describe("Tauri commands", () => {
 
   it("generates missing Preview Strips through the Rust command", async () => {
     mockedInvoke.mockResolvedValue({
-      generatedPreviewStripCount: 2
+      generatedPreviewStripCount: 2,
+      failedPreviewStripCount: 1
     });
 
     const generationSummary = await generateMissingPreviewStrips();
 
     expect(generationSummary).toEqual({
-      generatedPreviewStripCount: 2
+      generatedPreviewStripCount: 2,
+      failedPreviewStripCount: 1
     });
     expect(mockedInvoke).toHaveBeenCalledWith("generate_missing_preview_strips");
   });

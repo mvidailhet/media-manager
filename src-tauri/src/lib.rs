@@ -10,8 +10,8 @@ use std::{
 
 use catalog::{
     Catalog, CatalogVideo, FfmpegPreviewStripGenerator, FfprobeVideoFileProbe,
-    PreviewStripGenerationSummary, ScanRoot, ScanRootRefreshSummary, UnprocessableVideoCandidate,
-    VideoExtensionAllowlist,
+    PreviewStripGenerationSummary, PreviewStripGenerator, ScanRoot, ScanRootRefreshSummary,
+    UnprocessableVideoCandidate, VideoExtensionAllowlist,
 };
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
@@ -460,12 +460,41 @@ fn generate_missing_preview_strips(
     let ffmpeg_path = configured_or_discovered_ffmpeg_path(&app)?;
     let preview_cache_path = preview_strip_cache_path(&app)?;
     let preview_strip_generator = FfmpegPreviewStripGenerator::new(ffmpeg_path);
-    let catalog = catalog_state
-        .catalog
-        .lock()
-        .map_err(|error| error.to_string())?;
+    let pending_preview_strip_requests = {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        catalog.pending_preview_strip_requests(&preview_cache_path)?
+    };
+    let mut generation_summary = PreviewStripGenerationSummary {
+        generated_preview_strip_count: 0,
+        failed_preview_strip_count: 0,
+    };
 
-    catalog.generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
+    for request in pending_preview_strip_requests {
+        match preview_strip_generator.generate_preview_strip(&request) {
+            Ok(generated_preview_strip) => {
+                let catalog = catalog_state
+                    .catalog
+                    .lock()
+                    .map_err(|error| error.to_string())?;
+                catalog
+                    .store_generated_preview_strip(request.video_id, &generated_preview_strip)?;
+                generation_summary.generated_preview_strip_count += 1;
+            }
+            Err(reason) => {
+                let catalog = catalog_state
+                    .catalog
+                    .lock()
+                    .map_err(|error| error.to_string())?;
+                catalog.store_failed_preview_strip(request.video_id, &reason)?;
+                generation_summary.failed_preview_strip_count += 1;
+            }
+        }
+    }
+
+    Ok(generation_summary)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

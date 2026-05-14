@@ -88,6 +88,8 @@ export default function App() {
   const [ffprobePath, setFfprobePath] = useState("");
   const [previewStripStatusMessage, setPreviewStripStatusMessage] =
     useState("");
+  const [isGeneratingPreviewStrips, setIsGeneratingPreviewStrips] =
+    useState(false);
 
   async function loadCatalogVideos() {
     try {
@@ -381,14 +383,17 @@ export default function App() {
 
   async function generatePendingPreviewStrips() {
     try {
+      setIsGeneratingPreviewStrips(true);
       setPreviewStripStatusMessage(previewStripGenerationStartedMessage);
       const generationSummary = await generateMissingPreviewStrips();
 
       setPreviewStripStatusMessage(
-        `${generationSummary.generatedPreviewStripCount} Preview Strips generated`
+        `${generationSummary.generatedPreviewStripCount} Preview Strips generated, ${generationSummary.failedPreviewStripCount} Preview Strips failed`
       );
     } catch (error) {
       setPreviewStripStatusMessage(errorMessage(error));
+    } finally {
+      setIsGeneratingPreviewStrips(false);
     }
   }
 
@@ -406,6 +411,7 @@ export default function App() {
       <CatalogVideosPanel
         catalogVideos={catalogVideos}
         catalogVideosStatusMessage={catalogVideosStatusMessage}
+        isGeneratingPreviewStrips={isGeneratingPreviewStrips}
         onGeneratePendingPreviewStrips={generatePendingPreviewStrips}
         previewStripStatusMessage={previewStripStatusMessage}
       />
@@ -566,11 +572,13 @@ function TauriStatusPanel({
 function CatalogVideosPanel({
   catalogVideos,
   catalogVideosStatusMessage,
+  isGeneratingPreviewStrips,
   onGeneratePendingPreviewStrips,
   previewStripStatusMessage
 }: {
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
+  isGeneratingPreviewStrips: boolean;
   onGeneratePendingPreviewStrips: () => void;
   previewStripStatusMessage: string;
 }) {
@@ -581,6 +589,7 @@ function CatalogVideosPanel({
           <SectionHeader label="Catalog results" title="Videos" />
           <Button
             type="button"
+            disabled={isGeneratingPreviewStrips}
             variant="default"
             onClick={() => void onGeneratePendingPreviewStrips()}
           >

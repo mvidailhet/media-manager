@@ -35,6 +35,7 @@ export interface ScanRootRefreshSummary {
 
 export interface PreviewStripGenerationSummary {
   generatedPreviewStripCount: number;
+  failedPreviewStripCount: number;
 }
 
 export interface UnprocessableVideoCandidate {

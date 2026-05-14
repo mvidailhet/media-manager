@@ -81,6 +81,17 @@ const CREATE_PREVIEW_STRIPS_TABLE: &str = "
     );
 ";
 
+const CREATE_FAILED_PREVIEW_STRIPS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS failed_preview_strips (
+        id INTEGER PRIMARY KEY,
+        video_id INTEGER NOT NULL UNIQUE,
+        reason TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
+    );
+";
+
 const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 20;
 const PREVIEW_STRIP_COLUMNS: i64 = 5;
 const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 160;
@@ -122,6 +133,7 @@ pub struct ScanRootRefreshSummary {
 #[serde(rename_all = "camelCase")]
 pub struct PreviewStripGenerationSummary {
     pub generated_preview_strip_count: i64,
+    pub failed_preview_strip_count: i64,
 }
 
 pub struct PreviewStripRequest {
@@ -561,38 +573,81 @@ impl Catalog {
         Ok(unprocessable_video_candidates)
     }
 
+    #[cfg(test)]
     pub fn generate_missing_preview_strips<G: PreviewStripGenerator>(
         &self,
         preview_cache_path: &Path,
         preview_strip_generator: &G,
     ) -> Result<PreviewStripGenerationSummary, String> {
-        fs::create_dir_all(preview_cache_path).map_err(|error| error.to_string())?;
+        let pending_preview_strip_requests =
+            self.pending_preview_strip_requests(preview_cache_path)?;
+        let mut generation_summary = PreviewStripGenerationSummary {
+            generated_preview_strip_count: 0,
+            failed_preview_strip_count: 0,
+        };
 
-        let pending_preview_strips = self.pending_preview_strips()?;
-        let mut generated_preview_strip_count = 0;
-
-        for pending_preview_strip in pending_preview_strips {
-            let output_path = preview_cache_path.join(format!(
-                "video-{}-preview-strip.jpg",
-                pending_preview_strip.video_id
-            ));
-            let request = PreviewStripRequest {
-                video_id: pending_preview_strip.video_id,
-                video_path: PathBuf::from(&pending_preview_strip.video_path),
-                output_path,
-                duration_milliseconds: pending_preview_strip.duration_milliseconds,
-                frame_count: DEFAULT_PREVIEW_STRIP_FRAME_COUNT,
-            };
-            let generated_preview_strip =
-                preview_strip_generator.generate_preview_strip(&request)?;
-
-            self.store_preview_strip(pending_preview_strip.video_id, &generated_preview_strip)?;
-            generated_preview_strip_count += 1;
+        for request in pending_preview_strip_requests {
+            match preview_strip_generator.generate_preview_strip(&request) {
+                Ok(generated_preview_strip) => {
+                    self.store_generated_preview_strip(request.video_id, &generated_preview_strip)?;
+                    generation_summary.generated_preview_strip_count += 1;
+                }
+                Err(reason) => {
+                    self.store_failed_preview_strip(request.video_id, &reason)?;
+                    generation_summary.failed_preview_strip_count += 1;
+                }
+            }
         }
 
-        Ok(PreviewStripGenerationSummary {
-            generated_preview_strip_count,
-        })
+        Ok(generation_summary)
+    }
+
+    pub fn pending_preview_strip_requests(
+        &self,
+        preview_cache_path: &Path,
+    ) -> Result<Vec<PreviewStripRequest>, String> {
+        fs::create_dir_all(preview_cache_path).map_err(|error| error.to_string())?;
+        self.remove_preview_strip_rows_without_cache_files()?;
+
+        self.pending_preview_strips()?
+            .into_iter()
+            .map(|pending_preview_strip| {
+                Ok(PreviewStripRequest {
+                    video_id: pending_preview_strip.video_id,
+                    video_path: PathBuf::from(&pending_preview_strip.video_path),
+                    output_path: preview_cache_path.join(format!(
+                        "video-{}-preview-strip.jpg",
+                        pending_preview_strip.video_id
+                    )),
+                    duration_milliseconds: pending_preview_strip.duration_milliseconds,
+                    frame_count: DEFAULT_PREVIEW_STRIP_FRAME_COUNT,
+                })
+            })
+            .collect()
+    }
+
+    pub fn store_generated_preview_strip(
+        &self,
+        video_id: i64,
+        generated_preview_strip: &GeneratedPreviewStrip,
+    ) -> Result<(), String> {
+        self.store_preview_strip(video_id, generated_preview_strip)?;
+        self.remove_failed_preview_strip(video_id)
+    }
+
+    pub fn store_failed_preview_strip(&self, video_id: i64, reason: &str) -> Result<(), String> {
+        self.database
+            .execute(
+                "INSERT INTO failed_preview_strips (video_id, reason)
+                 VALUES (?1, ?2)
+                 ON CONFLICT(video_id) DO UPDATE SET
+                    reason = excluded.reason,
+                    updated_at = CURRENT_TIMESTAMP",
+                params![video_id, reason],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
     }
 
     fn reject_overlapping_scan_root(&self, candidate_path: &Path) -> Result<(), String> {
@@ -617,6 +672,7 @@ impl Catalog {
             CREATE_FILE_LOCATIONS_TABLE,
             CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE,
             CREATE_PREVIEW_STRIPS_TABLE,
+            CREATE_FAILED_PREVIEW_STRIPS_TABLE,
         ]
         .join("\n");
 
@@ -863,7 +919,9 @@ impl Catalog {
                  FROM videos
                  JOIN file_locations ON file_locations.video_id = videos.id
                  LEFT JOIN preview_strips ON preview_strips.video_id = videos.id
+                 LEFT JOIN failed_preview_strips ON failed_preview_strips.video_id = videos.id
                  WHERE preview_strips.id IS NULL
+                   AND failed_preview_strips.id IS NULL
                  GROUP BY videos.id, videos.duration_milliseconds
                  ORDER BY videos.id",
             )
@@ -907,6 +965,46 @@ impl Catalog {
                     generated_preview_strip.column_count,
                     generated_preview_strip.row_count
                 ],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn remove_preview_strip_rows_without_cache_files(&self) -> Result<(), String> {
+        let mut statement = self
+            .database
+            .prepare("SELECT id, path FROM preview_strips")
+            .map_err(|error| error.to_string())?;
+        let preview_strip_paths = statement
+            .query_map([], |row| {
+                Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?))
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        for (preview_strip_id, preview_strip_path) in preview_strip_paths {
+            if !Path::new(&preview_strip_path).is_file() {
+                self.database
+                    .execute(
+                        "DELETE FROM preview_strips
+                         WHERE id = ?1",
+                        params![preview_strip_id],
+                    )
+                    .map_err(|error| error.to_string())?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn remove_failed_preview_strip(&self, video_id: i64) -> Result<(), String> {
+        self.database
+            .execute(
+                "DELETE FROM failed_preview_strips
+                 WHERE video_id = ?1",
+                params![video_id],
             )
             .map_err(|error| error.to_string())?;
 
@@ -1461,7 +1559,7 @@ mod tests {
                 &super::VideoExtensionAllowlist::default(),
             )
             .expect("scan root refreshes");
-        let preview_strip_generator = FakePreviewStripGenerator;
+        let preview_strip_generator = FakePreviewStripGenerator::default();
 
         let generation_summary = catalog
             .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
@@ -1471,6 +1569,7 @@ mod tests {
             generation_summary,
             super::PreviewStripGenerationSummary {
                 generated_preview_strip_count: 1,
+                failed_preview_strip_count: 0,
             }
         );
         let stored_preview_strips = stored_preview_strips(&catalog_path);
@@ -1532,7 +1631,7 @@ mod tests {
                 ),
             )
             .expect("backup file location persists");
-        let preview_strip_generator = FakePreviewStripGenerator;
+        let preview_strip_generator = FakePreviewStripGenerator::default();
 
         catalog
             .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
@@ -1542,6 +1641,118 @@ mod tests {
             .expect("second preview strip pass is idempotent");
 
         assert_eq!(count_rows(&database, "preview_strips"), 1);
+    }
+
+    #[test]
+    fn preview_strip_generation_recreates_cache_files_that_were_removed() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let preview_cache_path = temporary_folder.path().join("Preview Cache");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+        let video_file_probe = FakeVideoFileProbe::with_duration(21_000);
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let preview_strip_generator = FakePreviewStripGenerator::default();
+        catalog
+            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
+            .expect("preview strips generate");
+        let first_preview_strip_path = stored_preview_strips(&catalog_path)[0].path.clone();
+        std::fs::remove_file(&first_preview_strip_path).expect("preview cache file is removed");
+
+        let generation_summary = catalog
+            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
+            .expect("preview strips regenerate");
+
+        assert_eq!(
+            generation_summary,
+            super::PreviewStripGenerationSummary {
+                generated_preview_strip_count: 1,
+                failed_preview_strip_count: 0,
+            }
+        );
+        assert!(Path::new(&first_preview_strip_path).exists());
+    }
+
+    #[test]
+    fn preview_strip_generation_continues_after_one_video_fails() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let preview_cache_path = temporary_folder.path().join("Preview Cache");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let database = catalog_test_database(&catalog_path);
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-one", 1_i64, "Broken Trip", 21_000_i64),
+            )
+            .expect("first video persists");
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-two", 1_i64, "Family Trip", 21_000_i64),
+            )
+            .expect("second video persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    1_i64,
+                    1_i64,
+                    movies_root.join("broken-trip.mp4").to_string_lossy().into_owned(),
+                    17_i64,
+                    "2026-05-14T16:35:48Z",
+                ),
+            )
+            .expect("first file location persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    2_i64,
+                    1_i64,
+                    movies_root.join("family-trip.mp4").to_string_lossy().into_owned(),
+                    17_i64,
+                    "2026-05-14T16:35:48Z",
+                ),
+            )
+            .expect("second file location persists");
+        let preview_strip_generator =
+            FakePreviewStripGenerator::failing_for_video(1, "ffmpeg failed");
+
+        let generation_summary = catalog
+            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
+            .expect("preview strip batch completes");
+
+        assert_eq!(
+            generation_summary,
+            super::PreviewStripGenerationSummary {
+                generated_preview_strip_count: 1,
+                failed_preview_strip_count: 1,
+            }
+        );
+        assert_eq!(count_rows(&database, "preview_strips"), 1);
+        assert_eq!(count_rows(&database, "failed_preview_strips"), 1);
     }
 
     #[test]
@@ -1929,6 +2140,7 @@ mod tests {
         assert_eq!(
             table_names,
             vec![
+                "failed_preview_strips",
                 "file_locations",
                 "preview_strips",
                 "scan_roots",
@@ -1952,6 +2164,7 @@ mod tests {
         assert_eq!(
             table_names,
             vec![
+                "failed_preview_strips",
                 "file_locations",
                 "preview_strips",
                 "scan_roots",
@@ -2084,6 +2297,20 @@ mod tests {
         );
         assert_eq!(
             catalog_foreign_keys(&database, "preview_strips"),
+            vec!["video_id -> videos.id on delete CASCADE"]
+        );
+        assert_eq!(
+            catalog_columns(&database, "failed_preview_strips"),
+            vec![
+                "id INTEGER optional",
+                "video_id INTEGER required",
+                "reason TEXT required",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_foreign_keys(&database, "failed_preview_strips"),
             vec!["video_id -> videos.id on delete CASCADE"]
         );
     }
@@ -2285,17 +2512,39 @@ mod tests {
         }
     }
 
-    struct FakePreviewStripGenerator;
+    struct FakePreviewStripGenerator {
+        failed_video_id: Option<i64>,
+        failure_reason: String,
+    }
+
+    impl FakePreviewStripGenerator {
+        fn failing_for_video(failed_video_id: i64, failure_reason: &str) -> Self {
+            Self {
+                failed_video_id: Some(failed_video_id),
+                failure_reason: failure_reason.to_string(),
+            }
+        }
+    }
+
+    impl Default for FakePreviewStripGenerator {
+        fn default() -> Self {
+            Self {
+                failed_video_id: None,
+                failure_reason: String::new(),
+            }
+        }
+    }
 
     impl super::PreviewStripGenerator for FakePreviewStripGenerator {
         fn generate_preview_strip(
             &self,
             request: &super::PreviewStripRequest,
         ) -> Result<super::GeneratedPreviewStrip, String> {
-            assert_eq!(request.video_id, 1);
             assert_eq!(request.frame_count, 20);
             assert_eq!(request.duration_milliseconds, 21_000);
-            assert!(request.video_path.ends_with("family-trip.mp4"));
+            if self.failed_video_id == Some(request.video_id) {
+                return Err(self.failure_reason.clone());
+            }
             if let Some(output_directory) = request.output_path.parent() {
                 std::fs::create_dir_all(output_directory).expect("preview output directory exists");
             }

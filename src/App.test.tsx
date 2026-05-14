@@ -101,7 +101,8 @@ describe("Videos View shell", () => {
     }));
     mockedForgetCatalogVideo.mockResolvedValue(undefined);
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
-      generatedPreviewStripCount: 0
+      generatedPreviewStripCount: 0,
+      failedPreviewStripCount: 0
     });
     mockedRemoveScanRoot.mockResolvedValue(undefined);
     mockedRefreshScanRoot.mockResolvedValue({
@@ -189,7 +190,8 @@ describe("Videos View shell", () => {
 
   it("queues cataloged Videos missing Preview Strips for generation", async () => {
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
-      generatedPreviewStripCount: 3
+      generatedPreviewStripCount: 3,
+      failedPreviewStripCount: 1
     });
 
     renderApp();
@@ -200,7 +202,9 @@ describe("Videos View shell", () => {
 
     expect(mockedGenerateMissingPreviewStrips).toHaveBeenCalled();
     expect(
-      await screen.findByText("3 Preview Strips generated")
+      await screen.findByText(
+        "3 Preview Strips generated, 1 Preview Strips failed"
+      )
     ).toBeInTheDocument();
   });
 
