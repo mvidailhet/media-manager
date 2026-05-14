@@ -9,6 +9,7 @@ type AppProvidersProps = {
 const defaultColorScheme = "light";
 const notificationPosition = "top-right";
 
+// ADR-0009 selects Mantine as the app-wide React UI foundation.
 export const appTheme = createTheme({
   fontFamily:
     "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
@@ -29,9 +30,6 @@ export const appTheme = createTheme({
         withBorder: true
       }
     }
-  },
-  other: {
-    decisionRecord: "ADR-0009"
   }
 });
 
