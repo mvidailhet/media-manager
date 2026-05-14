@@ -34,6 +34,7 @@ describe("Tauri commands", () => {
   it("calls the typed Rust command for listed Catalog Videos", async () => {
     mockedInvoke.mockResolvedValue([
       {
+        id: 1,
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
@@ -45,6 +46,7 @@ describe("Tauri commands", () => {
 
     expect(videos).toEqual([
       {
+        id: 1,
         title: "Family Trip",
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,

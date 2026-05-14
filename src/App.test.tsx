@@ -7,6 +7,7 @@ import {
   addScanRoot,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
+  listCatalogVideos,
   listScanRoots,
   removeScanRoot,
   refreshScanRoot,
@@ -21,6 +22,7 @@ vi.mock("./tauriCommands", () => ({
   addScanRoot: vi.fn(),
   getFfmpegToolsStatus: vi.fn(),
   getLocalDesktopAppStatus: vi.fn(),
+  listCatalogVideos: vi.fn(),
   listScanRoots: vi.fn(),
   removeScanRoot: vi.fn(),
   refreshScanRoot: vi.fn(),
@@ -31,6 +33,7 @@ const mockedOpen = vi.mocked(open);
 const mockedGetLocalDesktopAppStatus = vi.mocked(getLocalDesktopAppStatus);
 const mockedGetFfmpegToolsStatus = vi.mocked(getFfmpegToolsStatus);
 const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
+const mockedListCatalogVideos = vi.mocked(listCatalogVideos);
 const mockedListScanRoots = vi.mocked(listScanRoots);
 const mockedAddScanRoot = vi.mocked(addScanRoot);
 const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
@@ -60,6 +63,7 @@ describe("Videos View shell", () => {
     mockedGetLocalDesktopAppStatus.mockResolvedValue("Rust command online");
     mockedGetFfmpegToolsStatus.mockResolvedValue(availableFfmpegToolsStatus);
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
+    mockedListCatalogVideos.mockResolvedValue([]);
     mockedListScanRoots.mockResolvedValue([]);
     mockedAddScanRoot.mockImplementation(async (path) => ({ path }));
     mockedRemoveScanRoot.mockResolvedValue(undefined);
@@ -78,6 +82,44 @@ describe("Videos View shell", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("Local Desktop App")).toBeInTheDocument();
     expect(await screen.findByText("Rust command online")).toBeInTheDocument();
+  });
+
+  it("loads Catalog Videos into the Videos View", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+      }
+    ]);
+
+    render(<App />);
+
+    expect(await screen.findByText("Family Trip")).toBeInTheDocument();
+    expect(screen.getByText("1h 2m")).toBeInTheDocument();
+    expect(screen.getByText("80.7 MB")).toBeInTheDocument();
+    expect(
+      screen.getByText("/Volumes/Archive/Videos/family-trip.mp4")
+    ).toBeInTheDocument();
+  });
+
+  it("shows an empty state when the Catalog has no Videos", async () => {
+    render(<App />);
+
+    expect(
+      await screen.findByText("No Videos in the Catalog.")
+    ).toBeInTheDocument();
+  });
+
+  it("shows loading and error states for Catalog Videos", async () => {
+    mockedListCatalogVideos.mockRejectedValue(new Error("Catalog unavailable"));
+
+    render(<App />);
+
+    expect(screen.getByText("Loading Videos...")).toBeInTheDocument();
+    expect(await screen.findByText("Videos unavailable")).toBeInTheDocument();
   });
 
   it("shows FFmpeg and ffprobe availability in the app status", async () => {
@@ -187,6 +229,17 @@ describe("Videos View shell", () => {
       scannedVideoCount: 2,
       unprocessableCandidateCount: 1
     });
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4"
+        }
+      ]);
 
     render(<App />);
 
@@ -198,5 +251,6 @@ describe("Videos View shell", () => {
     expect(
       await screen.findByText("2 Videos scanned, 1 Unprocessable Video Candidates")
     ).toBeInTheDocument();
+    expect(await screen.findByText("Family Trip")).toBeInTheDocument();
   });
 });

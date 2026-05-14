@@ -69,6 +69,7 @@ const CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE: &str = "
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogVideo {
+    pub id: i64,
     pub title: String,
     pub duration_milliseconds: i64,
     pub file_size_bytes: Option<i64>,
@@ -176,7 +177,8 @@ impl Catalog {
         let mut statement = self
             .database
             .prepare(
-                "SELECT videos.title,
+                "SELECT videos.id,
+                        videos.title,
                         videos.duration_milliseconds,
                         file_locations.file_size_bytes,
                         file_locations.path
@@ -189,10 +191,11 @@ impl Catalog {
         let videos = statement
             .query_map([], |row| {
                 Ok(CatalogVideo {
-                    title: row.get(0)?,
-                    duration_milliseconds: row.get(1)?,
-                    file_size_bytes: row.get(2)?,
-                    file_location_path: row.get(3)?,
+                    id: row.get(0)?,
+                    title: row.get(1)?,
+                    duration_milliseconds: row.get(2)?,
+                    file_size_bytes: row.get(3)?,
+                    file_location_path: row.get(4)?,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -819,6 +822,7 @@ mod tests {
         assert_eq!(
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
+                id: 1,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: None,
@@ -863,6 +867,7 @@ mod tests {
         assert_eq!(
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
+                id: 1,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3_723_000,
                 file_size_bytes: Some(11),
@@ -916,6 +921,7 @@ mod tests {
         assert_eq!(
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
+                id: 1,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: Some(17),
@@ -974,6 +980,7 @@ mod tests {
         assert_eq!(
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
+                id: 1,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
@@ -1028,6 +1035,7 @@ mod tests {
         assert_eq!(
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
+                id: 1,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
@@ -1149,6 +1157,7 @@ mod tests {
         assert_eq!(
             catalog.listed_videos().expect("stored videos list"),
             vec![super::CatalogVideo {
+                id: 1,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),
@@ -1315,6 +1324,7 @@ mod tests {
         assert_eq!(
             stored_videos,
             vec![super::CatalogVideo {
+                id: 1,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),
