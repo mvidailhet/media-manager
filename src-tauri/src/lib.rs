@@ -9,8 +9,9 @@ use std::{
 };
 
 use catalog::{
-    Catalog, CatalogVideo, FfprobeVideoFileProbe, ScanRoot, ScanRootRefreshSummary,
-    UnprocessableVideoCandidate, VideoExtensionAllowlist,
+    Catalog, CatalogVideo, FfmpegPreviewStripGenerator, FfprobeVideoFileProbe,
+    PreviewStripGenerationSummary, ScanRoot, ScanRootRefreshSummary, UnprocessableVideoCandidate,
+    VideoExtensionAllowlist,
 };
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
@@ -20,6 +21,7 @@ const CATALOG_DATABASE_FILENAME: &str = "catalog.sqlite3";
 const FFMPEG_BINARY_NAME: &str = "ffmpeg";
 const FFPROBE_BINARY_NAME: &str = "ffprobe";
 const FFMPEG_SETTINGS_FILE_NAME: &str = "ffmpeg-settings.json";
+const PREVIEW_STRIP_CACHE_FOLDER_NAME: &str = "preview-strips";
 
 struct CatalogState {
     catalog: Mutex<Catalog>,
@@ -320,6 +322,30 @@ fn configured_or_discovered_ffprobe_path(app: &tauri::AppHandle) -> Result<PathB
         .ok_or(ffmpeg_tools_status.ffprobe.status_message)
 }
 
+fn configured_or_discovered_ffmpeg_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let settings_path = ffmpeg_settings_path(app)?;
+    let configuration = load_ffmpeg_configuration(&settings_path)?;
+    let path_value = env::var_os("PATH").unwrap_or_default();
+    let path_value = path_value.to_string_lossy();
+    let ffmpeg_tools_status = discover_ffmpeg_tools_status(&path_value, configuration);
+
+    ffmpeg_tools_status
+        .ffmpeg
+        .resolved_path
+        .filter(|_| ffmpeg_tools_status.ffmpeg.is_available)
+        .map(PathBuf::from)
+        .ok_or(ffmpeg_tools_status.ffmpeg.status_message)
+}
+
+fn preview_strip_cache_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
+    let app_cache_directory = app
+        .path()
+        .app_cache_dir()
+        .map_err(|error| error.to_string())?;
+
+    Ok(app_cache_directory.join(PREVIEW_STRIP_CACHE_FOLDER_NAME))
+}
+
 #[tauri::command]
 fn save_ffmpeg_configuration(
     app: tauri::AppHandle,
@@ -426,6 +452,22 @@ fn list_unprocessable_video_candidates(
     catalog.list_unprocessable_video_candidates()
 }
 
+#[tauri::command]
+fn generate_missing_preview_strips(
+    app: tauri::AppHandle,
+    catalog_state: tauri::State<'_, CatalogState>,
+) -> Result<PreviewStripGenerationSummary, String> {
+    let ffmpeg_path = configured_or_discovered_ffmpeg_path(&app)?;
+    let preview_cache_path = preview_strip_cache_path(&app)?;
+    let preview_strip_generator = FfmpegPreviewStripGenerator::new(ffmpeg_path);
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -445,7 +487,8 @@ pub fn run() {
             save_ffmpeg_configuration,
             refresh_scan_root,
             refresh_all_scan_roots,
-            list_unprocessable_video_candidates
+            list_unprocessable_video_candidates,
+            generate_missing_preview_strips
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -460,7 +503,7 @@ mod tests {
     use super::{
         discover_ffmpeg_tools_status, executable_binary_names, load_ffmpeg_configuration,
         local_desktop_app_status, save_ffmpeg_configuration_to_path, FfmpegConfiguration,
-        CATALOG_DATABASE_FILENAME,
+        CATALOG_DATABASE_FILENAME, PREVIEW_STRIP_CACHE_FOLDER_NAME,
     };
 
     #[test]
@@ -471,6 +514,11 @@ mod tests {
     #[test]
     fn catalog_database_filename_is_app_private_sqlite_storage() {
         assert_eq!(CATALOG_DATABASE_FILENAME, "catalog.sqlite3");
+    }
+
+    #[test]
+    fn preview_strip_cache_folder_name_is_app_private_cache_storage() {
+        assert_eq!(PREVIEW_STRIP_CACHE_FOLDER_NAME, "preview-strips");
     }
 
     #[test]

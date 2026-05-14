@@ -10,6 +10,7 @@ const refreshScanRootCommand = "refresh_scan_root";
 const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
   "list_unprocessable_video_candidates";
+const generateMissingPreviewStripsCommand = "generate_missing_preview_strips";
 const ffmpegToolsStatusCommand = "get_ffmpeg_tools_status";
 const saveFfmpegConfigurationCommand = "save_ffmpeg_configuration";
 
@@ -30,6 +31,10 @@ export interface ScanRoot {
 export interface ScanRootRefreshSummary {
   scannedVideoCount: number;
   unprocessableCandidateCount: number;
+}
+
+export interface PreviewStripGenerationSummary {
+  generatedPreviewStripCount: number;
 }
 
 export interface UnprocessableVideoCandidate {
@@ -115,6 +120,10 @@ export async function listUnprocessableVideoCandidates(): Promise<
   return invoke<UnprocessableVideoCandidate[]>(
     listUnprocessableVideoCandidatesCommand
   );
+}
+
+export async function generateMissingPreviewStrips(): Promise<PreviewStripGenerationSummary> {
+  return invoke<PreviewStripGenerationSummary>(generateMissingPreviewStripsCommand);
 }
 
 export async function getFfmpegToolsStatus(): Promise<FfmpegToolsStatus> {
