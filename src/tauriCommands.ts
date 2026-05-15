@@ -21,7 +21,24 @@ export interface CatalogVideo {
   fileSizeBytes: number | null;
   fileLocationPath: string | null;
   isAvailable: boolean;
+  previewStrip: PreviewStripStatus;
 }
+
+export type PreviewStripStatus =
+  | {
+      status: "generated";
+      path: string;
+      frameCount: number;
+      columnCount: number;
+      rowCount: number;
+    }
+  | {
+      status: "failed";
+      failureReason: string;
+    }
+  | {
+      status: "pending";
+    };
 
 export interface ScanRoot {
   path: string;
