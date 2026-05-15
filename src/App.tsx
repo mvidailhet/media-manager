@@ -395,6 +395,7 @@ export default function App() {
       setPreviewStripStatusMessage(
         `${generationSummary.generatedPreviewStripCount} Preview Strips generated, ${generationSummary.failedPreviewStripCount} Preview Strips failed`
       );
+      await loadCatalogVideos();
     } catch (error) {
       setPreviewStripStatusMessage(errorMessage(error));
     } finally {

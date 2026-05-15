@@ -205,6 +205,35 @@ describe("Videos View shell", () => {
       generatedPreviewStripCount: 3,
       failedPreviewStripCount: 1
     });
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          isAvailable: true,
+          previewStrip: pendingPreviewStrip
+        }
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          isAvailable: true,
+          previewStrip: {
+            status: "generated",
+            path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
+            frameCount: 20,
+            columnCount: 5,
+            rowCount: 4
+          }
+        }
+      ]);
 
     renderApp();
 
@@ -217,6 +246,9 @@ describe("Videos View shell", () => {
       await screen.findByText(
         "3 Preview Strips generated, 1 Preview Strips failed"
       )
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("img", { name: "Preview Strip for Family Trip" })
     ).toBeInTheDocument();
   });
 
