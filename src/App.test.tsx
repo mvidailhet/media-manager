@@ -216,6 +216,20 @@ function renderApp() {
   );
 }
 
+async function openScanModule() {
+  fireEvent.click(await screen.findByRole("button", { name: "Scan" }));
+}
+
+async function openSettingsModule() {
+  fireEvent.click(await screen.findByRole("button", { name: "Settings" }));
+}
+
+async function openMetadataSuggestionsView() {
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Metadata Suggestions" }),
+  );
+}
+
 describe("Videos View shell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -309,14 +323,177 @@ describe("Videos View shell", () => {
     mockedOpen.mockResolvedValue(null);
   });
 
-  it("renders the Videos View as the initial workspace", async () => {
+  it("renders Catalog as the initial module workspace", async () => {
     renderApp();
 
     expect(
-      screen.getByRole("heading", { name: "Videos View" }),
+      screen.getByRole("heading", { name: "Catalog" }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Catalog" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scan" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "FFmpeg status" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Local Desktop App")).toBeInTheDocument();
     expect(await screen.findByText("Rust command online")).toBeInTheDocument();
+  });
+
+  it("resets Video Detail and Batch Metadata Edit when changing Catalog views", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: true,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 50740352,
+        fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(await within(catalogVideos).findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("region", { name: "Batch Metadata Edit" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
+
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Batch Metadata Edit" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps Video Detail and Batch Metadata Edit when clicking the active Catalog view", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("button", {
+        name: "Family Trip",
+      }),
+    );
+    fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("region", { name: "Batch Metadata Edit" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "All Videos" }));
+
+    expect(
+      screen.getByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "Batch Metadata Edit" }),
+    ).toBeInTheDocument();
+  });
+
+  it("reviews Metadata Suggestions inside Catalog with selectable affected Video context", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestionKind: "tag",
+        suggestedValue: "Travel",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive",
+            sourcePathSegment: "Trips",
+            videos: [
+              {
+                videoId: 1,
+                title: "Family Trip",
+                fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Metadata Suggestions" }));
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    expect(within(metadataSuggestions).getByText("Travel")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Review Family Trip",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
   });
 
   it("loads Catalog Videos into the Videos View", async () => {
@@ -594,10 +771,10 @@ describe("Videos View shell", () => {
       await within(catalogVideos).findByText("Studio Clip"),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Favorites View" }));
+    fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
 
     expect(
-      screen.getByRole("heading", { name: "Favorites View" }),
+      screen.getByRole("heading", { name: "Favorite Videos" }),
     ).toBeInTheDocument();
     expect(
       within(catalogVideos).getByLabelText("Favorites only"),
@@ -898,14 +1075,10 @@ describe("Videos View shell", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    fireEvent.click(
-      within(catalogVideos).getByRole("button", {
-        name: "Recently Opened View",
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Recently Opened" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Recently Opened View" }),
+      await screen.findByRole("heading", { name: "Recently Opened Videos" }),
     ).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByText("Never Opened"),
@@ -958,11 +1131,7 @@ describe("Videos View shell", () => {
     fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
       target: { value: "openCountDescending" },
     });
-    fireEvent.click(
-      within(catalogVideos).getByRole("button", {
-        name: "Recently Opened View",
-      }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Recently Opened" }));
 
     const sortVideos = within(catalogVideos).getByLabelText("Sort Videos");
     expect(sortVideos).toHaveValue("lastOpenedDescending");
@@ -1857,6 +2026,8 @@ describe("Videos View shell", () => {
   it("shows FFmpeg and ffprobe availability in the app status", async () => {
     renderApp();
 
+    await openSettingsModule();
+
     expect(await screen.findByText("ffmpeg")).toBeInTheDocument();
     expect(screen.getByText("ffprobe")).toBeInTheDocument();
     expect(screen.getAllByText("Available")).toHaveLength(2);
@@ -1867,14 +2038,23 @@ describe("Videos View shell", () => {
   it("keeps actions, form controls, and status badges visually consistent", async () => {
     renderApp();
 
+    await openScanModule();
+
     const chooseFolderButton = await screen.findByRole("button", {
       name: "Choose folder",
     });
     const manualPathInput = screen.getByLabelText("Manual path");
-    const availableBadge = screen.getAllByText("Available")[0];
 
     expect(chooseFolderButton).toBeVisible();
     expect(manualPathInput).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "FFmpeg status" }),
+    ).not.toBeInTheDocument();
+
+    await openSettingsModule();
+
+    const availableBadge = screen.getAllByText("Available")[0];
+
     expect(availableBadge).toBeVisible();
     expect(document.documentElement).toHaveAttribute(
       "data-mantine-color-scheme",
@@ -1895,6 +2075,8 @@ describe("Videos View shell", () => {
 
     renderApp();
 
+    await openSettingsModule();
+
     expect(
       await screen.findByText("ffmpeg is not available from PATH or settings"),
     ).toBeInTheDocument();
@@ -1912,6 +2094,8 @@ describe("Videos View shell", () => {
 
     renderApp();
 
+    await openScanModule();
+
     expect(
       await screen.findByText("/Volumes/Archive/Videos"),
     ).toBeInTheDocument();
@@ -1927,6 +2111,8 @@ describe("Videos View shell", () => {
     ]);
 
     renderApp();
+
+    await openScanModule();
 
     const scanRoots = await screen.findByLabelText("Scan Roots");
 
@@ -1956,6 +2142,8 @@ describe("Videos View shell", () => {
     ]);
 
     renderApp();
+
+    await openScanModule();
 
     fireEvent.change(await screen.findByLabelText("Ignored folder names"), {
       target: { value: "Misc, Extras" },
@@ -1993,6 +2181,8 @@ describe("Videos View shell", () => {
 
     renderApp();
 
+    await openScanModule();
+
     fireEvent.click(
       await screen.findByRole("button", { name: "Choose folder" }),
     );
@@ -2022,6 +2212,8 @@ describe("Videos View shell", () => {
 
     renderApp();
 
+    await openScanModule();
+
     fireEvent.click(
       await screen.findByRole("button", { name: "Choose folder" }),
     );
@@ -2039,6 +2231,8 @@ describe("Videos View shell", () => {
     );
 
     renderApp();
+
+    await openScanModule();
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Choose folder" }),
@@ -2059,6 +2253,8 @@ describe("Videos View shell", () => {
     ]);
 
     renderApp();
+
+    await openScanModule();
 
     fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
     fireEvent.click(
@@ -2101,6 +2297,8 @@ describe("Videos View shell", () => {
 
     renderApp();
 
+    await openScanModule();
+
     fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
 
     expect(mockedRefreshScanRoot).toHaveBeenCalledWith(
@@ -2111,6 +2309,7 @@ describe("Videos View shell", () => {
         "2 Videos scanned, 1 Unprocessable Video Candidates",
       ),
     ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Catalog" }));
     expect(await screen.findByText("Family Trip")).toBeInTheDocument();
   });
 
@@ -2132,6 +2331,8 @@ describe("Videos View shell", () => {
       ]);
 
     renderApp();
+
+    await openScanModule();
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Refresh all Scan Roots" }),
@@ -2192,6 +2393,8 @@ describe("Videos View shell", () => {
 
     renderApp();
 
+    await openScanModule();
+
     await waitFor(() => {
       expect(mockedListMetadataSuggestionGroups).toHaveBeenCalled();
     });
@@ -2222,7 +2425,7 @@ describe("Videos View shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("lists Metadata Suggestions grouped by value and source in the Review Queue", async () => {
+  it("lists Metadata Suggestions grouped by value and source in Catalog", async () => {
     const metadataSuggestionGroups = [
       {
         suggestedValue: "Family",
@@ -2265,10 +2468,9 @@ describe("Videos View shell", () => {
 
     renderApp();
 
-    const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue",
-    });
-    let metadataSuggestions = within(reviewQueue).getByRole("region", {
+    await openMetadataSuggestionsView();
+
+    let metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
 
@@ -2282,7 +2484,7 @@ describe("Videos View shell", () => {
         name: "Family",
       }),
     ).toBeInTheDocument();
-    metadataSuggestions = within(reviewQueue).getByRole("region", {
+    metadataSuggestions = screen.getByRole("region", {
       name: "Metadata Suggestions",
     });
     expect(within(metadataSuggestions).getAllByText("Tag")[0]).toBeInTheDocument();
@@ -2354,10 +2556,9 @@ describe("Videos View shell", () => {
 
     renderApp();
 
-    const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue",
-    });
-    const metadataSuggestions = within(reviewQueue).getByRole("region", {
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
     fireEvent.click(
@@ -2408,10 +2609,9 @@ describe("Videos View shell", () => {
 
     renderApp();
 
-    const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue",
-    });
-    const metadataSuggestions = within(reviewQueue).getByRole("region", {
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
     fireEvent.change(
@@ -2474,10 +2674,9 @@ describe("Videos View shell", () => {
 
     renderApp();
 
-    const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue",
-    });
-    const metadataSuggestions = within(reviewQueue).getByRole("region", {
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
     fireEvent.change(
@@ -2531,10 +2730,9 @@ describe("Videos View shell", () => {
 
     renderApp();
 
-    const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue",
-    });
-    const metadataSuggestions = within(reviewQueue).getByRole("region", {
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
     fireEvent.click(
@@ -2573,6 +2771,8 @@ describe("Videos View shell", () => {
       .mockResolvedValueOnce([]);
 
     renderApp();
+
+    await openScanModule();
 
     const reviewQueue = await screen.findByRole("region", {
       name: "Review Queue",
@@ -2641,6 +2841,8 @@ describe("Videos View shell", () => {
 
     renderApp();
 
+    await openScanModule();
+
     const reviewQueue = await screen.findByRole("region", {
       name: "Review Queue",
     });
@@ -2669,6 +2871,8 @@ describe("Videos View shell", () => {
       .mockResolvedValueOnce([]);
 
     renderApp();
+
+    await openScanModule();
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Forget From Catalog" }),
