@@ -9,7 +9,18 @@ import {
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   ignoreFailedPreviewStrip,
+  attachPerformerToVideo,
+  attachTagToVideo,
+  createPerformer,
+  createTag,
+  deletePerformer,
+  deleteTag,
+  detachPerformerFromVideo,
+  detachTagFromVideo,
+  performersForVideo,
   listFailedPreviewStrips,
+  listPerformers,
+  listTags,
   listUnprocessableVideoCandidates,
   listCatalogVideos,
   listScanRoots,
@@ -19,7 +30,10 @@ import {
   refreshScanRoot,
   retryFailedPreviewStrip,
   resumePreviewStripQueue,
-  saveFfmpegConfiguration
+  saveFfmpegConfiguration,
+  updatePerformer,
+  tagsForVideo,
+  updateTag
 } from "./tauriCommands";
 
 vi.mock("@tauri-apps/api/core", () => ({
@@ -299,6 +313,82 @@ describe("Tauri commands", () => {
 
     expect(mockedInvoke).toHaveBeenCalledWith("save_ffmpeg_configuration", {
       configuration
+    });
+  });
+
+  it("calls typed Rust commands for Tag primitives", async () => {
+    mockedInvoke.mockResolvedValue([{ id: 4, name: "Travel" }]);
+
+    const listedTags = await listTags();
+    mockedInvoke.mockResolvedValue({ id: 4, name: "Travel" });
+    const createdTag = await createTag("Travel");
+    const updatedTag = await updateTag(4, "Archive");
+    await deleteTag(4);
+
+    expect(listedTags).toEqual([{ id: 4, name: "Travel" }]);
+    expect(createdTag).toEqual({ id: 4, name: "Travel" });
+    expect(updatedTag).toEqual({ id: 4, name: "Travel" });
+    expect(mockedInvoke).toHaveBeenCalledWith("list_tags");
+    expect(mockedInvoke).toHaveBeenCalledWith("create_tag", { name: "Travel" });
+    expect(mockedInvoke).toHaveBeenCalledWith("update_tag", {
+      tagId: 4,
+      name: "Archive"
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("delete_tag", { tagId: 4 });
+  });
+
+  it("calls typed Rust commands for Performer primitives", async () => {
+    mockedInvoke.mockResolvedValue([{ id: 9, name: "Blair" }]);
+
+    const listedPerformers = await listPerformers();
+    mockedInvoke.mockResolvedValue({ id: 9, name: "Blair" });
+    const createdPerformer = await createPerformer("Blair");
+    const updatedPerformer = await updatePerformer(9, "Alex");
+    await deletePerformer(9);
+
+    expect(listedPerformers).toEqual([{ id: 9, name: "Blair" }]);
+    expect(createdPerformer).toEqual({ id: 9, name: "Blair" });
+    expect(updatedPerformer).toEqual({ id: 9, name: "Blair" });
+    expect(mockedInvoke).toHaveBeenCalledWith("list_performers");
+    expect(mockedInvoke).toHaveBeenCalledWith("create_performer", {
+      name: "Blair"
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("update_performer", {
+      performerId: 9,
+      name: "Alex"
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("delete_performer", {
+      performerId: 9
+    });
+  });
+
+  it("calls typed Rust commands for Video metadata links", async () => {
+    await attachTagToVideo(4, 1);
+    await detachTagFromVideo(4, 1);
+    await attachPerformerToVideo(9, 1);
+    await detachPerformerFromVideo(9, 1);
+    await tagsForVideo(1);
+    await performersForVideo(1);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("attach_tag_to_video", {
+      tagId: 4,
+      videoId: 1
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("detach_tag_from_video", {
+      tagId: 4,
+      videoId: 1
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("tags_for_video", { videoId: 1 });
+    expect(mockedInvoke).toHaveBeenCalledWith("attach_performer_to_video", {
+      performerId: 9,
+      videoId: 1
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("detach_performer_from_video", {
+      performerId: 9,
+      videoId: 1
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("performers_for_video", {
+      videoId: 1
     });
   });
 });

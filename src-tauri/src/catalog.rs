@@ -99,6 +99,48 @@ const CREATE_FAILED_PREVIEW_STRIPS_TABLE: &str = "
     );
 ";
 
+const CREATE_TAGS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS tags (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        normalized_name TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+";
+
+const CREATE_PERFORMERS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS performers (
+        id INTEGER PRIMARY KEY,
+        name TEXT NOT NULL,
+        normalized_name TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+";
+
+const CREATE_TAG_VIDEOS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS tag_videos (
+        tag_id INTEGER NOT NULL,
+        video_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (tag_id, video_id),
+        FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE,
+        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
+    );
+";
+
+const CREATE_PERFORMER_VIDEOS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS performer_videos (
+        performer_id INTEGER NOT NULL,
+        video_id INTEGER NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (performer_id, video_id),
+        FOREIGN KEY (performer_id) REFERENCES performers (id) ON DELETE CASCADE,
+        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
+    );
+";
+
 const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 20;
 const PREVIEW_STRIP_COLUMNS: i64 = 5;
 const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 160;
@@ -174,6 +216,20 @@ pub struct FailedPreviewStrip {
     pub video_id: i64,
     pub title: String,
     pub failure_reason: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogTag {
+    pub id: i64,
+    pub name: String,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogPerformer {
+    pub id: i64,
+    pub name: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -855,6 +911,324 @@ impl Catalog {
         Ok(())
     }
 
+    pub fn list_tags(&self) -> Result<Vec<CatalogTag>, String> {
+        self.list_metadata_values("tags")
+    }
+
+    pub fn create_tag(&self, name: &str) -> Result<CatalogTag, String> {
+        self.create_metadata_value("tags", name, "Tag")
+    }
+
+    pub fn update_tag(&self, tag_id: i64, name: &str) -> Result<CatalogTag, String> {
+        self.update_metadata_value("tags", tag_id, name, "Tag")
+    }
+
+    pub fn delete_tag(&self, tag_id: i64) -> Result<(), String> {
+        self.delete_metadata_value("tags", tag_id)
+    }
+
+    pub fn list_performers(&self) -> Result<Vec<CatalogPerformer>, String> {
+        self.list_metadata_values("performers")
+            .map(|metadata_values| {
+                metadata_values
+                    .into_iter()
+                    .map(|metadata_value| CatalogPerformer {
+                        id: metadata_value.id,
+                        name: metadata_value.name,
+                    })
+                    .collect()
+            })
+    }
+
+    pub fn create_performer(&self, name: &str) -> Result<CatalogPerformer, String> {
+        self.create_metadata_value("performers", name, "Performer")
+            .map(|metadata_value| CatalogPerformer {
+                id: metadata_value.id,
+                name: metadata_value.name,
+            })
+    }
+
+    pub fn update_performer(
+        &self,
+        performer_id: i64,
+        name: &str,
+    ) -> Result<CatalogPerformer, String> {
+        self.update_metadata_value("performers", performer_id, name, "Performer")
+            .map(|metadata_value| CatalogPerformer {
+                id: metadata_value.id,
+                name: metadata_value.name,
+            })
+    }
+
+    pub fn delete_performer(&self, performer_id: i64) -> Result<(), String> {
+        self.delete_metadata_value("performers", performer_id)
+    }
+
+    pub fn attach_tag_to_video(&self, tag_id: i64, video_id: i64) -> Result<(), String> {
+        self.attach_metadata_to_video("tag_videos", "tag_id", tag_id, video_id)
+    }
+
+    pub fn detach_tag_from_video(&self, tag_id: i64, video_id: i64) -> Result<(), String> {
+        self.detach_metadata_from_video("tag_videos", "tag_id", tag_id, video_id)
+    }
+
+    pub fn tags_for_video(&self, video_id: i64) -> Result<Vec<CatalogTag>, String> {
+        self.metadata_values_for_video("tags", "tag_videos", "tag_id", video_id)
+    }
+
+    pub fn attach_performer_to_video(
+        &self,
+        performer_id: i64,
+        video_id: i64,
+    ) -> Result<(), String> {
+        self.attach_metadata_to_video("performer_videos", "performer_id", performer_id, video_id)
+    }
+
+    pub fn detach_performer_from_video(
+        &self,
+        performer_id: i64,
+        video_id: i64,
+    ) -> Result<(), String> {
+        self.detach_metadata_from_video("performer_videos", "performer_id", performer_id, video_id)
+    }
+
+    pub fn performers_for_video(&self, video_id: i64) -> Result<Vec<CatalogPerformer>, String> {
+        self.metadata_values_for_video("performers", "performer_videos", "performer_id", video_id)
+            .map(|metadata_values| {
+                metadata_values
+                    .into_iter()
+                    .map(|metadata_value| CatalogPerformer {
+                        id: metadata_value.id,
+                        name: metadata_value.name,
+                    })
+                    .collect()
+            })
+    }
+
+    fn list_metadata_values(&self, table_name: &str) -> Result<Vec<CatalogTag>, String> {
+        let query = format!(
+            "SELECT id, name
+             FROM {table_name}
+             ORDER BY normalized_name"
+        );
+        let mut statement = self
+            .database
+            .prepare(&query)
+            .map_err(|error| error.to_string())?;
+
+        let metadata_values = statement
+            .query_map([], |row| {
+                Ok(CatalogTag {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(metadata_values)
+    }
+
+    fn create_metadata_value(
+        &self,
+        table_name: &str,
+        name: &str,
+        metadata_type_name: &str,
+    ) -> Result<CatalogTag, String> {
+        let metadata_name = normalized_metadata_input(name)?;
+        let duplicate_error = format!("{metadata_type_name} already exists");
+        self.reject_duplicate_metadata_name(
+            table_name,
+            &metadata_name.normalized_name,
+            None,
+            &duplicate_error,
+        )?;
+        let query = format!(
+            "INSERT INTO {table_name} (name, normalized_name)
+             VALUES (?1, ?2)"
+        );
+        self.database
+            .execute(
+                &query,
+                params![metadata_name.display_name, metadata_name.normalized_name],
+            )
+            .map_err(|error| error.to_string())?;
+        let metadata_id = self.database.last_insert_rowid();
+
+        self.metadata_value_by_id(table_name, metadata_id, metadata_type_name)
+    }
+
+    fn update_metadata_value(
+        &self,
+        table_name: &str,
+        metadata_id: i64,
+        name: &str,
+        metadata_type_name: &str,
+    ) -> Result<CatalogTag, String> {
+        let metadata_name = normalized_metadata_input(name)?;
+        let duplicate_error = format!("{metadata_type_name} already exists");
+        self.reject_duplicate_metadata_name(
+            table_name,
+            &metadata_name.normalized_name,
+            Some(metadata_id),
+            &duplicate_error,
+        )?;
+        let query = format!(
+            "UPDATE {table_name}
+             SET name = ?1,
+                 normalized_name = ?2,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?3"
+        );
+        self.database
+            .execute(
+                &query,
+                params![
+                    metadata_name.display_name,
+                    metadata_name.normalized_name,
+                    metadata_id
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+
+        self.metadata_value_by_id(table_name, metadata_id, metadata_type_name)
+    }
+
+    fn delete_metadata_value(&self, table_name: &str, metadata_id: i64) -> Result<(), String> {
+        let query = format!(
+            "DELETE FROM {table_name}
+             WHERE id = ?1"
+        );
+        self.database
+            .execute(&query, params![metadata_id])
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn attach_metadata_to_video(
+        &self,
+        table_name: &str,
+        metadata_id_column: &str,
+        metadata_id: i64,
+        video_id: i64,
+    ) -> Result<(), String> {
+        let query = format!(
+            "INSERT OR IGNORE INTO {table_name} ({metadata_id_column}, video_id)
+             VALUES (?1, ?2)"
+        );
+        self.database
+            .execute(&query, params![metadata_id, video_id])
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn detach_metadata_from_video(
+        &self,
+        table_name: &str,
+        metadata_id_column: &str,
+        metadata_id: i64,
+        video_id: i64,
+    ) -> Result<(), String> {
+        let query = format!(
+            "DELETE FROM {table_name}
+             WHERE {metadata_id_column} = ?1
+               AND video_id = ?2"
+        );
+        self.database
+            .execute(&query, params![metadata_id, video_id])
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn metadata_values_for_video(
+        &self,
+        metadata_table_name: &str,
+        link_table_name: &str,
+        metadata_id_column: &str,
+        video_id: i64,
+    ) -> Result<Vec<CatalogTag>, String> {
+        let query = format!(
+            "SELECT {metadata_table_name}.id, {metadata_table_name}.name
+             FROM {metadata_table_name}
+             JOIN {link_table_name}
+               ON {link_table_name}.{metadata_id_column} = {metadata_table_name}.id
+             WHERE {link_table_name}.video_id = ?1
+             ORDER BY {metadata_table_name}.normalized_name"
+        );
+        let mut statement = self
+            .database
+            .prepare(&query)
+            .map_err(|error| error.to_string())?;
+
+        let metadata_values = statement
+            .query_map(params![video_id], |row| {
+                Ok(CatalogTag {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(metadata_values)
+    }
+
+    fn metadata_value_by_id(
+        &self,
+        table_name: &str,
+        metadata_id: i64,
+        metadata_type_name: &str,
+    ) -> Result<CatalogTag, String> {
+        let query = format!(
+            "SELECT id, name
+             FROM {table_name}
+             WHERE id = ?1"
+        );
+        self.database
+            .query_row(&query, params![metadata_id], |row| {
+                Ok(CatalogTag {
+                    id: row.get(0)?,
+                    name: row.get(1)?,
+                })
+            })
+            .optional()
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| format!("{metadata_type_name} is not in the Catalog"))
+    }
+
+    fn reject_duplicate_metadata_name(
+        &self,
+        table_name: &str,
+        normalized_name: &str,
+        ignored_metadata_id: Option<i64>,
+        duplicate_error: &str,
+    ) -> Result<(), String> {
+        let query = format!(
+            "SELECT id
+             FROM {table_name}
+             WHERE normalized_name = ?1"
+        );
+        let existing_metadata_id = self
+            .database
+            .query_row(&query, params![normalized_name], |row| row.get::<_, i64>(0))
+            .optional()
+            .map_err(|error| error.to_string())?;
+        let is_duplicate = existing_metadata_id
+            .filter(|existing_metadata_id| Some(*existing_metadata_id) != ignored_metadata_id)
+            .is_some();
+
+        if is_duplicate {
+            Err(duplicate_error.to_string())
+        } else {
+            Ok(())
+        }
+    }
+
     fn reject_overlapping_scan_root(&self, candidate_path: &Path) -> Result<(), String> {
         let scan_roots = self.list_scan_roots()?;
         let has_overlap = scan_roots.iter().any(|scan_root| {
@@ -878,6 +1252,10 @@ impl Catalog {
             CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE,
             CREATE_PREVIEW_STRIPS_TABLE,
             CREATE_FAILED_PREVIEW_STRIPS_TABLE,
+            CREATE_TAGS_TABLE,
+            CREATE_PERFORMERS_TABLE,
+            CREATE_TAG_VIDEOS_TABLE,
+            CREATE_PERFORMER_VIDEOS_TABLE,
         ]
         .join("\n");
 
@@ -1250,6 +1628,23 @@ struct PendingPreviewStrip {
     video_id: i64,
     duration_milliseconds: i64,
     video_path: String,
+}
+
+struct NormalizedMetadataName {
+    display_name: String,
+    normalized_name: String,
+}
+
+fn normalized_metadata_input(name: &str) -> Result<NormalizedMetadataName, String> {
+    let display_name = name.trim().to_string();
+    if display_name.is_empty() {
+        return Err("Metadata name cannot be empty".to_string());
+    }
+
+    Ok(NormalizedMetadataName {
+        normalized_name: display_name.to_ascii_lowercase(),
+        display_name,
+    })
 }
 
 fn preview_strip_status_from_row(row: &Row<'_>) -> rusqlite::Result<PreviewStripStatus> {
@@ -2753,8 +3148,12 @@ mod tests {
             vec![
                 "failed_preview_strips",
                 "file_locations",
+                "performer_videos",
+                "performers",
                 "preview_strips",
                 "scan_roots",
+                "tag_videos",
+                "tags",
                 "unprocessable_video_candidates",
                 "videos"
             ]
@@ -2777,8 +3176,12 @@ mod tests {
             vec![
                 "failed_preview_strips",
                 "file_locations",
+                "performer_videos",
+                "performers",
                 "preview_strips",
                 "scan_roots",
+                "tag_videos",
+                "tags",
                 "unprocessable_video_candidates",
                 "videos"
             ]
@@ -2925,6 +3328,56 @@ mod tests {
             catalog_foreign_keys(&database, "failed_preview_strips"),
             vec!["video_id -> videos.id on delete CASCADE"]
         );
+        assert_eq!(
+            catalog_columns(&database, "tags"),
+            vec![
+                "id INTEGER optional",
+                "name TEXT required",
+                "normalized_name TEXT required",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_columns(&database, "performers"),
+            vec![
+                "id INTEGER optional",
+                "name TEXT required",
+                "normalized_name TEXT required",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_columns(&database, "tag_videos"),
+            vec![
+                "tag_id INTEGER required",
+                "video_id INTEGER required",
+                "created_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_foreign_keys(&database, "tag_videos"),
+            vec![
+                "tag_id -> tags.id on delete CASCADE",
+                "video_id -> videos.id on delete CASCADE",
+            ]
+        );
+        assert_eq!(
+            catalog_columns(&database, "performer_videos"),
+            vec![
+                "performer_id INTEGER required",
+                "video_id INTEGER required",
+                "created_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_foreign_keys(&database, "performer_videos"),
+            vec![
+                "performer_id -> performers.id on delete CASCADE",
+                "video_id -> videos.id on delete CASCADE",
+            ]
+        );
     }
 
     #[test]
@@ -2978,6 +3431,118 @@ mod tests {
         );
     }
 
+    #[test]
+    fn tags_and_performers_are_unique_within_their_own_type_case_insensitively() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+
+        let travel_tag = catalog.create_tag("Travel").expect("travel tag creates");
+        let travel_performer = catalog
+            .create_performer("Travel")
+            .expect("travel performer creates");
+
+        assert_eq!(
+            catalog
+                .create_tag(" travel ")
+                .expect_err("duplicate tag is rejected"),
+            "Tag already exists"
+        );
+        assert_eq!(
+            catalog
+                .create_performer("TRAVEL")
+                .expect_err("duplicate performer is rejected"),
+            "Performer already exists"
+        );
+        assert_eq!(travel_tag.name, "Travel");
+        assert_eq!(travel_performer.name, "Travel");
+        assert_eq!(catalog.list_tags().expect("tags list"), vec![travel_tag]);
+        assert_eq!(
+            catalog.list_performers().expect("performers list"),
+            vec![travel_performer]
+        );
+    }
+
+    #[test]
+    fn tags_and_performers_can_be_attached_to_many_videos() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = catalog_test_database(&catalog_path);
+        store_test_video(&database, "fingerprint-one", "Family Trip");
+        store_test_video(&database, "fingerprint-two", "Concert Night");
+        let travel_tag = catalog.create_tag("Travel").expect("tag creates");
+        let featured_performer = catalog
+            .create_performer("Featured Person")
+            .expect("performer creates");
+
+        catalog
+            .attach_tag_to_video(travel_tag.id, 1)
+            .expect("tag attaches to first video");
+        catalog
+            .attach_tag_to_video(travel_tag.id, 2)
+            .expect("tag attaches to second video");
+        catalog
+            .attach_performer_to_video(featured_performer.id, 1)
+            .expect("performer attaches to first video");
+        catalog
+            .attach_performer_to_video(featured_performer.id, 2)
+            .expect("performer attaches to second video");
+
+        assert_eq!(
+            catalog.tags_for_video(1).expect("video tags list"),
+            vec![travel_tag]
+        );
+        assert_eq!(
+            catalog
+                .performers_for_video(2)
+                .expect("video performers list"),
+            vec![featured_performer]
+        );
+        assert_eq!(count_rows(&database, "tag_videos"), 2);
+        assert_eq!(count_rows(&database, "performer_videos"), 2);
+    }
+
+    #[test]
+    fn metadata_primitives_support_update_delete_and_detach() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = catalog_test_database(&catalog_path);
+        store_test_video(&database, "fingerprint-one", "Family Trip");
+        let tag = catalog.create_tag("Travel").expect("tag creates");
+        let performer = catalog.create_performer("Alex").expect("performer creates");
+        catalog
+            .attach_tag_to_video(tag.id, 1)
+            .expect("tag attaches to video");
+        catalog
+            .attach_performer_to_video(performer.id, 1)
+            .expect("performer attaches to video");
+
+        let updated_tag = catalog.update_tag(tag.id, "Archive").expect("tag updates");
+        let updated_performer = catalog
+            .update_performer(performer.id, "Blair")
+            .expect("performer updates");
+        catalog
+            .detach_tag_from_video(updated_tag.id, 1)
+            .expect("tag detaches from video");
+        catalog
+            .detach_performer_from_video(updated_performer.id, 1)
+            .expect("performer detaches from video");
+        catalog.delete_tag(updated_tag.id).expect("tag deletes");
+        catalog
+            .delete_performer(updated_performer.id)
+            .expect("performer deletes");
+
+        assert_eq!(catalog.list_tags().expect("tags list"), Vec::new());
+        assert_eq!(
+            catalog.list_performers().expect("performers list"),
+            Vec::new()
+        );
+        assert_eq!(count_rows(&database, "tag_videos"), 0);
+        assert_eq!(count_rows(&database, "performer_videos"), 0);
+    }
+
     fn catalog_table_names(database: &Connection) -> Vec<String> {
         let mut statement = database
             .prepare(
@@ -3006,6 +3571,16 @@ mod tests {
                 row.get(0)
             })
             .expect("row count loads")
+    }
+
+    fn store_test_video(database: &Connection, fingerprint: &str, title: &str) {
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                (fingerprint, 1_i64, title, 1_000_i64),
+            )
+            .expect("video persists");
     }
 
     #[derive(Debug)]

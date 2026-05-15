@@ -6,6 +6,20 @@ const listScanRootsCommand = "list_scan_roots";
 const addScanRootCommand = "add_scan_root";
 const removeScanRootCommand = "remove_scan_root";
 const forgetCatalogVideoCommand = "forget_catalog_video";
+const listTagsCommand = "list_tags";
+const createTagCommand = "create_tag";
+const updateTagCommand = "update_tag";
+const deleteTagCommand = "delete_tag";
+const listPerformersCommand = "list_performers";
+const createPerformerCommand = "create_performer";
+const updatePerformerCommand = "update_performer";
+const deletePerformerCommand = "delete_performer";
+const attachTagToVideoCommand = "attach_tag_to_video";
+const detachTagFromVideoCommand = "detach_tag_from_video";
+const tagsForVideoCommand = "tags_for_video";
+const attachPerformerToVideoCommand = "attach_performer_to_video";
+const detachPerformerFromVideoCommand = "detach_performer_from_video";
+const performersForVideoCommand = "performers_for_video";
 const refreshScanRootCommand = "refresh_scan_root";
 const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
@@ -82,6 +96,16 @@ export interface FailedPreviewStrip {
   failureReason: string;
 }
 
+export interface CatalogTag {
+  id: number;
+  name: string;
+}
+
+export interface CatalogPerformer {
+  id: number;
+  name: string;
+}
+
 export type VideoExtensionAllowlist = {
   extensions: string[];
 };
@@ -133,6 +157,71 @@ export async function removeScanRoot(
 
 export async function forgetCatalogVideo(videoId: number): Promise<void> {
   return invoke<void>(forgetCatalogVideoCommand, { videoId });
+}
+
+export async function listTags(): Promise<CatalogTag[]> {
+  return invoke<CatalogTag[]>(listTagsCommand);
+}
+
+export async function createTag(name: string): Promise<CatalogTag> {
+  return invoke<CatalogTag>(createTagCommand, { name });
+}
+
+export async function updateTag(tagId: number, name: string): Promise<CatalogTag> {
+  return invoke<CatalogTag>(updateTagCommand, { tagId, name });
+}
+
+export async function deleteTag(tagId: number): Promise<void> {
+  return invoke<void>(deleteTagCommand, { tagId });
+}
+
+export async function listPerformers(): Promise<CatalogPerformer[]> {
+  return invoke<CatalogPerformer[]>(listPerformersCommand);
+}
+
+export async function createPerformer(name: string): Promise<CatalogPerformer> {
+  return invoke<CatalogPerformer>(createPerformerCommand, { name });
+}
+
+export async function updatePerformer(
+  performerId: number,
+  name: string
+): Promise<CatalogPerformer> {
+  return invoke<CatalogPerformer>(updatePerformerCommand, { performerId, name });
+}
+
+export async function deletePerformer(performerId: number): Promise<void> {
+  return invoke<void>(deletePerformerCommand, { performerId });
+}
+
+export async function attachTagToVideo(tagId: number, videoId: number): Promise<void> {
+  return invoke<void>(attachTagToVideoCommand, { tagId, videoId });
+}
+
+export async function detachTagFromVideo(tagId: number, videoId: number): Promise<void> {
+  return invoke<void>(detachTagFromVideoCommand, { tagId, videoId });
+}
+
+export async function tagsForVideo(videoId: number): Promise<CatalogTag[]> {
+  return invoke<CatalogTag[]>(tagsForVideoCommand, { videoId });
+}
+
+export async function attachPerformerToVideo(
+  performerId: number,
+  videoId: number
+): Promise<void> {
+  return invoke<void>(attachPerformerToVideoCommand, { performerId, videoId });
+}
+
+export async function detachPerformerFromVideo(
+  performerId: number,
+  videoId: number
+): Promise<void> {
+  return invoke<void>(detachPerformerFromVideoCommand, { performerId, videoId });
+}
+
+export async function performersForVideo(videoId: number): Promise<CatalogPerformer[]> {
+  return invoke<CatalogPerformer[]>(performersForVideoCommand, { videoId });
 }
 
 export async function refreshScanRoot(

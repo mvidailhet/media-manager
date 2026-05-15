@@ -12,10 +12,10 @@ use std::{
 };
 
 use catalog::{
-    Catalog, CatalogVideo, FailedPreviewStrip, FfmpegPreviewStripGenerator, FfprobeVideoFileProbe,
-    PreviewStripGenerationSummary, PreviewStripGenerator, PreviewStripQueueCounts,
-    PreviewStripRetryReason, ScanRoot, ScanRootRefreshSummary, UnprocessableVideoCandidate,
-    VideoExtensionAllowlist,
+    Catalog, CatalogPerformer, CatalogTag, CatalogVideo, FailedPreviewStrip,
+    FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, PreviewStripGenerationSummary,
+    PreviewStripGenerator, PreviewStripQueueCounts, PreviewStripRetryReason, ScanRoot,
+    ScanRootRefreshSummary, UnprocessableVideoCandidate, VideoExtensionAllowlist,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WindowEvent};
@@ -319,6 +319,187 @@ fn forget_catalog_video(
         .map_err(|error| error.to_string())?;
 
     catalog.forget_catalog_video(video_id)
+}
+
+#[tauri::command]
+fn list_tags(catalog_state: tauri::State<'_, CatalogState>) -> Result<Vec<CatalogTag>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.list_tags()
+}
+
+#[tauri::command]
+fn create_tag(
+    catalog_state: tauri::State<'_, CatalogState>,
+    name: String,
+) -> Result<CatalogTag, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.create_tag(&name)
+}
+
+#[tauri::command]
+fn update_tag(
+    catalog_state: tauri::State<'_, CatalogState>,
+    tag_id: i64,
+    name: String,
+) -> Result<CatalogTag, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.update_tag(tag_id, &name)
+}
+
+#[tauri::command]
+fn delete_tag(catalog_state: tauri::State<'_, CatalogState>, tag_id: i64) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.delete_tag(tag_id)
+}
+
+#[tauri::command]
+fn list_performers(
+    catalog_state: tauri::State<'_, CatalogState>,
+) -> Result<Vec<CatalogPerformer>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.list_performers()
+}
+
+#[tauri::command]
+fn create_performer(
+    catalog_state: tauri::State<'_, CatalogState>,
+    name: String,
+) -> Result<CatalogPerformer, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.create_performer(&name)
+}
+
+#[tauri::command]
+fn update_performer(
+    catalog_state: tauri::State<'_, CatalogState>,
+    performer_id: i64,
+    name: String,
+) -> Result<CatalogPerformer, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.update_performer(performer_id, &name)
+}
+
+#[tauri::command]
+fn delete_performer(
+    catalog_state: tauri::State<'_, CatalogState>,
+    performer_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.delete_performer(performer_id)
+}
+
+#[tauri::command]
+fn attach_tag_to_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    tag_id: i64,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.attach_tag_to_video(tag_id, video_id)
+}
+
+#[tauri::command]
+fn detach_tag_from_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    tag_id: i64,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.detach_tag_from_video(tag_id, video_id)
+}
+
+#[tauri::command]
+fn tags_for_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+) -> Result<Vec<CatalogTag>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.tags_for_video(video_id)
+}
+
+#[tauri::command]
+fn attach_performer_to_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    performer_id: i64,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.attach_performer_to_video(performer_id, video_id)
+}
+
+#[tauri::command]
+fn detach_performer_from_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    performer_id: i64,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.detach_performer_from_video(performer_id, video_id)
+}
+
+#[tauri::command]
+fn performers_for_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+) -> Result<Vec<CatalogPerformer>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.performers_for_video(video_id)
 }
 
 #[tauri::command]
@@ -764,6 +945,20 @@ pub fn run() {
             add_scan_root,
             remove_scan_root,
             forget_catalog_video,
+            list_tags,
+            create_tag,
+            update_tag,
+            delete_tag,
+            list_performers,
+            create_performer,
+            update_performer,
+            delete_performer,
+            attach_tag_to_video,
+            detach_tag_from_video,
+            tags_for_video,
+            attach_performer_to_video,
+            detach_performer_from_video,
+            performers_for_video,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             refresh_scan_root,
