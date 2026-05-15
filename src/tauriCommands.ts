@@ -169,8 +169,8 @@ export async function retryFailedPreviewStrip(videoId: number): Promise<PreviewS
   return invoke<PreviewStripQueueStatus>(retryFailedPreviewStripCommand, { videoId });
 }
 
-export async function ignoreFailedPreviewStrip(videoId: number): Promise<void> {
-  return invoke<void>(ignoreFailedPreviewStripCommand, { videoId });
+export async function ignoreFailedPreviewStrip(videoId: number): Promise<PreviewStripQueueStatus> {
+  return invoke<PreviewStripQueueStatus>(ignoreFailedPreviewStripCommand, { videoId });
 }
 
 export async function generateMissingPreviewStrips(): Promise<PreviewStripGenerationSummary> {

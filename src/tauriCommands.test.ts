@@ -210,8 +210,28 @@ describe("Tauri commands", () => {
   });
 
   it("retries and ignores Failed Preview Strips through Rust commands", async () => {
-    await retryFailedPreviewStrip(7);
-    await ignoreFailedPreviewStrip(7);
+    mockedInvoke.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
+
+    const retryQueueStatus = await retryFailedPreviewStrip(7);
+    const ignoreQueueStatus = await ignoreFailedPreviewStrip(7);
+
+    expect(retryQueueStatus).toEqual({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
+    expect(ignoreQueueStatus).toEqual({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
 
     expect(mockedInvoke).toHaveBeenCalledWith("retry_failed_preview_strip", {
       videoId: 7

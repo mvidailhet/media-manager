@@ -846,9 +846,7 @@ impl Catalog {
     ) -> Result<(), String> {
         self.database
             .execute(
-                "UPDATE failed_preview_strips
-                 SET ignored_at = NULL,
-                     updated_at = CURRENT_TIMESTAMP
+                "DELETE FROM failed_preview_strips
                  WHERE ignored_at IS NOT NULL",
                 [],
             )
@@ -991,16 +989,6 @@ impl Catalog {
             .execute(
                 "DELETE FROM unprocessable_video_candidates WHERE path = ?1",
                 params![video_path],
-            )
-            .map_err(|error| error.to_string())?;
-        transaction
-            .execute(
-                "UPDATE failed_preview_strips
-                 SET ignored_at = NULL,
-                     updated_at = CURRENT_TIMESTAMP
-                 WHERE video_id = ?1
-                   AND ignored_at IS NOT NULL",
-                params![video_id],
             )
             .map_err(|error| error.to_string())?;
 
@@ -2272,10 +2260,16 @@ mod tests {
     }
 
     #[test]
-    fn ignored_failed_preview_strips_become_visible_when_ffmpeg_configuration_changes() {
+    fn ignored_failed_preview_strips_are_retried_when_ffmpeg_configuration_changes() {
         let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
         let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let preview_cache_path = temporary_folder.path().join("Preview Cache");
         let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
         let database = catalog_test_database(&catalog_path);
         database
             .execute(
@@ -2284,6 +2278,19 @@ mod tests {
                 ("fingerprint-one", 1_i64, "Broken Trip", 21_000_i64),
             )
             .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    1_i64,
+                    1_i64,
+                    movies_root.join("broken-trip.mp4").to_string_lossy().into_owned(),
+                    17_i64,
+                    "2026-05-14T16:35:48Z",
+                ),
+            )
+            .expect("file location persists");
         database
             .execute(
                 "INSERT INTO failed_preview_strips (video_id, reason, ignored_at)
@@ -2296,17 +2303,62 @@ mod tests {
             .retry_ignored_failed_preview_strips(
                 PreviewStripRetryReason::FfmpegConfigurationChanged,
             )
-            .expect("ignored failures become visible");
+            .expect("ignored failures retry");
+        let preview_strip_generator = FakePreviewStripGenerator::default();
+        let generation_summary = catalog
+            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
+            .expect("ignored failure regenerates");
+
+        assert_eq!(
+            generation_summary,
+            super::PreviewStripGenerationSummary {
+                generated_preview_strip_count: 1,
+                failed_preview_strip_count: 0,
+            }
+        );
+        assert_eq!(count_rows(&database, "failed_preview_strips"), 0);
+    }
+
+    #[test]
+    fn unchanged_scan_root_refresh_keeps_ignored_failed_preview_strips_ignored() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let family_trip_path = movies_root.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+        let video_file_probe = FakeVideoFileProbe::with_duration(21_000);
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        catalog
+            .store_failed_preview_strip(1, "ffmpeg failed")
+            .expect("failed preview strip stores");
+        catalog
+            .ignore_failed_preview_strip(1)
+            .expect("failed preview strip ignores");
+
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &video_file_probe,
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("unchanged scan root refreshes");
 
         assert_eq!(
             catalog
                 .list_failed_preview_strips()
                 .expect("failed preview strips list"),
-            vec![FailedPreviewStrip {
-                video_id: 1,
-                title: "Broken Trip".to_string(),
-                failure_reason: "ffmpeg failed".to_string(),
-            }]
+            Vec::<FailedPreviewStrip>::new()
         );
     }
 

@@ -133,7 +133,12 @@ describe("Videos View shell", () => {
       failedCount: 0,
       isPaused: false
     });
-    mockedIgnoreFailedPreviewStrip.mockResolvedValue(undefined);
+    mockedIgnoreFailedPreviewStrip.mockResolvedValue({
+      pendingCount: 0,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
     mockedListCatalogVideos.mockResolvedValue([]);
     mockedListUnprocessableVideoCandidates.mockResolvedValue([]);
     mockedListScanRoots.mockResolvedValue([]);
@@ -748,6 +753,35 @@ describe("Videos View shell", () => {
     expect(
       within(reviewQueue).queryByText("Broken Trip")
     ).not.toBeInTheDocument();
+  });
+
+  it("refreshes Failed Preview Strips after Preview Strip generation fails", async () => {
+    mockedGenerateMissingPreviewStrips.mockResolvedValue({
+      generatedPreviewStripCount: 0,
+      failedPreviewStripCount: 1
+    });
+    mockedListFailedPreviewStrips
+      .mockResolvedValueOnce([])
+      .mockResolvedValue([
+        {
+          videoId: 7,
+          title: "Broken Trip",
+          failureReason: "ffmpeg failed"
+        }
+      ]);
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Generate Preview Strips" })
+    );
+
+    const reviewQueue = await screen.findByRole("region", {
+      name: "Review Queue"
+    });
+    expect(
+      await within(reviewQueue).findByText("Broken Trip")
+    ).toBeInTheDocument();
   });
 
   it("requires confirmation before forgetting a Missing Video from the Catalog", async () => {

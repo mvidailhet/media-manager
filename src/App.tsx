@@ -230,6 +230,7 @@ export default function App() {
         if (canProcessQueue) {
           setPreviewStripQueueStatus(queueStatus);
           await loadCatalogVideos();
+          await loadReviewQueue(false);
         }
       } catch (error) {
         if (canProcessQueue) {
@@ -452,12 +453,14 @@ export default function App() {
 
   async function retryFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
     try {
-      const queueStatus = await retryFailedPreviewStrip(failedPreviewStrip.videoId);
+      const queueStatus = await retryFailedPreviewStrip(
+        failedPreviewStrip.videoId
+      );
 
       setPreviewStripQueueStatus(queueStatus);
       setReviewQueueStatusMessage("");
-      await loadReviewQueue(false);
       await loadCatalogVideos();
+      await loadReviewQueue(false);
       await loadPreviewStripQueueStatus();
     } catch (error) {
       setReviewQueueStatusMessage(errorMessage(error));
@@ -466,11 +469,13 @@ export default function App() {
 
   async function ignoreFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
     try {
-      await ignoreFailedPreviewStrip(failedPreviewStrip.videoId);
+      const queueStatus = await ignoreFailedPreviewStrip(
+        failedPreviewStrip.videoId
+      );
 
+      setPreviewStripQueueStatus(queueStatus);
       setReviewQueueStatusMessage("");
       await loadReviewQueue(false);
-      await loadPreviewStripQueueStatus();
     } catch (error) {
       setReviewQueueStatusMessage(errorMessage(error));
     }
@@ -520,6 +525,7 @@ export default function App() {
         `${generationSummary.generatedPreviewStripCount} Preview Strips generated, ${generationSummary.failedPreviewStripCount} Preview Strips failed`
       );
       await loadCatalogVideos();
+      await loadReviewQueue(false);
       await loadPreviewStripQueueStatus();
     } catch (error) {
       setPreviewStripStatusMessage(errorMessage(error));

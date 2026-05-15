@@ -411,9 +411,11 @@ fn save_ffmpeg_configuration(
     configuration: FfmpegConfiguration,
 ) -> Result<FfmpegToolsStatus, String> {
     let settings_path = ffmpeg_settings_path(&app)?;
+    let previous_configuration = load_ffmpeg_configuration(&settings_path)?;
+    let should_retry_ignored_failures = previous_configuration != configuration;
 
     save_ffmpeg_configuration_to_path(&settings_path, &configuration)?;
-    {
+    if should_retry_ignored_failures {
         let catalog = catalog_state
             .catalog
             .lock()
