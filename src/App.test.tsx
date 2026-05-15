@@ -278,6 +278,326 @@ describe("Videos View shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("filters Catalog Videos by text favorite and duration while keeping Missing Videos visible", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: true,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Studio Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/studio-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 3,
+        title: "Archive Family Cut",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: null,
+        fileLocationPath: null,
+        isAvailable: false,
+        fileLocations: [],
+        isFavorite: true,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    expect(within(catalogVideos).getByText("Studio Clip")).toBeInTheDocument();
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
+      target: { value: "family" },
+    });
+    fireEvent.click(within(catalogVideos).getByLabelText("Favorites only"));
+    fireEvent.change(
+      within(catalogVideos).getByLabelText("Minimum duration minutes"),
+      { target: { value: "20" } },
+    );
+    fireEvent.change(
+      within(catalogVideos).getByLabelText("Maximum duration minutes"),
+      { target: { value: "70" } },
+    );
+
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByText("Archive Family Cut"),
+    ).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Unavailable")).toBeInTheDocument();
+    expect(within(catalogVideos).queryByText("Studio Clip")).not.toBeInTheDocument();
+  });
+
+  it("matches text search against the current filename without matching parent folders", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Mountain Ride",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/mountain-ride.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Studio Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Current/Videos/archive-session.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
+      target: { value: "archive" },
+    });
+
+    expect(within(catalogVideos).queryByText("Mountain Ride")).not.toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Studio Clip")).toBeInTheDocument();
+  });
+
+  it("filters Catalog Videos by requiring every selected Tag and any selected Performer", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Family" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, name: "Blair" },
+      { id: 10, name: "Alex" },
+    ]);
+    mockedTagsForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 1) {
+        return [
+          { id: 4, name: "Travel" },
+          { id: 5, name: "Family" },
+        ];
+      }
+
+      return [{ id: 4, name: "Travel" }];
+    });
+    mockedPerformersForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 1) {
+        return [{ id: 9, name: "Blair" }];
+      }
+
+      return [{ id: 10, name: "Alex" }];
+    });
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Travel Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/travel-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await waitFor(() => {
+      expect(mockedTagsForVideo).toHaveBeenCalledWith(1);
+      expect(mockedPerformersForVideo).toHaveBeenCalledWith(2);
+    });
+
+    fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
+    fireEvent.click(within(catalogVideos).getByLabelText("Family"));
+
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(within(catalogVideos).queryByText("Travel Clip")).not.toBeInTheDocument();
+
+    fireEvent.click(within(catalogVideos).getByLabelText("Alex"));
+
+    expect(within(catalogVideos).queryByText("Family Trip")).not.toBeInTheDocument();
+    expect(within(catalogVideos).queryByText("Travel Clip")).not.toBeInTheDocument();
+
+    fireEvent.click(within(catalogVideos).getByLabelText("Blair"));
+
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(within(catalogVideos).queryByText("Travel Clip")).not.toBeInTheDocument();
+  });
+
+  it("sorts Catalog Videos by File Size without adding File Size as a Search Filter", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Large Archive",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/large-archive.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Small Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/small-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    expect(within(catalogVideos).queryByLabelText("File Size")).not.toBeInTheDocument();
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "fileSizeAscending" },
+    });
+
+    const videoTitles = within(catalogVideos).getAllByRole("button", {
+      name: /Large Archive|Small Clip/,
+    });
+
+    expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
+      "Small Clip",
+      "Large Archive",
+    ]);
+  });
+
+  it("keeps unknown File Sizes last when sorting by File Size descending", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Missing Size",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: null,
+        fileLocationPath: "/Volumes/Archive/Videos/missing-size.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Large Archive",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/large-archive.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "fileSizeDescending" },
+    });
+
+    const videoTitles = within(catalogVideos).getAllByRole("button", {
+      name: /Large Archive|Missing Size/,
+    });
+
+    expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
+      "Large Archive",
+      "Missing Size",
+    ]);
+  });
+
+  it("updates metadata filters after Tag edits in the Video Detail Panel", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Archive" },
+    ]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await waitFor(() => {
+      expect(mockedTagsForVideo).toHaveBeenCalledWith(1);
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Attach Archive" }),
+    );
+    await waitFor(() => {
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
+    });
+    fireEvent.click(within(catalogVideos).getByLabelText("Archive"));
+
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+  });
+
   it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },

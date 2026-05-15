@@ -8,6 +8,8 @@ import {
   Code,
   Divider,
   Group,
+  NativeSelect,
+  NumberInput,
   Paper,
   SimpleGrid,
   Stack,
@@ -85,6 +87,33 @@ const previewStripPointerMinimum = 0;
 const previewStripPointerMaximum = 1;
 const percentageMultiplier = 100;
 const emptyMetadataInputMessage = "Enter a name first.";
+const minimumDurationMinutes = 0;
+const maximumDurationMinutes = 24 * 60;
+
+interface CatalogVideoMetadata {
+  tags: CatalogTag[];
+  performers: CatalogPerformer[];
+}
+
+interface CatalogVideoFilters {
+  searchText: string;
+  selectedTagIds: number[];
+  selectedPerformerIds: number[];
+  favoritesOnly: boolean;
+  minimumDurationMinutes: number | "";
+  maximumDurationMinutes: number | "";
+}
+
+type CatalogVideoSort = "titleAscending" | "fileSizeAscending" | "fileSizeDescending";
+
+const defaultCatalogVideoFilters: CatalogVideoFilters = {
+  searchText: "",
+  selectedTagIds: [],
+  selectedPerformerIds: [],
+  favoritesOnly: false,
+  minimumDurationMinutes: "",
+  maximumDurationMinutes: "",
+};
 
 function normalizeConfiguredPath(value: string) {
   const trimmedValue = value.trim();
@@ -137,6 +166,13 @@ export default function App() {
   const [selectedVideoPerformers, setSelectedVideoPerformers] = useState<
     CatalogPerformer[]
   >([]);
+  const [catalogVideoMetadataById, setCatalogVideoMetadataById] = useState<
+    Record<number, CatalogVideoMetadata>
+  >({});
+  const [catalogVideoFilters, setCatalogVideoFilters] =
+    useState<CatalogVideoFilters>(defaultCatalogVideoFilters);
+  const [catalogVideoSort, setCatalogVideoSort] =
+    useState<CatalogVideoSort>("titleAscending");
   const [detailStatusMessage, setDetailStatusMessage] = useState("");
   const selectedVideoRequestId = useRef(0);
 
@@ -382,6 +418,72 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    let canUpdateMetadata = true;
+
+    async function loadMetadata() {
+      try {
+        const [storedTags, storedPerformers] = await Promise.all([
+          listTags(),
+          listPerformers(),
+        ]);
+
+        if (canUpdateMetadata) {
+          setAvailableTags(storedTags);
+          setAvailablePerformers(storedPerformers);
+        }
+      } catch {
+        if (canUpdateMetadata) {
+          setAvailableTags([]);
+          setAvailablePerformers([]);
+        }
+      }
+    }
+
+    void loadMetadata();
+
+    return () => {
+      canUpdateMetadata = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let canUpdateCatalogVideoMetadata = true;
+
+    async function loadCatalogVideoMetadata() {
+      const metadataEntries = await Promise.all(
+        catalogVideos.map(async (catalogVideo) => {
+          const [videoTags, videoPerformers] = await Promise.all([
+            tagsForVideo(catalogVideo.id),
+            performersForVideo(catalogVideo.id),
+          ]);
+
+          return [
+            catalogVideo.id,
+            { tags: videoTags, performers: videoPerformers },
+          ] as const;
+        }),
+      );
+
+      if (canUpdateCatalogVideoMetadata) {
+        setCatalogVideoMetadataById(Object.fromEntries(metadataEntries));
+      }
+    }
+
+    if (catalogVideos.length === 0) {
+      setCatalogVideoMetadataById({});
+      return () => {
+        canUpdateCatalogVideoMetadata = false;
+      };
+    }
+
+    void loadCatalogVideoMetadata();
+
+    return () => {
+      canUpdateCatalogVideoMetadata = false;
+    };
+  }, [catalogVideos]);
+
   async function saveConfiguredFfmpegPaths(event: React.FormEvent) {
     event.preventDefault();
 
@@ -601,6 +703,13 @@ export default function App() {
         setAvailablePerformers(storedPerformers);
         setSelectedVideoTags(videoTags);
         setSelectedVideoPerformers(videoPerformers);
+        setCatalogVideoMetadataById((currentMetadataById) => ({
+          ...currentMetadataById,
+          [catalogVideo.id]: {
+            tags: videoTags,
+            performers: videoPerformers,
+          },
+        }));
       }
     } catch (error) {
       if (selectedVideoRequestId.current === requestId) {
@@ -659,6 +768,7 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
       );
+      addTagToCatalogVideoMetadata(selectedVideo.id, tag);
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -686,6 +796,7 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
       );
+      addTagToCatalogVideoMetadata(selectedVideo.id, tag);
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -702,6 +813,7 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         currentTags.filter((currentTag) => currentTag.id !== tag.id),
       );
+      removeTagFromCatalogVideoMetadata(selectedVideo.id, tag);
       setAvailableTags(await listTags());
       setDetailStatusMessage("");
     } catch (error) {
@@ -719,6 +831,7 @@ export default function App() {
       setSelectedVideoPerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
+      addPerformerToCatalogVideoMetadata(selectedVideo.id, performer);
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -752,6 +865,7 @@ export default function App() {
       setSelectedVideoPerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
+      addPerformerToCatalogVideoMetadata(selectedVideo.id, performer);
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -770,6 +884,7 @@ export default function App() {
           (currentPerformer) => currentPerformer.id !== performer.id,
         ),
       );
+      removePerformerFromCatalogVideoMetadata(selectedVideo.id, performer);
       setAvailablePerformers(await listPerformers());
       setDetailStatusMessage("");
     } catch (error) {
@@ -788,8 +903,99 @@ export default function App() {
     }
   }
 
+  function addTagToCatalogVideoMetadata(videoId: number, tag: CatalogTag) {
+    setCatalogVideoMetadataById((currentMetadataById) => {
+      const currentMetadata = currentMetadataById[videoId] ?? {
+        tags: [],
+        performers: [],
+      };
+
+      return {
+        ...currentMetadataById,
+        [videoId]: {
+          ...currentMetadata,
+          tags: appendUniqueMetadata(currentMetadata.tags, tag),
+        },
+      };
+    });
+  }
+
+  function removeTagFromCatalogVideoMetadata(videoId: number, tag: CatalogTag) {
+    setCatalogVideoMetadataById((currentMetadataById) => {
+      const currentMetadata = currentMetadataById[videoId] ?? {
+        tags: [],
+        performers: [],
+      };
+
+      return {
+        ...currentMetadataById,
+        [videoId]: {
+          ...currentMetadata,
+          tags: currentMetadata.tags.filter(
+            (currentTag) => currentTag.id !== tag.id,
+          ),
+        },
+      };
+    });
+  }
+
+  function addPerformerToCatalogVideoMetadata(
+    videoId: number,
+    performer: CatalogPerformer,
+  ) {
+    setCatalogVideoMetadataById((currentMetadataById) => {
+      const currentMetadata = currentMetadataById[videoId] ?? {
+        tags: [],
+        performers: [],
+      };
+
+      return {
+        ...currentMetadataById,
+        [videoId]: {
+          ...currentMetadata,
+          performers: appendUniqueMetadata(
+            currentMetadata.performers,
+            performer,
+          ),
+        },
+      };
+    });
+  }
+
+  function removePerformerFromCatalogVideoMetadata(
+    videoId: number,
+    performer: CatalogPerformer,
+  ) {
+    setCatalogVideoMetadataById((currentMetadataById) => {
+      const currentMetadata = currentMetadataById[videoId] ?? {
+        tags: [],
+        performers: [],
+      };
+
+      return {
+        ...currentMetadataById,
+        [videoId]: {
+          ...currentMetadata,
+          performers: currentMetadata.performers.filter(
+            (currentPerformer) => currentPerformer.id !== performer.id,
+          ),
+        },
+      };
+    });
+  }
+
   const missingVideos = catalogVideos.filter(
     (catalogVideo) => !catalogVideo.isAvailable,
+  );
+  const filteredCatalogVideos = sortedCatalogVideos(
+    catalogVideos.filter((catalogVideo) =>
+      catalogVideoMatchesFilters(
+        catalogVideo,
+        catalogVideoMetadataById[catalogVideo.id],
+        catalogVideoFilters,
+      ),
+    ),
+    catalogVideoSort,
   );
   const unavailableScanRoots = scanRoots.filter(
     (scanRoot) => !scanRoot.isAvailable,
@@ -800,9 +1006,15 @@ export default function App() {
       <WorkspaceHeader />
       <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
       <CatalogVideosPanel
-        catalogVideos={catalogVideos}
+        availablePerformers={availablePerformers}
+        availableTags={availableTags}
+        catalogVideoFilters={catalogVideoFilters}
+        catalogVideoSort={catalogVideoSort}
+        catalogVideos={filteredCatalogVideos}
         catalogVideosStatusMessage={catalogVideosStatusMessage}
         isGeneratingPreviewStrips={isGeneratingPreviewStrips}
+        onCatalogVideoFiltersChange={setCatalogVideoFilters}
+        onCatalogVideoSortChange={setCatalogVideoSort}
         onGeneratePendingPreviewStrips={generatePendingPreviewStrips}
         onPausePreviewQueue={pausePreviewQueue}
         onResumePreviewQueue={resumePreviewQueue}
@@ -991,9 +1203,15 @@ function TauriStatusPanel({
 }
 
 function CatalogVideosPanel({
+  availablePerformers,
+  availableTags,
+  catalogVideoFilters,
+  catalogVideoSort,
   catalogVideos,
   catalogVideosStatusMessage,
   isGeneratingPreviewStrips,
+  onCatalogVideoFiltersChange,
+  onCatalogVideoSortChange,
   onGeneratePendingPreviewStrips,
   onPausePreviewQueue,
   onResumePreviewQueue,
@@ -1001,9 +1219,15 @@ function CatalogVideosPanel({
   previewStripQueueStatus,
   previewStripStatusMessage,
 }: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
+  catalogVideoFilters: CatalogVideoFilters;
+  catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
   isGeneratingPreviewStrips: boolean;
+  onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
+  onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onGeneratePendingPreviewStrips: () => void;
   onPausePreviewQueue: () => void;
   onResumePreviewQueue: () => void;
@@ -1036,6 +1260,26 @@ function CatalogVideosPanel({
           previewStripQueueStatus={previewStripQueueStatus}
         />
 
+        <CatalogVideoFiltersPanel
+          availablePerformers={availablePerformers}
+          availableTags={availableTags}
+          filters={catalogVideoFilters}
+          onFiltersChange={onCatalogVideoFiltersChange}
+        />
+
+        <NativeSelect
+          label="Sort Videos"
+          value={catalogVideoSort}
+          data={[
+            { value: "titleAscending", label: "Title" },
+            { value: "fileSizeAscending", label: "File Size ascending" },
+            { value: "fileSizeDescending", label: "File Size descending" },
+          ]}
+          onChange={(event) =>
+            onCatalogVideoSortChange(event.currentTarget.value as CatalogVideoSort)
+          }
+        />
+
         {catalogVideosStatusMessage ? (
           <Text>{catalogVideosStatusMessage}</Text>
         ) : null}
@@ -1060,6 +1304,99 @@ function CatalogVideosPanel({
         ) : null}
       </Stack>
     </Paper>
+  );
+}
+
+function CatalogVideoFiltersPanel({
+  availablePerformers,
+  availableTags,
+  filters,
+  onFiltersChange,
+}: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
+  filters: CatalogVideoFilters;
+  onFiltersChange: (filters: CatalogVideoFilters) => void;
+}) {
+  function updateFilters(updatedFilters: Partial<CatalogVideoFilters>) {
+    onFiltersChange({ ...filters, ...updatedFilters });
+  }
+
+  return (
+    <Stack gap="sm" aria-label="Video Search Filters">
+      <TextInput
+        label="Search Videos"
+        value={filters.searchText}
+        onChange={(event) =>
+          updateFilters({ searchText: event.currentTarget.value })
+        }
+      />
+      <Group gap="md" align="end">
+        <NumberInput
+          label="Minimum duration minutes"
+          min={minimumDurationMinutes}
+          max={maximumDurationMinutes}
+          value={filters.minimumDurationMinutes}
+          onChange={(value) =>
+            updateFilters({
+              minimumDurationMinutes: numberFilterValue(value),
+            })
+          }
+        />
+        <NumberInput
+          label="Maximum duration minutes"
+          min={minimumDurationMinutes}
+          max={maximumDurationMinutes}
+          value={filters.maximumDurationMinutes}
+          onChange={(value) =>
+            updateFilters({
+              maximumDurationMinutes: numberFilterValue(value),
+            })
+          }
+        />
+        <Checkbox
+          label="Favorites only"
+          checked={filters.favoritesOnly}
+          onChange={(event) =>
+            updateFilters({ favoritesOnly: event.currentTarget.checked })
+          }
+        />
+      </Group>
+      {availableTags.length > 0 ? (
+        <Checkbox.Group
+          label="Tags"
+          value={filters.selectedTagIds.map(String)}
+          onChange={(selectedValues) =>
+            updateFilters({ selectedTagIds: selectedValues.map(Number) })
+          }
+        >
+          <Group gap="sm" mt="xs">
+            {availableTags.map((tag) => (
+              <Checkbox key={tag.id} value={String(tag.id)} label={tag.name} />
+            ))}
+          </Group>
+        </Checkbox.Group>
+      ) : null}
+      {availablePerformers.length > 0 ? (
+        <Checkbox.Group
+          label="Performers"
+          value={filters.selectedPerformerIds.map(String)}
+          onChange={(selectedValues) =>
+            updateFilters({ selectedPerformerIds: selectedValues.map(Number) })
+          }
+        >
+          <Group gap="sm" mt="xs">
+            {availablePerformers.map((performer) => (
+              <Checkbox
+                key={performer.id}
+                value={String(performer.id)}
+                label={performer.name}
+              />
+            ))}
+          </Group>
+        </Checkbox.Group>
+      ) : null}
+    </Stack>
   );
 }
 
@@ -1998,6 +2335,151 @@ function errorMessage(error: unknown) {
   }
 
   return String(error);
+}
+
+function numberFilterValue(value: string | number) {
+  return typeof value === "number" ? value : "";
+}
+
+function catalogVideoMatchesFilters(
+  catalogVideo: CatalogVideo,
+  metadata: CatalogVideoMetadata | undefined,
+  filters: CatalogVideoFilters,
+) {
+  return (
+    catalogVideoMatchesSearchText(catalogVideo, filters.searchText) &&
+    catalogVideoMatchesFavoriteFilter(catalogVideo, filters.favoritesOnly) &&
+    catalogVideoMatchesDurationFilter(catalogVideo, filters) &&
+    catalogVideoMatchesTagFilter(metadata, filters.selectedTagIds) &&
+    catalogVideoMatchesPerformerFilter(metadata, filters.selectedPerformerIds)
+  );
+}
+
+function catalogVideoMatchesSearchText(
+  catalogVideo: CatalogVideo,
+  searchText: string,
+) {
+  const normalizedSearchText = searchText.trim().toLocaleLowerCase();
+
+  if (normalizedSearchText.length === 0) {
+    return true;
+  }
+
+  const searchableValues = [
+    catalogVideo.title,
+    currentFilename(catalogVideo.fileLocationPath),
+  ].map((value) => value.toLocaleLowerCase());
+
+  return searchableValues.some((value) => value.includes(normalizedSearchText));
+}
+
+function currentFilename(fileLocationPath: string | null) {
+  if (!fileLocationPath) {
+    return "";
+  }
+
+  const pathParts = fileLocationPath.split(/[/\\]/);
+
+  return pathParts[pathParts.length - 1] ?? "";
+}
+
+function catalogVideoMatchesFavoriteFilter(
+  catalogVideo: CatalogVideo,
+  favoritesOnly: boolean,
+) {
+  return !favoritesOnly || catalogVideo.isFavorite;
+}
+
+function catalogVideoMatchesDurationFilter(
+  catalogVideo: CatalogVideo,
+  filters: CatalogVideoFilters,
+) {
+  const durationMinutes =
+    catalogVideo.durationMilliseconds / millisecondsPerSecond / secondsPerMinute;
+  const minimumMinutes = filters.minimumDurationMinutes;
+  const maximumMinutes = filters.maximumDurationMinutes;
+
+  if (minimumMinutes !== "" && durationMinutes < minimumMinutes) {
+    return false;
+  }
+
+  if (maximumMinutes !== "" && durationMinutes > maximumMinutes) {
+    return false;
+  }
+
+  return true;
+}
+
+function catalogVideoMatchesTagFilter(
+  metadata: CatalogVideoMetadata | undefined,
+  selectedTagIds: number[],
+) {
+  if (selectedTagIds.length === 0) {
+    return true;
+  }
+
+  const videoTagIds = new Set(metadata?.tags.map((tag) => tag.id) ?? []);
+
+  return selectedTagIds.every((tagId) => videoTagIds.has(tagId));
+}
+
+function catalogVideoMatchesPerformerFilter(
+  metadata: CatalogVideoMetadata | undefined,
+  selectedPerformerIds: number[],
+) {
+  if (selectedPerformerIds.length === 0) {
+    return true;
+  }
+
+  const videoPerformerIds = new Set(
+    metadata?.performers.map((performer) => performer.id) ?? [],
+  );
+
+  return selectedPerformerIds.some((performerId) =>
+    videoPerformerIds.has(performerId),
+  );
+}
+
+function sortedCatalogVideos(
+  catalogVideos: CatalogVideo[],
+  catalogVideoSort: CatalogVideoSort,
+) {
+  return [...catalogVideos].sort((firstVideo, secondVideo) => {
+    const fileSizeNullSortResult = fileSizeNullSortOrder(firstVideo, secondVideo);
+
+    if (fileSizeNullSortResult !== 0 && catalogVideoSort !== "titleAscending") {
+      return fileSizeNullSortResult;
+    }
+
+    if (catalogVideoSort === "fileSizeAscending") {
+      return firstVideo.fileSizeBytes! - secondVideo.fileSizeBytes!;
+    }
+
+    if (catalogVideoSort === "fileSizeDescending") {
+      return secondVideo.fileSizeBytes! - firstVideo.fileSizeBytes!;
+    }
+
+    return firstVideo.title.localeCompare(secondVideo.title);
+  });
+}
+
+function fileSizeNullSortOrder(
+  firstVideo: CatalogVideo,
+  secondVideo: CatalogVideo,
+) {
+  if (firstVideo.fileSizeBytes === null && secondVideo.fileSizeBytes === null) {
+    return 0;
+  }
+
+  if (firstVideo.fileSizeBytes === null) {
+    return 1;
+  }
+
+  if (secondVideo.fileSizeBytes === null) {
+    return -1;
+  }
+
+  return 0;
 }
 
 function formatDuration(durationMilliseconds: number) {
