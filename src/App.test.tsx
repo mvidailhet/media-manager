@@ -2196,7 +2196,8 @@ describe("Videos View shell", () => {
     expect(
       await screen.findByRole("tab", { name: "Scan Roots" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Scan 4" })).toBeInTheDocument();
+    expect(screen.getByText("Scan")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: "Scan Issues 3" }),
     ).toBeInTheDocument();
@@ -2227,6 +2228,12 @@ describe("Videos View shell", () => {
     });
     expect(
       within(previewGeneration).getByText("Broken Preview"),
+    ).toBeInTheDocument();
+    expect(within(previewGeneration).getByText("1 generated")).toBeInTheDocument();
+    expect(
+      within(previewGeneration).getByText(
+        "Generating Preview Strip: Generating Trip",
+      ),
     ).toBeInTheDocument();
     expect(
       within(previewGeneration).getByText("1 generated"),
