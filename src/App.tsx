@@ -2731,32 +2731,58 @@ function ScanRootCard({
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
   scanRoot: ScanRoot;
 }) {
+  const tagInferenceLabel = scanRoot.inferenceRules.suggestTagsFromChildFolders
+    ? "Tags from child folders"
+    : "Tags not inferred";
+  const performerInferenceLabel = scanRoot.inferenceRules
+    .suggestPerformersFromChildFolders
+    ? "Performers from child folders"
+    : "Performers not inferred";
+  const ignoredNamesLabel = `Ignored names: ${scanRoot.inferenceRules.ignoredFolderNames.join(
+    ", ",
+  )}`;
+  const ignoredYearsLabel = `Ignored years: ${scanRoot.inferenceRules.ignoredExactYearRange.startYear}-${scanRoot.inferenceRules.ignoredExactYearRange.endYear}`;
+
   return (
-    <Group component="article" gap="sm" justify="space-between">
-      <Group gap="xs">
-        <Code className="wrapping-code">{scanRoot.path}</Code>
-        <AvailabilityBadge isAvailable={scanRoot.isAvailable} />
+    <Stack component="article" gap="xs">
+      <Group gap="sm" justify="space-between">
+        <Group gap="xs">
+          <Code className="wrapping-code">{scanRoot.path}</Code>
+          <AvailabilityBadge isAvailable={scanRoot.isAvailable} />
+        </Group>
+        <Group gap="xs">
+          <Button
+            type="button"
+            size="xs"
+            variant="default"
+            onClick={() => void onRefreshSelectedScanRoot(scanRoot)}
+          >
+            Refresh
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="light"
+            color="red"
+            onClick={() => onRequestScanRootRemoval(scanRoot)}
+          >
+            Remove
+          </Button>
+        </Group>
       </Group>
-      <Group gap="xs">
-        <Button
-          type="button"
-          size="xs"
-          variant="default"
-          onClick={() => void onRefreshSelectedScanRoot(scanRoot)}
-        >
-          Refresh
-        </Button>
-        <Button
-          type="button"
-          size="xs"
-          variant="light"
-          color="red"
-          onClick={() => onRequestScanRootRemoval(scanRoot)}
-        >
-          Remove
-        </Button>
-      </Group>
-    </Group>
+      <Stack gap={4}>
+        <Group gap="xs">
+          <Badge color="teal" variant="light">
+            {tagInferenceLabel}
+          </Badge>
+          <Badge color="gray" variant="light">
+            {performerInferenceLabel}
+          </Badge>
+        </Group>
+        <Text size="sm">{ignoredNamesLabel}</Text>
+        <Text size="sm">{ignoredYearsLabel}</Text>
+      </Stack>
+    </Stack>
   );
 }
 

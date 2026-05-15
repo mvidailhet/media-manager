@@ -17,8 +17,8 @@ use catalog::{
     Catalog, CatalogPerformer, CatalogTag, CatalogVideo, FailedPreviewStrip,
     FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, PreviewStripGenerationSummary,
     PreviewStripGenerator, PreviewStripQueueCounts, PreviewStripRetryReason, ScanRoot,
-    ScanRootRefreshSummary, UnprocessableVideoCandidate, VideoExtensionAllowlist,
-    PREVIEW_STRIP_GENERATION_CANCELLED_REASON,
+    ScanRootInferenceRules, ScanRootRefreshSummary, UnprocessableVideoCandidate,
+    VideoExtensionAllowlist, PREVIEW_STRIP_GENERATION_CANCELLED_REASON,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WindowEvent};
@@ -291,6 +291,20 @@ fn add_scan_root(
         .map_err(|error| error.to_string())?;
 
     catalog.add_scan_root(Path::new(&path))
+}
+
+#[tauri::command]
+fn update_scan_root_inference_rules(
+    catalog_state: tauri::State<'_, CatalogState>,
+    path: String,
+    inference_rules: ScanRootInferenceRules,
+) -> Result<ScanRoot, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.update_scan_root_inference_rules(&path, inference_rules)
 }
 
 #[tauri::command]
@@ -1062,6 +1076,7 @@ pub fn run() {
             list_catalog_videos,
             list_scan_roots,
             add_scan_root,
+            update_scan_root_inference_rules,
             remove_scan_root,
             forget_catalog_video,
             list_tags,

@@ -4,6 +4,7 @@ const localDesktopAppStatusCommand = "get_local_desktop_app_status";
 const listCatalogVideosCommand = "list_catalog_videos";
 const listScanRootsCommand = "list_scan_roots";
 const addScanRootCommand = "add_scan_root";
+const updateScanRootInferenceRulesCommand = "update_scan_root_inference_rules";
 const removeScanRootCommand = "remove_scan_root";
 const forgetCatalogVideoCommand = "forget_catalog_video";
 const listTagsCommand = "list_tags";
@@ -77,6 +78,19 @@ export type PreviewStripStatus =
 export interface ScanRoot {
   path: string;
   isAvailable: boolean;
+  inferenceRules: ScanRootInferenceRules;
+}
+
+export interface ScanRootInferenceRules {
+  suggestTagsFromChildFolders: boolean;
+  suggestPerformersFromChildFolders: boolean;
+  ignoredFolderNames: string[];
+  ignoredExactYearRange: ExactYearRange;
+}
+
+export interface ExactYearRange {
+  startYear: number;
+  endYear: number;
 }
 
 export interface ScanRootRefreshSummary {
@@ -159,6 +173,16 @@ export async function listScanRoots(): Promise<ScanRoot[]> {
 
 export async function addScanRoot(path: string): Promise<ScanRoot> {
   return invoke<ScanRoot>(addScanRootCommand, { path });
+}
+
+export async function updateScanRootInferenceRules(
+  path: string,
+  inferenceRules: ScanRootInferenceRules,
+): Promise<ScanRoot> {
+  return invoke<ScanRoot>(updateScanRootInferenceRulesCommand, {
+    inferenceRules,
+    path,
+  });
 }
 
 export async function removeScanRoot(
