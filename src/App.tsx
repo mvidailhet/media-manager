@@ -703,6 +703,13 @@ export default function App() {
         setAvailablePerformers(storedPerformers);
         setSelectedVideoTags(videoTags);
         setSelectedVideoPerformers(videoPerformers);
+        setCatalogVideoMetadataById((currentMetadataById) => ({
+          ...currentMetadataById,
+          [catalogVideo.id]: {
+            tags: videoTags,
+            performers: videoPerformers,
+          },
+        }));
       }
     } catch (error) {
       if (selectedVideoRequestId.current === requestId) {
@@ -761,6 +768,7 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
       );
+      addTagToCatalogVideoMetadata(selectedVideo.id, tag);
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -788,6 +796,7 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
       );
+      addTagToCatalogVideoMetadata(selectedVideo.id, tag);
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -804,6 +813,7 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         currentTags.filter((currentTag) => currentTag.id !== tag.id),
       );
+      removeTagFromCatalogVideoMetadata(selectedVideo.id, tag);
       setAvailableTags(await listTags());
       setDetailStatusMessage("");
     } catch (error) {
@@ -821,6 +831,7 @@ export default function App() {
       setSelectedVideoPerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
+      addPerformerToCatalogVideoMetadata(selectedVideo.id, performer);
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -854,6 +865,7 @@ export default function App() {
       setSelectedVideoPerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
+      addPerformerToCatalogVideoMetadata(selectedVideo.id, performer);
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -872,6 +884,7 @@ export default function App() {
           (currentPerformer) => currentPerformer.id !== performer.id,
         ),
       );
+      removePerformerFromCatalogVideoMetadata(selectedVideo.id, performer);
       setAvailablePerformers(await listPerformers());
       setDetailStatusMessage("");
     } catch (error) {
@@ -888,6 +901,87 @@ export default function App() {
     } catch (error) {
       setPreviewStripStatusMessage(errorMessage(error));
     }
+  }
+
+  function addTagToCatalogVideoMetadata(videoId: number, tag: CatalogTag) {
+    setCatalogVideoMetadataById((currentMetadataById) => {
+      const currentMetadata = currentMetadataById[videoId] ?? {
+        tags: [],
+        performers: [],
+      };
+
+      return {
+        ...currentMetadataById,
+        [videoId]: {
+          ...currentMetadata,
+          tags: appendUniqueMetadata(currentMetadata.tags, tag),
+        },
+      };
+    });
+  }
+
+  function removeTagFromCatalogVideoMetadata(videoId: number, tag: CatalogTag) {
+    setCatalogVideoMetadataById((currentMetadataById) => {
+      const currentMetadata = currentMetadataById[videoId] ?? {
+        tags: [],
+        performers: [],
+      };
+
+      return {
+        ...currentMetadataById,
+        [videoId]: {
+          ...currentMetadata,
+          tags: currentMetadata.tags.filter(
+            (currentTag) => currentTag.id !== tag.id,
+          ),
+        },
+      };
+    });
+  }
+
+  function addPerformerToCatalogVideoMetadata(
+    videoId: number,
+    performer: CatalogPerformer,
+  ) {
+    setCatalogVideoMetadataById((currentMetadataById) => {
+      const currentMetadata = currentMetadataById[videoId] ?? {
+        tags: [],
+        performers: [],
+      };
+
+      return {
+        ...currentMetadataById,
+        [videoId]: {
+          ...currentMetadata,
+          performers: appendUniqueMetadata(
+            currentMetadata.performers,
+            performer,
+          ),
+        },
+      };
+    });
+  }
+
+  function removePerformerFromCatalogVideoMetadata(
+    videoId: number,
+    performer: CatalogPerformer,
+  ) {
+    setCatalogVideoMetadataById((currentMetadataById) => {
+      const currentMetadata = currentMetadataById[videoId] ?? {
+        tags: [],
+        performers: [],
+      };
+
+      return {
+        ...currentMetadataById,
+        [videoId]: {
+          ...currentMetadata,
+          performers: currentMetadata.performers.filter(
+            (currentPerformer) => currentPerformer.id !== performer.id,
+          ),
+        },
+      };
+    });
   }
 
   const missingVideos = catalogVideos.filter(
@@ -2273,10 +2367,20 @@ function catalogVideoMatchesSearchText(
 
   const searchableValues = [
     catalogVideo.title,
-    catalogVideo.fileLocationPath ?? "",
+    currentFilename(catalogVideo.fileLocationPath),
   ].map((value) => value.toLocaleLowerCase());
 
   return searchableValues.some((value) => value.includes(normalizedSearchText));
+}
+
+function currentFilename(fileLocationPath: string | null) {
+  if (!fileLocationPath) {
+    return "";
+  }
+
+  const pathParts = fileLocationPath.split(/[/\\]/);
+
+  return pathParts[pathParts.length - 1] ?? "";
 }
 
 function catalogVideoMatchesFavoriteFilter(
@@ -2341,20 +2445,41 @@ function sortedCatalogVideos(
   catalogVideoSort: CatalogVideoSort,
 ) {
   return [...catalogVideos].sort((firstVideo, secondVideo) => {
+    const fileSizeNullSortResult = fileSizeNullSortOrder(firstVideo, secondVideo);
+
+    if (fileSizeNullSortResult !== 0 && catalogVideoSort !== "titleAscending") {
+      return fileSizeNullSortResult;
+    }
+
     if (catalogVideoSort === "fileSizeAscending") {
-      return fileSizeSortValue(firstVideo) - fileSizeSortValue(secondVideo);
+      return firstVideo.fileSizeBytes! - secondVideo.fileSizeBytes!;
     }
 
     if (catalogVideoSort === "fileSizeDescending") {
-      return fileSizeSortValue(secondVideo) - fileSizeSortValue(firstVideo);
+      return secondVideo.fileSizeBytes! - firstVideo.fileSizeBytes!;
     }
 
     return firstVideo.title.localeCompare(secondVideo.title);
   });
 }
 
-function fileSizeSortValue(catalogVideo: CatalogVideo) {
-  return catalogVideo.fileSizeBytes ?? Number.POSITIVE_INFINITY;
+function fileSizeNullSortOrder(
+  firstVideo: CatalogVideo,
+  secondVideo: CatalogVideo,
+) {
+  if (firstVideo.fileSizeBytes === null && secondVideo.fileSizeBytes === null) {
+    return 0;
+  }
+
+  if (firstVideo.fileSizeBytes === null) {
+    return 1;
+  }
+
+  if (secondVideo.fileSizeBytes === null) {
+    return -1;
+  }
+
+  return 0;
 }
 
 function formatDuration(durationMilliseconds: number) {
