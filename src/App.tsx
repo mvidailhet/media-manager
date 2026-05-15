@@ -58,6 +58,8 @@ const reviewQueueLoadingMessage = "Loading Review Queue...";
 const reviewQueueErrorMessage = "Review Queue unavailable";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
 const previewStripGenerationStartedMessage = "Generating Preview Strips...";
+const noPreviewStripsNeedGenerationMessage =
+  "No Preview Strips need generation.";
 const previewStripQueueErrorMessage = "Preview Strip queue unavailable";
 const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
@@ -520,10 +522,17 @@ export default function App() {
       setIsGeneratingPreviewStrips(true);
       setPreviewStripStatusMessage(previewStripGenerationStartedMessage);
       const generationSummary = await generateMissingPreviewStrips();
+      const generatedPreviewStripCount =
+        generationSummary.generatedPreviewStripCount;
+      const failedPreviewStripCount = generationSummary.failedPreviewStripCount;
 
-      setPreviewStripStatusMessage(
-        `${generationSummary.generatedPreviewStripCount} Preview Strips generated, ${generationSummary.failedPreviewStripCount} Preview Strips failed`
-      );
+      if (generatedPreviewStripCount === 0 && failedPreviewStripCount === 0) {
+        setPreviewStripStatusMessage(noPreviewStripsNeedGenerationMessage);
+      } else {
+        setPreviewStripStatusMessage(
+          `${generatedPreviewStripCount} Preview Strips generated, ${failedPreviewStripCount} Preview Strips failed`
+        );
+      }
       await loadCatalogVideos();
       await loadReviewQueue(false);
       await loadPreviewStripQueueStatus();
@@ -760,7 +769,11 @@ function CatalogVideosPanel({
           <SectionHeader label="Catalog results" title="Videos" />
           <Button
             type="button"
-            disabled={isGeneratingPreviewStrips}
+            disabled={
+              isGeneratingPreviewStrips ||
+              !previewStripQueueStatus ||
+              previewStripQueueStatus.pendingCount === 0
+            }
             variant="default"
             onClick={() => void onGeneratePendingPreviewStrips()}
           >

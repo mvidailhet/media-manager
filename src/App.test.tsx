@@ -262,6 +262,18 @@ describe("Videos View shell", () => {
   });
 
   it("queues cataloged Videos missing Preview Strips for generation", async () => {
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: true
+    });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
       generatedPreviewStripCount: 3,
       failedPreviewStripCount: 1
@@ -311,6 +323,15 @@ describe("Videos View shell", () => {
     expect(
       await screen.findByRole("img", { name: "Preview Strip for Family Trip" })
     ).toBeInTheDocument();
+  });
+
+  it("does not offer Preview Strip generation when no Videos are pending", async () => {
+    renderApp();
+
+    expect(
+      await screen.findByRole("button", { name: "Generate Preview Strips" })
+    ).toBeDisabled();
+    expect(mockedGenerateMissingPreviewStrips).not.toHaveBeenCalled();
   });
 
   it("shows Preview Strip queue status and supports global pause and resume", async () => {
@@ -756,6 +777,18 @@ describe("Videos View shell", () => {
   });
 
   it("refreshes Failed Preview Strips after Preview Strip generation fails", async () => {
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: true
+    });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
       generatedPreviewStripCount: 0,
       failedPreviewStripCount: 1

@@ -20,6 +20,10 @@
       }
     ],
     "security": {
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["$APPCACHE/preview-strips/**/*"]
+      },
       "csp": null
     }
   },
