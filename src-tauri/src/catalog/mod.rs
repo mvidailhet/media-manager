@@ -15,229 +15,19 @@ use std::{
 use rusqlite::{params, Connection, OptionalExtension, Row, Transaction};
 use serde::{Deserialize, Serialize};
 
+mod migrations;
+
 const FINGERPRINT_VERSION: i64 = 1;
 const DEFAULT_VIDEO_EXTENSIONS: [&str; 7] = ["flv", "mp4", "mov", "mkv", "avi", "webm", "m4v"];
 const FINGERPRINT_SAMPLE_SIZE_BYTES: usize = 64 * 1024;
 const FNV_OFFSET_BASIS: u64 = 14_695_981_039_346_656_037;
 const FNV_PRIME: u64 = 1_099_511_628_211;
-macro_rules! default_ignored_folder_names_json {
-    () => {
-        "[\"Misc\",\"Unsorted\",\"To Sort\",\"To Review\",\"New\",\"Temp\",\"Archive\",\"Archives\",\"Downloads\",\"Videos\"]"
-    };
-}
-const DEFAULT_IGNORED_FOLDER_NAMES_JSON: &str = default_ignored_folder_names_json!();
-
-const CREATE_SCAN_ROOTS_TABLE: &str = concat!(
-    "
-    CREATE TABLE IF NOT EXISTS scan_roots (
-        id INTEGER PRIMARY KEY,
-        path TEXT NOT NULL UNIQUE,
-        drive_identity TEXT,
-        is_available INTEGER NOT NULL DEFAULT 1,
-        suggest_tags_from_child_folders INTEGER NOT NULL DEFAULT 1,
-        suggest_performers_from_child_folders INTEGER NOT NULL DEFAULT 0,
-        ignored_folder_names TEXT NOT NULL DEFAULT '",
-    default_ignored_folder_names_json!(),
-    "',
-        ignored_exact_year_start INTEGER NOT NULL DEFAULT 1900,
-        ignored_exact_year_end INTEGER NOT NULL DEFAULT 2099,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-"
-);
-
-const CREATE_VIDEOS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS videos (
-        id INTEGER PRIMARY KEY,
-        fingerprint TEXT NOT NULL UNIQUE,
-        fingerprint_version INTEGER NOT NULL,
-        title TEXT NOT NULL,
-        duration_milliseconds INTEGER NOT NULL,
-        is_favorite INTEGER NOT NULL DEFAULT 0,
-        last_opened_at TEXT,
-        open_count INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-";
-
-const CREATE_FILE_LOCATIONS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS file_locations (
-        id INTEGER PRIMARY KEY,
-        video_id INTEGER NOT NULL,
-        scan_root_id INTEGER NOT NULL,
-        path TEXT NOT NULL UNIQUE,
-        file_size_bytes INTEGER NOT NULL,
-        last_seen_at TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE,
-        FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS unprocessable_video_candidates (
-        id INTEGER PRIMARY KEY,
-        scan_root_id INTEGER NOT NULL,
-        path TEXT NOT NULL UNIQUE,
-        reason TEXT NOT NULL,
-        file_size_bytes INTEGER NOT NULL,
-        last_seen_at TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_METADATA_SUGGESTIONS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS metadata_suggestions (
-        id INTEGER PRIMARY KEY,
-        scan_root_id INTEGER NOT NULL,
-        video_id INTEGER NOT NULL,
-        source_path_segment TEXT NOT NULL,
-        suggested_value TEXT NOT NULL,
-        suggestion_kind TEXT NOT NULL,
-        accepted_at TEXT,
-        rejected_at TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (scan_root_id, video_id, source_path_segment, suggestion_kind),
-        FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE,
-        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_METADATA_SUGGESTION_REJECTIONS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS metadata_suggestion_rejections (
-        id INTEGER PRIMARY KEY,
-        scan_root_id INTEGER NOT NULL,
-        source_path_segment TEXT NOT NULL,
-        normalized_suggested_value TEXT NOT NULL,
-        suggestion_kind TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (
-            scan_root_id,
-            source_path_segment,
-            normalized_suggested_value,
-            suggestion_kind
-        ),
-        FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_METADATA_SUGGESTION_MAPPINGS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS metadata_suggestion_mappings (
-        id INTEGER PRIMARY KEY,
-        scan_root_id INTEGER NOT NULL,
-        source_path_segment TEXT NOT NULL,
-        normalized_suggested_value TEXT NOT NULL,
-        suggestion_kind TEXT NOT NULL,
-        accepted_tag_id INTEGER,
-        accepted_performer_id INTEGER,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CHECK (
-            (accepted_tag_id IS NOT NULL AND accepted_performer_id IS NULL)
-            OR (accepted_tag_id IS NULL AND accepted_performer_id IS NOT NULL)
-        ),
-        UNIQUE (
-            scan_root_id,
-            source_path_segment,
-            normalized_suggested_value,
-            suggestion_kind
-        ),
-        FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE,
-        FOREIGN KEY (accepted_tag_id) REFERENCES tags (id) ON DELETE CASCADE,
-        FOREIGN KEY (accepted_performer_id) REFERENCES performers (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_PREVIEW_STRIPS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS preview_strips (
-        id INTEGER PRIMARY KEY,
-        video_id INTEGER NOT NULL UNIQUE,
-        path TEXT NOT NULL UNIQUE,
-        frame_count INTEGER NOT NULL,
-        column_count INTEGER NOT NULL,
-        row_count INTEGER NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_FAILED_PREVIEW_STRIPS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS failed_preview_strips (
-        id INTEGER PRIMARY KEY,
-        video_id INTEGER NOT NULL UNIQUE,
-        reason TEXT NOT NULL,
-        ignored_at TEXT,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_TAGS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS tags (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        normalized_name TEXT NOT NULL UNIQUE,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-";
-
-const CREATE_PERFORMERS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS performers (
-        id INTEGER PRIMARY KEY,
-        name TEXT NOT NULL,
-        normalized_name TEXT NOT NULL UNIQUE,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-    );
-";
-
-const CREATE_TAG_VIDEOS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS tag_videos (
-        tag_id INTEGER NOT NULL,
-        video_id INTEGER NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (tag_id, video_id),
-        FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE,
-        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_PERFORMER_VIDEOS_TABLE: &str = "
-    CREATE TABLE IF NOT EXISTS performer_videos (
-        performer_id INTEGER NOT NULL,
-        video_id INTEGER NOT NULL,
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (performer_id, video_id),
-        FOREIGN KEY (performer_id) REFERENCES performers (id) ON DELETE CASCADE,
-        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
-    );
-";
-
-const CREATE_TAG_VIDEOS_VIDEO_INDEX: &str = "
-    CREATE INDEX IF NOT EXISTS idx_tag_videos_video_id
-    ON tag_videos (video_id);
-";
-
-const CREATE_PERFORMER_VIDEOS_VIDEO_INDEX: &str = "
-    CREATE INDEX IF NOT EXISTS idx_performer_videos_video_id
-    ON performer_videos (video_id);
-";
 
 const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 40;
 const PREVIEW_STRIP_COLUMNS: i64 = 5;
 const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 640;
-const DEFAULT_IGNORED_EXACT_YEAR_START: i64 = 1900;
-const DEFAULT_IGNORED_EXACT_YEAR_END: i64 = 2099;
+pub(super) const DEFAULT_IGNORED_EXACT_YEAR_START: i64 = 1900;
+pub(super) const DEFAULT_IGNORED_EXACT_YEAR_END: i64 = 2099;
 const DEFAULT_IGNORED_FOLDER_NAMES: [&str; 10] = [
     "Misc",
     "Unsorted",
@@ -598,10 +388,9 @@ impl Catalog {
             .execute_batch("PRAGMA foreign_keys = ON;")
             .map_err(|error| error.to_string())?;
 
-        let catalog = Self { database };
-        catalog.run_migrations()?;
+        migrations::run_migrations(&database)?;
 
-        Ok(catalog)
+        Ok(Self { database })
     }
 
     pub fn listed_videos(&self) -> Result<Vec<CatalogVideo>, String> {
@@ -1941,148 +1730,6 @@ impl Catalog {
         }
     }
 
-    fn run_migrations(&self) -> Result<(), String> {
-        let migration_batch = [
-            CREATE_SCAN_ROOTS_TABLE,
-            CREATE_VIDEOS_TABLE,
-            CREATE_FILE_LOCATIONS_TABLE,
-            CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE,
-            CREATE_METADATA_SUGGESTIONS_TABLE,
-            CREATE_METADATA_SUGGESTION_REJECTIONS_TABLE,
-            CREATE_METADATA_SUGGESTION_MAPPINGS_TABLE,
-            CREATE_PREVIEW_STRIPS_TABLE,
-            CREATE_FAILED_PREVIEW_STRIPS_TABLE,
-            CREATE_TAGS_TABLE,
-            CREATE_PERFORMERS_TABLE,
-            CREATE_TAG_VIDEOS_TABLE,
-            CREATE_PERFORMER_VIDEOS_TABLE,
-            CREATE_TAG_VIDEOS_VIDEO_INDEX,
-            CREATE_PERFORMER_VIDEOS_VIDEO_INDEX,
-        ]
-        .join("\n");
-
-        self.database
-            .execute_batch(&migration_batch)
-            .map_err(|error| error.to_string())?;
-        self.add_scan_root_availability_column_if_missing()?;
-        self.add_scan_root_inference_rule_columns_if_missing()?;
-        self.add_failed_preview_strip_ignored_at_column_if_missing()?;
-        self.add_video_favorite_column_if_missing()?;
-        self.add_video_open_history_columns_if_missing()
-    }
-
-    fn add_scan_root_availability_column_if_missing(&self) -> Result<(), String> {
-        if catalog_table_has_column(&self.database, "scan_roots", "is_available")? {
-            return Ok(());
-        }
-
-        self.database
-            .execute(
-                "ALTER TABLE scan_roots
-                 ADD COLUMN is_available INTEGER NOT NULL DEFAULT 1",
-                [],
-            )
-            .map_err(|error| error.to_string())?;
-
-        Ok(())
-    }
-
-    fn add_scan_root_inference_rule_columns_if_missing(&self) -> Result<(), String> {
-        let scan_root_inference_rule_columns = [
-            (
-                "suggest_tags_from_child_folders",
-                "INTEGER NOT NULL DEFAULT 1".to_string(),
-            ),
-            (
-                "suggest_performers_from_child_folders",
-                "INTEGER NOT NULL DEFAULT 0".to_string(),
-            ),
-            (
-                "ignored_folder_names",
-                format!("TEXT NOT NULL DEFAULT '{DEFAULT_IGNORED_FOLDER_NAMES_JSON}'"),
-            ),
-            (
-                "ignored_exact_year_start",
-                format!("INTEGER NOT NULL DEFAULT {DEFAULT_IGNORED_EXACT_YEAR_START}"),
-            ),
-            (
-                "ignored_exact_year_end",
-                format!("INTEGER NOT NULL DEFAULT {DEFAULT_IGNORED_EXACT_YEAR_END}"),
-            ),
-        ];
-
-        for (column_name, column_definition) in scan_root_inference_rule_columns {
-            if catalog_table_has_column(&self.database, "scan_roots", column_name)? {
-                continue;
-            }
-
-            self.database
-                .execute(
-                    &format!("ALTER TABLE scan_roots ADD COLUMN {column_name} {column_definition}"),
-                    [],
-                )
-                .map_err(|error| error.to_string())?;
-        }
-
-        Ok(())
-    }
-
-    fn add_failed_preview_strip_ignored_at_column_if_missing(&self) -> Result<(), String> {
-        if catalog_table_has_column(&self.database, "failed_preview_strips", "ignored_at")? {
-            return Ok(());
-        }
-
-        self.database
-            .execute(
-                "ALTER TABLE failed_preview_strips
-                 ADD COLUMN ignored_at TEXT",
-                [],
-            )
-            .map_err(|error| error.to_string())?;
-
-        Ok(())
-    }
-
-    fn add_video_favorite_column_if_missing(&self) -> Result<(), String> {
-        if catalog_table_has_column(&self.database, "videos", "is_favorite")? {
-            return Ok(());
-        }
-
-        self.database
-            .execute(
-                "ALTER TABLE videos
-                 ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0",
-                [],
-            )
-            .map_err(|error| error.to_string())?;
-
-        Ok(())
-    }
-
-    fn add_video_open_history_columns_if_missing(&self) -> Result<(), String> {
-        if !catalog_table_has_column(&self.database, "videos", "last_opened_at")? {
-            self.database
-                .execute(
-                    "ALTER TABLE videos
-                     ADD COLUMN last_opened_at TEXT",
-                    [],
-                )
-                .map_err(|error| error.to_string())?;
-        }
-
-        if !catalog_table_has_column(&self.database, "videos", "open_count")? {
-            self.database
-                .execute(
-                    "ALTER TABLE videos
-                     ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
-                    [],
-                )
-                .map_err(|error| error.to_string())?;
-        }
-
-        Ok(())
-    }
-
     fn scan_root_id(&self, scan_root_path: &str) -> Result<i64, String> {
         self.database
             .query_row(
@@ -2898,25 +2545,6 @@ fn preview_strip_status_from_row(
         Some(failure_reason) => PreviewStripStatus::Failed { failure_reason },
         None => PreviewStripStatus::Pending,
     })
-}
-
-fn catalog_table_has_column(
-    database: &Connection,
-    table_name: &str,
-    column_name: &str,
-) -> Result<bool, String> {
-    let mut statement = database
-        .prepare(&format!("PRAGMA table_info({table_name})"))
-        .map_err(|error| error.to_string())?;
-    let column_names = statement
-        .query_map([], |row| row.get::<_, String>(1))
-        .map_err(|error| error.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| error.to_string())?;
-
-    Ok(column_names
-        .iter()
-        .any(|existing_column_name| existing_column_name == column_name))
 }
 
 fn canonical_scan_root_path(scan_root_path: &Path) -> std::io::Result<PathBuf> {
@@ -4460,10 +4088,12 @@ mod tests {
             .expect("video listed");
         assert_eq!(listed_video.open_count, 2);
         assert!(listed_video.last_opened_at.is_some());
-        assert!(
-            !super::catalog_table_has_column(&database, "videos", "playback_progress")
-                .expect("column presence loads")
-        );
+        assert!(!super::migrations::catalog_table_has_column(
+            &database,
+            "videos",
+            "playback_progress"
+        )
+        .expect("column presence loads"));
     }
 
     #[test]
@@ -5831,10 +5461,12 @@ mod tests {
         let catalog = Catalog::open(&catalog_path).expect("catalog opens");
 
         let database = Connection::open(catalog_path).expect("catalog database opens");
-        assert!(
-            super::catalog_table_has_column(&database, "scan_roots", "is_available")
-                .expect("column presence loads")
-        );
+        assert!(super::migrations::catalog_table_has_column(
+            &database,
+            "scan_roots",
+            "is_available"
+        )
+        .expect("column presence loads"));
         assert_eq!(
             catalog.list_scan_roots().expect("scan roots list"),
             vec![super::ScanRoot {
