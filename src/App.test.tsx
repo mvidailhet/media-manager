@@ -17,8 +17,6 @@ import {
   attachTagToVideo,
   createPerformer,
   createTag,
-  deletePerformer,
-  deleteTag,
   detachPerformerFromVideo,
   detachTagFromVideo,
   forgetCatalogVideo,
@@ -61,8 +59,6 @@ vi.mock("./tauriCommands", () => ({
   attachTagToVideo: vi.fn(),
   createPerformer: vi.fn(),
   createTag: vi.fn(),
-  deletePerformer: vi.fn(),
-  deleteTag: vi.fn(),
   detachPerformerFromVideo: vi.fn(),
   detachTagFromVideo: vi.fn(),
   forgetCatalogVideo: vi.fn(),
@@ -107,8 +103,6 @@ const mockedAttachPerformerToVideo = vi.mocked(attachPerformerToVideo);
 const mockedDetachPerformerFromVideo = vi.mocked(detachPerformerFromVideo);
 const mockedCreateTag = vi.mocked(createTag);
 const mockedCreatePerformer = vi.mocked(createPerformer);
-const mockedDeleteTag = vi.mocked(deleteTag);
-const mockedDeletePerformer = vi.mocked(deletePerformer);
 const mockedUpdateVideoTitle = vi.mocked(updateVideoTitle);
 const mockedSetVideoFavorite = vi.mocked(setVideoFavorite);
 const mockedRetryFailedPreviewStrip = vi.mocked(retryFailedPreviewStrip);
@@ -185,8 +179,6 @@ describe("Videos View shell", () => {
     mockedDetachPerformerFromVideo.mockResolvedValue(undefined);
     mockedCreateTag.mockResolvedValue({ id: 100, name: "New Tag" });
     mockedCreatePerformer.mockResolvedValue({ id: 200, name: "New Performer" });
-    mockedDeleteTag.mockResolvedValue(undefined);
-    mockedDeletePerformer.mockResolvedValue(undefined);
     mockedUpdateVideoTitle.mockResolvedValue(undefined);
     mockedSetVideoFavorite.mockResolvedValue(undefined);
     mockedRetryFailedPreviewStrip.mockResolvedValue({
@@ -380,9 +372,15 @@ describe("Videos View shell", () => {
   });
 
   it("creates new Tags and Performers inline while editing a Video", async () => {
-    mockedListTags.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedListPerformers.mockResolvedValue([{ id: 9, name: "Blair" }]);
-    mockedCreateTag.mockResolvedValue({ id: 5, name: "Road Trip" });
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 6, name: "Road Trip" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, name: "Blair" },
+      { id: 11, name: "Casey Jones" },
+    ]);
+    mockedCreateTag.mockResolvedValue({ id: 5, name: "Trip" });
     mockedCreatePerformer.mockResolvedValue({ id: 10, name: "Casey" });
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -406,9 +404,11 @@ describe("Videos View shell", () => {
     });
 
     fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
-      target: { value: " Road Trip " },
+      target: { value: "Trip" },
     });
-    expect(within(detailPanel).getByText("Near match: Travel")).toBeInTheDocument();
+    expect(
+      within(detailPanel).getByText("Near match: Road Trip"),
+    ).toBeInTheDocument();
     fireEvent.click(
       within(detailPanel).getByRole("button", { name: "Create and attach Tag" }),
     );
@@ -416,7 +416,9 @@ describe("Videos View shell", () => {
     fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
       target: { value: "Casey" },
     });
-    expect(within(detailPanel).getByText("Near match: Blair")).toBeInTheDocument();
+    expect(
+      within(detailPanel).getByText("Near match: Casey Jones"),
+    ).toBeInTheDocument();
     fireEvent.click(
       within(detailPanel).getByRole("button", {
         name: "Create and attach Performer",
@@ -424,11 +426,42 @@ describe("Videos View shell", () => {
     );
 
     await waitFor(() => {
-      expect(mockedCreateTag).toHaveBeenCalledWith("Road Trip");
+      expect(mockedCreateTag).toHaveBeenCalledWith("Trip");
     });
     expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
     expect(mockedCreatePerformer).toHaveBeenCalledWith("Casey");
     expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
+  });
+
+  it("does not surface unrelated metadata as a near match", async () => {
+    mockedListTags.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedListPerformers.mockResolvedValue([]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+
+    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
+      target: { value: "Road Trip" },
+    });
+
+    expect(within(detailPanel).queryByText(/Near match:/)).not.toBeInTheDocument();
   });
 
   it("reuses case-insensitive Tag and Performer matches instead of creating duplicates", async () => {
@@ -478,11 +511,11 @@ describe("Videos View shell", () => {
     expect(mockedCreatePerformer).not.toHaveBeenCalled();
   });
 
-  it("deletes inline-created Tags and Performers after their last normal edit detach", async () => {
-    mockedListTags.mockResolvedValue([]);
-    mockedListPerformers.mockResolvedValue([]);
-    mockedCreateTag.mockResolvedValue({ id: 5, name: "Road Trip" });
-    mockedCreatePerformer.mockResolvedValue({ id: 10, name: "Casey" });
+  it("shows already-attached metadata as unavailable for inline attachment", async () => {
+    mockedListTags.mockResolvedValue([{ id: 5, name: "Road Trip" }]);
+    mockedListPerformers.mockResolvedValue([{ id: 10, name: "Casey" }]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 5, name: "Road Trip" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 10, name: "Casey" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -503,28 +536,24 @@ describe("Videos View shell", () => {
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
+
     fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
       target: { value: "Road Trip" },
     });
-    fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Create and attach Tag" }),
-    );
+    expect(
+      within(detailPanel).getByRole("button", { name: "Tag already attached" }),
+    ).toBeDisabled();
+
     fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
       target: { value: "Casey" },
     });
-    fireEvent.click(
+    expect(
       within(detailPanel).getByRole("button", {
-        name: "Create and attach Performer",
+        name: "Performer already attached",
       }),
-    );
-
-    fireEvent.click(await within(detailPanel).findByRole("button", { name: "Remove Road Trip" }));
-    fireEvent.click(await within(detailPanel).findByRole("button", { name: "Remove Casey" }));
-
-    await waitFor(() => {
-      expect(mockedDeleteTag).toHaveBeenCalledWith(5);
-    });
-    expect(mockedDeletePerformer).toHaveBeenCalledWith(10);
+    ).toBeDisabled();
+    expect(mockedCreateTag).not.toHaveBeenCalled();
+    expect(mockedCreatePerformer).not.toHaveBeenCalled();
   });
 
   it("marks Missing Videos unavailable in the normal Videos list", async () => {

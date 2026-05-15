@@ -42,8 +42,6 @@ import {
   listUnprocessableVideoCandidates,
   createPerformer,
   createTag,
-  deletePerformer,
-  deleteTag,
   performersForVideo,
   pausePreviewStripQueue,
   processNextPreviewStripQueueItem,
@@ -139,12 +137,6 @@ export default function App() {
   const [selectedVideoPerformers, setSelectedVideoPerformers] = useState<
     CatalogPerformer[]
   >([]);
-  const [inlineCreatedTagIds, setInlineCreatedTagIds] = useState<Set<number>>(
-    new Set(),
-  );
-  const [inlineCreatedPerformerIds, setInlineCreatedPerformerIds] = useState<
-    Set<number>
-  >(new Set());
   const [detailStatusMessage, setDetailStatusMessage] = useState("");
   const selectedVideoRequestId = useRef(0);
 
@@ -594,8 +586,6 @@ export default function App() {
     selectedVideoRequestId.current = requestId;
     setSelectedVideo(catalogVideo);
     setDetailStatusMessage("");
-    setInlineCreatedTagIds(new Set());
-    setInlineCreatedPerformerIds(new Set());
 
     try {
       const [storedTags, storedPerformers, videoTags, videoPerformers] =
@@ -696,9 +686,6 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
       );
-      if (!existingTag) {
-        setInlineCreatedTagIds((currentIds) => appendId(currentIds, tag.id));
-      }
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -715,13 +702,7 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         currentTags.filter((currentTag) => currentTag.id !== tag.id),
       );
-      if (inlineCreatedTagIds.has(tag.id)) {
-        await deleteTag(tag.id);
-        setAvailableTags((currentTags) =>
-          currentTags.filter((currentTag) => currentTag.id !== tag.id),
-        );
-        setInlineCreatedTagIds((currentIds) => removeId(currentIds, tag.id));
-      }
+      setAvailableTags(await listTags());
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -771,11 +752,6 @@ export default function App() {
       setSelectedVideoPerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
-      if (!existingPerformer) {
-        setInlineCreatedPerformerIds((currentIds) =>
-          appendId(currentIds, performer.id),
-        );
-      }
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -794,17 +770,7 @@ export default function App() {
           (currentPerformer) => currentPerformer.id !== performer.id,
         ),
       );
-      if (inlineCreatedPerformerIds.has(performer.id)) {
-        await deletePerformer(performer.id);
-        setAvailablePerformers((currentPerformers) =>
-          currentPerformers.filter(
-            (currentPerformer) => currentPerformer.id !== performer.id,
-          ),
-        );
-        setInlineCreatedPerformerIds((currentIds) =>
-          removeId(currentIds, performer.id),
-        );
-      }
+      setAvailablePerformers(await listPerformers());
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -1342,6 +1308,7 @@ function VideoDetailPanel({
         <Group gap="xl" align="start">
           <MetadataChecklist
             attachableItems={attachableTags}
+            availableItems={availableTags}
             label="Tags"
             onAttach={onAttachTag}
             onCreateOrAttach={onCreateOrAttachTag}
@@ -1350,6 +1317,7 @@ function VideoDetailPanel({
           />
           <MetadataChecklist
             attachableItems={attachablePerformers}
+            availableItems={availablePerformers}
             label="Performers"
             onAttach={onAttachPerformer}
             onCreateOrAttach={onCreateOrAttachPerformer}
@@ -1394,6 +1362,7 @@ function VideoDetailPanel({
 
 function MetadataChecklist<T extends { id: number; name: string }>({
   attachableItems,
+  availableItems,
   label,
   onAttach,
   onCreateOrAttach,
@@ -1401,6 +1370,7 @@ function MetadataChecklist<T extends { id: number; name: string }>({
   selectedItems,
 }: {
   attachableItems: T[];
+  availableItems: T[];
   label: string;
   onAttach: (item: T) => void;
   onCreateOrAttach: (name: string) => void;
@@ -1409,9 +1379,20 @@ function MetadataChecklist<T extends { id: number; name: string }>({
 }) {
   const [newItemName, setNewItemName] = useState("");
   const trimmedNewItemName = newItemName.trim();
-  const exactMatch = findMetadataByName(attachableItems, trimmedNewItemName);
-  const nearMatch = findNearMetadataMatch(attachableItems, trimmedNewItemName);
-  const actionLabel = exactMatch
+  const exactAvailableMatch = findMetadataByName(
+    availableItems,
+    trimmedNewItemName,
+  );
+  const exactAttachableMatch = findMetadataByName(
+    attachableItems,
+    trimmedNewItemName,
+  );
+  const isAlreadyAttached =
+    exactAvailableMatch !== undefined && exactAttachableMatch === undefined;
+  const nearMatch = findNearMetadataMatch(availableItems, trimmedNewItemName);
+  const actionLabel = isAlreadyAttached
+    ? `${singularMetadataLabel(label)} already attached`
+    : exactAttachableMatch
     ? `Attach existing ${singularMetadataLabel(label)}`
     : `Create and attach ${singularMetadataLabel(label)}`;
 
@@ -1430,6 +1411,7 @@ function MetadataChecklist<T extends { id: number; name: string }>({
         type="button"
         size="xs"
         variant="default"
+        disabled={isAlreadyAttached}
         onClick={() => {
           void onCreateOrAttach(trimmedNewItemName);
           setNewItemName("");
@@ -1471,17 +1453,6 @@ function appendUniqueMetadata<T extends { id: number }>(items: T[], item: T) {
   return [...items, item];
 }
 
-function appendId(ids: Set<number>, id: number) {
-  return new Set([...ids, id]);
-}
-
-function removeId(ids: Set<number>, id: number) {
-  const nextIds = new Set(ids);
-  nextIds.delete(id);
-
-  return nextIds;
-}
-
 function findMetadataByName<T extends { name: string }>(items: T[], name: string) {
   const normalizedName = normalizedMetadataName(name);
 
@@ -1504,9 +1475,7 @@ function findNearMetadataMatch<T extends { name: string }>(items: T[], name: str
         (normalizedItemName.includes(normalizedName) ||
           normalizedName.includes(normalizedItemName))
       );
-    }) ??
-    items.find((item) => normalizedMetadataName(item.name) !== normalizedName) ??
-    null
+    }) ?? null
   );
 }
 
