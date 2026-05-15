@@ -141,6 +141,16 @@ const CREATE_PERFORMER_VIDEOS_TABLE: &str = "
     );
 ";
 
+const CREATE_TAG_VIDEOS_VIDEO_INDEX: &str = "
+    CREATE INDEX IF NOT EXISTS idx_tag_videos_video_id
+    ON tag_videos (video_id);
+";
+
+const CREATE_PERFORMER_VIDEOS_VIDEO_INDEX: &str = "
+    CREATE INDEX IF NOT EXISTS idx_performer_videos_video_id
+    ON performer_videos (video_id);
+";
+
 const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 20;
 const PREVIEW_STRIP_COLUMNS: i64 = 5;
 const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 160;
@@ -230,6 +240,11 @@ pub struct CatalogTag {
 pub struct CatalogPerformer {
     pub id: i64,
     pub name: String,
+}
+
+struct CatalogMetadataValue {
+    id: i64,
+    name: String,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -913,14 +928,17 @@ impl Catalog {
 
     pub fn list_tags(&self) -> Result<Vec<CatalogTag>, String> {
         self.list_metadata_values("tags")
+            .map(catalog_tags_from_values)
     }
 
     pub fn create_tag(&self, name: &str) -> Result<CatalogTag, String> {
         self.create_metadata_value("tags", name, "Tag")
+            .map(catalog_tag_from_value)
     }
 
     pub fn update_tag(&self, tag_id: i64, name: &str) -> Result<CatalogTag, String> {
         self.update_metadata_value("tags", tag_id, name, "Tag")
+            .map(catalog_tag_from_value)
     }
 
     pub fn delete_tag(&self, tag_id: i64) -> Result<(), String> {
@@ -929,23 +947,12 @@ impl Catalog {
 
     pub fn list_performers(&self) -> Result<Vec<CatalogPerformer>, String> {
         self.list_metadata_values("performers")
-            .map(|metadata_values| {
-                metadata_values
-                    .into_iter()
-                    .map(|metadata_value| CatalogPerformer {
-                        id: metadata_value.id,
-                        name: metadata_value.name,
-                    })
-                    .collect()
-            })
+            .map(catalog_performers_from_values)
     }
 
     pub fn create_performer(&self, name: &str) -> Result<CatalogPerformer, String> {
         self.create_metadata_value("performers", name, "Performer")
-            .map(|metadata_value| CatalogPerformer {
-                id: metadata_value.id,
-                name: metadata_value.name,
-            })
+            .map(catalog_performer_from_value)
     }
 
     pub fn update_performer(
@@ -954,10 +961,7 @@ impl Catalog {
         name: &str,
     ) -> Result<CatalogPerformer, String> {
         self.update_metadata_value("performers", performer_id, name, "Performer")
-            .map(|metadata_value| CatalogPerformer {
-                id: metadata_value.id,
-                name: metadata_value.name,
-            })
+            .map(catalog_performer_from_value)
     }
 
     pub fn delete_performer(&self, performer_id: i64) -> Result<(), String> {
@@ -974,6 +978,7 @@ impl Catalog {
 
     pub fn tags_for_video(&self, video_id: i64) -> Result<Vec<CatalogTag>, String> {
         self.metadata_values_for_video("tags", "tag_videos", "tag_id", video_id)
+            .map(catalog_tags_from_values)
     }
 
     pub fn attach_performer_to_video(
@@ -994,18 +999,10 @@ impl Catalog {
 
     pub fn performers_for_video(&self, video_id: i64) -> Result<Vec<CatalogPerformer>, String> {
         self.metadata_values_for_video("performers", "performer_videos", "performer_id", video_id)
-            .map(|metadata_values| {
-                metadata_values
-                    .into_iter()
-                    .map(|metadata_value| CatalogPerformer {
-                        id: metadata_value.id,
-                        name: metadata_value.name,
-                    })
-                    .collect()
-            })
+            .map(catalog_performers_from_values)
     }
 
-    fn list_metadata_values(&self, table_name: &str) -> Result<Vec<CatalogTag>, String> {
+    fn list_metadata_values(&self, table_name: &str) -> Result<Vec<CatalogMetadataValue>, String> {
         let query = format!(
             "SELECT id, name
              FROM {table_name}
@@ -1018,7 +1015,7 @@ impl Catalog {
 
         let metadata_values = statement
             .query_map([], |row| {
-                Ok(CatalogTag {
+                Ok(CatalogMetadataValue {
                     id: row.get(0)?,
                     name: row.get(1)?,
                 })
@@ -1035,7 +1032,7 @@ impl Catalog {
         table_name: &str,
         name: &str,
         metadata_type_name: &str,
-    ) -> Result<CatalogTag, String> {
+    ) -> Result<CatalogMetadataValue, String> {
         let metadata_name = normalized_metadata_input(name)?;
         let duplicate_error = format!("{metadata_type_name} already exists");
         self.reject_duplicate_metadata_name(
@@ -1065,7 +1062,7 @@ impl Catalog {
         metadata_id: i64,
         name: &str,
         metadata_type_name: &str,
-    ) -> Result<CatalogTag, String> {
+    ) -> Result<CatalogMetadataValue, String> {
         let metadata_name = normalized_metadata_input(name)?;
         let duplicate_error = format!("{metadata_type_name} already exists");
         self.reject_duplicate_metadata_name(
@@ -1150,7 +1147,7 @@ impl Catalog {
         link_table_name: &str,
         metadata_id_column: &str,
         video_id: i64,
-    ) -> Result<Vec<CatalogTag>, String> {
+    ) -> Result<Vec<CatalogMetadataValue>, String> {
         let query = format!(
             "SELECT {metadata_table_name}.id, {metadata_table_name}.name
              FROM {metadata_table_name}
@@ -1166,7 +1163,7 @@ impl Catalog {
 
         let metadata_values = statement
             .query_map(params![video_id], |row| {
-                Ok(CatalogTag {
+                Ok(CatalogMetadataValue {
                     id: row.get(0)?,
                     name: row.get(1)?,
                 })
@@ -1183,7 +1180,7 @@ impl Catalog {
         table_name: &str,
         metadata_id: i64,
         metadata_type_name: &str,
-    ) -> Result<CatalogTag, String> {
+    ) -> Result<CatalogMetadataValue, String> {
         let query = format!(
             "SELECT id, name
              FROM {table_name}
@@ -1191,7 +1188,7 @@ impl Catalog {
         );
         self.database
             .query_row(&query, params![metadata_id], |row| {
-                Ok(CatalogTag {
+                Ok(CatalogMetadataValue {
                     id: row.get(0)?,
                     name: row.get(1)?,
                 })
@@ -1256,6 +1253,8 @@ impl Catalog {
             CREATE_PERFORMERS_TABLE,
             CREATE_TAG_VIDEOS_TABLE,
             CREATE_PERFORMER_VIDEOS_TABLE,
+            CREATE_TAG_VIDEOS_VIDEO_INDEX,
+            CREATE_PERFORMER_VIDEOS_VIDEO_INDEX,
         ]
         .join("\n");
 
@@ -1642,9 +1641,39 @@ fn normalized_metadata_input(name: &str) -> Result<NormalizedMetadataName, Strin
     }
 
     Ok(NormalizedMetadataName {
-        normalized_name: display_name.to_ascii_lowercase(),
+        normalized_name: display_name.to_lowercase(),
         display_name,
     })
+}
+
+fn catalog_tag_from_value(metadata_value: CatalogMetadataValue) -> CatalogTag {
+    CatalogTag {
+        id: metadata_value.id,
+        name: metadata_value.name,
+    }
+}
+
+fn catalog_tags_from_values(metadata_values: Vec<CatalogMetadataValue>) -> Vec<CatalogTag> {
+    metadata_values
+        .into_iter()
+        .map(catalog_tag_from_value)
+        .collect()
+}
+
+fn catalog_performer_from_value(metadata_value: CatalogMetadataValue) -> CatalogPerformer {
+    CatalogPerformer {
+        id: metadata_value.id,
+        name: metadata_value.name,
+    }
+}
+
+fn catalog_performers_from_values(
+    metadata_values: Vec<CatalogMetadataValue>,
+) -> Vec<CatalogPerformer> {
+    metadata_values
+        .into_iter()
+        .map(catalog_performer_from_value)
+        .collect()
 }
 
 fn preview_strip_status_from_row(row: &Row<'_>) -> rusqlite::Result<PreviewStripStatus> {
@@ -3378,6 +3407,17 @@ mod tests {
                 "video_id -> videos.id on delete CASCADE",
             ]
         );
+        assert_eq!(
+            catalog_index_names(&database),
+            vec![
+                "idx_performer_videos_video_id",
+                "idx_tag_videos_video_id",
+                "sqlite_autoindex_performer_videos_1",
+                "sqlite_autoindex_performers_1",
+                "sqlite_autoindex_tag_videos_1",
+                "sqlite_autoindex_tags_1",
+            ]
+        );
     }
 
     #[test]
@@ -3460,6 +3500,31 @@ mod tests {
         assert_eq!(
             catalog.list_performers().expect("performers list"),
             vec![travel_performer]
+        );
+    }
+
+    #[test]
+    fn tags_and_performers_match_non_ascii_names_case_insensitively() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+
+        catalog.create_tag("Élodie").expect("tag creates");
+        catalog
+            .create_performer("Élodie")
+            .expect("performer creates");
+
+        assert_eq!(
+            catalog
+                .create_tag("élodie")
+                .expect_err("accented duplicate tag is rejected"),
+            "Tag already exists"
+        );
+        assert_eq!(
+            catalog
+                .create_performer("élodie")
+                .expect_err("accented duplicate performer is rejected"),
+            "Performer already exists"
         );
     }
 
@@ -3559,6 +3624,24 @@ mod tests {
             .expect("table names query runs")
             .collect::<Result<Vec<_>, _>>()
             .expect("table names load")
+    }
+
+    fn catalog_index_names(database: &Connection) -> Vec<String> {
+        let mut statement = database
+            .prepare(
+                "SELECT name
+                 FROM sqlite_schema
+                 WHERE type = 'index'
+                   AND tbl_name IN ('tags', 'performers', 'tag_videos', 'performer_videos')
+                 ORDER BY name",
+            )
+            .expect("index names query prepares");
+
+        statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .expect("index names query runs")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("index names load")
     }
 
     fn catalog_test_database(catalog_path: &std::path::Path) -> Connection {
