@@ -1001,7 +1001,13 @@ impl Catalog {
     }
 
     pub fn delete_tag(&self, tag_id: i64) -> Result<(), String> {
-        self.delete_metadata_value("tags", tag_id)
+        self.delete_metadata_value(
+            "tags",
+            "tag_videos",
+            "tag_id",
+            tag_id,
+            "Attached Tags must be detached before deletion",
+        )
     }
 
     pub fn list_performers(&self) -> Result<Vec<CatalogPerformer>, String> {
@@ -1024,7 +1030,13 @@ impl Catalog {
     }
 
     pub fn delete_performer(&self, performer_id: i64) -> Result<(), String> {
-        self.delete_metadata_value("performers", performer_id)
+        self.delete_metadata_value(
+            "performers",
+            "performer_videos",
+            "performer_id",
+            performer_id,
+            "Attached Performers must be detached before deletion",
+        )
     }
 
     pub fn attach_tag_to_video(&self, tag_id: i64, video_id: i64) -> Result<(), String> {
@@ -1032,7 +1044,7 @@ impl Catalog {
     }
 
     pub fn detach_tag_from_video(&self, tag_id: i64, video_id: i64) -> Result<(), String> {
-        self.detach_metadata_from_video("tag_videos", "tag_id", tag_id, video_id)
+        self.detach_metadata_from_video("tags", "tag_videos", "tag_id", tag_id, video_id)
     }
 
     pub fn tags_for_video(&self, video_id: i64) -> Result<Vec<CatalogTag>, String> {
@@ -1053,7 +1065,13 @@ impl Catalog {
         performer_id: i64,
         video_id: i64,
     ) -> Result<(), String> {
-        self.detach_metadata_from_video("performer_videos", "performer_id", performer_id, video_id)
+        self.detach_metadata_from_video(
+            "performers",
+            "performer_videos",
+            "performer_id",
+            performer_id,
+            video_id,
+        )
     }
 
     pub fn performers_for_video(&self, video_id: i64) -> Result<Vec<CatalogPerformer>, String> {
@@ -1188,7 +1206,20 @@ impl Catalog {
         self.metadata_value_by_id(table_name, metadata_id, metadata_type_name)
     }
 
-    fn delete_metadata_value(&self, table_name: &str, metadata_id: i64) -> Result<(), String> {
+    fn delete_metadata_value(
+        &self,
+        table_name: &str,
+        link_table_name: &str,
+        metadata_id_column: &str,
+        metadata_id: i64,
+        attached_metadata_error: &str,
+    ) -> Result<(), String> {
+        self.reject_attached_metadata(
+            link_table_name,
+            metadata_id_column,
+            metadata_id,
+            attached_metadata_error,
+        )?;
         let query = format!(
             "DELETE FROM {table_name}
              WHERE id = ?1"
@@ -1198,6 +1229,33 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
 
         Ok(())
+    }
+
+    fn reject_attached_metadata(
+        &self,
+        link_table_name: &str,
+        metadata_id_column: &str,
+        metadata_id: i64,
+        attached_metadata_error: &str,
+    ) -> Result<(), String> {
+        let query = format!(
+            "SELECT 1
+             FROM {link_table_name}
+             WHERE {metadata_id_column} = ?1
+             LIMIT 1"
+        );
+        let has_attached_video = self
+            .database
+            .query_row(&query, params![metadata_id], |_| Ok(()))
+            .optional()
+            .map_err(|error| error.to_string())?
+            .is_some();
+
+        if has_attached_video {
+            Err(attached_metadata_error.to_string())
+        } else {
+            Ok(())
+        }
     }
 
     fn attach_metadata_to_video(
@@ -1220,6 +1278,7 @@ impl Catalog {
 
     fn detach_metadata_from_video(
         &self,
+        metadata_table_name: &str,
         table_name: &str,
         metadata_id_column: &str,
         metadata_id: i64,
@@ -1232,6 +1291,35 @@ impl Catalog {
         );
         self.database
             .execute(&query, params![metadata_id, video_id])
+            .map_err(|error| error.to_string())?;
+        self.delete_metadata_value_if_unused(
+            metadata_table_name,
+            table_name,
+            metadata_id_column,
+            metadata_id,
+        )?;
+
+        Ok(())
+    }
+
+    fn delete_metadata_value_if_unused(
+        &self,
+        metadata_table_name: &str,
+        link_table_name: &str,
+        metadata_id_column: &str,
+        metadata_id: i64,
+    ) -> Result<(), String> {
+        let query = format!(
+            "DELETE FROM {metadata_table_name}
+             WHERE id = ?1
+               AND NOT EXISTS (
+                   SELECT 1
+                   FROM {link_table_name}
+                   WHERE {link_table_name}.{metadata_id_column} = ?1
+               )"
+        );
+        self.database
+            .execute(&query, params![metadata_id])
             .map_err(|error| error.to_string())?;
 
         Ok(())
@@ -3851,6 +3939,109 @@ mod tests {
         );
         assert_eq!(count_rows(&database, "tag_videos"), 0);
         assert_eq!(count_rows(&database, "performer_videos"), 0);
+    }
+
+    #[test]
+    fn attached_tags_and_performers_must_be_detached_before_deletion() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = catalog_test_database(&catalog_path);
+        store_test_video(&database, "fingerprint-one", "Family Trip");
+        let tag = catalog.create_tag("Travel").expect("tag creates");
+        let performer = catalog.create_performer("Alex").expect("performer creates");
+        catalog
+            .attach_tag_to_video(tag.id, 1)
+            .expect("tag attaches to video");
+        catalog
+            .attach_performer_to_video(performer.id, 1)
+            .expect("performer attaches to video");
+
+        assert_eq!(
+            catalog
+                .delete_tag(tag.id)
+                .expect_err("attached tag deletion is rejected"),
+            "Attached Tags must be detached before deletion"
+        );
+        assert_eq!(
+            catalog
+                .delete_performer(performer.id)
+                .expect_err("attached performer deletion is rejected"),
+            "Attached Performers must be detached before deletion"
+        );
+
+        assert_eq!(catalog.list_tags().expect("tags list"), vec![tag]);
+        assert_eq!(
+            catalog.list_performers().expect("performers list"),
+            vec![performer]
+        );
+    }
+
+    #[test]
+    fn detaching_the_last_video_use_removes_unused_tags_and_performers() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = catalog_test_database(&catalog_path);
+        store_test_video(&database, "fingerprint-one", "Family Trip");
+        let tag = catalog.create_tag("Travel").expect("tag creates");
+        let performer = catalog.create_performer("Alex").expect("performer creates");
+        catalog
+            .attach_tag_to_video(tag.id, 1)
+            .expect("tag attaches to video");
+        catalog
+            .attach_performer_to_video(performer.id, 1)
+            .expect("performer attaches to video");
+
+        catalog
+            .detach_tag_from_video(tag.id, 1)
+            .expect("tag detaches from video");
+        catalog
+            .detach_performer_from_video(performer.id, 1)
+            .expect("performer detaches from video");
+
+        assert_eq!(catalog.list_tags().expect("tags list"), Vec::new());
+        assert_eq!(
+            catalog.list_performers().expect("performers list"),
+            Vec::new()
+        );
+    }
+
+    #[test]
+    fn detaching_one_video_use_keeps_metadata_attached_to_other_videos() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = catalog_test_database(&catalog_path);
+        store_test_video(&database, "fingerprint-one", "Family Trip");
+        store_test_video(&database, "fingerprint-two", "Concert Night");
+        let tag = catalog.create_tag("Travel").expect("tag creates");
+        let performer = catalog.create_performer("Alex").expect("performer creates");
+        catalog
+            .attach_tag_to_video(tag.id, 1)
+            .expect("tag attaches to first video");
+        catalog
+            .attach_tag_to_video(tag.id, 2)
+            .expect("tag attaches to second video");
+        catalog
+            .attach_performer_to_video(performer.id, 1)
+            .expect("performer attaches to first video");
+        catalog
+            .attach_performer_to_video(performer.id, 2)
+            .expect("performer attaches to second video");
+
+        catalog
+            .detach_tag_from_video(tag.id, 1)
+            .expect("tag detaches from first video");
+        catalog
+            .detach_performer_from_video(performer.id, 1)
+            .expect("performer detaches from first video");
+
+        assert_eq!(catalog.list_tags().expect("tags list"), vec![tag]);
+        assert_eq!(
+            catalog.list_performers().expect("performers list"),
+            vec![performer]
+        );
     }
 
     fn catalog_table_names(database: &Connection) -> Vec<String> {

@@ -15,6 +15,8 @@ import {
   addScanRoot,
   attachPerformerToVideo,
   attachTagToVideo,
+  createPerformer,
+  createTag,
   detachPerformerFromVideo,
   detachTagFromVideo,
   forgetCatalogVideo,
@@ -55,6 +57,8 @@ vi.mock("./tauriCommands", () => ({
   addScanRoot: vi.fn(),
   attachPerformerToVideo: vi.fn(),
   attachTagToVideo: vi.fn(),
+  createPerformer: vi.fn(),
+  createTag: vi.fn(),
   detachPerformerFromVideo: vi.fn(),
   detachTagFromVideo: vi.fn(),
   forgetCatalogVideo: vi.fn(),
@@ -97,6 +101,8 @@ const mockedAttachTagToVideo = vi.mocked(attachTagToVideo);
 const mockedDetachTagFromVideo = vi.mocked(detachTagFromVideo);
 const mockedAttachPerformerToVideo = vi.mocked(attachPerformerToVideo);
 const mockedDetachPerformerFromVideo = vi.mocked(detachPerformerFromVideo);
+const mockedCreateTag = vi.mocked(createTag);
+const mockedCreatePerformer = vi.mocked(createPerformer);
 const mockedUpdateVideoTitle = vi.mocked(updateVideoTitle);
 const mockedSetVideoFavorite = vi.mocked(setVideoFavorite);
 const mockedRetryFailedPreviewStrip = vi.mocked(retryFailedPreviewStrip);
@@ -171,6 +177,8 @@ describe("Videos View shell", () => {
     mockedDetachTagFromVideo.mockResolvedValue(undefined);
     mockedAttachPerformerToVideo.mockResolvedValue(undefined);
     mockedDetachPerformerFromVideo.mockResolvedValue(undefined);
+    mockedCreateTag.mockResolvedValue({ id: 100, name: "New Tag" });
+    mockedCreatePerformer.mockResolvedValue({ id: 200, name: "New Performer" });
     mockedUpdateVideoTitle.mockResolvedValue(undefined);
     mockedSetVideoFavorite.mockResolvedValue(undefined);
     mockedRetryFailedPreviewStrip.mockResolvedValue({
@@ -361,6 +369,191 @@ describe("Videos View shell", () => {
     expect(mockedListCatalogVideos).not.toHaveBeenCalledWith(
       expect.stringContaining("Family Archive"),
     );
+  });
+
+  it("creates new Tags and Performers inline while editing a Video", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 6, name: "Road Trip" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, name: "Blair" },
+      { id: 11, name: "Casey Jones" },
+    ]);
+    mockedCreateTag.mockResolvedValue({ id: 5, name: "Trip" });
+    mockedCreatePerformer.mockResolvedValue({ id: 10, name: "Casey" });
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+
+    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
+      target: { value: "Trip" },
+    });
+    expect(
+      within(detailPanel).getByText("Near match: Road Trip"),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Create and attach Tag" }),
+    );
+
+    fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
+      target: { value: "Casey" },
+    });
+    expect(
+      within(detailPanel).getByText("Near match: Casey Jones"),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      within(detailPanel).getByRole("button", {
+        name: "Create and attach Performer",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedCreateTag).toHaveBeenCalledWith("Trip");
+    });
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
+    expect(mockedCreatePerformer).toHaveBeenCalledWith("Casey");
+    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
+  });
+
+  it("does not surface unrelated metadata as a near match", async () => {
+    mockedListTags.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedListPerformers.mockResolvedValue([]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+
+    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
+      target: { value: "Road Trip" },
+    });
+
+    expect(within(detailPanel).queryByText(/Near match:/)).not.toBeInTheDocument();
+  });
+
+  it("reuses case-insensitive Tag and Performer matches instead of creating duplicates", async () => {
+    mockedListTags.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedListPerformers.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+
+    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
+      target: { value: " travel " },
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Attach existing Tag" }),
+    );
+    fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
+      target: { value: "BLAIR" },
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("button", {
+        name: "Attach existing Performer",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 1);
+    });
+    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(9, 1);
+    expect(mockedCreateTag).not.toHaveBeenCalled();
+    expect(mockedCreatePerformer).not.toHaveBeenCalled();
+  });
+
+  it("shows already-attached metadata as unavailable for inline attachment", async () => {
+    mockedListTags.mockResolvedValue([{ id: 5, name: "Road Trip" }]);
+    mockedListPerformers.mockResolvedValue([{ id: 10, name: "Casey" }]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 5, name: "Road Trip" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 10, name: "Casey" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+
+    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
+      target: { value: "Road Trip" },
+    });
+    expect(
+      within(detailPanel).getByRole("button", { name: "Tag already attached" }),
+    ).toBeDisabled();
+
+    fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
+      target: { value: "Casey" },
+    });
+    expect(
+      within(detailPanel).getByRole("button", {
+        name: "Performer already attached",
+      }),
+    ).toBeDisabled();
+    expect(mockedCreateTag).not.toHaveBeenCalled();
+    expect(mockedCreatePerformer).not.toHaveBeenCalled();
   });
 
   it("marks Missing Videos unavailable in the normal Videos list", async () => {

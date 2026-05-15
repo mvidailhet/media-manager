@@ -40,6 +40,8 @@ import {
   listScanRoots,
   listTags,
   listUnprocessableVideoCandidates,
+  createPerformer,
+  createTag,
   performersForVideo,
   pausePreviewStripQueue,
   processNextPreviewStripQueueItem,
@@ -82,6 +84,7 @@ const firstPreviewStripFrameIndex = 0;
 const previewStripPointerMinimum = 0;
 const previewStripPointerMaximum = 1;
 const percentageMultiplier = 100;
+const emptyMetadataInputMessage = "Enter a name first.";
 
 function normalizeConfiguredPath(value: string) {
   const trimmedValue = value.trim();
@@ -662,6 +665,33 @@ export default function App() {
     }
   }
 
+  async function createOrAttachTagToSelectedVideo(tagName: string) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    const trimmedTagName = tagName.trim();
+
+    if (trimmedTagName.length === 0) {
+      setDetailStatusMessage(emptyMetadataInputMessage);
+      return;
+    }
+
+    try {
+      const existingTag = findMetadataByName(availableTags, trimmedTagName);
+      const tag = existingTag ?? (await createTag(trimmedTagName));
+
+      await attachTagToVideo(tag.id, selectedVideo.id);
+      setAvailableTags((currentTags) => appendUniqueMetadata(currentTags, tag));
+      setSelectedVideoTags((currentTags) =>
+        appendUniqueMetadata(currentTags, tag),
+      );
+      setDetailStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
   async function detachTagFromSelectedVideo(tag: CatalogTag) {
     if (!selectedVideo) {
       return;
@@ -672,6 +702,7 @@ export default function App() {
       setSelectedVideoTags((currentTags) =>
         currentTags.filter((currentTag) => currentTag.id !== tag.id),
       );
+      setAvailableTags(await listTags());
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -694,6 +725,39 @@ export default function App() {
     }
   }
 
+  async function createOrAttachPerformerToSelectedVideo(performerName: string) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    const trimmedPerformerName = performerName.trim();
+
+    if (trimmedPerformerName.length === 0) {
+      setDetailStatusMessage(emptyMetadataInputMessage);
+      return;
+    }
+
+    try {
+      const existingPerformer = findMetadataByName(
+        availablePerformers,
+        trimmedPerformerName,
+      );
+      const performer =
+        existingPerformer ?? (await createPerformer(trimmedPerformerName));
+
+      await attachPerformerToVideo(performer.id, selectedVideo.id);
+      setAvailablePerformers((currentPerformers) =>
+        appendUniqueMetadata(currentPerformers, performer),
+      );
+      setSelectedVideoPerformers((currentPerformers) =>
+        appendUniqueMetadata(currentPerformers, performer),
+      );
+      setDetailStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
   async function detachPerformerFromSelectedVideo(performer: CatalogPerformer) {
     if (!selectedVideo) {
       return;
@@ -706,6 +770,7 @@ export default function App() {
           (currentPerformer) => currentPerformer.id !== performer.id,
         ),
       );
+      setAvailablePerformers(await listPerformers());
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -752,6 +817,8 @@ export default function App() {
           detailStatusMessage={detailStatusMessage}
           onAttachPerformer={attachPerformerToSelectedVideo}
           onAttachTag={attachTagToSelectedVideo}
+          onCreateOrAttachPerformer={createOrAttachPerformerToSelectedVideo}
+          onCreateOrAttachTag={createOrAttachTagToSelectedVideo}
           onDetachPerformer={detachPerformerFromSelectedVideo}
           onDetachTag={detachTagFromSelectedVideo}
           onSaveTitle={saveSelectedVideoTitle}
@@ -1175,6 +1242,8 @@ function VideoDetailPanel({
   detailStatusMessage,
   onAttachPerformer,
   onAttachTag,
+  onCreateOrAttachPerformer,
+  onCreateOrAttachTag,
   onDetachPerformer,
   onDetachTag,
   onSaveTitle,
@@ -1188,6 +1257,8 @@ function VideoDetailPanel({
   detailStatusMessage: string;
   onAttachPerformer: (performer: CatalogPerformer) => void;
   onAttachTag: (tag: CatalogTag) => void;
+  onCreateOrAttachPerformer: (name: string) => void;
+  onCreateOrAttachTag: (name: string) => void;
   onDetachPerformer: (performer: CatalogPerformer) => void;
   onDetachTag: (tag: CatalogTag) => void;
   onSaveTitle: (title: string) => void;
@@ -1237,15 +1308,19 @@ function VideoDetailPanel({
         <Group gap="xl" align="start">
           <MetadataChecklist
             attachableItems={attachableTags}
+            availableItems={availableTags}
             label="Tags"
             onAttach={onAttachTag}
+            onCreateOrAttach={onCreateOrAttachTag}
             onDetach={onDetachTag}
             selectedItems={selectedTags}
           />
           <MetadataChecklist
             attachableItems={attachablePerformers}
+            availableItems={availablePerformers}
             label="Performers"
             onAttach={onAttachPerformer}
+            onCreateOrAttach={onCreateOrAttachPerformer}
             onDetach={onDetachPerformer}
             selectedItems={selectedPerformers}
           />
@@ -1287,22 +1362,63 @@ function VideoDetailPanel({
 
 function MetadataChecklist<T extends { id: number; name: string }>({
   attachableItems,
+  availableItems,
   label,
   onAttach,
+  onCreateOrAttach,
   onDetach,
   selectedItems,
 }: {
   attachableItems: T[];
+  availableItems: T[];
   label: string;
   onAttach: (item: T) => void;
+  onCreateOrAttach: (name: string) => void;
   onDetach: (item: T) => void;
   selectedItems: T[];
 }) {
+  const [newItemName, setNewItemName] = useState("");
+  const trimmedNewItemName = newItemName.trim();
+  const exactAvailableMatch = findMetadataByName(
+    availableItems,
+    trimmedNewItemName,
+  );
+  const exactAttachableMatch = findMetadataByName(
+    attachableItems,
+    trimmedNewItemName,
+  );
+  const isAlreadyAttached =
+    exactAvailableMatch !== undefined && exactAttachableMatch === undefined;
+  const nearMatch = findNearMetadataMatch(availableItems, trimmedNewItemName);
+  const actionLabel = isAlreadyAttached
+    ? `${singularMetadataLabel(label)} already attached`
+    : exactAttachableMatch
+    ? `Attach existing ${singularMetadataLabel(label)}`
+    : `Create and attach ${singularMetadataLabel(label)}`;
+
   return (
     <Stack component="section" gap="xs" aria-label={label}>
       <Title order={3} size="h4">
         {label}
       </Title>
+      <TextInput
+        label={`New ${singularMetadataLabel(label)}`}
+        value={newItemName}
+        onChange={(event) => setNewItemName(event.currentTarget.value)}
+      />
+      {nearMatch ? <Text size="sm">Near match: {nearMatch.name}</Text> : null}
+      <Button
+        type="button"
+        size="xs"
+        variant="default"
+        disabled={isAlreadyAttached}
+        onClick={() => {
+          void onCreateOrAttach(trimmedNewItemName);
+          setNewItemName("");
+        }}
+      >
+        {actionLabel}
+      </Button>
       {selectedItems.map((item) => (
         <Button
           key={item.id}
@@ -1335,6 +1451,40 @@ function appendUniqueMetadata<T extends { id: number }>(items: T[], item: T) {
   }
 
   return [...items, item];
+}
+
+function findMetadataByName<T extends { name: string }>(items: T[], name: string) {
+  const normalizedName = normalizedMetadataName(name);
+
+  return items.find((item) => normalizedMetadataName(item.name) === normalizedName);
+}
+
+function findNearMetadataMatch<T extends { name: string }>(items: T[], name: string) {
+  const normalizedName = normalizedMetadataName(name);
+
+  if (normalizedName.length === 0) {
+    return null;
+  }
+
+  return (
+    items.find((item) => {
+      const normalizedItemName = normalizedMetadataName(item.name);
+
+      return (
+        normalizedItemName !== normalizedName &&
+        (normalizedItemName.includes(normalizedName) ||
+          normalizedName.includes(normalizedItemName))
+      );
+    }) ?? null
+  );
+}
+
+function normalizedMetadataName(name: string) {
+  return name.trim().toLocaleLowerCase();
+}
+
+function singularMetadataLabel(label: string) {
+  return label === "Tags" ? "Tag" : "Performer";
 }
 
 function ReviewQueuePanel({
