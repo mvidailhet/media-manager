@@ -5,6 +5,7 @@ import {
   waitFor,
   within
 } from "@testing-library/react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -29,6 +30,10 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
   open: vi.fn()
 }));
 
+vi.mock("@tauri-apps/api/core", () => ({
+  convertFileSrc: vi.fn((path: string) => `asset://${path}`)
+}));
+
 vi.mock("./tauriCommands", () => ({
   addScanRoot: vi.fn(),
   forgetCatalogVideo: vi.fn(),
@@ -45,6 +50,7 @@ vi.mock("./tauriCommands", () => ({
 }));
 
 const mockedOpen = vi.mocked(open);
+const mockedConvertFileSrc = vi.mocked(convertFileSrc);
 const mockedGetLocalDesktopAppStatus = vi.mocked(getLocalDesktopAppStatus);
 const mockedGetFfmpegToolsStatus = vi.mocked(getFfmpegToolsStatus);
 const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
@@ -77,6 +83,10 @@ const availableFfmpegToolsStatus = {
     ffmpegPath: null,
     ffprobePath: null
   }
+};
+
+const pendingPreviewStrip = {
+  status: "pending" as const
 };
 
 function renderApp() {
@@ -134,7 +144,8 @@ describe("Videos View shell", () => {
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        isAvailable: true
+        isAvailable: true,
+        previewStrip: pendingPreviewStrip
       }
     ]);
 
@@ -156,7 +167,8 @@ describe("Videos View shell", () => {
         durationMilliseconds: 3723000,
         fileSizeBytes: null,
         fileLocationPath: null,
-        isAvailable: false
+        isAvailable: false,
+        previewStrip: pendingPreviewStrip
       }
     ]);
 
@@ -206,6 +218,111 @@ describe("Videos View shell", () => {
         "3 Preview Strips generated, 1 Preview Strips failed"
       )
     ).toBeInTheDocument();
+  });
+
+  it("shows generated Preview Strips and scrubs frames by horizontal pointer position", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        previewStrip: {
+          status: "generated",
+          path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
+          frameCount: 20,
+          columnCount: 5,
+          rowCount: 4
+        }
+      }
+    ]);
+
+    renderApp();
+
+    const previewStrip = await screen.findByRole("img", {
+      name: "Preview Strip for Family Trip"
+    });
+
+    expect(mockedConvertFileSrc).toHaveBeenCalledWith(
+      "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg"
+    );
+    expect(previewStrip).toHaveStyle({
+      backgroundImage:
+        "url(asset:///Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg)",
+      backgroundPosition: "0% 0%"
+    });
+
+    Object.defineProperty(previewStrip, "clientWidth", {
+      configurable: true,
+      value: 500
+    });
+    previewStrip.getBoundingClientRect = vi.fn(
+      () =>
+        ({
+          left: 0,
+          width: 500,
+          right: 500,
+          top: 0,
+          bottom: 90,
+          height: 90,
+          x: 0,
+          y: 0,
+          toJSON: () => ({})
+        }) as DOMRect
+    );
+
+    fireEvent(
+      previewStrip,
+      new MouseEvent("pointermove", {
+        bubbles: true,
+        clientX: 250
+      })
+    );
+
+    expect(previewStrip).toHaveStyle({
+      backgroundPosition: "0% 66.66666666666666%"
+    });
+  });
+
+  it("keeps Pending and Failed Preview Strip Videos visible in the Videos View", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Pending Trip",
+        durationMilliseconds: 60000,
+        fileSizeBytes: 2000000,
+        fileLocationPath: "/Volumes/Archive/Videos/pending-trip.mp4",
+        isAvailable: true,
+        previewStrip: {
+          status: "pending"
+        }
+      },
+      {
+        id: 2,
+        title: "Failed Trip",
+        durationMilliseconds: 60000,
+        fileSizeBytes: 2000000,
+        fileLocationPath: "/Volumes/Archive/Videos/failed-trip.mp4",
+        isAvailable: true,
+        previewStrip: {
+          status: "failed",
+          failureReason: "ffmpeg failed"
+        }
+      }
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos"
+    });
+
+    expect(within(catalogVideos).getByText("Pending Trip")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Pending Preview Strip")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Failed Trip")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Failed Preview Strip")).toBeInTheDocument();
   });
 
   it("shows FFmpeg and ffprobe availability in the app status", async () => {
@@ -345,7 +462,8 @@ describe("Videos View shell", () => {
           durationMilliseconds: 3723000,
           fileSizeBytes: 80740352,
           fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-          isAvailable: true
+          isAvailable: true,
+          previewStrip: pendingPreviewStrip
         }
       ]);
 
@@ -395,7 +513,8 @@ describe("Videos View shell", () => {
         durationMilliseconds: 3723000,
         fileSizeBytes: null,
         fileLocationPath: null,
-        isAvailable: false
+        isAvailable: false,
+        previewStrip: pendingPreviewStrip
       },
       {
         id: 2,
@@ -403,7 +522,8 @@ describe("Videos View shell", () => {
         durationMilliseconds: 120000,
         fileSizeBytes: 1024,
         fileLocationPath: "/Volumes/Archive/Videos/available-trip.mp4",
-        isAvailable: true
+        isAvailable: true,
+        previewStrip: pendingPreviewStrip
       }
     ]);
     mockedListScanRoots.mockResolvedValue([
@@ -455,7 +575,8 @@ describe("Videos View shell", () => {
           durationMilliseconds: 3723000,
           fileSizeBytes: null,
           fileLocationPath: null,
-          isAvailable: false
+          isAvailable: false,
+          previewStrip: pendingPreviewStrip
         }
       ])
       .mockResolvedValueOnce([]);

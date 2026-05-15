@@ -42,7 +42,10 @@ describe("Tauri commands", () => {
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        isAvailable: true
+        isAvailable: true,
+        previewStrip: {
+          status: "pending"
+        }
       }
     ]);
 
@@ -55,7 +58,10 @@ describe("Tauri commands", () => {
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        isAvailable: true
+        isAvailable: true,
+        previewStrip: {
+          status: "pending"
+        }
       }
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_catalog_videos");

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   Badge,
   Box,
@@ -52,6 +53,10 @@ const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
 const minutesPerHour = 60;
 const bytesPerMegabyte = 1_000_000;
+const firstPreviewStripFrameIndex = 0;
+const previewStripPointerMinimum = 0;
+const previewStripPointerMaximum = 1;
+const percentageMultiplier = 100;
 
 function normalizeConfiguredPath(value: string) {
   const trimmedValue = value.trim();
@@ -625,6 +630,7 @@ function CatalogVideoCard({ catalogVideo }: { catalogVideo: CatalogVideo }) {
   return (
     <Stack component="article" gap="sm">
       <Divider />
+      <PreviewStripSurface catalogVideo={catalogVideo} />
       <Box>
         <Group gap="xs" align="center">
           <Title order={3} size="h4">
@@ -651,6 +657,59 @@ function CatalogVideoCard({ catalogVideo }: { catalogVideo: CatalogVideo }) {
         </DefinitionTerm>
       </Box>
     </Stack>
+  );
+}
+
+function PreviewStripSurface({ catalogVideo }: { catalogVideo: CatalogVideo }) {
+  const [selectedFrameIndex, setSelectedFrameIndex] = useState(
+    firstPreviewStripFrameIndex
+  );
+  const previewStrip = catalogVideo.previewStrip;
+
+  if (previewStrip.status === "generated") {
+    const previewStripUrl = convertFileSrc(previewStrip.path);
+    const framePosition = previewStripFramePosition(
+      selectedFrameIndex,
+      previewStrip.columnCount,
+      previewStrip.rowCount
+    );
+
+    return (
+      <Box
+        aria-label={`Preview Strip for ${catalogVideo.title}`}
+        className="preview-strip preview-strip-generated"
+        role="img"
+        style={{
+          backgroundImage: `url(${previewStripUrl})`,
+          backgroundPosition: `${framePosition.x}% ${framePosition.y}%`,
+          backgroundSize: `${previewStrip.columnCount * percentageMultiplier}% ${previewStrip.rowCount * percentageMultiplier}%`
+        }}
+        onPointerLeave={() => setSelectedFrameIndex(firstPreviewStripFrameIndex)}
+        onPointerMove={(event) =>
+          setSelectedFrameIndex(
+            previewStripFrameIndexFromPointer(event, previewStrip.frameCount)
+          )
+        }
+      />
+    );
+  }
+
+  if (previewStrip.status === "failed") {
+    return (
+      <Box className="preview-strip preview-strip-placeholder">
+        <Badge color="red" variant="light">
+          Failed Preview Strip
+        </Badge>
+      </Box>
+    );
+  }
+
+  return (
+    <Box className="preview-strip preview-strip-placeholder">
+      <Badge color="gray" variant="light">
+        Pending Preview Strip
+      </Badge>
+    </Box>
   );
 }
 
@@ -1015,6 +1074,38 @@ function AvailabilityBadge({
       {isAvailable ? "Available" : missingLabel}
     </Badge>
   );
+}
+
+function previewStripFrameIndexFromPointer(
+  event: React.PointerEvent<HTMLElement>,
+  frameCount: number
+) {
+  const previewStripBounds = event.currentTarget.getBoundingClientRect();
+  const pointerOffset = event.clientX - previewStripBounds.left;
+  const pointerRatio = pointerOffset / previewStripBounds.width;
+  const boundedPointerRatio = Math.min(
+    previewStripPointerMaximum,
+    Math.max(previewStripPointerMinimum, pointerRatio)
+  );
+  const lastFrameIndex = frameCount - 1;
+
+  return Math.round(boundedPointerRatio * lastFrameIndex);
+}
+
+function previewStripFramePosition(
+  frameIndex: number,
+  columnCount: number,
+  rowCount: number
+) {
+  const columnIndex = frameIndex % columnCount;
+  const rowIndex = Math.floor(frameIndex / columnCount);
+  const lastColumnIndex = Math.max(columnCount - 1, 1);
+  const lastRowIndex = Math.max(rowCount - 1, 1);
+
+  return {
+    x: (columnIndex / lastColumnIndex) * percentageMultiplier,
+    y: (rowIndex / lastRowIndex) * percentageMultiplier
+  };
 }
 
 function DefinitionTerm({

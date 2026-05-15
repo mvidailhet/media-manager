@@ -43,6 +43,28 @@ body {
   flex: 1 1 320px;
 }
 
+.preview-strip {
+  align-items: center;
+  aspect-ratio: 16 / 9;
+  border: 1px solid #d8dee6;
+  border-radius: 8px;
+  box-sizing: border-box;
+  display: flex;
+  justify-content: center;
+  max-width: 320px;
+  overflow: hidden;
+  width: 100%;
+}
+
+.preview-strip-generated {
+  background-repeat: no-repeat;
+  background-color: #111827;
+}
+
+.preview-strip-placeholder {
+  background: #eef1f5;
+}
+
 @media (max-width: 640px) {
   .app-shell {
     padding: 28px 20px;

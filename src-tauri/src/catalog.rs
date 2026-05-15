@@ -6,7 +6,7 @@ use std::{
     process::Command,
 };
 
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{params, Connection, OptionalExtension, Row};
 use serde::{Deserialize, Serialize};
 
 const FINGERPRINT_VERSION: i64 = 1;
@@ -105,6 +105,24 @@ pub struct CatalogVideo {
     pub file_size_bytes: Option<i64>,
     pub file_location_path: Option<String>,
     pub is_available: bool,
+    pub preview_strip: PreviewStripStatus,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase", tag = "status")]
+pub enum PreviewStripStatus {
+    #[serde(rename_all = "camelCase")]
+    Generated {
+        path: String,
+        frame_count: i64,
+        column_count: i64,
+        row_count: i64,
+    },
+    #[serde(rename_all = "camelCase")]
+    Failed {
+        failure_reason: String,
+    },
+    Pending,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -303,9 +321,16 @@ impl Catalog {
                         videos.duration_milliseconds,
                         file_locations.file_size_bytes,
                         file_locations.path,
-                        file_locations.path IS NOT NULL
+                        file_locations.path IS NOT NULL,
+                        preview_strips.path,
+                        preview_strips.frame_count,
+                        preview_strips.column_count,
+                        preview_strips.row_count,
+                        failed_preview_strips.reason
                  FROM videos
                  LEFT JOIN file_locations ON file_locations.video_id = videos.id
+                 LEFT JOIN preview_strips ON preview_strips.video_id = videos.id
+                 LEFT JOIN failed_preview_strips ON failed_preview_strips.video_id = videos.id
                  ORDER BY videos.title, file_locations.path",
             )
             .map_err(|error| error.to_string())?;
@@ -319,6 +344,7 @@ impl Catalog {
                     file_size_bytes: row.get(3)?,
                     file_location_path: row.get(4)?,
                     is_available: row.get::<_, i64>(5)? == 1,
+                    preview_strip: preview_strip_status_from_row(row)?,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -1018,6 +1044,26 @@ struct PendingPreviewStrip {
     video_path: String,
 }
 
+fn preview_strip_status_from_row(row: &Row<'_>) -> rusqlite::Result<PreviewStripStatus> {
+    let preview_strip_path: Option<String> = row.get(6)?;
+
+    if let Some(path) = preview_strip_path {
+        return Ok(PreviewStripStatus::Generated {
+            path,
+            frame_count: row.get(7)?,
+            column_count: row.get(8)?,
+            row_count: row.get(9)?,
+        });
+    }
+
+    let failure_reason: Option<String> = row.get(10)?;
+
+    Ok(match failure_reason {
+        Some(failure_reason) => PreviewStripStatus::Failed { failure_reason },
+        None => PreviewStripStatus::Pending,
+    })
+}
+
 fn catalog_table_has_column(
     database: &Connection,
     table_name: &str,
@@ -1273,6 +1319,7 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: false,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
@@ -1315,11 +1362,88 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: false,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
                 file_location_path: None,
             }]
+        );
+    }
+
+    #[test]
+    fn listed_videos_include_preview_strip_status() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = catalog_test_database(&catalog_path);
+
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("generated-fingerprint", 1_i64, "Generated Trip", 1_000_i64),
+            )
+            .expect("generated video persists");
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("failed-fingerprint", 1_i64, "Failed Trip", 1_000_i64),
+            )
+            .expect("failed video persists");
+        database
+            .execute(
+                "INSERT INTO preview_strips (video_id, path, frame_count, column_count, row_count)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    1_i64,
+                    "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
+                    20_i64,
+                    5_i64,
+                    4_i64,
+                ),
+            )
+            .expect("preview strip persists");
+        database
+            .execute(
+                "INSERT INTO failed_preview_strips (video_id, reason)
+                 VALUES (?1, ?2)",
+                (2_i64, "ffmpeg failed"),
+            )
+            .expect("failed preview strip persists");
+
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![
+                super::CatalogVideo {
+                    id: 2,
+                    is_available: false,
+                    preview_strip: super::PreviewStripStatus::Failed {
+                        failure_reason: "ffmpeg failed".to_string(),
+                    },
+                    title: "Failed Trip".to_string(),
+                    duration_milliseconds: 1_000,
+                    file_size_bytes: None,
+                    file_location_path: None,
+                },
+                super::CatalogVideo {
+                    id: 1,
+                    is_available: false,
+                    preview_strip: super::PreviewStripStatus::Generated {
+                        path:
+                            "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg"
+                                .to_string(),
+                        frame_count: 20,
+                        column_count: 5,
+                        row_count: 4,
+                    },
+                    title: "Generated Trip".to_string(),
+                    duration_milliseconds: 1_000,
+                    file_size_bytes: None,
+                    file_location_path: None,
+                },
+            ]
         );
     }
 
@@ -1416,6 +1540,7 @@ mod tests {
                 super::CatalogVideo {
                     id: 2,
                     is_available: false,
+                    preview_strip: super::PreviewStripStatus::Pending,
                     title: "archived-trip".to_string(),
                     duration_milliseconds: 1_000,
                     file_size_bytes: None,
@@ -1424,6 +1549,7 @@ mod tests {
                 super::CatalogVideo {
                     id: 1,
                     is_available: true,
+                    preview_strip: super::PreviewStripStatus::Pending,
                     title: "family-trip".to_string(),
                     duration_milliseconds: 1_000,
                     file_size_bytes: Some(17),
@@ -1484,6 +1610,7 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: false,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: None,
@@ -1530,6 +1657,7 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: true,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3_723_000,
                 file_size_bytes: Some(11),
@@ -1802,6 +1930,7 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: true,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: Some(17),
@@ -1862,6 +1991,7 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: false,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
@@ -1918,6 +2048,7 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: false,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "family-trip".to_string(),
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
@@ -2114,6 +2245,7 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: true,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),
@@ -2357,6 +2489,7 @@ mod tests {
             vec![super::CatalogVideo {
                 id: 1,
                 is_available: true,
+                preview_strip: super::PreviewStripStatus::Pending,
                 title: "Family Trip".to_string(),
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),
