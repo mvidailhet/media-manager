@@ -1,0 +1,478 @@
+import { useEffect, useState } from "react";
+import { Badge, Box, Button, Checkbox, Code, Divider, Group, NativeSelect, Paper, SimpleGrid, Stack, Text, TextInput, Title } from "@mantine/core";
+
+import type { CatalogPerformer, CatalogTag, CatalogVideo, FailedPreviewStrip, MetadataSuggestionGroup, ScanRoot, UnprocessableVideoCandidate } from "../../tauriCommands";
+import type { AcceptMetadataSuggestionForVideosRequest, RejectMetadataSuggestionSourceRequest } from "../../tauriCommands";
+import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
+import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
+import { SectionHeader } from "../../shared/components/SectionHeader";
+import { formatSuggestionKind } from "../../shared/formatting/suggestionFormatting";
+import { formatDuration, formatFileSize } from "../../shared/formatting/videoFormatting";
+import { findMetadataByName, findNearMetadataMatch } from "../../shared/metadata/metadataHelpers";
+
+type AcceptMetadataSuggestionVideos = (request: AcceptMetadataSuggestionForVideosRequest) => void;
+type RejectMetadataSuggestionSource = (request: RejectMetadataSuggestionSourceRequest) => void;
+
+export function ReviewQueuePanel({
+  availablePerformers,
+  availableTags,
+  failedPreviewStrips,
+  metadataSuggestionGroups,
+  onAcceptMetadataSuggestionVideos,
+  missingVideos,
+  onIgnoreFailedPreview,
+  onRejectMetadataSuggestionSource,
+  onRequestMissingVideoForget,
+  onRetryFailedPreview,
+  reviewQueueStatusMessage,
+  unavailableScanRoots,
+  unprocessableVideoCandidates,
+}: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
+  failedPreviewStrips: FailedPreviewStrip[];
+  metadataSuggestionGroups: MetadataSuggestionGroup[];
+  missingVideos: CatalogVideo[];
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
+  onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
+  onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
+  onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
+  reviewQueueStatusMessage: string;
+  unavailableScanRoots: ScanRoot[];
+  unprocessableVideoCandidates: UnprocessableVideoCandidate[];
+}) {
+  return (
+    <Paper component="section" aria-label="Review Queue" p="md" maw={760}>
+      <Stack gap="md">
+        <SectionHeader label="Scan issues" title="Review Queue" />
+
+        {reviewQueueStatusMessage ? (
+          <Text>{reviewQueueStatusMessage}</Text>
+        ) : null}
+
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+          <MissingVideosPanel
+            missingVideos={missingVideos}
+            onRequestMissingVideoForget={onRequestMissingVideoForget}
+          />
+          <UnavailableScanRootsPanel
+            unavailableScanRoots={unavailableScanRoots}
+          />
+          <UnprocessableCandidatesPanel
+            unprocessableVideoCandidates={unprocessableVideoCandidates}
+          />
+          <FailedPreviewStripsPanel
+            failedPreviewStrips={failedPreviewStrips}
+            onIgnoreFailedPreview={onIgnoreFailedPreview}
+            onRetryFailedPreview={onRetryFailedPreview}
+          />
+          <MetadataSuggestionsPanel
+            availablePerformers={availablePerformers}
+            availableTags={availableTags}
+            metadataSuggestionGroups={metadataSuggestionGroups}
+            onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
+            onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
+          />
+        </SimpleGrid>
+      </Stack>
+    </Paper>
+  );
+}
+
+export function MetadataSuggestionsPanel({
+  availablePerformers,
+  availableTags,
+  metadataSuggestionGroups,
+  onAcceptMetadataSuggestionVideos,
+  onRejectMetadataSuggestionSource,
+}: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
+  metadataSuggestionGroups: MetadataSuggestionGroup[];
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
+}) {
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-labelledby="metadata-suggestions-title"
+    >
+      <Title order={3} id="metadata-suggestions-title" size="h4">
+        Metadata Suggestions
+      </Title>
+      {metadataSuggestionGroups.length > 0 ? (
+        <Stack gap="sm">
+          {metadataSuggestionGroups.map((suggestionGroup) => (
+            <Stack
+              component="article"
+              gap="xs"
+              key={`${suggestionGroup.suggestionKind}:${suggestionGroup.suggestedValue}`}
+            >
+              <Divider />
+              <Group gap="xs" align="center">
+                <Title order={4} size="h5">
+                  {suggestionGroup.suggestedValue}
+                </Title>
+                <Badge variant="light">
+                  {formatSuggestionKind(suggestionGroup.suggestionKind)}
+                </Badge>
+              </Group>
+              <Stack gap="xs">
+                {suggestionGroup.sources.map((sourceGroup) => (
+                  <MetadataSuggestionSource
+                    availablePerformers={availablePerformers}
+                    availableTags={availableTags}
+                    key={`${sourceGroup.scanRootPath}:${sourceGroup.sourcePathSegment}`}
+                    sourceGroup={sourceGroup}
+                    suggestionKind={suggestionGroup.suggestionKind}
+                    suggestedValue={suggestionGroup.suggestedValue}
+                    onAcceptMetadataSuggestionVideos={
+                      onAcceptMetadataSuggestionVideos
+                    }
+                    onRejectMetadataSuggestionSource={
+                      onRejectMetadataSuggestionSource
+                    }
+                  />
+                ))}
+              </Stack>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Metadata Suggestions.</Text>
+      )}
+    </Stack>
+  );
+}
+
+export function MetadataSuggestionSource({
+  availablePerformers,
+  availableTags,
+  onAcceptMetadataSuggestionVideos,
+  onRejectMetadataSuggestionSource,
+  sourceGroup,
+  suggestionKind,
+  suggestedValue,
+}: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
+  sourceGroup: MetadataSuggestionGroup["sources"][number];
+  suggestionKind: string;
+  suggestedValue: string;
+}) {
+  const allVideoIds = sourceGroup.videos.map((video) => video.videoId);
+  const [selectedVideoIds, setSelectedVideoIds] = useState(allVideoIds);
+  const [acceptedSuggestionKind, setAcceptedSuggestionKind] =
+    useState(suggestionKind);
+  const [acceptedValue, setAcceptedValue] = useState(suggestedValue);
+  const selectedVideoIdSet = new Set(selectedVideoIds);
+  const trimmedAcceptedValue = acceptedValue.trim();
+  const availableMetadataValues =
+    acceptedSuggestionKind === "performer" ? availablePerformers : availableTags;
+  const exactAcceptedValue = findMetadataByName(
+    availableMetadataValues,
+    trimmedAcceptedValue,
+  );
+  const nearAcceptedValue = findNearMetadataMatch(
+    availableMetadataValues,
+    trimmedAcceptedValue,
+  );
+  const acceptedSuggestionKindLabel = formatSuggestionKind(acceptedSuggestionKind);
+  const acceptedMetadataName =
+    exactAcceptedValue?.name ?? trimmedAcceptedValue;
+  const isDefaultAcceptance =
+    acceptedSuggestionKind === suggestionKind &&
+    acceptedMetadataName === suggestedValue;
+  const acceptButtonLabel = isDefaultAcceptance
+    ? `Accept ${suggestedValue} for selected Videos`
+    : `Accept ${acceptedMetadataName} as ${acceptedSuggestionKindLabel} for selected Videos`;
+
+  useEffect(() => {
+    setSelectedVideoIds(allVideoIds);
+  }, [sourceGroup]);
+
+  useEffect(() => {
+    setAcceptedSuggestionKind(suggestionKind);
+    setAcceptedValue(suggestedValue);
+  }, [suggestedValue, suggestionKind]);
+
+  function toggleVideo(videoId: number, isSelected: boolean) {
+    setSelectedVideoIds((currentVideoIds) => {
+      if (isSelected) {
+        return [...currentVideoIds, videoId].sort();
+      }
+
+      return currentVideoIds.filter((currentVideoId) => currentVideoId !== videoId);
+    });
+  }
+
+  return (
+    <Box>
+      <Box component="dl" className="definition-list">
+        <DefinitionTerm label="Source Segment">
+          {sourceGroup.sourcePathSegment}
+        </DefinitionTerm>
+        <DefinitionTerm label="Scan Root">{sourceGroup.scanRootPath}</DefinitionTerm>
+      </Box>
+      <Group gap="xs" align="end" mb="xs">
+        <NativeSelect
+          label={`Accept ${suggestedValue} as metadata kind`}
+          value={acceptedSuggestionKind}
+          data={[
+            { value: "tag", label: "Tag" },
+            { value: "performer", label: "Performer" },
+          ]}
+          onChange={(event) => setAcceptedSuggestionKind(event.currentTarget.value)}
+        />
+        <TextInput
+          label="Accepted metadata name"
+          value={acceptedValue}
+          onChange={(event) => setAcceptedValue(event.currentTarget.value)}
+        />
+      </Group>
+      {nearAcceptedValue ? (
+        <Text size="sm">Near match: {nearAcceptedValue.name}</Text>
+      ) : null}
+      <Stack gap={4}>
+        {sourceGroup.videos.map((video) => (
+          <Checkbox
+            checked={selectedVideoIdSet.has(video.videoId)}
+            key={video.videoId}
+            label={
+              <Box>
+                <Text>{video.title}</Text>
+                <Code className="wrapping-code">{video.fileLocationPath}</Code>
+              </Box>
+            }
+            onChange={(event) =>
+              toggleVideo(video.videoId, event.currentTarget.checked)
+            }
+            aria-label={`Include ${video.title}`}
+          />
+        ))}
+      </Stack>
+      <Group gap="xs" mt="xs">
+        <Button
+          size="xs"
+          disabled={
+            selectedVideoIds.length === 0 || trimmedAcceptedValue.length === 0
+          }
+          onClick={() =>
+            onAcceptMetadataSuggestionVideos({
+              ...(isDefaultAcceptance
+                ? {}
+                : { acceptedValue: acceptedMetadataName }),
+              ...(acceptedSuggestionKind === suggestionKind
+                ? {}
+                : { acceptedMetadataKind: acceptedSuggestionKind }),
+              scanRootPath: sourceGroup.scanRootPath,
+              suggestedValue,
+              sourcePathSegment: sourceGroup.sourcePathSegment,
+              suggestionKind,
+              videoIds: selectedVideoIds,
+            })
+          }
+        >
+          {acceptButtonLabel}
+        </Button>
+        <Button
+          size="xs"
+          variant="light"
+          color="red"
+          onClick={() =>
+            onRejectMetadataSuggestionSource({
+              scanRootPath: sourceGroup.scanRootPath,
+              sourcePathSegment: sourceGroup.sourcePathSegment,
+              suggestedValue,
+              suggestionKind,
+            })
+          }
+        >
+          Reject {suggestedValue} from {sourceGroup.sourcePathSegment}
+        </Button>
+      </Group>
+    </Box>
+  );
+}
+
+export function MissingVideosPanel({
+  missingVideos,
+  onRequestMissingVideoForget,
+}: {
+  missingVideos: CatalogVideo[];
+  onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
+}) {
+  return (
+    <Stack component="section" gap="xs" aria-labelledby="missing-videos-title">
+      <Title order={3} id="missing-videos-title" size="h4">
+        Missing Videos
+      </Title>
+      {missingVideos.length > 0 ? (
+        <Stack gap="sm">
+          {missingVideos.map((missingVideo) => (
+            <Stack component="article" gap="xs" key={missingVideo.id}>
+              <Divider />
+              <Box>
+                <Title order={4} size="h5">
+                  {missingVideo.title}
+                </Title>
+                <Text c="dimmed">
+                  {formatDuration(missingVideo.durationMilliseconds)}
+                </Text>
+              </Box>
+              <Button
+                type="button"
+                size="xs"
+                variant="light"
+                onClick={() => onRequestMissingVideoForget(missingVideo)}
+              >
+                Forget From Catalog
+              </Button>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Missing Videos.</Text>
+      )}
+    </Stack>
+  );
+}
+
+export function UnavailableScanRootsPanel({
+  unavailableScanRoots,
+}: {
+  unavailableScanRoots: ScanRoot[];
+}) {
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-labelledby="unavailable-scan-roots-title"
+    >
+      <Title order={3} id="unavailable-scan-roots-title" size="h4">
+        Unavailable Scan Roots
+      </Title>
+      {unavailableScanRoots.length > 0 ? (
+        <Stack gap="sm">
+          {unavailableScanRoots.map((scanRoot) => (
+            <Stack component="article" gap="xs" key={scanRoot.path}>
+              <Divider />
+              <Code className="wrapping-code">{scanRoot.path}</Code>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Unavailable Scan Roots.</Text>
+      )}
+    </Stack>
+  );
+}
+
+export function UnprocessableCandidatesPanel({
+  unprocessableVideoCandidates,
+}: {
+  unprocessableVideoCandidates: UnprocessableVideoCandidate[];
+}) {
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-labelledby="unprocessable-candidates-title"
+    >
+      <Title order={3} id="unprocessable-candidates-title" size="h4">
+        Unprocessable Video Candidates
+      </Title>
+      {unprocessableVideoCandidates.length > 0 ? (
+        <Stack gap="sm">
+          {unprocessableVideoCandidates.map((candidate) => (
+            <Stack component="article" gap="xs" key={candidate.path}>
+              <Divider />
+              <Code className="wrapping-code">{candidate.path}</Code>
+              <Box component="dl" className="definition-list">
+                <DefinitionTerm label="Failure Reason">
+                  {candidate.reason}
+                </DefinitionTerm>
+                <DefinitionTerm label="File Size">
+                  {formatFileSize(candidate.fileSizeBytes)}
+                </DefinitionTerm>
+              </Box>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Unprocessable Video Candidates.</Text>
+      )}
+    </Stack>
+  );
+}
+
+export function FailedPreviewStripsPanel({
+  failedPreviewStrips,
+  onIgnoreFailedPreview,
+  onRetryFailedPreview,
+}: {
+  failedPreviewStrips: FailedPreviewStrip[];
+  onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
+  onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
+}) {
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-labelledby="failed-preview-strips-title"
+    >
+      <Title order={3} id="failed-preview-strips-title" size="h4">
+        Failed Preview Strips
+      </Title>
+      {failedPreviewStrips.length > 0 ? (
+        <Stack gap="sm">
+          {failedPreviewStrips.map((failedPreviewStrip) => (
+            <Stack
+              component="article"
+              gap="xs"
+              key={failedPreviewStrip.videoId}
+            >
+              <Divider />
+              <Box>
+                <Title order={4} size="h5">
+                  {failedPreviewStrip.title}
+                </Title>
+                <Box component="dl" className="definition-list">
+                  <DefinitionTerm label="Failure Reason">
+                    {failedPreviewStrip.failureReason}
+                  </DefinitionTerm>
+                </Box>
+              </Box>
+              <Group gap="xs">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="light"
+                  aria-label={`Retry Failed Preview Strip for ${failedPreviewStrip.title}`}
+                  onClick={() => void onRetryFailedPreview(failedPreviewStrip)}
+                >
+                  Retry
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="default"
+                  aria-label={`Ignore Failed Preview Strip for ${failedPreviewStrip.title}`}
+                  onClick={() => void onIgnoreFailedPreview(failedPreviewStrip)}
+                >
+                  Ignore
+                </Button>
+              </Group>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Failed Preview Strips.</Text>
+      )}
+    </Stack>
+  );
+}
