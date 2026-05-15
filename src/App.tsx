@@ -131,6 +131,8 @@ export default function App() {
   const [catalogVideosStatusMessage, setCatalogVideosStatusMessage] = useState(
     catalogVideosLoadingMessage,
   );
+  const [catalogVideoActionStatusMessage, setCatalogVideoActionStatusMessage] =
+    useState("");
   const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
     scanRootsLoadingMessage,
@@ -181,6 +183,7 @@ export default function App() {
 
       setCatalogVideos(storedCatalogVideos);
       setCatalogVideosStatusMessage("");
+      setCatalogVideoActionStatusMessage("");
     } catch {
       setCatalogVideosStatusMessage(catalogVideosErrorMessage);
     }
@@ -756,20 +759,23 @@ export default function App() {
   ) {
     try {
       await setVideoFavorite(video.id, isFavorite);
-      const updatedVideo = { ...video, isFavorite };
       setSelectedVideo((currentSelectedVideo) =>
-        currentSelectedVideo?.id === updatedVideo.id
-          ? updatedVideo
+        currentSelectedVideo?.id === video.id
+          ? { ...currentSelectedVideo, isFavorite }
           : currentSelectedVideo,
       );
       setCatalogVideos((currentVideos) =>
         currentVideos.map((catalogVideo) =>
-          catalogVideo.id === updatedVideo.id ? updatedVideo : catalogVideo,
+          catalogVideo.id === video.id
+            ? { ...catalogVideo, isFavorite }
+            : catalogVideo,
         ),
       );
       setDetailStatusMessage("");
+      setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
+      setCatalogVideoActionStatusMessage(errorMessage(error));
     }
   }
 
@@ -1027,7 +1033,8 @@ export default function App() {
       <CatalogVideosPanel
         availablePerformers={availablePerformers}
         availableTags={availableTags}
-        catalogVideoFilters={catalogVideoFilters}
+        catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
+        catalogVideoFilters={activeCatalogVideoFilters}
         catalogVideoWorkspace={catalogVideoWorkspace}
         catalogVideoSort={catalogVideoSort}
         catalogVideos={filteredCatalogVideos}
@@ -1232,6 +1239,7 @@ function TauriStatusPanel({
 function CatalogVideosPanel({
   availablePerformers,
   availableTags,
+  catalogVideoActionStatusMessage,
   catalogVideoFilters,
   catalogVideoWorkspace,
   catalogVideoSort,
@@ -1249,6 +1257,7 @@ function CatalogVideosPanel({
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
+  catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
   catalogVideoWorkspace: CatalogVideoWorkspace;
   catalogVideoSort: CatalogVideoSort;
@@ -1303,6 +1312,7 @@ function CatalogVideosPanel({
         <CatalogVideoFiltersPanel
           availablePerformers={availablePerformers}
           availableTags={availableTags}
+          favoriteFilterLocked={catalogVideoWorkspace === "favorites"}
           filters={catalogVideoFilters}
           onFiltersChange={onCatalogVideoFiltersChange}
         />
@@ -1322,6 +1332,9 @@ function CatalogVideosPanel({
 
         {catalogVideosStatusMessage ? (
           <Text>{catalogVideosStatusMessage}</Text>
+        ) : null}
+        {catalogVideoActionStatusMessage ? (
+          <Text>{catalogVideoActionStatusMessage}</Text>
         ) : null}
         {previewStripStatusMessage ? (
           <Text>{previewStripStatusMessage}</Text>
@@ -1354,11 +1367,13 @@ function CatalogVideosPanel({
 function CatalogVideoFiltersPanel({
   availablePerformers,
   availableTags,
+  favoriteFilterLocked,
   filters,
   onFiltersChange,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
+  favoriteFilterLocked: boolean;
   filters: CatalogVideoFilters;
   onFiltersChange: (filters: CatalogVideoFilters) => void;
 }) {
@@ -1401,6 +1416,7 @@ function CatalogVideoFiltersPanel({
         <Checkbox
           label="Favorites only"
           checked={filters.favoritesOnly}
+          disabled={favoriteFilterLocked}
           onChange={(event) =>
             updateFilters({ favoritesOnly: event.currentTarget.checked })
           }
