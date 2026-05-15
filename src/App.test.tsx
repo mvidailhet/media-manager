@@ -89,6 +89,7 @@ function renderApp() {
 
 describe("Videos View shell", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     mockedGetLocalDesktopAppStatus.mockResolvedValue("Rust command online");
     mockedGetFfmpegToolsStatus.mockResolvedValue(availableFfmpegToolsStatus);
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
@@ -287,6 +288,19 @@ describe("Videos View shell", () => {
     expect(
       await screen.findByText("/Volumes/Archive/Videos")
     ).toBeInTheDocument();
+  });
+
+  it("shows a clear message when the folder picker cannot open", async () => {
+    mockedOpen.mockRejectedValue(new Error("dialog open permission denied"));
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Choose folder" }));
+
+    expect(
+      await screen.findByText("dialog open permission denied")
+    ).toBeInTheDocument();
+    expect(mockedAddScanRoot).not.toHaveBeenCalled();
   });
 
   it("shows a clear message when a Scan Root overlaps an existing root", async () => {

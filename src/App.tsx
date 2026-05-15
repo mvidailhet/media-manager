@@ -275,13 +275,17 @@ export default function App() {
   }
 
   async function chooseScanRootFolder() {
-    const selectedFolder = await open({
-      directory: true,
-      multiple: false
-    });
+    try {
+      const selectedFolder = await open({
+        directory: true,
+        multiple: false
+      });
 
-    if (typeof selectedFolder === "string") {
-      await persistScanRoot(selectedFolder);
+      if (typeof selectedFolder === "string") {
+        await persistScanRoot(selectedFolder);
+      }
+    } catch (error) {
+      setScanRootsStatusMessage(errorMessage(error));
     }
   }
 
