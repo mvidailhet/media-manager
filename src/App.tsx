@@ -823,6 +823,11 @@ export default function App() {
       batchSelectedVideoIds.forEach((videoId) =>
         addTagToCatalogVideoMetadata(videoId, tag),
       );
+      if (selectedVideo && batchSelectedVideoIds.includes(selectedVideo.id)) {
+        setSelectedVideoTags((currentTags) =>
+          appendUniqueMetadata(currentTags, tag),
+        );
+      }
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -848,6 +853,11 @@ export default function App() {
       batchSelectedVideoIds.forEach((videoId) =>
         addTagToCatalogVideoMetadata(videoId, tag),
       );
+      if (selectedVideo && batchSelectedVideoIds.includes(selectedVideo.id)) {
+        setSelectedVideoTags((currentTags) =>
+          appendUniqueMetadata(currentTags, tag),
+        );
+      }
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -864,6 +874,11 @@ export default function App() {
       batchSelectedVideoIds.forEach((videoId) =>
         removeTagFromCatalogVideoMetadata(videoId, tag),
       );
+      if (selectedVideo && batchSelectedVideoIds.includes(selectedVideo.id)) {
+        setSelectedVideoTags((currentTags) =>
+          currentTags.filter((currentTag) => currentTag.id !== tag.id),
+        );
+      }
       setAvailableTags(await listTags());
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
@@ -1017,6 +1032,11 @@ export default function App() {
       batchSelectedVideoIds.forEach((videoId) =>
         addPerformerToCatalogVideoMetadata(videoId, performer),
       );
+      if (selectedVideo && batchSelectedVideoIds.includes(selectedVideo.id)) {
+        setSelectedVideoPerformers((currentPerformers) =>
+          appendUniqueMetadata(currentPerformers, performer),
+        );
+      }
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -1052,6 +1072,11 @@ export default function App() {
       batchSelectedVideoIds.forEach((videoId) =>
         addPerformerToCatalogVideoMetadata(videoId, performer),
       );
+      if (selectedVideo && batchSelectedVideoIds.includes(selectedVideo.id)) {
+        setSelectedVideoPerformers((currentPerformers) =>
+          appendUniqueMetadata(currentPerformers, performer),
+        );
+      }
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -1070,6 +1095,13 @@ export default function App() {
       batchSelectedVideoIds.forEach((videoId) =>
         removePerformerFromCatalogVideoMetadata(videoId, performer),
       );
+      if (selectedVideo && batchSelectedVideoIds.includes(selectedVideo.id)) {
+        setSelectedVideoPerformers((currentPerformers) =>
+          currentPerformers.filter(
+            (currentPerformer) => currentPerformer.id !== performer.id,
+          ),
+        );
+      }
       setAvailablePerformers(await listPerformers());
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
@@ -1222,6 +1254,17 @@ export default function App() {
   const batchSelectedVideos = catalogVideos.filter((catalogVideo) =>
     batchSelectedVideoIds.includes(catalogVideo.id),
   );
+  const batchSelectedVideoMetadata = batchSelectedVideos.map(
+    (catalogVideo) => catalogVideoMetadataById[catalogVideo.id],
+  );
+  const batchRemovableTags = uniqueMetadataValues(
+    batchSelectedVideoMetadata.flatMap((metadata) => metadata?.tags ?? []),
+  );
+  const batchRemovablePerformers = uniqueMetadataValues(
+    batchSelectedVideoMetadata.flatMap(
+      (metadata) => metadata?.performers ?? [],
+    ),
+  );
   const unavailableScanRoots = scanRoots.filter(
     (scanRoot) => !scanRoot.isAvailable,
   );
@@ -1265,6 +1308,8 @@ export default function App() {
           onRemovePerformer={removePerformerFromBatchSelectedVideos}
           onRemoveTag={removeTagFromBatchSelectedVideos}
           onSetFavorite={setBatchSelectedVideosFavorite}
+          removablePerformers={batchRemovablePerformers}
+          removableTags={batchRemovableTags}
           selectedVideoCount={batchSelectedVideos.length}
         />
       ) : null}
@@ -1965,6 +2010,8 @@ function BatchMetadataEditPanel({
   onRemovePerformer,
   onRemoveTag,
   onSetFavorite,
+  removablePerformers,
+  removableTags,
   selectedVideoCount,
 }: {
   availablePerformers: CatalogPerformer[];
@@ -1976,6 +2023,8 @@ function BatchMetadataEditPanel({
   onRemovePerformer: (performer: CatalogPerformer) => void;
   onRemoveTag: (tag: CatalogTag) => void;
   onSetFavorite: (isFavorite: boolean) => void;
+  removablePerformers: CatalogPerformer[];
+  removableTags: CatalogTag[];
   selectedVideoCount: number;
 }) {
   return (
@@ -2008,6 +2057,7 @@ function BatchMetadataEditPanel({
             onAppend={onAppendTag}
             onCreateOrAppend={onCreateOrAppendTag}
             onRemove={onRemoveTag}
+            removableItems={removableTags}
           />
           <BatchMetadataActions
             availableItems={availablePerformers}
@@ -2015,6 +2065,7 @@ function BatchMetadataEditPanel({
             onAppend={onAppendPerformer}
             onCreateOrAppend={onCreateOrAppendPerformer}
             onRemove={onRemovePerformer}
+            removableItems={removablePerformers}
           />
         </Group>
       </Stack>
@@ -2028,12 +2079,14 @@ function BatchMetadataActions<T extends { id: number; name: string }>({
   onAppend,
   onCreateOrAppend,
   onRemove,
+  removableItems,
 }: {
   availableItems: T[];
   label: string;
   onAppend: (item: T) => void;
   onCreateOrAppend: (name: string) => void;
   onRemove: (item: T) => void;
+  removableItems: T[];
 }) {
   const [newItemName, setNewItemName] = useState("");
   const trimmedNewItemName = newItemName.trim();
@@ -2069,15 +2122,18 @@ function BatchMetadataActions<T extends { id: number; name: string }>({
         {actionLabel}
       </Button>
       {availableItems.map((item) => (
+        <Button
+          key={item.id}
+          type="button"
+          size="xs"
+          variant="default"
+          onClick={() => void onAppend(item)}
+        >
+          Append {item.name} to selected Videos
+        </Button>
+      ))}
+      {removableItems.map((item) => (
         <Group key={item.id} gap="xs">
-          <Button
-            type="button"
-            size="xs"
-            variant="default"
-            onClick={() => void onAppend(item)}
-          >
-            Append {item.name} to selected Videos
-          </Button>
           <Button
             type="button"
             size="xs"
@@ -2307,6 +2363,13 @@ function appendUniqueMetadata<T extends { id: number }>(items: T[], item: T) {
   }
 
   return [...items, item];
+}
+
+function uniqueMetadataValues<T extends { id: number }>(items: T[]) {
+  return items.reduce<T[]>(
+    (uniqueItems, item) => appendUniqueMetadata(uniqueItems, item),
+    [],
+  );
 }
 
 function findMetadataByName<T extends { name: string }>(

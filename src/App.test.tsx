@@ -1019,12 +1019,14 @@ describe("Videos View shell", () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },
       { id: 5, name: "Archive" },
+      { id: 7, name: "Unused" },
     ]);
     mockedListPerformers.mockResolvedValue([
       { id: 9, name: "Blair" },
       { id: 10, name: "Alex" },
     ]);
     mockedCreateTag.mockResolvedValue({ id: 6, name: "Road Trip" });
+    mockedCreatePerformer.mockResolvedValue({ id: 11, name: "Casey" });
     mockedTagsForVideo.mockImplementation(async (videoId) => {
       if (videoId === 1) {
         return [{ id: 4, name: "Travel" }];
@@ -1096,6 +1098,24 @@ describe("Videos View shell", () => {
         name: "Create and append Tag to selected Videos",
       }),
     );
+    fireEvent.change(within(batchMetadataEdit).getByLabelText("New Performer"), {
+      target: { value: "Casey" },
+    });
+    fireEvent.click(
+      within(batchMetadataEdit).getByRole("button", {
+        name: "Create and append Performer to selected Videos",
+      }),
+    );
+    expect(
+      within(batchMetadataEdit).queryByRole("button", {
+        name: "Remove Unused from selected Videos",
+      }),
+    ).toBeNull();
+    expect(
+      within(batchMetadataEdit).queryByRole("button", {
+        name: "Remove Alex from selected Videos",
+      }),
+    ).toBeNull();
     fireEvent.click(
       within(batchMetadataEdit).getByRole("button", {
         name: "Remove Blair from selected Videos",
@@ -1119,6 +1139,9 @@ describe("Videos View shell", () => {
     expect(mockedCreateTag).toHaveBeenCalledWith("Road Trip");
     expect(mockedAttachTagToVideo).toHaveBeenCalledWith(6, 1);
     expect(mockedAttachTagToVideo).toHaveBeenCalledWith(6, 2);
+    expect(mockedCreatePerformer).toHaveBeenCalledWith("Casey");
+    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(11, 1);
+    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(11, 2);
     expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 1);
     expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 2);
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
@@ -1126,6 +1149,66 @@ describe("Videos View shell", () => {
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, false);
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(2, false);
     expect(mockedUpdateVideoTitle).not.toHaveBeenCalled();
+  });
+
+  it("keeps the Video Detail Panel current after Batch Metadata Edit touches the selected Video", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Archive" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, name: "Blair" },
+      { id: 10, name: "Alex" },
+    ]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
+    const batchMetadataEdit = await screen.findByRole("region", {
+      name: "Batch Metadata Edit",
+    });
+
+    fireEvent.click(
+      within(batchMetadataEdit).getByRole("button", {
+        name: "Append Archive to selected Videos",
+      }),
+    );
+    await within(detailPanel).findByRole("button", {
+      name: "Remove Archive",
+    });
+
+    fireEvent.click(
+      within(batchMetadataEdit).getByRole("button", {
+        name: "Remove Travel from selected Videos",
+      }),
+    );
+    await within(detailPanel).findByRole("button", {
+      name: "Attach Travel",
+    });
   });
 
   it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {
