@@ -2117,6 +2117,7 @@ impl Catalog {
                 &video_path,
                 &scan_root.inference_rules,
             ) {
+                let suggested_value = metadata_suggestion_display_value(&folder_segment);
                 transaction
                     .execute(
                         "INSERT INTO metadata_suggestions (
@@ -2131,7 +2132,7 @@ impl Catalog {
                          DO UPDATE SET
                             suggested_value = excluded.suggested_value,
                             updated_at = CURRENT_TIMESTAMP",
-                        params![scan_root_id, video_id, folder_segment, folder_segment],
+                        params![scan_root_id, video_id, folder_segment, suggested_value],
                     )
                     .map_err(|error| error.to_string())?;
             }
@@ -2453,12 +2454,18 @@ fn metadata_suggestion_segments(
         .filter(|folder_name| !folder_name.is_empty())
         .filter(|folder_name| {
             let normalized_folder_name = folder_name.to_lowercase();
+            let suggested_value = metadata_suggestion_display_value(folder_name);
 
-            !ignored_folder_names.contains(&normalized_folder_name)
+            !suggested_value.is_empty()
+                && !ignored_folder_names.contains(&normalized_folder_name)
                 && !is_ignored_exact_year(folder_name, &inference_rules.ignored_exact_year_range)
         })
         .map(|folder_name| folder_name.to_string())
         .collect()
+}
+
+fn metadata_suggestion_display_value(source_path_segment: &str) -> String {
+    source_path_segment.trim().to_string()
 }
 
 fn is_ignored_exact_year(folder_name: &str, ignored_exact_year_range: &ExactYearRange) -> bool {
@@ -2681,6 +2688,36 @@ mod tests {
         assert_eq!(
             metadata_suggestions(&catalog.database),
             vec![("Family".to_string(), "tag".to_string())]
+        );
+    }
+
+    #[test]
+    fn metadata_suggestions_normalize_display_text_while_preserving_original_source_segment() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let video_folder = movies_root.join("  Family Trip  ");
+        std::fs::create_dir_all(&video_folder).expect("video folder exists");
+        let family_trip_path = video_folder.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+
+        assert_eq!(
+            metadata_suggestion_sources(&catalog.database),
+            vec![(
+                "  Family Trip  ".to_string(),
+                "Family Trip".to_string(),
+                "tag".to_string()
+            )]
         );
     }
 
@@ -4867,6 +4904,22 @@ mod tests {
             .expect("metadata suggestions query runs")
             .collect::<Result<Vec<_>, _>>()
             .expect("metadata suggestions load")
+    }
+
+    fn metadata_suggestion_sources(database: &Connection) -> Vec<(String, String, String)> {
+        let mut statement = database
+            .prepare(
+                "SELECT source_path_segment, suggested_value, suggestion_kind
+                 FROM metadata_suggestions
+                 ORDER BY source_path_segment",
+            )
+            .expect("metadata suggestion sources query prepares");
+
+        statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .expect("metadata suggestion sources query runs")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("metadata suggestion sources load")
     }
 
     #[derive(Debug)]
