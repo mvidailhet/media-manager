@@ -314,7 +314,8 @@ describe("Videos View shell", () => {
 
     renderApp();
 
-    const catalogVideos = await screen.findByRole("region", {
+    await screen.findByText("Studio Clip");
+    const catalogVideos = screen.getByRole("region", {
       name: "Catalog Videos",
     });
     expect(within(catalogVideos).getByText("Studio Clip")).toBeInTheDocument();
@@ -337,6 +338,94 @@ describe("Videos View shell", () => {
       within(catalogVideos).getByText("Archive Family Cut"),
     ).toBeInTheDocument();
     expect(within(catalogVideos).getByText("Unavailable")).toBeInTheDocument();
+    expect(within(catalogVideos).queryByText("Studio Clip")).not.toBeInTheDocument();
+  });
+
+  it("marks and unmarks a Video as Favorite from the Videos View", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("button", {
+        name: "Mark Family Trip as Favorite",
+      }),
+    );
+
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
+    await within(catalogVideos).findByRole("button", {
+      name: "Unmark Family Trip as Favorite",
+    });
+
+    fireEvent.click(
+      within(catalogVideos).getByRole("button", {
+        name: "Unmark Family Trip as Favorite",
+      }),
+    );
+
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, false);
+    await within(catalogVideos).findByRole("button", {
+      name: "Mark Family Trip as Favorite",
+    });
+  });
+
+  it("shows Favorites View as the same Video result model filtered to Favorite Videos", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: true,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Studio Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/studio-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    expect(
+      await within(catalogVideos).findByText("Studio Clip"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Favorites View" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Favorites View" }),
+    ).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("1h 2m")).toBeInTheDocument();
     expect(within(catalogVideos).queryByText("Studio Clip")).not.toBeInTheDocument();
   });
 
@@ -496,7 +585,7 @@ describe("Videos View shell", () => {
     });
 
     const videoTitles = within(catalogVideos).getAllByRole("button", {
-      name: /Large Archive|Small Clip/,
+      name: /^(Large Archive|Small Clip)$/,
     });
 
     expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
@@ -542,7 +631,7 @@ describe("Videos View shell", () => {
     });
 
     const videoTitles = within(catalogVideos).getAllByRole("button", {
-      name: /Large Archive|Missing Size/,
+      name: /^(Large Archive|Missing Size)$/,
     });
 
     expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
