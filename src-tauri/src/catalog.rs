@@ -39,6 +39,7 @@ const CREATE_VIDEOS_TABLE: &str = "
         fingerprint_version INTEGER NOT NULL,
         title TEXT NOT NULL,
         duration_milliseconds INTEGER NOT NULL,
+        is_favorite INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -163,8 +164,18 @@ pub struct CatalogVideo {
     pub duration_milliseconds: i64,
     pub file_size_bytes: Option<i64>,
     pub file_location_path: Option<String>,
+    pub file_locations: Vec<CatalogVideoFileLocation>,
     pub is_available: bool,
+    pub is_favorite: bool,
     pub preview_strip: PreviewStripStatus,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CatalogVideoFileLocation {
+    pub path: String,
+    pub file_size_bytes: i64,
+    pub is_preferred: bool,
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -448,32 +459,43 @@ impl Catalog {
                 "SELECT videos.id,
                         videos.title,
                         videos.duration_milliseconds,
-                        file_locations.file_size_bytes,
-                        file_locations.path,
-                        file_locations.path IS NOT NULL,
+                        videos.is_favorite,
+                        preferred_file_locations.file_size_bytes,
+                        preferred_file_locations.path,
+                        preferred_file_locations.path IS NOT NULL,
                         preview_strips.path,
                         preview_strips.frame_count,
                         preview_strips.column_count,
                         preview_strips.row_count,
                         failed_preview_strips.reason
                  FROM videos
-                 LEFT JOIN file_locations ON file_locations.video_id = videos.id
+                 LEFT JOIN file_locations AS preferred_file_locations
+                   ON preferred_file_locations.id = (
+                    SELECT file_locations.id
+                    FROM file_locations
+                    WHERE file_locations.video_id = videos.id
+                    ORDER BY file_locations.path
+                    LIMIT 1
+                 )
                  LEFT JOIN preview_strips ON preview_strips.video_id = videos.id
                  LEFT JOIN failed_preview_strips ON failed_preview_strips.video_id = videos.id
-                 ORDER BY videos.title, file_locations.path",
+                 ORDER BY videos.title, preferred_file_locations.path",
             )
             .map_err(|error| error.to_string())?;
 
         let videos = statement
             .query_map([], |row| {
+                let video_id = row.get(0)?;
                 Ok(CatalogVideo {
-                    id: row.get(0)?,
+                    id: video_id,
                     title: row.get(1)?,
                     duration_milliseconds: row.get(2)?,
-                    file_size_bytes: row.get(3)?,
-                    file_location_path: row.get(4)?,
-                    is_available: row.get::<_, i64>(5)? == 1,
-                    preview_strip: preview_strip_status_from_row(row)?,
+                    is_favorite: row.get::<_, i64>(3)? == 1,
+                    file_size_bytes: row.get(4)?,
+                    file_location_path: row.get(5)?,
+                    file_locations: self.file_locations_for_video(video_id)?,
+                    is_available: row.get::<_, i64>(6)? == 1,
+                    preview_strip: preview_strip_status_from_row(row, 7)?,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -481,6 +503,43 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
 
         Ok(videos)
+    }
+
+    pub fn update_video_title(&self, video_id: i64, title: &str) -> Result<(), String> {
+        let video_title = normalized_video_title(title)?;
+        let updated_video_count = self
+            .database
+            .execute(
+                "UPDATE videos
+                 SET title = ?1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?2",
+                params![video_title, video_id],
+            )
+            .map_err(|error| error.to_string())?;
+        if updated_video_count == 0 {
+            return Err("Video is not in the Catalog".to_string());
+        }
+
+        Ok(())
+    }
+
+    pub fn set_video_favorite(&self, video_id: i64, is_favorite: bool) -> Result<(), String> {
+        let updated_video_count = self
+            .database
+            .execute(
+                "UPDATE videos
+                 SET is_favorite = ?1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?2",
+                params![i64::from(is_favorite), video_id],
+            )
+            .map_err(|error| error.to_string())?;
+        if updated_video_count == 0 {
+            return Err("Video is not in the Catalog".to_string());
+        }
+
+        Ok(())
     }
 
     pub fn add_scan_root(&self, scan_root_path: &Path) -> Result<ScanRoot, String> {
@@ -1002,6 +1061,43 @@ impl Catalog {
             .map(catalog_performers_from_values)
     }
 
+    fn file_locations_for_video(
+        &self,
+        video_id: i64,
+    ) -> Result<Vec<CatalogVideoFileLocation>, rusqlite::Error> {
+        let preferred_path: Option<String> = self
+            .database
+            .query_row(
+                "SELECT path
+                 FROM file_locations
+                 WHERE video_id = ?1
+                 ORDER BY path
+                 LIMIT 1",
+                params![video_id],
+                |row| row.get(0),
+            )
+            .optional()?;
+        let mut statement = self.database.prepare(
+            "SELECT path, file_size_bytes
+             FROM file_locations
+             WHERE video_id = ?1
+             ORDER BY path",
+        )?;
+
+        let file_locations = statement
+            .query_map(params![video_id], |row| {
+                let path: String = row.get(0)?;
+                Ok(CatalogVideoFileLocation {
+                    is_preferred: Some(&path) == preferred_path.as_ref(),
+                    path,
+                    file_size_bytes: row.get(1)?,
+                })
+            })?
+            .collect();
+
+        file_locations
+    }
+
     fn list_metadata_values(&self, table_name: &str) -> Result<Vec<CatalogMetadataValue>, String> {
         let query = format!(
             "SELECT id, name
@@ -1262,7 +1358,8 @@ impl Catalog {
             .execute_batch(&migration_batch)
             .map_err(|error| error.to_string())?;
         self.add_scan_root_availability_column_if_missing()?;
-        self.add_failed_preview_strip_ignored_at_column_if_missing()
+        self.add_failed_preview_strip_ignored_at_column_if_missing()?;
+        self.add_video_favorite_column_if_missing()
     }
 
     fn add_scan_root_availability_column_if_missing(&self) -> Result<(), String> {
@@ -1290,6 +1387,22 @@ impl Catalog {
             .execute(
                 "ALTER TABLE failed_preview_strips
                  ADD COLUMN ignored_at TEXT",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn add_video_favorite_column_if_missing(&self) -> Result<(), String> {
+        if catalog_table_has_column(&self.database, "videos", "is_favorite")? {
+            return Ok(());
+        }
+
+        self.database
+            .execute(
+                "ALTER TABLE videos
+                 ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0",
                 [],
             )
             .map_err(|error| error.to_string())?;
@@ -1328,7 +1441,6 @@ impl Catalog {
                 "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
                  VALUES (?1, ?2, ?3, ?4)
                  ON CONFLICT(fingerprint) DO UPDATE SET
-                    title = excluded.title,
                     duration_milliseconds = excluded.duration_milliseconds,
                     updated_at = CURRENT_TIMESTAMP",
                 params![
@@ -1676,19 +1788,31 @@ fn catalog_performers_from_values(
         .collect()
 }
 
-fn preview_strip_status_from_row(row: &Row<'_>) -> rusqlite::Result<PreviewStripStatus> {
-    let preview_strip_path: Option<String> = row.get(6)?;
+fn normalized_video_title(title: &str) -> Result<String, String> {
+    let video_title = title.trim().to_string();
+    if video_title.is_empty() {
+        return Err("Video Title cannot be empty".to_string());
+    }
+
+    Ok(video_title)
+}
+
+fn preview_strip_status_from_row(
+    row: &Row<'_>,
+    preview_strip_column_index: usize,
+) -> rusqlite::Result<PreviewStripStatus> {
+    let preview_strip_path: Option<String> = row.get(preview_strip_column_index)?;
 
     if let Some(path) = preview_strip_path {
         return Ok(PreviewStripStatus::Generated {
             path,
-            frame_count: row.get(7)?,
-            column_count: row.get(8)?,
-            row_count: row.get(9)?,
+            frame_count: row.get(preview_strip_column_index + 1)?,
+            column_count: row.get(preview_strip_column_index + 2)?,
+            row_count: row.get(preview_strip_column_index + 3)?,
         });
     }
 
-    let failure_reason: Option<String> = row.get(10)?;
+    let failure_reason: Option<String> = row.get(preview_strip_column_index + 4)?;
 
     Ok(match failure_reason {
         Some(failure_reason) => PreviewStripStatus::Failed { failure_reason },
@@ -1956,6 +2080,75 @@ mod tests {
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
                 file_location_path: None,
+                file_locations: Vec::new(),
+                is_favorite: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn listed_videos_include_editable_metadata_and_all_file_locations() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = Connection::open(catalog_path).expect("catalog database opens");
+        let primary_location = "/Volumes/Archive/Videos/family-trip.mp4";
+        let secondary_location = "/Volumes/Backup/Videos/family-trip.mp4";
+
+        database
+            .execute(
+                "INSERT INTO scan_roots (id, path, drive_identity)
+                 VALUES (1, '/Volumes/Archive/Videos', NULL),
+                        (2, '/Volumes/Backup/Videos', NULL)",
+                [],
+            )
+            .expect("scan roots persist");
+        database
+            .execute(
+                "INSERT INTO videos (id, fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (1, 'fingerprint', 1, 'Family Trip', 3723000)",
+                [],
+            )
+            .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (1, 1, ?1, 80740352, CURRENT_TIMESTAMP),
+                        (1, 2, ?2, 80740352, CURRENT_TIMESTAMP)",
+                rusqlite::params![primary_location, secondary_location],
+            )
+            .expect("file locations persist");
+
+        catalog
+            .update_video_title(1, "Family Archive")
+            .expect("title updates");
+        catalog
+            .set_video_favorite(1, true)
+            .expect("favorite updates");
+
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                id: 1,
+                is_available: true,
+                preview_strip: super::PreviewStripStatus::Pending,
+                title: "Family Archive".to_string(),
+                duration_milliseconds: 3723000,
+                file_size_bytes: Some(80740352),
+                file_location_path: Some(primary_location.to_string()),
+                file_locations: vec![
+                    super::CatalogVideoFileLocation {
+                        path: primary_location.to_string(),
+                        file_size_bytes: 80740352,
+                        is_preferred: true,
+                    },
+                    super::CatalogVideoFileLocation {
+                        path: secondary_location.to_string(),
+                        file_size_bytes: 80740352,
+                        is_preferred: false,
+                    },
+                ],
+                is_favorite: true,
             }]
         );
     }
@@ -1999,6 +2192,8 @@ mod tests {
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
                 file_location_path: None,
+                file_locations: Vec::new(),
+                is_favorite: false,
             }]
         );
     }
@@ -2058,6 +2253,8 @@ mod tests {
                     duration_milliseconds: 1_000,
                     file_size_bytes: None,
                     file_location_path: None,
+                    file_locations: Vec::new(),
+                    is_favorite: false,
                 },
                 super::CatalogVideo {
                     id: 1,
@@ -2074,6 +2271,8 @@ mod tests {
                     duration_milliseconds: 1_000,
                     file_size_bytes: None,
                     file_location_path: None,
+                    file_locations: Vec::new(),
+                    is_favorite: false,
                 },
             ]
         );
@@ -2177,6 +2376,8 @@ mod tests {
                     duration_milliseconds: 1_000,
                     file_size_bytes: None,
                     file_location_path: None,
+                    file_locations: Vec::new(),
+                    is_favorite: false,
                 },
                 super::CatalogVideo {
                     id: 1,
@@ -2192,6 +2393,16 @@ mod tests {
                             .to_string_lossy()
                             .into_owned()
                     ),
+                    file_locations: vec![super::CatalogVideoFileLocation {
+                        path: family_trip_path
+                            .canonicalize()
+                            .expect("family trip path canonicalizes")
+                            .to_string_lossy()
+                            .into_owned(),
+                        file_size_bytes: 17,
+                        is_preferred: true,
+                    }],
+                    is_favorite: false,
                 },
             ]
         );
@@ -2247,6 +2458,8 @@ mod tests {
                 duration_milliseconds: 3723000,
                 file_size_bytes: None,
                 file_location_path: None,
+                file_locations: Vec::new(),
+                is_favorite: false,
             }]
         );
     }
@@ -2294,6 +2507,12 @@ mod tests {
                 duration_milliseconds: 3_723_000,
                 file_size_bytes: Some(11),
                 file_location_path: Some(expected_family_trip_path.to_string_lossy().into_owned()),
+                file_locations: vec![super::CatalogVideoFileLocation {
+                    path: expected_family_trip_path.to_string_lossy().into_owned(),
+                    file_size_bytes: 11,
+                    is_preferred: true,
+                }],
+                is_favorite: false,
             }]
         );
     }
@@ -2838,6 +3057,12 @@ mod tests {
                 duration_milliseconds: 1_000,
                 file_size_bytes: Some(17),
                 file_location_path: Some(expected_family_trip_path.to_string_lossy().into_owned()),
+                file_locations: vec![super::CatalogVideoFileLocation {
+                    path: expected_family_trip_path.to_string_lossy().into_owned(),
+                    file_size_bytes: 17,
+                    is_preferred: true,
+                }],
+                is_favorite: false,
             }]
         );
         assert_eq!(
@@ -2899,6 +3124,8 @@ mod tests {
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
                 file_location_path: None,
+                file_locations: Vec::new(),
+                is_favorite: false,
             }]
         );
     }
@@ -2956,6 +3183,8 @@ mod tests {
                 duration_milliseconds: 1_000,
                 file_size_bytes: None,
                 file_location_path: None,
+                file_locations: Vec::new(),
+                is_favorite: false,
             }]
         );
         assert_eq!(
@@ -3158,6 +3387,15 @@ mod tests {
                         .to_string_lossy()
                         .into_owned()
                 ),
+                file_locations: vec![super::CatalogVideoFileLocation {
+                    path: backup_root
+                        .join("family-trip.mp4")
+                        .to_string_lossy()
+                        .into_owned(),
+                    file_size_bytes: 80740352,
+                    is_preferred: true,
+                }],
+                is_favorite: false,
             }]
         );
     }
@@ -3284,6 +3522,7 @@ mod tests {
                 "fingerprint_version INTEGER required",
                 "title TEXT required",
                 "duration_milliseconds INTEGER required",
+                "is_favorite INTEGER required",
                 "created_at TEXT required",
                 "updated_at TEXT required",
             ]
@@ -3467,6 +3706,12 @@ mod tests {
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),
                 file_location_path: Some("/Volumes/Archive/Videos/family-trip.mp4".to_string()),
+                file_locations: vec![super::CatalogVideoFileLocation {
+                    path: "/Volumes/Archive/Videos/family-trip.mp4".to_string(),
+                    file_size_bytes: 80740352,
+                    is_preferred: true,
+                }],
+                is_favorite: false,
             }]
         );
     }

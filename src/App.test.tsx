@@ -3,7 +3,7 @@ import {
   render,
   screen,
   waitFor,
-  within
+  within,
 } from "@testing-library/react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -13,6 +13,10 @@ import App from "./App";
 import { AppProviders } from "./AppProviders";
 import {
   addScanRoot,
+  attachPerformerToVideo,
+  attachTagToVideo,
+  detachPerformerFromVideo,
+  detachTagFromVideo,
   forgetCatalogVideo,
   generateMissingPreviewStrips,
   getPreviewStripQueueStatus,
@@ -20,9 +24,12 @@ import {
   getLocalDesktopAppStatus,
   ignoreFailedPreviewStrip,
   listFailedPreviewStrips,
+  listPerformers,
+  listTags,
   listUnprocessableVideoCandidates,
   listCatalogVideos,
   listScanRoots,
+  performersForVideo,
   pausePreviewStripQueue,
   processNextPreviewStripQueueItem,
   removeScanRoot,
@@ -30,19 +37,26 @@ import {
   refreshAllScanRoots,
   refreshScanRoot,
   retryFailedPreviewStrip,
-  saveFfmpegConfiguration
+  saveFfmpegConfiguration,
+  setVideoFavorite,
+  tagsForVideo,
+  updateVideoTitle,
 } from "./tauriCommands";
 
 vi.mock("@tauri-apps/plugin-dialog", () => ({
-  open: vi.fn()
+  open: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({
-  convertFileSrc: vi.fn((path: string) => `asset://${path}`)
+  convertFileSrc: vi.fn((path: string) => `asset://${path}`),
 }));
 
 vi.mock("./tauriCommands", () => ({
   addScanRoot: vi.fn(),
+  attachPerformerToVideo: vi.fn(),
+  attachTagToVideo: vi.fn(),
+  detachPerformerFromVideo: vi.fn(),
+  detachTagFromVideo: vi.fn(),
   forgetCatalogVideo: vi.fn(),
   generateMissingPreviewStrips: vi.fn(),
   getPreviewStripQueueStatus: vi.fn(),
@@ -50,9 +64,12 @@ vi.mock("./tauriCommands", () => ({
   getLocalDesktopAppStatus: vi.fn(),
   ignoreFailedPreviewStrip: vi.fn(),
   listFailedPreviewStrips: vi.fn(),
+  listPerformers: vi.fn(),
+  listTags: vi.fn(),
   listUnprocessableVideoCandidates: vi.fn(),
   listCatalogVideos: vi.fn(),
   listScanRoots: vi.fn(),
+  performersForVideo: vi.fn(),
   pausePreviewStripQueue: vi.fn(),
   processNextPreviewStripQueueItem: vi.fn(),
   removeScanRoot: vi.fn(),
@@ -60,7 +77,10 @@ vi.mock("./tauriCommands", () => ({
   refreshAllScanRoots: vi.fn(),
   refreshScanRoot: vi.fn(),
   retryFailedPreviewStrip: vi.fn(),
-  saveFfmpegConfiguration: vi.fn()
+  saveFfmpegConfiguration: vi.fn(),
+  setVideoFavorite: vi.fn(),
+  tagsForVideo: vi.fn(),
+  updateVideoTitle: vi.fn(),
 }));
 
 const mockedOpen = vi.mocked(open);
@@ -69,20 +89,32 @@ const mockedGetLocalDesktopAppStatus = vi.mocked(getLocalDesktopAppStatus);
 const mockedGetFfmpegToolsStatus = vi.mocked(getFfmpegToolsStatus);
 const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
 const mockedListFailedPreviewStrips = vi.mocked(listFailedPreviewStrips);
+const mockedListTags = vi.mocked(listTags);
+const mockedListPerformers = vi.mocked(listPerformers);
+const mockedTagsForVideo = vi.mocked(tagsForVideo);
+const mockedPerformersForVideo = vi.mocked(performersForVideo);
+const mockedAttachTagToVideo = vi.mocked(attachTagToVideo);
+const mockedDetachTagFromVideo = vi.mocked(detachTagFromVideo);
+const mockedAttachPerformerToVideo = vi.mocked(attachPerformerToVideo);
+const mockedDetachPerformerFromVideo = vi.mocked(detachPerformerFromVideo);
+const mockedUpdateVideoTitle = vi.mocked(updateVideoTitle);
+const mockedSetVideoFavorite = vi.mocked(setVideoFavorite);
 const mockedRetryFailedPreviewStrip = vi.mocked(retryFailedPreviewStrip);
 const mockedIgnoreFailedPreviewStrip = vi.mocked(ignoreFailedPreviewStrip);
 const mockedListCatalogVideos = vi.mocked(listCatalogVideos);
 const mockedListUnprocessableVideoCandidates = vi.mocked(
-  listUnprocessableVideoCandidates
+  listUnprocessableVideoCandidates,
 );
 const mockedListScanRoots = vi.mocked(listScanRoots);
 const mockedAddScanRoot = vi.mocked(addScanRoot);
 const mockedForgetCatalogVideo = vi.mocked(forgetCatalogVideo);
-const mockedGenerateMissingPreviewStrips = vi.mocked(generateMissingPreviewStrips);
+const mockedGenerateMissingPreviewStrips = vi.mocked(
+  generateMissingPreviewStrips,
+);
 const mockedGetPreviewStripQueueStatus = vi.mocked(getPreviewStripQueueStatus);
 const mockedPausePreviewStripQueue = vi.mocked(pausePreviewStripQueue);
 const mockedProcessNextPreviewStripQueueItem = vi.mocked(
-  processNextPreviewStripQueueItem
+  processNextPreviewStripQueueItem,
 );
 const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
 const mockedResumePreviewStripQueue = vi.mocked(resumePreviewStripQueue);
@@ -93,30 +125,34 @@ const availableFfmpegToolsStatus = {
   ffmpeg: {
     binaryName: "ffmpeg",
     isAvailable: true,
+    fileLocations: [],
+    isFavorite: false,
     resolvedPath: "/usr/local/bin/ffmpeg",
-    statusMessage: "ffmpeg is available (discovered from PATH)"
+    statusMessage: "ffmpeg is available (discovered from PATH)",
   },
   ffprobe: {
     binaryName: "ffprobe",
     isAvailable: true,
+    fileLocations: [],
+    isFavorite: false,
     resolvedPath: "/usr/local/bin/ffprobe",
-    statusMessage: "ffprobe is available (discovered from PATH)"
+    statusMessage: "ffprobe is available (discovered from PATH)",
   },
   configuration: {
     ffmpegPath: null,
-    ffprobePath: null
-  }
+    ffprobePath: null,
+  },
 };
 
 const pendingPreviewStrip = {
-  status: "pending" as const
+  status: "pending" as const,
 };
 
 function renderApp() {
   return render(
     <AppProviders>
       <App />
-    </AppProviders>
+    </AppProviders>,
   );
 }
 
@@ -127,62 +163,74 @@ describe("Videos View shell", () => {
     mockedGetFfmpegToolsStatus.mockResolvedValue(availableFfmpegToolsStatus);
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
     mockedListFailedPreviewStrips.mockResolvedValue([]);
+    mockedListTags.mockResolvedValue([]);
+    mockedListPerformers.mockResolvedValue([]);
+    mockedTagsForVideo.mockResolvedValue([]);
+    mockedPerformersForVideo.mockResolvedValue([]);
+    mockedAttachTagToVideo.mockResolvedValue(undefined);
+    mockedDetachTagFromVideo.mockResolvedValue(undefined);
+    mockedAttachPerformerToVideo.mockResolvedValue(undefined);
+    mockedDetachPerformerFromVideo.mockResolvedValue(undefined);
+    mockedUpdateVideoTitle.mockResolvedValue(undefined);
+    mockedSetVideoFavorite.mockResolvedValue(undefined);
     mockedRetryFailedPreviewStrip.mockResolvedValue({
       pendingCount: 1,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
     mockedIgnoreFailedPreviewStrip.mockResolvedValue({
       pendingCount: 0,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
     mockedListCatalogVideos.mockResolvedValue([]);
     mockedListUnprocessableVideoCandidates.mockResolvedValue([]);
     mockedListScanRoots.mockResolvedValue([]);
     mockedAddScanRoot.mockImplementation(async (path) => ({
       path,
-      isAvailable: true
+      isAvailable: true,
+      fileLocations: [],
+      isFavorite: false,
     }));
     mockedForgetCatalogVideo.mockResolvedValue(undefined);
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
       generatedPreviewStripCount: 0,
-      failedPreviewStripCount: 0
+      failedPreviewStripCount: 0,
     });
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
       pendingCount: 0,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
     mockedPausePreviewStripQueue.mockResolvedValue({
       pendingCount: 3,
       runningCount: 0,
       failedCount: 1,
-      isPaused: true
+      isPaused: true,
     });
     mockedResumePreviewStripQueue.mockResolvedValue({
       pendingCount: 3,
       runningCount: 1,
       failedCount: 1,
-      isPaused: false
+      isPaused: false,
     });
     mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
       pendingCount: 0,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
     mockedRemoveScanRoot.mockResolvedValue(undefined);
     mockedRefreshScanRoot.mockResolvedValue({
       scannedVideoCount: 0,
-      unprocessableCandidateCount: 0
+      unprocessableCandidateCount: 0,
     });
     mockedRefreshAllScanRoots.mockResolvedValue({
       scannedVideoCount: 0,
-      unprocessableCandidateCount: 0
+      unprocessableCandidateCount: 0,
     });
     mockedOpen.mockResolvedValue(null);
   });
@@ -191,7 +239,7 @@ describe("Videos View shell", () => {
     renderApp();
 
     expect(
-      screen.getByRole("heading", { name: "Videos View" })
+      screen.getByRole("heading", { name: "Videos View" }),
     ).toBeInTheDocument();
     expect(screen.getByText("Local Desktop App")).toBeInTheDocument();
     expect(await screen.findByText("Rust command online")).toBeInTheDocument();
@@ -206,8 +254,10 @@ describe("Videos View shell", () => {
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
         isAvailable: true,
-        previewStrip: pendingPreviewStrip
-      }
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
     ]);
 
     renderApp();
@@ -216,8 +266,101 @@ describe("Videos View shell", () => {
     expect(screen.getByText("1h 2m")).toBeInTheDocument();
     expect(screen.getByText("80.7 MB")).toBeInTheDocument();
     expect(
-      screen.getByText("/Volumes/Archive/Videos/family-trip.mp4")
+      screen.getByText("/Volumes/Archive/Videos/family-trip.mp4"),
     ).toBeInTheDocument();
+  });
+
+  it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Archive" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, name: "Blair" },
+      { id: 10, name: "Alex" },
+    ]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/family-trip.mp4",
+            fileSizeBytes: 80740352,
+            isPreferred: true,
+          },
+          {
+            path: "/Volumes/Backup/Videos/family-trip.mp4",
+            fileSizeBytes: 80740352,
+            isPreferred: false,
+          },
+        ],
+        isAvailable: true,
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    expect(
+      within(detailPanel).getByDisplayValue("Family Trip"),
+    ).toBeInTheDocument();
+    expect(within(detailPanel).getByText("1h 2m")).toBeInTheDocument();
+    expect(
+      within(detailPanel).getAllByText("80.7 MB").length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(
+      within(detailPanel).getByText("/Volumes/Archive/Videos/family-trip.mp4"),
+    ).toBeInTheDocument();
+    expect(
+      within(detailPanel).getByText("/Volumes/Backup/Videos/family-trip.mp4"),
+    ).toBeInTheDocument();
+    expect(
+      within(detailPanel).getByText("Preferred File Location"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(within(detailPanel).getByLabelText("Title"), {
+      target: { value: "Family Archive" },
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Save Title" }),
+    );
+    fireEvent.click(within(detailPanel).getByLabelText("Favorite"));
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Attach Archive" }),
+    );
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Remove Travel" }),
+    );
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Attach Alex" }),
+    );
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Remove Blair" }),
+    );
+
+    await waitFor(() => {
+      expect(mockedUpdateVideoTitle).toHaveBeenCalledWith(1, "Family Archive");
+    });
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
+    expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 1);
+    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
+    expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 1);
+    expect(mockedListCatalogVideos).not.toHaveBeenCalledWith(
+      expect.stringContaining("Family Archive"),
+    );
   });
 
   it("marks Missing Videos unavailable in the normal Videos list", async () => {
@@ -229,14 +372,16 @@ describe("Videos View shell", () => {
         fileSizeBytes: null,
         fileLocationPath: null,
         isAvailable: false,
-        previewStrip: pendingPreviewStrip
-      }
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
     ]);
 
     renderApp();
 
     const catalogVideos = await screen.findByRole("region", {
-      name: "Catalog Videos"
+      name: "Catalog Videos",
     });
 
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
@@ -248,7 +393,7 @@ describe("Videos View shell", () => {
     renderApp();
 
     expect(
-      await screen.findByText("No Videos in the Catalog.")
+      await screen.findByText("No Videos in the Catalog."),
     ).toBeInTheDocument();
   });
 
@@ -266,17 +411,17 @@ describe("Videos View shell", () => {
       pendingCount: 1,
       runningCount: 0,
       failedCount: 0,
-      isPaused: true
+      isPaused: true,
     });
     mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
       pendingCount: 1,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
       generatedPreviewStripCount: 3,
-      failedPreviewStripCount: 1
+      failedPreviewStripCount: 1,
     });
     mockedListCatalogVideos
       .mockResolvedValueOnce([
@@ -287,8 +432,10 @@ describe("Videos View shell", () => {
           fileSizeBytes: 80740352,
           fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
           isAvailable: true,
-          previewStrip: pendingPreviewStrip
-        }
+          fileLocations: [],
+          isFavorite: false,
+          previewStrip: pendingPreviewStrip,
+        },
       ])
       .mockResolvedValueOnce([
         {
@@ -298,30 +445,32 @@ describe("Videos View shell", () => {
           fileSizeBytes: 80740352,
           fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
           isAvailable: true,
+          fileLocations: [],
+          isFavorite: false,
           previewStrip: {
             status: "generated",
             path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
             frameCount: 20,
             columnCount: 5,
-            rowCount: 4
-          }
-        }
+            rowCount: 4,
+          },
+        },
       ]);
 
     renderApp();
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Generate Preview Strips" })
+      await screen.findByRole("button", { name: "Generate Preview Strips" }),
     );
 
     expect(mockedGenerateMissingPreviewStrips).toHaveBeenCalled();
     expect(
       await screen.findByText(
-        "3 Preview Strips generated, 1 Preview Strips failed"
-      )
+        "3 Preview Strips generated, 1 Preview Strips failed",
+      ),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole("img", { name: "Preview Strip for Family Trip" })
+      await screen.findByRole("img", { name: "Preview Strip for Family Trip" }),
     ).toBeInTheDocument();
   });
 
@@ -329,7 +478,7 @@ describe("Videos View shell", () => {
     renderApp();
 
     expect(
-      await screen.findByRole("button", { name: "Generate Preview Strips" })
+      await screen.findByRole("button", { name: "Generate Preview Strips" }),
     ).toBeDisabled();
     expect(mockedGenerateMissingPreviewStrips).not.toHaveBeenCalled();
   });
@@ -339,13 +488,13 @@ describe("Videos View shell", () => {
       pendingCount: 3,
       runningCount: 1,
       failedCount: 1,
-      isPaused: false
+      isPaused: false,
     });
     mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
       pendingCount: 3,
       runningCount: 1,
       failedCount: 1,
-      isPaused: false
+      isPaused: false,
     });
 
     renderApp();
@@ -354,12 +503,16 @@ describe("Videos View shell", () => {
     expect(screen.getByText("1 running")).toBeInTheDocument();
     expect(screen.getByText("1 failed")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Pause Preview Queue" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Pause Preview Queue" }),
+    );
 
     expect(mockedPausePreviewStripQueue).toHaveBeenCalled();
     expect(await screen.findByText("Paused")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Resume Preview Queue" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Resume Preview Queue" }),
+    );
 
     expect(mockedResumePreviewStripQueue).toHaveBeenCalled();
     expect(await screen.findByText("Running")).toBeInTheDocument();
@@ -374,34 +527,36 @@ describe("Videos View shell", () => {
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: {
           status: "generated",
           path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
           frameCount: 20,
           columnCount: 5,
-          rowCount: 4
-        }
-      }
+          rowCount: 4,
+        },
+      },
     ]);
 
     renderApp();
 
     const previewStrip = await screen.findByRole("img", {
-      name: "Preview Strip for Family Trip"
+      name: "Preview Strip for Family Trip",
     });
 
     expect(mockedConvertFileSrc).toHaveBeenCalledWith(
-      "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg"
+      "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
     );
     expect(previewStrip).toHaveStyle({
       backgroundImage:
         "url(asset:///Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg)",
-      backgroundPosition: "0% 0%"
+      backgroundPosition: "0% 0%",
     });
 
     Object.defineProperty(previewStrip, "clientWidth", {
       configurable: true,
-      value: 500
+      value: 500,
     });
     previewStrip.getBoundingClientRect = vi.fn(
       () =>
@@ -414,20 +569,20 @@ describe("Videos View shell", () => {
           height: 90,
           x: 0,
           y: 0,
-          toJSON: () => ({})
-        }) as DOMRect
+          toJSON: () => ({}),
+        }) as DOMRect,
     );
 
     fireEvent(
       previewStrip,
       new MouseEvent("pointermove", {
         bubbles: true,
-        clientX: 250
-      })
+        clientX: 250,
+      }),
     );
 
     expect(previewStrip).toHaveStyle({
-      backgroundPosition: "0% 66.66666666666666%"
+      backgroundPosition: "0% 66.66666666666666%",
     });
   });
 
@@ -440,9 +595,11 @@ describe("Videos View shell", () => {
         fileSizeBytes: 2000000,
         fileLocationPath: "/Volumes/Archive/Videos/pending-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: {
-          status: "pending"
-        }
+          status: "pending",
+        },
       },
       {
         id: 2,
@@ -451,23 +608,29 @@ describe("Videos View shell", () => {
         fileSizeBytes: 2000000,
         fileLocationPath: "/Volumes/Archive/Videos/failed-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: {
           status: "failed",
-          failureReason: "ffmpeg failed"
-        }
-      }
+          failureReason: "ffmpeg failed",
+        },
+      },
     ]);
 
     renderApp();
 
     const catalogVideos = await screen.findByRole("region", {
-      name: "Catalog Videos"
+      name: "Catalog Videos",
     });
 
     expect(within(catalogVideos).getByText("Pending Trip")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Pending Preview Strip")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByText("Pending Preview Strip"),
+    ).toBeInTheDocument();
     expect(within(catalogVideos).getByText("Failed Trip")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Failed Preview Strip")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByText("Failed Preview Strip"),
+    ).toBeInTheDocument();
   });
 
   it("shows FFmpeg and ffprobe availability in the app status", async () => {
@@ -484,7 +647,7 @@ describe("Videos View shell", () => {
     renderApp();
 
     const chooseFolderButton = await screen.findByRole("button", {
-      name: "Choose folder"
+      name: "Choose folder",
     });
     const manualPathInput = screen.getByLabelText("Manual path");
     const availableBadge = screen.getAllByText("Available")[0];
@@ -494,7 +657,7 @@ describe("Videos View shell", () => {
     expect(availableBadge).toBeVisible();
     expect(document.documentElement).toHaveAttribute(
       "data-mantine-color-scheme",
-      "dark"
+      "dark",
     );
   });
 
@@ -505,14 +668,14 @@ describe("Videos View shell", () => {
         binaryName: "ffmpeg",
         isAvailable: false,
         resolvedPath: null,
-        statusMessage: "ffmpeg is not available from PATH or settings"
-      }
+        statusMessage: "ffmpeg is not available from PATH or settings",
+      },
     });
 
     renderApp();
 
     expect(
-      await screen.findByText("ffmpeg is not available from PATH or settings")
+      await screen.findByText("ffmpeg is not available from PATH or settings"),
     ).toBeInTheDocument();
     expect(screen.getByText("Missing")).toBeInTheDocument();
   });
@@ -521,14 +684,14 @@ describe("Videos View shell", () => {
     mockedListScanRoots.mockResolvedValue([
       {
         path: "/Volumes/Archive/Videos",
-        isAvailable: true
-      }
+        isAvailable: true,
+      },
     ]);
 
     renderApp();
 
     expect(
-      await screen.findByText("/Volumes/Archive/Videos")
+      await screen.findByText("/Volumes/Archive/Videos"),
     ).toBeInTheDocument();
   });
 
@@ -537,17 +700,19 @@ describe("Videos View shell", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Choose folder" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose folder" }),
+    );
 
     expect(mockedOpen).toHaveBeenCalledWith({
       directory: true,
-      multiple: false
+      multiple: false,
     });
     await waitFor(() => {
       expect(mockedAddScanRoot).toHaveBeenCalledWith("/Volumes/Archive/Videos");
     });
     expect(
-      await screen.findByText("/Volumes/Archive/Videos")
+      await screen.findByText("/Volumes/Archive/Videos"),
     ).toBeInTheDocument();
   });
 
@@ -556,10 +721,12 @@ describe("Videos View shell", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Choose folder" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose folder" }),
+    );
 
     expect(
-      await screen.findByText("dialog open permission denied")
+      await screen.findByText("dialog open permission denied"),
     ).toBeInTheDocument();
     expect(mockedAddScanRoot).not.toHaveBeenCalled();
   });
@@ -567,15 +734,17 @@ describe("Videos View shell", () => {
   it("shows a clear message when a Scan Root overlaps an existing root", async () => {
     mockedOpen.mockResolvedValue("/Volumes/Archive/Videos/Family");
     mockedAddScanRoot.mockRejectedValue(
-      new Error("Scan Root overlaps with an existing Scan Root")
+      new Error("Scan Root overlaps with an existing Scan Root"),
     );
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Choose folder" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose folder" }),
+    );
 
     expect(
-      await screen.findByText("Scan Root overlaps with an existing Scan Root")
+      await screen.findByText("Scan Root overlaps with an existing Scan Root"),
     ).toBeInTheDocument();
   });
 
@@ -583,20 +752,20 @@ describe("Videos View shell", () => {
     mockedListScanRoots.mockResolvedValue([
       {
         path: "/Volumes/Archive/Videos",
-        isAvailable: true
-      }
+        isAvailable: true,
+      },
     ]);
 
     renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
     fireEvent.click(
-      screen.getByRole("button", { name: "Preserve as Missing Videos" })
+      screen.getByRole("button", { name: "Preserve as Missing Videos" }),
     );
 
     expect(mockedRemoveScanRoot).toHaveBeenCalledWith(
       "/Volumes/Archive/Videos",
-      "preserveMissingVideos"
+      "preserveMissingVideos",
     );
   });
 
@@ -604,36 +773,38 @@ describe("Videos View shell", () => {
     mockedListScanRoots.mockResolvedValue([
       {
         path: "/Volumes/Archive/Videos",
-        isAvailable: true
-      }
+        isAvailable: true,
+      },
     ]);
     mockedRefreshScanRoot.mockResolvedValue({
       scannedVideoCount: 2,
-      unprocessableCandidateCount: 1
+      unprocessableCandidateCount: 1,
     });
-    mockedListCatalogVideos
-      .mockResolvedValueOnce([])
-      .mockResolvedValueOnce([
-        {
-          id: 1,
-          title: "Family Trip",
-          durationMilliseconds: 3723000,
-          fileSizeBytes: 80740352,
-          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-          isAvailable: true,
-          previewStrip: pendingPreviewStrip
-        }
-      ]);
+    mockedListCatalogVideos.mockResolvedValueOnce([]).mockResolvedValueOnce([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
 
     renderApp();
 
     fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
 
     expect(mockedRefreshScanRoot).toHaveBeenCalledWith(
-      "/Volumes/Archive/Videos"
+      "/Volumes/Archive/Videos",
     );
     expect(
-      await screen.findByText("2 Videos scanned, 1 Unprocessable Video Candidates")
+      await screen.findByText(
+        "2 Videos scanned, 1 Unprocessable Video Candidates",
+      ),
     ).toBeInTheDocument();
     expect(await screen.findByText("Family Trip")).toBeInTheDocument();
   });
@@ -643,20 +814,20 @@ describe("Videos View shell", () => {
       .mockResolvedValueOnce([
         {
           path: "/Volumes/Archive/Videos",
-          isAvailable: true
-        }
+          isAvailable: true,
+        },
       ])
       .mockResolvedValueOnce([
         {
           path: "/Volumes/Archive/Videos",
-          isAvailable: false
-        }
+          isAvailable: false,
+        },
       ]);
 
     renderApp();
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Refresh all Scan Roots" })
+      await screen.findByRole("button", { name: "Refresh all Scan Roots" }),
     );
 
     expect(mockedRefreshAllScanRoots).toHaveBeenCalled();
@@ -672,7 +843,9 @@ describe("Videos View shell", () => {
         fileSizeBytes: null,
         fileLocationPath: null,
         isAvailable: false,
-        previewStrip: pendingPreviewStrip
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
       },
       {
         id: 2,
@@ -681,47 +854,53 @@ describe("Videos View shell", () => {
         fileSizeBytes: 1024,
         fileLocationPath: "/Volumes/Archive/Videos/available-trip.mp4",
         isAvailable: true,
-        previewStrip: pendingPreviewStrip
-      }
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
     ]);
     mockedListScanRoots.mockResolvedValue([
       {
         path: "/Volumes/Missing/Videos",
-        isAvailable: false
+        isAvailable: false,
       },
       {
         path: "/Volumes/Archive/Videos",
-        isAvailable: true
-      }
+        isAvailable: true,
+      },
     ]);
     mockedListUnprocessableVideoCandidates.mockResolvedValue([
       {
         path: "/Volumes/Archive/Videos/broken.mkv",
         reason: "missing moov atom",
-        fileSizeBytes: 2048
-      }
+        fileSizeBytes: 2048,
+      },
     ]);
 
     renderApp();
 
     const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue"
+      name: "Review Queue",
     });
     expect(
-      within(reviewQueue).getByRole("heading", { name: "Review Queue" })
+      within(reviewQueue).getByRole("heading", { name: "Review Queue" }),
     ).toBeInTheDocument();
     expect(
-      within(reviewQueue).getByRole("heading", { name: "Missing Videos" })
+      within(reviewQueue).getByRole("heading", { name: "Missing Videos" }),
     ).toBeInTheDocument();
     expect(within(reviewQueue).getByText("Family Trip")).toBeInTheDocument();
-    expect(within(reviewQueue).queryByText("Available Trip")).not.toBeInTheDocument();
     expect(
-      within(reviewQueue).getByText("/Volumes/Missing/Videos")
+      within(reviewQueue).queryByText("Available Trip"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(reviewQueue).getByText("/Volumes/Missing/Videos"),
     ).toBeInTheDocument();
     expect(
-      within(reviewQueue).getByText("/Volumes/Archive/Videos/broken.mkv")
+      within(reviewQueue).getByText("/Volumes/Archive/Videos/broken.mkv"),
     ).toBeInTheDocument();
-    expect(within(reviewQueue).getByText("missing moov atom")).toBeInTheDocument();
+    expect(
+      within(reviewQueue).getByText("missing moov atom"),
+    ).toBeInTheDocument();
   });
 
   it("lists Failed Preview Strips in the Review Queue with retry and ignore actions", async () => {
@@ -730,33 +909,35 @@ describe("Videos View shell", () => {
         {
           videoId: 7,
           title: "Broken Trip",
-          failureReason: "ffmpeg failed"
-        }
+          failureReason: "ffmpeg failed",
+        },
       ])
       .mockResolvedValueOnce([
         {
           videoId: 7,
           title: "Broken Trip",
-          failureReason: "ffmpeg failed"
-        }
+          failureReason: "ffmpeg failed",
+        },
       ])
       .mockResolvedValueOnce([]);
 
     renderApp();
 
     const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue"
+      name: "Review Queue",
     });
     expect(
-      within(reviewQueue).getByRole("heading", { name: "Failed Preview Strips" })
+      within(reviewQueue).getByRole("heading", {
+        name: "Failed Preview Strips",
+      }),
     ).toBeInTheDocument();
     expect(within(reviewQueue).getByText("Broken Trip")).toBeInTheDocument();
     expect(within(reviewQueue).getByText("ffmpeg failed")).toBeInTheDocument();
 
     fireEvent.click(
       within(reviewQueue).getByRole("button", {
-        name: "Retry Failed Preview Strip for Broken Trip"
-      })
+        name: "Retry Failed Preview Strip for Broken Trip",
+      }),
     );
     await waitFor(() => {
       expect(mockedRetryFailedPreviewStrip).toHaveBeenCalledWith(7);
@@ -765,14 +946,14 @@ describe("Videos View shell", () => {
 
     fireEvent.click(
       within(reviewQueue).getByRole("button", {
-        name: "Ignore Failed Preview Strip for Broken Trip"
-      })
+        name: "Ignore Failed Preview Strip for Broken Trip",
+      }),
     );
     await waitFor(() => {
       expect(mockedIgnoreFailedPreviewStrip).toHaveBeenCalledWith(7);
     });
     expect(
-      within(reviewQueue).queryByText("Broken Trip")
+      within(reviewQueue).queryByText("Broken Trip"),
     ).not.toBeInTheDocument();
   });
 
@@ -781,39 +962,37 @@ describe("Videos View shell", () => {
       pendingCount: 1,
       runningCount: 0,
       failedCount: 0,
-      isPaused: true
+      isPaused: true,
     });
     mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
       pendingCount: 1,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
       generatedPreviewStripCount: 0,
-      failedPreviewStripCount: 1
+      failedPreviewStripCount: 1,
     });
-    mockedListFailedPreviewStrips
-      .mockResolvedValueOnce([])
-      .mockResolvedValue([
-        {
-          videoId: 7,
-          title: "Broken Trip",
-          failureReason: "ffmpeg failed"
-        }
-      ]);
+    mockedListFailedPreviewStrips.mockResolvedValueOnce([]).mockResolvedValue([
+      {
+        videoId: 7,
+        title: "Broken Trip",
+        failureReason: "ffmpeg failed",
+      },
+    ]);
 
     renderApp();
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Generate Preview Strips" })
+      await screen.findByRole("button", { name: "Generate Preview Strips" }),
     );
 
     const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue"
+      name: "Review Queue",
     });
     expect(
-      await within(reviewQueue).findByText("Broken Trip")
+      await within(reviewQueue).findByText("Broken Trip"),
     ).toBeInTheDocument();
   });
 
@@ -827,24 +1006,26 @@ describe("Videos View shell", () => {
           fileSizeBytes: null,
           fileLocationPath: null,
           isAvailable: false,
-          previewStrip: pendingPreviewStrip
-        }
+          fileLocations: [],
+          isFavorite: false,
+          previewStrip: pendingPreviewStrip,
+        },
       ])
       .mockResolvedValueOnce([]);
 
     renderApp();
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Forget From Catalog" })
+      await screen.findByRole("button", { name: "Forget From Catalog" }),
     );
 
     expect(mockedForgetCatalogVideo).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("heading", { name: "Forget Missing Video" })
+      screen.getByRole("heading", { name: "Forget Missing Video" }),
     ).toBeInTheDocument();
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Confirm Forget From Catalog" })
+      screen.getByRole("button", { name: "Confirm Forget From Catalog" }),
     );
 
     await waitFor(() => {
