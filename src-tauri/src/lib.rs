@@ -872,6 +872,48 @@ fn list_metadata_suggestion_groups(
 }
 
 #[tauri::command]
+fn accept_metadata_suggestion_for_videos(
+    catalog_state: tauri::State<'_, CatalogState>,
+    scan_root_path: String,
+    suggested_value: String,
+    suggestion_kind: String,
+    video_ids: Vec<i64>,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.accept_metadata_suggestion_for_videos(
+        &scan_root_path,
+        &suggested_value,
+        &suggestion_kind,
+        &video_ids,
+    )
+}
+
+#[tauri::command]
+fn reject_metadata_suggestion_source(
+    catalog_state: tauri::State<'_, CatalogState>,
+    scan_root_path: String,
+    source_path_segment: String,
+    suggested_value: String,
+    suggestion_kind: String,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.reject_metadata_suggestion_source(
+        &scan_root_path,
+        &source_path_segment,
+        &suggested_value,
+        &suggestion_kind,
+    )
+}
+
+#[tauri::command]
 fn retry_failed_preview_strip(
     catalog_state: tauri::State<'_, CatalogState>,
     preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
@@ -1116,6 +1158,8 @@ pub fn run() {
             list_unprocessable_video_candidates,
             list_failed_preview_strips,
             list_metadata_suggestion_groups,
+            accept_metadata_suggestion_for_videos,
+            reject_metadata_suggestion_source,
             retry_failed_preview_strip,
             ignore_failed_preview_strip,
             get_preview_strip_queue_status,

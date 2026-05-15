@@ -1078,6 +1078,78 @@ impl Catalog {
         Ok(group_metadata_suggestions(suggestion_rows))
     }
 
+    pub fn accept_metadata_suggestion_for_videos(
+        &self,
+        scan_root_path: &str,
+        suggested_value: &str,
+        suggestion_kind: &str,
+        video_ids: &[i64],
+    ) -> Result<(), String> {
+        if video_ids.is_empty() {
+            return Err("Select at least one Video to accept".to_string());
+        }
+
+        let metadata_value_id =
+            self.metadata_value_id_for_suggestion(suggestion_kind, suggested_value)?;
+        let scan_root_id = self.scan_root_id(scan_root_path)?;
+
+        for video_id in video_ids {
+            self.attach_metadata_suggestion_to_video(
+                suggestion_kind,
+                metadata_value_id,
+                *video_id,
+            )?;
+            self.database
+                .execute(
+                    "UPDATE metadata_suggestions
+                     SET accepted_at = CURRENT_TIMESTAMP,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE scan_root_id = ?1
+                       AND video_id = ?2
+                       AND lower(suggested_value) = lower(?3)
+                       AND suggestion_kind = ?4
+                       AND accepted_at IS NULL
+                       AND rejected_at IS NULL",
+                    params![scan_root_id, video_id, suggested_value, suggestion_kind],
+                )
+                .map_err(|error| error.to_string())?;
+        }
+
+        Ok(())
+    }
+
+    pub fn reject_metadata_suggestion_source(
+        &self,
+        scan_root_path: &str,
+        source_path_segment: &str,
+        suggested_value: &str,
+        suggestion_kind: &str,
+    ) -> Result<(), String> {
+        self.reject_unknown_suggestion_kind(suggestion_kind)?;
+        let scan_root_id = self.scan_root_id(scan_root_path)?;
+        self.database
+            .execute(
+                "UPDATE metadata_suggestions
+                 SET rejected_at = CURRENT_TIMESTAMP,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE scan_root_id = ?1
+                   AND source_path_segment = ?2
+                   AND lower(suggested_value) = lower(?3)
+                   AND suggestion_kind = ?4
+                   AND accepted_at IS NULL
+                   AND rejected_at IS NULL",
+                params![
+                    scan_root_id,
+                    source_path_segment,
+                    suggested_value,
+                    suggestion_kind
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
     #[cfg(test)]
     pub fn generate_missing_preview_strips<G: PreviewStripGenerator>(
         &self,
@@ -1536,6 +1608,70 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
 
         Ok(())
+    }
+
+    fn metadata_value_id_for_suggestion(
+        &self,
+        suggestion_kind: &str,
+        suggested_value: &str,
+    ) -> Result<i64, String> {
+        match suggestion_kind {
+            "tag" => self.metadata_value_id_for_suggestion_table("tags", suggested_value, "Tag"),
+            "performer" => self.metadata_value_id_for_suggestion_table(
+                "performers",
+                suggested_value,
+                "Performer",
+            ),
+            _ => Err("Metadata Suggestion kind is not supported".to_string()),
+        }
+    }
+
+    fn metadata_value_id_for_suggestion_table(
+        &self,
+        table_name: &str,
+        suggested_value: &str,
+        metadata_type_name: &str,
+    ) -> Result<i64, String> {
+        let metadata_name = normalized_metadata_input(suggested_value)?;
+        let query = format!(
+            "SELECT id
+             FROM {table_name}
+             WHERE normalized_name = ?1"
+        );
+        let existing_metadata_id = self
+            .database
+            .query_row(&query, params![metadata_name.normalized_name], |row| {
+                row.get(0)
+            })
+            .optional()
+            .map_err(|error| error.to_string())?;
+
+        match existing_metadata_id {
+            Some(metadata_id) => Ok(metadata_id),
+            None => self
+                .create_metadata_value(table_name, suggested_value, metadata_type_name)
+                .map(|metadata_value| metadata_value.id),
+        }
+    }
+
+    fn attach_metadata_suggestion_to_video(
+        &self,
+        suggestion_kind: &str,
+        metadata_value_id: i64,
+        video_id: i64,
+    ) -> Result<(), String> {
+        match suggestion_kind {
+            "tag" => self.attach_tag_to_video(metadata_value_id, video_id),
+            "performer" => self.attach_performer_to_video(metadata_value_id, video_id),
+            _ => Err("Metadata Suggestion kind is not supported".to_string()),
+        }
+    }
+
+    fn reject_unknown_suggestion_kind(&self, suggestion_kind: &str) -> Result<(), String> {
+        match suggestion_kind {
+            "tag" | "performer" => Ok(()),
+            _ => Err("Metadata Suggestion kind is not supported".to_string()),
+        }
     }
 
     fn detach_metadata_from_video(
@@ -3081,6 +3217,111 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec![false, false]
         );
+    }
+
+    #[test]
+    fn accepting_metadata_suggestion_for_many_videos_excludes_selected_videos_without_touching_files(
+    ) {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        let accepted_video_path = family_folder.join("accepted.mp4");
+        let excluded_video_path = family_folder.join("excluded.mp4");
+        std::fs::write(&accepted_video_path, "accepted video bytes")
+            .expect("accepted video exists");
+        std::fs::write(&excluded_video_path, "excluded video bytes")
+            .expect("excluded video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let accepted_video_id = video_id_for_title(&catalog.database, "accepted");
+        let excluded_video_id = video_id_for_title(&catalog.database, "excluded");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &scan_root.path,
+                "Family",
+                "tag",
+                &[accepted_video_id],
+            )
+            .expect("metadata suggestion accepts");
+
+        assert_eq!(
+            catalog
+                .tags_for_video(accepted_video_id)
+                .expect("accepted video tags list"),
+            vec![super::CatalogTag {
+                id: 1,
+                name: "Family".to_string()
+            }]
+        );
+        assert_eq!(
+            catalog
+                .tags_for_video(excluded_video_id)
+                .expect("excluded video tags list"),
+            Vec::<super::CatalogTag>::new()
+        );
+        assert_eq!(
+            catalog
+                .list_metadata_suggestion_groups()
+                .expect("metadata suggestions list")[0]
+                .sources[0]
+                .videos
+                .iter()
+                .map(|video| video.video_id)
+                .collect::<Vec<_>>(),
+            vec![excluded_video_id]
+        );
+        assert!(accepted_video_path.exists());
+        assert!(excluded_video_path.exists());
+    }
+
+    #[test]
+    fn rejecting_metadata_suggestion_source_suppresses_repeated_suggestions_for_the_same_source_value(
+    ) {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
+            .expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+
+        catalog
+            .reject_metadata_suggestion_source(&scan_root.path, "Family", "Family", "tag")
+            .expect("metadata suggestion rejects");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes again");
+
+        assert_eq!(
+            catalog
+                .list_metadata_suggestion_groups()
+                .expect("metadata suggestions list"),
+            Vec::<super::MetadataSuggestionGroup>::new()
+        );
+        assert!(family_folder.join("family-trip.mp4").exists());
     }
 
     #[test]
@@ -5201,6 +5442,14 @@ mod tests {
                 (fingerprint, 1_i64, title, 1_000_i64),
             )
             .expect("video persists");
+    }
+
+    fn video_id_for_title(database: &Connection, title: &str) -> i64 {
+        database
+            .query_row("SELECT id FROM videos WHERE title = ?1", [title], |row| {
+                row.get(0)
+            })
+            .expect("video id loads")
     }
 
     fn metadata_suggestions(database: &Connection) -> Vec<(String, String)> {

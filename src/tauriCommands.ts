@@ -30,6 +30,10 @@ const listUnprocessableVideoCandidatesCommand =
   "list_unprocessable_video_candidates";
 const listFailedPreviewStripsCommand = "list_failed_preview_strips";
 const listMetadataSuggestionGroupsCommand = "list_metadata_suggestion_groups";
+const acceptMetadataSuggestionForVideosCommand =
+  "accept_metadata_suggestion_for_videos";
+const rejectMetadataSuggestionSourceCommand =
+  "reject_metadata_suggestion_source";
 const retryFailedPreviewStripCommand = "retry_failed_preview_strip";
 const ignoreFailedPreviewStripCommand = "ignore_failed_preview_strip";
 const getPreviewStripQueueStatusCommand = "get_preview_strip_queue_status";
@@ -140,6 +144,20 @@ export interface MetadataSuggestionVideo {
   videoId: number;
   title: string;
   fileLocationPath: string;
+}
+
+export interface AcceptMetadataSuggestionForVideosRequest {
+  scanRootPath: string;
+  suggestedValue: string;
+  suggestionKind: string;
+  videoIds: number[];
+}
+
+export interface RejectMetadataSuggestionSourceRequest {
+  scanRootPath: string;
+  sourcePathSegment: string;
+  suggestedValue: string;
+  suggestionKind: string;
 }
 
 export interface CatalogTag {
@@ -349,6 +367,18 @@ export async function listMetadataSuggestionGroups(): Promise<
   MetadataSuggestionGroup[]
 > {
   return invoke<MetadataSuggestionGroup[]>(listMetadataSuggestionGroupsCommand);
+}
+
+export async function acceptMetadataSuggestionForVideos(
+  request: AcceptMetadataSuggestionForVideosRequest,
+): Promise<void> {
+  return invoke<void>(acceptMetadataSuggestionForVideosCommand, { ...request });
+}
+
+export async function rejectMetadataSuggestionSource(
+  request: RejectMetadataSuggestionSourceRequest,
+): Promise<void> {
+  return invoke<void>(rejectMetadataSuggestionSourceCommand, { ...request });
 }
 
 export async function retryFailedPreviewStrip(

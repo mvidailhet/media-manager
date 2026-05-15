@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  acceptMetadataSuggestionForVideos,
   addScanRoot,
   forgetCatalogVideo,
   getPreviewStripQueueStatus,
@@ -28,6 +29,7 @@ import {
   removeScanRoot,
   refreshAllScanRoots,
   refreshScanRoot,
+  rejectMetadataSuggestionSource,
   retryFailedPreviewStrip,
   resumePreviewStripQueue,
   saveFfmpegConfiguration,
@@ -327,6 +329,42 @@ describe("Tauri commands", () => {
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith(
       "list_metadata_suggestion_groups",
+    );
+  });
+
+  it("accepts and rejects Metadata Suggestions through Rust commands", async () => {
+    mockedInvoke.mockResolvedValue(undefined);
+
+    await acceptMetadataSuggestionForVideos({
+      scanRootPath: "/Volumes/Archive/Videos",
+      suggestedValue: "Family",
+      suggestionKind: "tag",
+      videoIds: [7, 8],
+    });
+    await rejectMetadataSuggestionSource({
+      scanRootPath: "/Volumes/Archive/Videos",
+      sourcePathSegment: "  Family  ",
+      suggestedValue: "Family",
+      suggestionKind: "tag",
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "accept_metadata_suggestion_for_videos",
+      {
+        scanRootPath: "/Volumes/Archive/Videos",
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        videoIds: [7, 8],
+      },
+    );
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "reject_metadata_suggestion_source",
+      {
+        scanRootPath: "/Volumes/Archive/Videos",
+        sourcePathSegment: "  Family  ",
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+      },
     );
   });
 
