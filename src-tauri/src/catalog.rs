@@ -2453,12 +2453,15 @@ fn metadata_suggestion_segments(
         .filter_map(|component| component.as_os_str().to_str())
         .filter(|folder_name| !folder_name.is_empty())
         .filter(|folder_name| {
-            let normalized_folder_name = folder_name.to_lowercase();
             let suggested_value = metadata_suggestion_display_value(folder_name);
+            let normalized_suggested_value = suggested_value.to_lowercase();
 
             !suggested_value.is_empty()
-                && !ignored_folder_names.contains(&normalized_folder_name)
-                && !is_ignored_exact_year(folder_name, &inference_rules.ignored_exact_year_range)
+                && !ignored_folder_names.contains(&normalized_suggested_value)
+                && !is_ignored_exact_year(
+                    &suggested_value,
+                    &inference_rules.ignored_exact_year_range,
+                )
         })
         .map(|folder_name| folder_name.to_string())
         .collect()
@@ -2718,6 +2721,58 @@ mod tests {
                 "Family Trip".to_string(),
                 "tag".to_string()
             )]
+        );
+    }
+
+    #[test]
+    fn metadata_suggestion_display_normalization_controls_ignored_segments() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        let ignored_folder = movies_root.join("  Extras  ");
+        let year_folder = movies_root.join("  2024  ");
+        let blank_folder = movies_root.join("   ");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        std::fs::create_dir_all(&ignored_folder).expect("ignored folder exists");
+        std::fs::create_dir_all(&year_folder).expect("year folder exists");
+        std::fs::create_dir_all(&blank_folder).expect("blank folder exists");
+        std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
+            .expect("family video exists");
+        std::fs::write(ignored_folder.join("extras.mp4"), "valid video bytes")
+            .expect("ignored video exists");
+        std::fs::write(year_folder.join("year.mp4"), "valid video bytes")
+            .expect("year video exists");
+        std::fs::write(blank_folder.join("blank.mp4"), "valid video bytes")
+            .expect("blank video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .update_scan_root_inference_rules(
+                &scan_root.path,
+                super::ScanRootInferenceRules {
+                    suggest_tags_from_child_folders: true,
+                    suggest_performers_from_child_folders: false,
+                    ignored_folder_names: vec!["Extras".to_string()],
+                    ignored_exact_year_range: super::ExactYearRange {
+                        start_year: 1900,
+                        end_year: 2099,
+                    },
+                },
+            )
+            .expect("inference rules update");
+
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+
+        assert_eq!(
+            metadata_suggestions(&catalog.database),
+            vec![("Family".to_string(), "tag".to_string())]
         );
     }
 
