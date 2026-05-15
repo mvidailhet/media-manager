@@ -11,6 +11,11 @@ const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
   "list_unprocessable_video_candidates";
 const generateMissingPreviewStripsCommand = "generate_missing_preview_strips";
+const getPreviewStripQueueStatusCommand = "get_preview_strip_queue_status";
+const pausePreviewStripQueueCommand = "pause_preview_strip_queue";
+const resumePreviewStripQueueCommand = "resume_preview_strip_queue";
+const processNextPreviewStripQueueItemCommand =
+  "process_next_preview_strip_queue_item";
 const ffmpegToolsStatusCommand = "get_ffmpeg_tools_status";
 const saveFfmpegConfigurationCommand = "save_ffmpeg_configuration";
 
@@ -53,6 +58,13 @@ export interface ScanRootRefreshSummary {
 export interface PreviewStripGenerationSummary {
   generatedPreviewStripCount: number;
   failedPreviewStripCount: number;
+}
+
+export interface PreviewStripQueueStatus {
+  pendingCount: number;
+  runningCount: number;
+  failedCount: number;
+  isPaused: boolean;
 }
 
 export interface UnprocessableVideoCandidate {
@@ -142,6 +154,22 @@ export async function listUnprocessableVideoCandidates(): Promise<
 
 export async function generateMissingPreviewStrips(): Promise<PreviewStripGenerationSummary> {
   return invoke<PreviewStripGenerationSummary>(generateMissingPreviewStripsCommand);
+}
+
+export async function getPreviewStripQueueStatus(): Promise<PreviewStripQueueStatus> {
+  return invoke<PreviewStripQueueStatus>(getPreviewStripQueueStatusCommand);
+}
+
+export async function pausePreviewStripQueue(): Promise<PreviewStripQueueStatus> {
+  return invoke<PreviewStripQueueStatus>(pausePreviewStripQueueCommand);
+}
+
+export async function resumePreviewStripQueue(): Promise<PreviewStripQueueStatus> {
+  return invoke<PreviewStripQueueStatus>(resumePreviewStripQueueCommand);
+}
+
+export async function processNextPreviewStripQueueItem(): Promise<PreviewStripQueueStatus> {
+  return invoke<PreviewStripQueueStatus>(processNextPreviewStripQueueItemCommand);
 }
 
 export async function getFfmpegToolsStatus(): Promise<FfmpegToolsStatus> {

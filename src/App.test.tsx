@@ -15,12 +15,16 @@ import {
   addScanRoot,
   forgetCatalogVideo,
   generateMissingPreviewStrips,
+  getPreviewStripQueueStatus,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   listUnprocessableVideoCandidates,
   listCatalogVideos,
   listScanRoots,
+  pausePreviewStripQueue,
+  processNextPreviewStripQueueItem,
   removeScanRoot,
+  resumePreviewStripQueue,
   refreshAllScanRoots,
   refreshScanRoot,
   saveFfmpegConfiguration
@@ -38,12 +42,16 @@ vi.mock("./tauriCommands", () => ({
   addScanRoot: vi.fn(),
   forgetCatalogVideo: vi.fn(),
   generateMissingPreviewStrips: vi.fn(),
+  getPreviewStripQueueStatus: vi.fn(),
   getFfmpegToolsStatus: vi.fn(),
   getLocalDesktopAppStatus: vi.fn(),
   listUnprocessableVideoCandidates: vi.fn(),
   listCatalogVideos: vi.fn(),
   listScanRoots: vi.fn(),
+  pausePreviewStripQueue: vi.fn(),
+  processNextPreviewStripQueueItem: vi.fn(),
   removeScanRoot: vi.fn(),
+  resumePreviewStripQueue: vi.fn(),
   refreshAllScanRoots: vi.fn(),
   refreshScanRoot: vi.fn(),
   saveFfmpegConfiguration: vi.fn()
@@ -62,7 +70,13 @@ const mockedListScanRoots = vi.mocked(listScanRoots);
 const mockedAddScanRoot = vi.mocked(addScanRoot);
 const mockedForgetCatalogVideo = vi.mocked(forgetCatalogVideo);
 const mockedGenerateMissingPreviewStrips = vi.mocked(generateMissingPreviewStrips);
+const mockedGetPreviewStripQueueStatus = vi.mocked(getPreviewStripQueueStatus);
+const mockedPausePreviewStripQueue = vi.mocked(pausePreviewStripQueue);
+const mockedProcessNextPreviewStripQueueItem = vi.mocked(
+  processNextPreviewStripQueueItem
+);
 const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
+const mockedResumePreviewStripQueue = vi.mocked(resumePreviewStripQueue);
 const mockedRefreshAllScanRoots = vi.mocked(refreshAllScanRoots);
 const mockedRefreshScanRoot = vi.mocked(refreshScanRoot);
 
@@ -114,6 +128,30 @@ describe("Videos View shell", () => {
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
       generatedPreviewStripCount: 0,
       failedPreviewStripCount: 0
+    });
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 0,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
+    mockedPausePreviewStripQueue.mockResolvedValue({
+      pendingCount: 3,
+      runningCount: 0,
+      failedCount: 1,
+      isPaused: true
+    });
+    mockedResumePreviewStripQueue.mockResolvedValue({
+      pendingCount: 3,
+      runningCount: 1,
+      failedCount: 1,
+      isPaused: false
+    });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 0,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
     });
     mockedRemoveScanRoot.mockResolvedValue(undefined);
     mockedRefreshScanRoot.mockResolvedValue({
@@ -251,6 +289,37 @@ describe("Videos View shell", () => {
     expect(
       await screen.findByRole("img", { name: "Preview Strip for Family Trip" })
     ).toBeInTheDocument();
+  });
+
+  it("shows Preview Strip queue status and supports global pause and resume", async () => {
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 3,
+      runningCount: 1,
+      failedCount: 1,
+      isPaused: false
+    });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 3,
+      runningCount: 1,
+      failedCount: 1,
+      isPaused: false
+    });
+
+    renderApp();
+
+    expect(await screen.findByText("3 pending")).toBeInTheDocument();
+    expect(screen.getByText("1 running")).toBeInTheDocument();
+    expect(screen.getByText("1 failed")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Pause Preview Queue" }));
+
+    expect(mockedPausePreviewStripQueue).toHaveBeenCalled();
+    expect(await screen.findByText("Paused")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Resume Preview Queue" }));
+
+    expect(mockedResumePreviewStripQueue).toHaveBeenCalled();
+    expect(await screen.findByText("Running")).toBeInTheDocument();
   });
 
   it("shows generated Preview Strips and scrubs frames by horizontal pointer position", async () => {

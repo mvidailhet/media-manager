@@ -19,6 +19,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 import {
   CatalogVideo,
   FfmpegToolsStatus,
+  PreviewStripQueueStatus,
   ScanRoot,
   ScanRootRemovalPolicy,
   UnprocessableVideoCandidate,
@@ -27,12 +28,16 @@ import {
   generateMissingPreviewStrips,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
+  getPreviewStripQueueStatus,
   listCatalogVideos,
   listScanRoots,
   listUnprocessableVideoCandidates,
+  pausePreviewStripQueue,
+  processNextPreviewStripQueueItem,
   removeScanRoot,
   refreshAllScanRoots,
   refreshScanRoot,
+  resumePreviewStripQueue,
   saveFfmpegConfiguration
 } from "./tauriCommands";
 
@@ -49,6 +54,7 @@ const reviewQueueLoadingMessage = "Loading Review Queue...";
 const reviewQueueErrorMessage = "Review Queue unavailable";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
 const previewStripGenerationStartedMessage = "Generating Preview Strips...";
+const previewStripQueueErrorMessage = "Preview Strip queue unavailable";
 const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
 const minutesPerHour = 60;
@@ -95,6 +101,8 @@ export default function App() {
     useState("");
   const [isGeneratingPreviewStrips, setIsGeneratingPreviewStrips] =
     useState(false);
+  const [previewStripQueueStatus, setPreviewStripQueueStatus] =
+    useState<PreviewStripQueueStatus | null>(null);
 
   async function loadCatalogVideos() {
     try {
@@ -104,6 +112,16 @@ export default function App() {
       setCatalogVideosStatusMessage("");
     } catch {
       setCatalogVideosStatusMessage(catalogVideosErrorMessage);
+    }
+  }
+
+  async function loadPreviewStripQueueStatus() {
+    try {
+      const queueStatus = await getPreviewStripQueueStatus();
+
+      setPreviewStripQueueStatus(queueStatus);
+    } catch {
+      setPreviewStripStatusMessage(previewStripQueueErrorMessage);
     }
   }
 
@@ -157,6 +175,64 @@ export default function App() {
       canUpdateStatus = false;
     };
   }, []);
+
+  useEffect(() => {
+    let canUpdatePreviewStripQueue = true;
+
+    async function loadInitialPreviewStripQueueStatus() {
+      try {
+        const queueStatus = await getPreviewStripQueueStatus();
+
+        if (canUpdatePreviewStripQueue) {
+          setPreviewStripQueueStatus(queueStatus);
+        }
+      } catch {
+        if (canUpdatePreviewStripQueue) {
+          setPreviewStripStatusMessage(previewStripQueueErrorMessage);
+        }
+      }
+    }
+
+    void loadInitialPreviewStripQueueStatus();
+
+    return () => {
+      canUpdatePreviewStripQueue = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let canProcessQueue = true;
+
+    async function processPreviewStripQueue() {
+      if (
+        !previewStripQueueStatus ||
+        previewStripQueueStatus.isPaused ||
+        previewStripQueueStatus.runningCount > 0 ||
+        previewStripQueueStatus.pendingCount === 0
+      ) {
+        return;
+      }
+
+      try {
+        const queueStatus = await processNextPreviewStripQueueItem();
+
+        if (canProcessQueue) {
+          setPreviewStripQueueStatus(queueStatus);
+          await loadCatalogVideos();
+        }
+      } catch (error) {
+        if (canProcessQueue) {
+          setPreviewStripStatusMessage(errorMessage(error));
+        }
+      }
+    }
+
+    void processPreviewStripQueue();
+
+    return () => {
+      canProcessQueue = false;
+    };
+  }, [previewStripQueueStatus]);
 
   useEffect(() => {
     let canUpdateReviewQueue = true;
@@ -369,6 +445,7 @@ export default function App() {
       await loadScanRoots(false);
       await loadCatalogVideos();
       await loadReviewQueue(false);
+      await loadPreviewStripQueueStatus();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
     }
@@ -385,6 +462,7 @@ export default function App() {
       await loadScanRoots(false);
       await loadCatalogVideos();
       await loadReviewQueue(false);
+      await loadPreviewStripQueueStatus();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
     }
@@ -400,10 +478,33 @@ export default function App() {
         `${generationSummary.generatedPreviewStripCount} Preview Strips generated, ${generationSummary.failedPreviewStripCount} Preview Strips failed`
       );
       await loadCatalogVideos();
+      await loadPreviewStripQueueStatus();
     } catch (error) {
       setPreviewStripStatusMessage(errorMessage(error));
     } finally {
       setIsGeneratingPreviewStrips(false);
+    }
+  }
+
+  async function pausePreviewQueue() {
+    try {
+      const queueStatus = await pausePreviewStripQueue();
+
+      setPreviewStripQueueStatus(queueStatus);
+      setPreviewStripStatusMessage("");
+    } catch (error) {
+      setPreviewStripStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function resumePreviewQueue() {
+    try {
+      const queueStatus = await resumePreviewStripQueue();
+
+      setPreviewStripQueueStatus(queueStatus);
+      setPreviewStripStatusMessage("");
+    } catch (error) {
+      setPreviewStripStatusMessage(errorMessage(error));
     }
   }
 
@@ -423,6 +524,9 @@ export default function App() {
         catalogVideosStatusMessage={catalogVideosStatusMessage}
         isGeneratingPreviewStrips={isGeneratingPreviewStrips}
         onGeneratePendingPreviewStrips={generatePendingPreviewStrips}
+        onPausePreviewQueue={pausePreviewQueue}
+        onResumePreviewQueue={resumePreviewQueue}
+        previewStripQueueStatus={previewStripQueueStatus}
         previewStripStatusMessage={previewStripStatusMessage}
       />
       <ReviewQueuePanel
@@ -584,12 +688,18 @@ function CatalogVideosPanel({
   catalogVideosStatusMessage,
   isGeneratingPreviewStrips,
   onGeneratePendingPreviewStrips,
+  onPausePreviewQueue,
+  onResumePreviewQueue,
+  previewStripQueueStatus,
   previewStripStatusMessage
 }: {
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
   isGeneratingPreviewStrips: boolean;
   onGeneratePendingPreviewStrips: () => void;
+  onPausePreviewQueue: () => void;
+  onResumePreviewQueue: () => void;
+  previewStripQueueStatus: PreviewStripQueueStatus | null;
   previewStripStatusMessage: string;
 }) {
   return (
@@ -606,6 +716,12 @@ function CatalogVideosPanel({
             Generate Preview Strips
           </Button>
         </Group>
+
+        <PreviewStripQueuePanel
+          onPausePreviewQueue={onPausePreviewQueue}
+          onResumePreviewQueue={onResumePreviewQueue}
+          previewStripQueueStatus={previewStripQueueStatus}
+        />
 
         {catalogVideosStatusMessage ? (
           <Text>{catalogVideosStatusMessage}</Text>
@@ -629,6 +745,70 @@ function CatalogVideosPanel({
       </Stack>
     </Paper>
   );
+}
+
+function PreviewStripQueuePanel({
+  onPausePreviewQueue,
+  onResumePreviewQueue,
+  previewStripQueueStatus
+}: {
+  onPausePreviewQueue: () => void;
+  onResumePreviewQueue: () => void;
+  previewStripQueueStatus: PreviewStripQueueStatus | null;
+}) {
+  if (!previewStripQueueStatus) {
+    return null;
+  }
+  const queueActivityLabel = previewStripQueueActivityLabel(previewStripQueueStatus);
+
+  return (
+    <Group gap="xs" align="center">
+      <Badge color={previewStripQueueStatus.isPaused ? "yellow" : "teal"}>
+        {queueActivityLabel}
+      </Badge>
+      <Badge variant="light">{previewStripQueueStatus.pendingCount} pending</Badge>
+      <Badge variant="light">{previewStripQueueStatus.runningCount} running</Badge>
+      <Badge color="red" variant="light">
+        {previewStripQueueStatus.failedCount} failed
+      </Badge>
+      {previewStripQueueStatus.isPaused ? (
+        <Button
+          type="button"
+          size="xs"
+          variant="default"
+          onClick={() => void onResumePreviewQueue()}
+        >
+          Resume Preview Queue
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          size="xs"
+          variant="default"
+          onClick={() => void onPausePreviewQueue()}
+        >
+          Pause Preview Queue
+        </Button>
+      )}
+    </Group>
+  );
+}
+
+function previewStripQueueActivityLabel(
+  previewStripQueueStatus: PreviewStripQueueStatus
+) {
+  if (previewStripQueueStatus.isPaused) {
+    return "Paused";
+  }
+
+  if (
+    previewStripQueueStatus.runningCount === 0 &&
+    previewStripQueueStatus.pendingCount === 0
+  ) {
+    return "Idle";
+  }
+
+  return "Running";
 }
 
 function CatalogVideoCard({ catalogVideo }: { catalogVideo: CatalogVideo }) {
