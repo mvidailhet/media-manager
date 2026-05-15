@@ -1019,12 +1019,18 @@ impl Catalog {
             .database
             .prepare(
                 "SELECT metadata_suggestions.suggested_value,
+                        lower(metadata_suggestions.suggested_value),
                         metadata_suggestions.suggestion_kind,
                         scan_roots.path,
                         metadata_suggestions.source_path_segment,
                         metadata_suggestions.video_id,
                         videos.title,
-                        file_locations.path
+                        file_locations.path,
+                        scan_roots.suggest_tags_from_child_folders,
+                        scan_roots.suggest_performers_from_child_folders,
+                        scan_roots.ignored_folder_names,
+                        scan_roots.ignored_exact_year_start,
+                        scan_roots.ignored_exact_year_end
                  FROM metadata_suggestions
                  JOIN scan_roots ON scan_roots.id = metadata_suggestions.scan_root_id
                  JOIN videos ON videos.id = metadata_suggestions.video_id
@@ -1033,11 +1039,12 @@ impl Catalog {
                   AND file_locations.scan_root_id = metadata_suggestions.scan_root_id
                  WHERE metadata_suggestions.accepted_at IS NULL
                    AND metadata_suggestions.rejected_at IS NULL
-                 ORDER BY metadata_suggestions.suggested_value,
+                 ORDER BY lower(metadata_suggestions.suggested_value),
                           metadata_suggestions.suggestion_kind,
                           scan_roots.path,
                           metadata_suggestions.source_path_segment,
                           videos.title,
+                          metadata_suggestions.suggested_value,
                           metadata_suggestions.video_id",
             )
             .map_err(|error| error.to_string())?;
@@ -1046,12 +1053,22 @@ impl Catalog {
             .query_map([], |row| {
                 Ok(MetadataSuggestionRow {
                     suggested_value: row.get(0)?,
-                    suggestion_kind: row.get(1)?,
-                    scan_root_path: row.get(2)?,
-                    source_path_segment: row.get(3)?,
-                    video_id: row.get(4)?,
-                    title: row.get(5)?,
-                    file_location_path: row.get(6)?,
+                    normalized_suggested_value: row.get(1)?,
+                    suggestion_kind: row.get(2)?,
+                    scan_root_path: row.get(3)?,
+                    source_path_segment: row.get(4)?,
+                    video_id: row.get(5)?,
+                    title: row.get(6)?,
+                    file_location_path: row.get(7)?,
+                    inference_rules: ScanRootInferenceRules {
+                        suggest_tags_from_child_folders: row.get::<_, i64>(8)? == 1,
+                        suggest_performers_from_child_folders: row.get::<_, i64>(9)? == 1,
+                        ignored_folder_names: ignored_folder_names_from_json(row.get(10)?)?,
+                        ignored_exact_year_range: ExactYearRange {
+                            start_year: row.get(11)?,
+                            end_year: row.get(12)?,
+                        },
+                    },
                 })
             })
             .map_err(|error| error.to_string())?
@@ -2477,14 +2494,7 @@ fn default_ignored_folder_names() -> Vec<String> {
 
 fn scan_root_inference_rules_from_row(row: &Row<'_>) -> rusqlite::Result<ScanRootInferenceRules> {
     let ignored_folder_names_text: String = row.get(4)?;
-    let ignored_folder_names =
-        serde_json::from_str(&ignored_folder_names_text).map_err(|error| {
-            rusqlite::Error::FromSqlConversionFailure(
-                ignored_folder_names_text.len(),
-                rusqlite::types::Type::Text,
-                Box::new(error),
-            )
-        })?;
+    let ignored_folder_names = ignored_folder_names_from_json(ignored_folder_names_text)?;
 
     Ok(ScanRootInferenceRules {
         suggest_tags_from_child_folders: row.get::<_, i64>(2)? == 1,
@@ -2497,14 +2507,28 @@ fn scan_root_inference_rules_from_row(row: &Row<'_>) -> rusqlite::Result<ScanRoo
     })
 }
 
+fn ignored_folder_names_from_json(
+    ignored_folder_names_text: String,
+) -> rusqlite::Result<Vec<String>> {
+    serde_json::from_str(&ignored_folder_names_text).map_err(|error| {
+        rusqlite::Error::FromSqlConversionFailure(
+            ignored_folder_names_text.len(),
+            rusqlite::types::Type::Text,
+            Box::new(error),
+        )
+    })
+}
+
 struct MetadataSuggestionRow {
     suggested_value: String,
+    normalized_suggested_value: String,
     suggestion_kind: String,
     scan_root_path: String,
     source_path_segment: String,
     video_id: i64,
     title: String,
     file_location_path: String,
+    inference_rules: ScanRootInferenceRules,
 }
 
 fn group_metadata_suggestions(
@@ -2513,10 +2537,21 @@ fn group_metadata_suggestions(
     let mut suggestion_groups = Vec::new();
 
     for suggestion_row in suggestion_rows {
+        if !metadata_suggestion_segments(
+            &suggestion_row.scan_root_path,
+            &suggestion_row.file_location_path,
+            &suggestion_row.inference_rules,
+        )
+        .contains(&suggestion_row.source_path_segment)
+        {
+            continue;
+        }
+
         let needs_new_group = suggestion_groups
             .last()
             .map(|suggestion_group: &MetadataSuggestionGroup| {
-                suggestion_group.suggested_value != suggestion_row.suggested_value
+                suggestion_group.suggested_value.to_lowercase()
+                    != suggestion_row.normalized_suggested_value
                     || suggestion_group.suggestion_kind != suggestion_row.suggestion_kind
             })
             .unwrap_or(true);
@@ -2532,6 +2567,9 @@ fn group_metadata_suggestions(
         let suggestion_group = suggestion_groups
             .last_mut()
             .expect("metadata suggestion group exists");
+        if suggestion_row.suggested_value < suggestion_group.suggested_value {
+            suggestion_group.suggested_value = suggestion_row.suggested_value.clone();
+        }
         let needs_new_source = suggestion_group
             .sources
             .last()
@@ -2974,15 +3012,16 @@ mod tests {
         let travel_folder = movies_root.join("Travel");
         std::fs::create_dir_all(&family_folder).expect("family folder exists");
         std::fs::create_dir_all(&travel_folder).expect("travel folder exists");
-        std::fs::write(
-            family_folder.join("family-trip.mp4"),
-            "valid family trip bytes",
-        )
-        .expect("family trip video exists");
+        let family_trip_bytes = "valid family trip bytes";
+        std::fs::write(family_folder.join("family-trip.mp4"), family_trip_bytes)
+            .expect("family trip video exists");
         std::fs::write(family_folder.join("birthday.mp4"), "valid birthday bytes")
             .expect("birthday video exists");
-        std::fs::write(travel_folder.join("travel.mp4"), "valid travel bytes")
-            .expect("travel video exists");
+        std::fs::write(
+            travel_folder.join("family-trip-copy.mp4"),
+            family_trip_bytes,
+        )
+        .expect("duplicate travel video location exists");
         let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
         catalog
             .refresh_scan_root(
@@ -3000,6 +3039,18 @@ mod tests {
                 [],
             )
             .expect("travel suggestion accepts");
+        catalog
+            .database
+            .execute(
+                "UPDATE metadata_suggestions
+                 SET suggested_value = 'family'
+                 WHERE suggested_value = 'Family'
+                   AND video_id = (
+                     SELECT id FROM videos WHERE title = 'birthday'
+                   )",
+                [],
+            )
+            .expect("case variant suggestion stores");
 
         let suggestion_groups = catalog
             .list_metadata_suggestion_groups()
@@ -3021,6 +3072,14 @@ mod tests {
                 .map(|video| video.title.as_str())
                 .collect::<Vec<_>>(),
             vec!["birthday", "family-trip"]
+        );
+        assert_eq!(
+            suggestion_groups[0].sources[0]
+                .videos
+                .iter()
+                .map(|video| video.file_location_path.contains("Travel"))
+                .collect::<Vec<_>>(),
+            vec![false, false]
         );
     }
 
