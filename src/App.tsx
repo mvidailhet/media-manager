@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import {
   Badge,
@@ -135,6 +135,7 @@ export default function App() {
     CatalogPerformer[]
   >([]);
   const [detailStatusMessage, setDetailStatusMessage] = useState("");
+  const selectedVideoRequestId = useRef(0);
 
   async function loadCatalogVideos() {
     try {
@@ -578,6 +579,8 @@ export default function App() {
   }
 
   async function selectVideoForDetail(catalogVideo: CatalogVideo) {
+    const requestId = selectedVideoRequestId.current + 1;
+    selectedVideoRequestId.current = requestId;
     setSelectedVideo(catalogVideo);
     setDetailStatusMessage("");
 
@@ -590,12 +593,16 @@ export default function App() {
           performersForVideo(catalogVideo.id),
         ]);
 
-      setAvailableTags(storedTags);
-      setAvailablePerformers(storedPerformers);
-      setSelectedVideoTags(videoTags);
-      setSelectedVideoPerformers(videoPerformers);
+      if (selectedVideoRequestId.current === requestId) {
+        setAvailableTags(storedTags);
+        setAvailablePerformers(storedPerformers);
+        setSelectedVideoTags(videoTags);
+        setSelectedVideoPerformers(videoPerformers);
+      }
     } catch (error) {
-      setDetailStatusMessage(errorMessage(error));
+      if (selectedVideoRequestId.current === requestId) {
+        setDetailStatusMessage(errorMessage(error));
+      }
     }
   }
 
@@ -646,7 +653,9 @@ export default function App() {
 
     try {
       await attachTagToVideo(tag.id, selectedVideo.id);
-      setSelectedVideoTags((currentTags) => [...currentTags, tag]);
+      setSelectedVideoTags((currentTags) =>
+        appendUniqueMetadata(currentTags, tag),
+      );
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -676,10 +685,9 @@ export default function App() {
 
     try {
       await attachPerformerToVideo(performer.id, selectedVideo.id);
-      setSelectedVideoPerformers((currentPerformers) => [
-        ...currentPerformers,
-        performer,
-      ]);
+      setSelectedVideoPerformers((currentPerformers) =>
+        appendUniqueMetadata(currentPerformers, performer),
+      );
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -1199,7 +1207,7 @@ function VideoDetailPanel({
   const attachablePerformers = availablePerformers.filter(
     (performer) => !selectedPerformerIds.has(performer.id),
   );
-  const fileLocations = video.fileLocations ?? legacyFileLocations(video);
+  const fileLocations = video.fileLocations;
 
   useEffect(() => {
     setTitle(video.title);
@@ -1221,7 +1229,7 @@ function VideoDetailPanel({
           </Button>
         </Group>
         <Checkbox
-          checked={video.isFavorite ?? false}
+          checked={video.isFavorite}
           label="Favorite"
           onChange={(event) => void onSetFavorite(event.currentTarget.checked)}
         />
@@ -1321,18 +1329,12 @@ function MetadataChecklist<T extends { id: number; name: string }>({
   );
 }
 
-function legacyFileLocations(video: CatalogVideo) {
-  if (!video.fileLocationPath || video.fileSizeBytes === null) {
-    return [];
+function appendUniqueMetadata<T extends { id: number }>(items: T[], item: T) {
+  if (items.some((currentItem) => currentItem.id === item.id)) {
+    return items;
   }
 
-  return [
-    {
-      path: video.fileLocationPath,
-      fileSizeBytes: video.fileSizeBytes,
-      isPreferred: true,
-    },
-  ];
+  return [...items, item];
 }
 
 function ReviewQueuePanel({

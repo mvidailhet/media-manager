@@ -125,12 +125,16 @@ const availableFfmpegToolsStatus = {
   ffmpeg: {
     binaryName: "ffmpeg",
     isAvailable: true,
+    fileLocations: [],
+    isFavorite: false,
     resolvedPath: "/usr/local/bin/ffmpeg",
     statusMessage: "ffmpeg is available (discovered from PATH)",
   },
   ffprobe: {
     binaryName: "ffprobe",
     isAvailable: true,
+    fileLocations: [],
+    isFavorite: false,
     resolvedPath: "/usr/local/bin/ffprobe",
     statusMessage: "ffprobe is available (discovered from PATH)",
   },
@@ -187,6 +191,8 @@ describe("Videos View shell", () => {
     mockedAddScanRoot.mockImplementation(async (path) => ({
       path,
       isAvailable: true,
+      fileLocations: [],
+      isFavorite: false,
     }));
     mockedForgetCatalogVideo.mockResolvedValue(undefined);
     mockedGenerateMissingPreviewStrips.mockResolvedValue({
@@ -248,6 +254,8 @@ describe("Videos View shell", () => {
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -364,6 +372,8 @@ describe("Videos View shell", () => {
         fileSizeBytes: null,
         fileLocationPath: null,
         isAvailable: false,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -422,6 +432,8 @@ describe("Videos View shell", () => {
           fileSizeBytes: 80740352,
           fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
           isAvailable: true,
+          fileLocations: [],
+          isFavorite: false,
           previewStrip: pendingPreviewStrip,
         },
       ])
@@ -433,6 +445,8 @@ describe("Videos View shell", () => {
           fileSizeBytes: 80740352,
           fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
           isAvailable: true,
+          fileLocations: [],
+          isFavorite: false,
           previewStrip: {
             status: "generated",
             path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
@@ -513,6 +527,8 @@ describe("Videos View shell", () => {
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: {
           status: "generated",
           path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
@@ -579,6 +595,8 @@ describe("Videos View shell", () => {
         fileSizeBytes: 2000000,
         fileLocationPath: "/Volumes/Archive/Videos/pending-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: {
           status: "pending",
         },
@@ -590,6 +608,8 @@ describe("Videos View shell", () => {
         fileSizeBytes: 2000000,
         fileLocationPath: "/Volumes/Archive/Videos/failed-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: {
           status: "failed",
           failureReason: "ffmpeg failed",
@@ -768,6 +788,8 @@ describe("Videos View shell", () => {
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -821,6 +843,8 @@ describe("Videos View shell", () => {
         fileSizeBytes: null,
         fileLocationPath: null,
         isAvailable: false,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -830,6 +854,8 @@ describe("Videos View shell", () => {
         fileSizeBytes: 1024,
         fileLocationPath: "/Volumes/Archive/Videos/available-trip.mp4",
         isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -980,6 +1006,8 @@ describe("Videos View shell", () => {
           fileSizeBytes: null,
           fileLocationPath: null,
           isAvailable: false,
+          fileLocations: [],
+          isFavorite: false,
           previewStrip: pendingPreviewStrip,
         },
       ])

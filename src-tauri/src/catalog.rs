@@ -156,7 +156,7 @@ const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 20;
 const PREVIEW_STRIP_COLUMNS: i64 = 5;
 const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 160;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogVideo {
     pub id: i64,
@@ -168,19 +168,6 @@ pub struct CatalogVideo {
     pub is_available: bool,
     pub is_favorite: bool,
     pub preview_strip: PreviewStripStatus,
-}
-
-impl PartialEq for CatalogVideo {
-    fn eq(&self, other: &Self) -> bool {
-        self.id == other.id
-            && self.title == other.title
-            && self.duration_milliseconds == other.duration_milliseconds
-            && self.file_size_bytes == other.file_size_bytes
-            && self.file_location_path == other.file_location_path
-            && self.is_available == other.is_available
-            && self.is_favorite == other.is_favorite
-            && self.preview_strip == other.preview_strip
-    }
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -520,7 +507,8 @@ impl Catalog {
 
     pub fn update_video_title(&self, video_id: i64, title: &str) -> Result<(), String> {
         let video_title = normalized_video_title(title)?;
-        self.database
+        let updated_video_count = self
+            .database
             .execute(
                 "UPDATE videos
                  SET title = ?1,
@@ -529,12 +517,16 @@ impl Catalog {
                 params![video_title, video_id],
             )
             .map_err(|error| error.to_string())?;
+        if updated_video_count == 0 {
+            return Err("Video is not in the Catalog".to_string());
+        }
 
         Ok(())
     }
 
     pub fn set_video_favorite(&self, video_id: i64, is_favorite: bool) -> Result<(), String> {
-        self.database
+        let updated_video_count = self
+            .database
             .execute(
                 "UPDATE videos
                  SET is_favorite = ?1,
@@ -543,6 +535,9 @@ impl Catalog {
                 params![i64::from(is_favorite), video_id],
             )
             .map_err(|error| error.to_string())?;
+        if updated_video_count == 0 {
+            return Err("Video is not in the Catalog".to_string());
+        }
 
         Ok(())
     }
@@ -2092,6 +2087,73 @@ mod tests {
     }
 
     #[test]
+    fn listed_videos_include_editable_metadata_and_all_file_locations() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = Connection::open(catalog_path).expect("catalog database opens");
+        let primary_location = "/Volumes/Archive/Videos/family-trip.mp4";
+        let secondary_location = "/Volumes/Backup/Videos/family-trip.mp4";
+
+        database
+            .execute(
+                "INSERT INTO scan_roots (id, path, drive_identity)
+                 VALUES (1, '/Volumes/Archive/Videos', NULL),
+                        (2, '/Volumes/Backup/Videos', NULL)",
+                [],
+            )
+            .expect("scan roots persist");
+        database
+            .execute(
+                "INSERT INTO videos (id, fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (1, 'fingerprint', 1, 'Family Trip', 3723000)",
+                [],
+            )
+            .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (1, 1, ?1, 80740352, CURRENT_TIMESTAMP),
+                        (1, 2, ?2, 80740352, CURRENT_TIMESTAMP)",
+                rusqlite::params![primary_location, secondary_location],
+            )
+            .expect("file locations persist");
+
+        catalog
+            .update_video_title(1, "Family Archive")
+            .expect("title updates");
+        catalog
+            .set_video_favorite(1, true)
+            .expect("favorite updates");
+
+        assert_eq!(
+            catalog.listed_videos().expect("stored videos list"),
+            vec![super::CatalogVideo {
+                id: 1,
+                is_available: true,
+                preview_strip: super::PreviewStripStatus::Pending,
+                title: "Family Archive".to_string(),
+                duration_milliseconds: 3723000,
+                file_size_bytes: Some(80740352),
+                file_location_path: Some(primary_location.to_string()),
+                file_locations: vec![
+                    super::CatalogVideoFileLocation {
+                        path: primary_location.to_string(),
+                        file_size_bytes: 80740352,
+                        is_preferred: true,
+                    },
+                    super::CatalogVideoFileLocation {
+                        path: secondary_location.to_string(),
+                        file_size_bytes: 80740352,
+                        is_preferred: false,
+                    },
+                ],
+                is_favorite: true,
+            }]
+        );
+    }
+
+    #[test]
     fn listed_missing_videos_are_explicitly_unavailable() {
         let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
         let catalog_path = temporary_folder.path().join("catalog.sqlite3");
@@ -2331,7 +2393,15 @@ mod tests {
                             .to_string_lossy()
                             .into_owned()
                     ),
-                    file_locations: Vec::new(),
+                    file_locations: vec![super::CatalogVideoFileLocation {
+                        path: family_trip_path
+                            .canonicalize()
+                            .expect("family trip path canonicalizes")
+                            .to_string_lossy()
+                            .into_owned(),
+                        file_size_bytes: 17,
+                        is_preferred: true,
+                    }],
                     is_favorite: false,
                 },
             ]
@@ -2437,7 +2507,11 @@ mod tests {
                 duration_milliseconds: 3_723_000,
                 file_size_bytes: Some(11),
                 file_location_path: Some(expected_family_trip_path.to_string_lossy().into_owned()),
-                file_locations: Vec::new(),
+                file_locations: vec![super::CatalogVideoFileLocation {
+                    path: expected_family_trip_path.to_string_lossy().into_owned(),
+                    file_size_bytes: 11,
+                    is_preferred: true,
+                }],
                 is_favorite: false,
             }]
         );
@@ -2983,7 +3057,11 @@ mod tests {
                 duration_milliseconds: 1_000,
                 file_size_bytes: Some(17),
                 file_location_path: Some(expected_family_trip_path.to_string_lossy().into_owned()),
-                file_locations: Vec::new(),
+                file_locations: vec![super::CatalogVideoFileLocation {
+                    path: expected_family_trip_path.to_string_lossy().into_owned(),
+                    file_size_bytes: 17,
+                    is_preferred: true,
+                }],
                 is_favorite: false,
             }]
         );
@@ -3309,7 +3387,14 @@ mod tests {
                         .to_string_lossy()
                         .into_owned()
                 ),
-                file_locations: Vec::new(),
+                file_locations: vec![super::CatalogVideoFileLocation {
+                    path: backup_root
+                        .join("family-trip.mp4")
+                        .to_string_lossy()
+                        .into_owned(),
+                    file_size_bytes: 80740352,
+                    is_preferred: true,
+                }],
                 is_favorite: false,
             }]
         );
@@ -3621,7 +3706,11 @@ mod tests {
                 duration_milliseconds: 3723000,
                 file_size_bytes: Some(80740352),
                 file_location_path: Some("/Volumes/Archive/Videos/family-trip.mp4".to_string()),
-                file_locations: Vec::new(),
+                file_locations: vec![super::CatalogVideoFileLocation {
+                    path: "/Volumes/Archive/Videos/family-trip.mp4".to_string(),
+                    file_size_bytes: 80740352,
+                    is_preferred: true,
+                }],
                 is_favorite: false,
             }]
         );

@@ -44,9 +44,9 @@ export interface CatalogVideo {
   durationMilliseconds: number;
   fileSizeBytes: number | null;
   fileLocationPath: string | null;
-  fileLocations?: CatalogVideoFileLocation[];
+  fileLocations: CatalogVideoFileLocation[];
   isAvailable: boolean;
-  isFavorite?: boolean;
+  isFavorite: boolean;
   previewStrip: PreviewStripStatus;
 }
 
