@@ -67,6 +67,10 @@ import {
   attachPerformerToVideo,
   detachPerformerFromVideo,
 } from "./tauriCommands";
+import type {
+  AcceptMetadataSuggestionForVideosRequest,
+  RejectMetadataSuggestionSourceRequest,
+} from "./tauriCommands";
 
 const loadingStatusMessage = "Checking Rust command...";
 const commandErrorMessage = "Rust command unavailable";
@@ -90,6 +94,13 @@ const previewStripPointerMinimum = 0;
 const previewStripPointerMaximum = 1;
 const percentageMultiplier = 100;
 const previewStripQueuePollingIntervalMilliseconds = 250;
+
+type AcceptMetadataSuggestionVideos = (
+  request: AcceptMetadataSuggestionForVideosRequest,
+) => void;
+type RejectMetadataSuggestionSource = (
+  request: RejectMetadataSuggestionSourceRequest,
+) => void;
 const emptyMetadataInputMessage = "Enter a name first.";
 const minimumDurationMinutes = 0;
 const maximumDurationMinutes = 24 * 60;
@@ -258,10 +269,10 @@ export default function App() {
     suggestionKind,
     videoIds,
   }: {
-    scanRootPath: string;
-    suggestedValue: string;
-    suggestionKind: string;
-    videoIds: number[];
+    scanRootPath: AcceptMetadataSuggestionForVideosRequest["scanRootPath"];
+    suggestedValue: AcceptMetadataSuggestionForVideosRequest["suggestedValue"];
+    suggestionKind: AcceptMetadataSuggestionForVideosRequest["suggestionKind"];
+    videoIds: AcceptMetadataSuggestionForVideosRequest["videoIds"];
   }) {
     try {
       await acceptMetadataSuggestionForVideos({
@@ -282,10 +293,10 @@ export default function App() {
     suggestedValue,
     suggestionKind,
   }: {
-    scanRootPath: string;
-    sourcePathSegment: string;
-    suggestedValue: string;
-    suggestionKind: string;
+    scanRootPath: RejectMetadataSuggestionSourceRequest["scanRootPath"];
+    sourcePathSegment: RejectMetadataSuggestionSourceRequest["sourcePathSegment"];
+    suggestedValue: RejectMetadataSuggestionSourceRequest["suggestedValue"];
+    suggestionKind: RejectMetadataSuggestionSourceRequest["suggestionKind"];
   }) {
     try {
       await rejectMetadataSuggestionSource({
@@ -2530,19 +2541,9 @@ function ReviewQueuePanel({
   failedPreviewStrips: FailedPreviewStrip[];
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   missingVideos: CatalogVideo[];
-  onAcceptMetadataSuggestionVideos: (request: {
-    scanRootPath: string;
-    suggestedValue: string;
-    suggestionKind: string;
-    videoIds: number[];
-  }) => void;
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
-  onRejectMetadataSuggestionSource: (request: {
-    scanRootPath: string;
-    sourcePathSegment: string;
-    suggestedValue: string;
-    suggestionKind: string;
-  }) => void;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   reviewQueueStatusMessage: string;
@@ -2591,18 +2592,8 @@ function MetadataSuggestionsPanel({
   onRejectMetadataSuggestionSource,
 }: {
   metadataSuggestionGroups: MetadataSuggestionGroup[];
-  onAcceptMetadataSuggestionVideos: (request: {
-    scanRootPath: string;
-    suggestedValue: string;
-    suggestionKind: string;
-    videoIds: number[];
-  }) => void;
-  onRejectMetadataSuggestionSource: (request: {
-    scanRootPath: string;
-    sourcePathSegment: string;
-    suggestedValue: string;
-    suggestionKind: string;
-  }) => void;
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
 }) {
   return (
     <Stack
@@ -2663,18 +2654,8 @@ function MetadataSuggestionSource({
   suggestionKind,
   suggestedValue,
 }: {
-  onAcceptMetadataSuggestionVideos: (request: {
-    scanRootPath: string;
-    suggestedValue: string;
-    suggestionKind: string;
-    videoIds: number[];
-  }) => void;
-  onRejectMetadataSuggestionSource: (request: {
-    scanRootPath: string;
-    sourcePathSegment: string;
-    suggestedValue: string;
-    suggestionKind: string;
-  }) => void;
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
   sourceGroup: MetadataSuggestionGroup["sources"][number];
   suggestionKind: string;
   suggestedValue: string;
