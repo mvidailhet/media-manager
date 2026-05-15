@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  Badge,
   Box,
   Button,
   Code,
   Group,
   Paper,
   Stack,
+  Tabs,
   Text,
   Title,
 } from "@mantine/core";
@@ -83,8 +85,16 @@ import {
 import { MetadataSuggestionsPanel } from "./modules/catalog/MetadataSuggestionsPanel";
 import { ReviewQueuePanel } from "./modules/scan/ScanIssuesPanel";
 import { ScanRootsPanel } from "./modules/scan/ScanRootsPanel";
-import { FfmpegStatusPanel, TauriStatusPanel } from "./modules/settings/SettingsStatusPanels";
-import { appendUniqueMetadata, findMetadataByName, uniqueMetadataValues } from "./shared/metadata/metadataHelpers";
+import { PreviewGenerationView } from "./modules/scan/PreviewGenerationView";
+import {
+  FfmpegStatusPanel,
+  TauriStatusPanel,
+} from "./modules/settings/SettingsStatusPanels";
+import {
+  appendUniqueMetadata,
+  findMetadataByName,
+  uniqueMetadataValues,
+} from "./shared/metadata/metadataHelpers";
 
 const loadingStatusMessage = "Checking Rust command...";
 const commandErrorMessage = "Rust command unavailable";
@@ -99,6 +109,9 @@ const reviewQueueErrorMessage = "Review Queue unavailable";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
 const previewStripQueueErrorMessage = "Preview Strip queue unavailable";
 const previewStripQueuePollingIntervalMilliseconds = 250;
+const scanRootsTab = "scanRoots";
+const scanIssuesTab = "scanIssues";
+const previewGenerationTab = "previewGeneration";
 
 const emptyMetadataInputMessage = "Enter a name first.";
 type AppModule = "catalog" | "scan" | "settings";
@@ -171,6 +184,7 @@ export default function App() {
   const [catalogVideoWorkspace, setCatalogVideoWorkspace] =
     useState<CatalogVideoWorkspace>("videos");
   const [catalogView, setCatalogView] = useState<CatalogView>("allVideos");
+  const [scanTab, setScanTab] = useState<string | null>(scanRootsTab);
   const [detailStatusMessage, setDetailStatusMessage] = useState("");
   const selectedVideoRequestId = useRef(0);
 
@@ -1402,6 +1416,30 @@ export default function App() {
     (scanRoot) => !scanRoot.isAvailable,
   );
   const isCatalogVideoListView = catalogView !== "metadataSuggestions";
+  const scanIssuesAttentionCount =
+    missingVideos.length +
+    unavailableScanRoots.length +
+    unprocessableVideoCandidates.length;
+  const previewGenerationAttentionCount = failedPreviewStrips.length;
+  const scanAttentionCount =
+    scanIssuesAttentionCount + previewGenerationAttentionCount;
+  const ffmpegToolAttentionCount = ffmpegToolsStatus
+    ? [ffmpegToolsStatus.ffmpeg, ffmpegToolsStatus.ffprobe].filter(
+        (toolStatus) => !toolStatus.isAvailable,
+      ).length
+    : ffmpegStatusMessage === ffmpegErrorMessage
+      ? 1
+      : 0;
+  const settingsAttentionCount =
+    (localDesktopAppStatus === commandErrorMessage ? 1 : 0) +
+    ffmpegToolAttentionCount;
+  const generatedPreviewStripCount = catalogVideos.filter(
+    (catalogVideo) => catalogVideo.previewStrip.status === "generated",
+  ).length;
+  const generatingPreviewStripVideo = catalogVideos.find(
+    (catalogVideo) =>
+      catalogVideo.id === previewStripQueueStatus?.runningVideoId,
+  );
 
   return (
     <Box component="main" className="app-shell">
@@ -1418,14 +1456,28 @@ export default function App() {
           variant={activeAppModule === "scan" ? "filled" : "default"}
           onClick={() => setActiveAppModule("scan")}
         >
-          Scan
+          <Group gap={6}>
+            <span>Scan</span>
+            {scanAttentionCount > 0 ? (
+              <Badge size="sm" color="red">
+                {scanAttentionCount}
+              </Badge>
+            ) : null}
+          </Group>
         </Button>
         <Button
           type="button"
           variant={activeAppModule === "settings" ? "filled" : "default"}
           onClick={() => setActiveAppModule("settings")}
         >
-          Settings
+          <Group gap={6}>
+            <span>Settings</span>
+            {settingsAttentionCount > 0 ? (
+              <Badge size="sm" color="red">
+                {settingsAttentionCount}
+              </Badge>
+            ) : null}
+          </Group>
         </Button>
       </Group>
       {activeAppModule === "catalog" ? <WorkspaceHeader /> : null}
@@ -1541,31 +1593,70 @@ export default function App() {
         </>
       ) : null}
       {activeAppModule === "scan" ? (
-        <>
-          <ReviewQueuePanel
-            failedPreviewStrips={failedPreviewStrips}
-            metadataSuggestionsPanel={null}
-            missingVideos={missingVideos}
-            onIgnoreFailedPreview={ignoreFailedPreview}
-            reviewQueueStatusMessage={reviewQueueStatusMessage}
-            onRetryFailedPreview={retryFailedPreview}
-            unavailableScanRoots={unavailableScanRoots}
-            unprocessableVideoCandidates={unprocessableVideoCandidates}
-            onRequestMissingVideoForget={setMissingVideoPendingForget}
-          />
-          <ScanRootsPanel
-            manualScanRootPath={manualScanRootPath}
-            scanRoots={scanRoots}
-            scanRootsStatusMessage={scanRootsStatusMessage}
-            onAddManualScanRoot={addManualScanRoot}
-            onChooseScanRootFolder={chooseScanRootFolder}
-            onManualScanRootPathChange={setManualScanRootPath}
-            onRefreshEveryScanRoot={refreshEveryScanRoot}
-            onRefreshSelectedScanRoot={refreshSelectedScanRoot}
-            onRequestScanRootRemoval={setScanRootPendingRemoval}
-            onSaveScanRootInferenceRules={saveScanRootInferenceRules}
-          />
-        </>
+        <Tabs value={scanTab} onChange={setScanTab} keepMounted={false}>
+          <Tabs.List aria-label="Scan module tabs">
+            <Tabs.Tab value={scanRootsTab}>Scan Roots</Tabs.Tab>
+            <Tabs.Tab value={scanIssuesTab}>
+              <Group gap={6}>
+                <span>Scan Issues</span>
+                {scanIssuesAttentionCount > 0 ? (
+                  <Badge size="sm" color="red">
+                    {scanIssuesAttentionCount}
+                  </Badge>
+                ) : null}
+              </Group>
+            </Tabs.Tab>
+            <Tabs.Tab value={previewGenerationTab}>
+              <Group gap={6}>
+                <span>Preview Generation</span>
+                {previewGenerationAttentionCount > 0 ? (
+                  <Badge size="sm" color="red">
+                    {previewGenerationAttentionCount}
+                  </Badge>
+                ) : null}
+              </Group>
+            </Tabs.Tab>
+          </Tabs.List>
+
+          <Tabs.Panel value={scanRootsTab}>
+            <ScanRootsPanel
+              manualScanRootPath={manualScanRootPath}
+              scanRoots={scanRoots}
+              scanRootsStatusMessage={scanRootsStatusMessage}
+              onAddManualScanRoot={addManualScanRoot}
+              onChooseScanRootFolder={chooseScanRootFolder}
+              onManualScanRootPathChange={setManualScanRootPath}
+              onRefreshEveryScanRoot={refreshEveryScanRoot}
+              onRefreshSelectedScanRoot={refreshSelectedScanRoot}
+              onRequestScanRootRemoval={setScanRootPendingRemoval}
+              onSaveScanRootInferenceRules={saveScanRootInferenceRules}
+            />
+          </Tabs.Panel>
+
+          <Tabs.Panel value={scanIssuesTab}>
+            <ReviewQueuePanel
+              metadataSuggestionsPanel={null}
+              missingVideos={missingVideos}
+              reviewQueueStatusMessage={reviewQueueStatusMessage}
+              unavailableScanRoots={unavailableScanRoots}
+              unprocessableVideoCandidates={unprocessableVideoCandidates}
+              onRequestMissingVideoForget={setMissingVideoPendingForget}
+            />
+          </Tabs.Panel>
+
+          <Tabs.Panel value={previewGenerationTab}>
+            <PreviewGenerationView
+              failedPreviewStrips={failedPreviewStrips}
+              generatedPreviewStripCount={generatedPreviewStripCount}
+              generatingPreviewStripTitle={generatingPreviewStripVideo?.title}
+              onIgnoreFailedPreview={ignoreFailedPreview}
+              onPausePreviewQueue={pausePreviewQueue}
+              onResumePreviewQueue={resumePreviewQueue}
+              onRetryFailedPreview={retryFailedPreview}
+              previewStripQueueStatus={previewStripQueueStatus}
+            />
+          </Tabs.Panel>
+        </Tabs>
       ) : null}
 
       {scanRootPendingRemoval ? (

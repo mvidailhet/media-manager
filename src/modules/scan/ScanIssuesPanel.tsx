@@ -7,22 +7,16 @@ import { SectionHeader } from "../../shared/components/SectionHeader";
 import { formatDuration, formatFileSize } from "../../shared/formatting/videoFormatting";
 
 export function ReviewQueuePanel({
-  failedPreviewStrips,
   metadataSuggestionsPanel,
   missingVideos,
-  onIgnoreFailedPreview,
   onRequestMissingVideoForget,
-  onRetryFailedPreview,
   reviewQueueStatusMessage,
   unavailableScanRoots,
   unprocessableVideoCandidates,
 }: {
-  failedPreviewStrips: FailedPreviewStrip[];
   metadataSuggestionsPanel: ReactNode;
   missingVideos: CatalogVideo[];
-  onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
-  onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   reviewQueueStatusMessage: string;
   unavailableScanRoots: ScanRoot[];
   unprocessableVideoCandidates: UnprocessableVideoCandidate[];
@@ -36,7 +30,7 @@ export function ReviewQueuePanel({
           <Text>{reviewQueueStatusMessage}</Text>
         ) : null}
 
-        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
           <MissingVideosPanel
             missingVideos={missingVideos}
             onRequestMissingVideoForget={onRequestMissingVideoForget}
@@ -46,11 +40,6 @@ export function ReviewQueuePanel({
           />
           <UnprocessableCandidatesPanel
             unprocessableVideoCandidates={unprocessableVideoCandidates}
-          />
-          <FailedPreviewStripsPanel
-            failedPreviewStrips={failedPreviewStrips}
-            onIgnoreFailedPreview={onIgnoreFailedPreview}
-            onRetryFailedPreview={onRetryFailedPreview}
           />
           {metadataSuggestionsPanel}
         </SimpleGrid>

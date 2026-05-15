@@ -32,7 +32,12 @@ export function ScanRootsPanel({
   scanRootsStatusMessage: string;
 }) {
   return (
-    <Paper component="section" aria-label="Scan Roots" p="md" maw={760}>
+    <Paper
+      component="section"
+      aria-label="Scan Root management"
+      p="md"
+      maw={760}
+    >
       <Stack gap="md">
         <Group justify="space-between" align="start">
           <SectionHeader label="Catalog sources" title="Scan Roots" />
