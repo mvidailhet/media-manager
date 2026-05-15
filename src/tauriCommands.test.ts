@@ -5,14 +5,17 @@ import {
   addScanRoot,
   forgetCatalogVideo,
   generateMissingPreviewStrips,
+  getPreviewStripQueueStatus,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   listUnprocessableVideoCandidates,
   listCatalogVideos,
   listScanRoots,
+  pausePreviewStripQueue,
   removeScanRoot,
   refreshAllScanRoots,
   refreshScanRoot,
+  resumePreviewStripQueue,
   saveFfmpegConfiguration
 } from "./tauriCommands";
 
@@ -195,6 +198,33 @@ describe("Tauri commands", () => {
       failedPreviewStripCount: 1
     });
     expect(mockedInvoke).toHaveBeenCalledWith("generate_missing_preview_strips");
+  });
+
+  it("calls the typed Rust command for Preview Strip queue status", async () => {
+    mockedInvoke.mockResolvedValue({
+      pendingCount: 2,
+      runningCount: 1,
+      failedCount: 0,
+      isPaused: false
+    });
+
+    const queueStatus = await getPreviewStripQueueStatus();
+
+    expect(queueStatus).toEqual({
+      pendingCount: 2,
+      runningCount: 1,
+      failedCount: 0,
+      isPaused: false
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("get_preview_strip_queue_status");
+  });
+
+  it("pauses and resumes the Preview Strip queue through Rust commands", async () => {
+    await pausePreviewStripQueue();
+    await resumePreviewStripQueue();
+
+    expect(mockedInvoke).toHaveBeenCalledWith("pause_preview_strip_queue");
+    expect(mockedInvoke).toHaveBeenCalledWith("resume_preview_strip_queue");
   });
 
   it("calls the typed Rust command for FFmpeg tools status", async () => {

@@ -154,6 +154,13 @@ pub struct PreviewStripGenerationSummary {
     pub failed_preview_strip_count: i64,
 }
 
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewStripQueueCounts {
+    pub pending_count: i64,
+    pub failed_count: i64,
+}
+
 pub struct PreviewStripRequest {
     pub video_id: i64,
     pub video_path: PathBuf,
@@ -652,6 +659,49 @@ impl Catalog {
             .collect()
     }
 
+    pub fn preview_strip_queue_counts(&self) -> Result<PreviewStripQueueCounts, String> {
+        self.remove_preview_strip_rows_without_cache_files()?;
+
+        Ok(PreviewStripQueueCounts {
+            pending_count: self.pending_preview_strips()?.len() as i64,
+            failed_count: self.failed_preview_strip_count()?,
+        })
+    }
+
+    pub fn generate_next_preview_strip<G: PreviewStripGenerator>(
+        &self,
+        preview_cache_path: &Path,
+        preview_strip_generator: &G,
+    ) -> Result<PreviewStripGenerationSummary, String> {
+        let Some(request) = self
+            .pending_preview_strip_requests(preview_cache_path)?
+            .into_iter()
+            .next()
+        else {
+            return Ok(PreviewStripGenerationSummary {
+                generated_preview_strip_count: 0,
+                failed_preview_strip_count: 0,
+            });
+        };
+
+        match preview_strip_generator.generate_preview_strip(&request) {
+            Ok(generated_preview_strip) => {
+                self.store_generated_preview_strip(request.video_id, &generated_preview_strip)?;
+                Ok(PreviewStripGenerationSummary {
+                    generated_preview_strip_count: 1,
+                    failed_preview_strip_count: 0,
+                })
+            }
+            Err(reason) => {
+                self.store_failed_preview_strip(request.video_id, &reason)?;
+                Ok(PreviewStripGenerationSummary {
+                    generated_preview_strip_count: 0,
+                    failed_preview_strip_count: 1,
+                })
+            }
+        }
+    }
+
     pub fn store_generated_preview_strip(
         &self,
         video_id: i64,
@@ -966,6 +1016,14 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
 
         Ok(pending_preview_strips)
+    }
+
+    fn failed_preview_strip_count(&self) -> Result<i64, String> {
+        self.database
+            .query_row("SELECT COUNT(*) FROM failed_preview_strips", [], |row| {
+                row.get(0)
+            })
+            .map_err(|error| error.to_string())
     }
 
     fn store_preview_strip(
@@ -1707,6 +1765,71 @@ mod tests {
         assert_eq!(stored_preview_strips[0].column_count, 5);
         assert_eq!(stored_preview_strips[0].row_count, 4);
         assert!(Path::new(&stored_preview_strips[0].path).exists());
+    }
+
+    #[test]
+    fn preview_strip_queue_processes_one_pending_video_per_step() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let preview_cache_path = temporary_folder.path().join("Preview Cache");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let database = catalog_test_database(&catalog_path);
+        for video_number in 1..=2 {
+            database
+                .execute(
+                    "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                     VALUES (?1, ?2, ?3, ?4)",
+                    (
+                        format!("fingerprint-{video_number}"),
+                        1_i64,
+                        format!("Trip {video_number}"),
+                        21_000_i64,
+                    ),
+                )
+                .expect("video persists");
+            database
+                .execute(
+                    "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5)",
+                    (
+                        video_number,
+                        1_i64,
+                        movies_root
+                            .join(format!("trip-{video_number}.mp4"))
+                            .to_string_lossy()
+                            .into_owned(),
+                        17_i64,
+                        "2026-05-14T16:35:48Z",
+                    ),
+                )
+                .expect("file location persists");
+        }
+        let preview_strip_generator = FakePreviewStripGenerator::default();
+
+        let first_generation_summary = catalog
+            .generate_next_preview_strip(&preview_cache_path, &preview_strip_generator)
+            .expect("first preview strip step completes");
+
+        assert_eq!(
+            first_generation_summary,
+            super::PreviewStripGenerationSummary {
+                generated_preview_strip_count: 1,
+                failed_preview_strip_count: 0,
+            }
+        );
+        assert_eq!(count_rows(&database, "preview_strips"), 1);
+        assert_eq!(
+            catalog
+                .preview_strip_queue_counts()
+                .expect("preview queue status loads")
+                .pending_count,
+            1
+        );
     }
 
     #[test]

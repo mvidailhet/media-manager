@@ -10,8 +10,8 @@ use std::{
 
 use catalog::{
     Catalog, CatalogVideo, FfmpegPreviewStripGenerator, FfprobeVideoFileProbe,
-    PreviewStripGenerationSummary, PreviewStripGenerator, ScanRoot, ScanRootRefreshSummary,
-    UnprocessableVideoCandidate, VideoExtensionAllowlist,
+    PreviewStripGenerationSummary, PreviewStripGenerator, PreviewStripQueueCounts, ScanRoot,
+    ScanRootRefreshSummary, UnprocessableVideoCandidate, VideoExtensionAllowlist,
 };
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
@@ -25,6 +25,20 @@ const PREVIEW_STRIP_CACHE_FOLDER_NAME: &str = "preview-strips";
 
 struct CatalogState {
     catalog: Mutex<Catalog>,
+}
+
+struct PreviewStripQueueState {
+    is_paused: Mutex<bool>,
+    running_count: Mutex<i64>,
+}
+
+#[derive(Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PreviewStripQueueStatus {
+    pending_count: i64,
+    running_count: i64,
+    failed_count: i64,
+    is_paused: bool,
 }
 
 fn local_desktop_app_status() -> &'static str {
@@ -49,6 +63,10 @@ fn initialize_catalog(app: &tauri::App) -> Result<(), String> {
     };
 
     app.manage(catalog_state);
+    app.manage(PreviewStripQueueState {
+        is_paused: Mutex::new(false),
+        running_count: Mutex::new(0),
+    });
 
     Ok(())
 }
@@ -346,6 +364,40 @@ fn preview_strip_cache_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
     Ok(app_cache_directory.join(PREVIEW_STRIP_CACHE_FOLDER_NAME))
 }
 
+fn preview_strip_queue_status_from_counts(
+    preview_strip_queue_state: &PreviewStripQueueState,
+    queue_counts: PreviewStripQueueCounts,
+) -> Result<PreviewStripQueueStatus, String> {
+    let is_paused = *preview_strip_queue_state
+        .is_paused
+        .lock()
+        .map_err(|error| error.to_string())?;
+    let running_count = *preview_strip_queue_state
+        .running_count
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    Ok(PreviewStripQueueStatus {
+        pending_count: queue_counts.pending_count,
+        running_count,
+        failed_count: queue_counts.failed_count,
+        is_paused,
+    })
+}
+
+fn preview_strip_queue_status(
+    catalog_state: &CatalogState,
+    preview_strip_queue_state: &PreviewStripQueueState,
+) -> Result<PreviewStripQueueStatus, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+    let queue_counts = catalog.preview_strip_queue_counts()?;
+
+    preview_strip_queue_status_from_counts(preview_strip_queue_state, queue_counts)
+}
+
 #[tauri::command]
 fn save_ffmpeg_configuration(
     app: tauri::AppHandle,
@@ -497,6 +549,85 @@ fn generate_missing_preview_strips(
     Ok(generation_summary)
 }
 
+#[tauri::command]
+fn get_preview_strip_queue_status(
+    catalog_state: tauri::State<'_, CatalogState>,
+    preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
+) -> Result<PreviewStripQueueStatus, String> {
+    preview_strip_queue_status(&catalog_state, &preview_strip_queue_state)
+}
+
+#[tauri::command]
+fn pause_preview_strip_queue(
+    catalog_state: tauri::State<'_, CatalogState>,
+    preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
+) -> Result<PreviewStripQueueStatus, String> {
+    *preview_strip_queue_state
+        .is_paused
+        .lock()
+        .map_err(|error| error.to_string())? = true;
+
+    preview_strip_queue_status(&catalog_state, &preview_strip_queue_state)
+}
+
+#[tauri::command]
+fn resume_preview_strip_queue(
+    catalog_state: tauri::State<'_, CatalogState>,
+    preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
+) -> Result<PreviewStripQueueStatus, String> {
+    *preview_strip_queue_state
+        .is_paused
+        .lock()
+        .map_err(|error| error.to_string())? = false;
+
+    preview_strip_queue_status(&catalog_state, &preview_strip_queue_state)
+}
+
+#[tauri::command]
+fn process_next_preview_strip_queue_item(
+    app: tauri::AppHandle,
+    catalog_state: tauri::State<'_, CatalogState>,
+    preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
+) -> Result<PreviewStripQueueStatus, String> {
+    if *preview_strip_queue_state
+        .is_paused
+        .lock()
+        .map_err(|error| error.to_string())?
+    {
+        return preview_strip_queue_status(&catalog_state, &preview_strip_queue_state);
+    }
+
+    {
+        let mut running_count = preview_strip_queue_state
+            .running_count
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if *running_count > 0 {
+            return preview_strip_queue_status(&catalog_state, &preview_strip_queue_state);
+        }
+        *running_count = 1;
+    }
+
+    let generation_result = (|| {
+        let ffmpeg_path = configured_or_discovered_ffmpeg_path(&app)?;
+        let preview_cache_path = preview_strip_cache_path(&app)?;
+        let preview_strip_generator = FfmpegPreviewStripGenerator::new(ffmpeg_path);
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        catalog.generate_next_preview_strip(&preview_cache_path, &preview_strip_generator)
+    })();
+
+    *preview_strip_queue_state
+        .running_count
+        .lock()
+        .map_err(|error| error.to_string())? = 0;
+    generation_result?;
+
+    preview_strip_queue_status(&catalog_state, &preview_strip_queue_state)
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -517,7 +648,11 @@ pub fn run() {
             refresh_scan_root,
             refresh_all_scan_roots,
             list_unprocessable_video_candidates,
-            generate_missing_preview_strips
+            generate_missing_preview_strips,
+            get_preview_strip_queue_status,
+            pause_preview_strip_queue,
+            resume_preview_strip_queue,
+            process_next_preview_strip_queue_item
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
