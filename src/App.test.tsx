@@ -18,6 +18,8 @@ import {
   getPreviewStripQueueStatus,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
+  ignoreFailedPreviewStrip,
+  listFailedPreviewStrips,
   listUnprocessableVideoCandidates,
   listCatalogVideos,
   listScanRoots,
@@ -27,6 +29,7 @@ import {
   resumePreviewStripQueue,
   refreshAllScanRoots,
   refreshScanRoot,
+  retryFailedPreviewStrip,
   saveFfmpegConfiguration
 } from "./tauriCommands";
 
@@ -45,6 +48,8 @@ vi.mock("./tauriCommands", () => ({
   getPreviewStripQueueStatus: vi.fn(),
   getFfmpegToolsStatus: vi.fn(),
   getLocalDesktopAppStatus: vi.fn(),
+  ignoreFailedPreviewStrip: vi.fn(),
+  listFailedPreviewStrips: vi.fn(),
   listUnprocessableVideoCandidates: vi.fn(),
   listCatalogVideos: vi.fn(),
   listScanRoots: vi.fn(),
@@ -54,6 +59,7 @@ vi.mock("./tauriCommands", () => ({
   resumePreviewStripQueue: vi.fn(),
   refreshAllScanRoots: vi.fn(),
   refreshScanRoot: vi.fn(),
+  retryFailedPreviewStrip: vi.fn(),
   saveFfmpegConfiguration: vi.fn()
 }));
 
@@ -62,6 +68,9 @@ const mockedConvertFileSrc = vi.mocked(convertFileSrc);
 const mockedGetLocalDesktopAppStatus = vi.mocked(getLocalDesktopAppStatus);
 const mockedGetFfmpegToolsStatus = vi.mocked(getFfmpegToolsStatus);
 const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
+const mockedListFailedPreviewStrips = vi.mocked(listFailedPreviewStrips);
+const mockedRetryFailedPreviewStrip = vi.mocked(retryFailedPreviewStrip);
+const mockedIgnoreFailedPreviewStrip = vi.mocked(ignoreFailedPreviewStrip);
 const mockedListCatalogVideos = vi.mocked(listCatalogVideos);
 const mockedListUnprocessableVideoCandidates = vi.mocked(
   listUnprocessableVideoCandidates
@@ -117,6 +126,14 @@ describe("Videos View shell", () => {
     mockedGetLocalDesktopAppStatus.mockResolvedValue("Rust command online");
     mockedGetFfmpegToolsStatus.mockResolvedValue(availableFfmpegToolsStatus);
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
+    mockedListFailedPreviewStrips.mockResolvedValue([]);
+    mockedRetryFailedPreviewStrip.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
+    mockedIgnoreFailedPreviewStrip.mockResolvedValue(undefined);
     mockedListCatalogVideos.mockResolvedValue([]);
     mockedListUnprocessableVideoCandidates.mockResolvedValue([]);
     mockedListScanRoots.mockResolvedValue([]);
@@ -679,6 +696,58 @@ describe("Videos View shell", () => {
       within(reviewQueue).getByText("/Volumes/Archive/Videos/broken.mkv")
     ).toBeInTheDocument();
     expect(within(reviewQueue).getByText("missing moov atom")).toBeInTheDocument();
+  });
+
+  it("lists Failed Preview Strips in the Review Queue with retry and ignore actions", async () => {
+    mockedListFailedPreviewStrips
+      .mockResolvedValueOnce([
+        {
+          videoId: 7,
+          title: "Broken Trip",
+          failureReason: "ffmpeg failed"
+        }
+      ])
+      .mockResolvedValueOnce([
+        {
+          videoId: 7,
+          title: "Broken Trip",
+          failureReason: "ffmpeg failed"
+        }
+      ])
+      .mockResolvedValueOnce([]);
+
+    renderApp();
+
+    const reviewQueue = await screen.findByRole("region", {
+      name: "Review Queue"
+    });
+    expect(
+      within(reviewQueue).getByRole("heading", { name: "Failed Preview Strips" })
+    ).toBeInTheDocument();
+    expect(within(reviewQueue).getByText("Broken Trip")).toBeInTheDocument();
+    expect(within(reviewQueue).getByText("ffmpeg failed")).toBeInTheDocument();
+
+    fireEvent.click(
+      within(reviewQueue).getByRole("button", {
+        name: "Retry Failed Preview Strip for Broken Trip"
+      })
+    );
+    await waitFor(() => {
+      expect(mockedRetryFailedPreviewStrip).toHaveBeenCalledWith(7);
+    });
+    expect(mockedGetPreviewStripQueueStatus).toHaveBeenCalled();
+
+    fireEvent.click(
+      within(reviewQueue).getByRole("button", {
+        name: "Ignore Failed Preview Strip for Broken Trip"
+      })
+    );
+    await waitFor(() => {
+      expect(mockedIgnoreFailedPreviewStrip).toHaveBeenCalledWith(7);
+    });
+    expect(
+      within(reviewQueue).queryByText("Broken Trip")
+    ).not.toBeInTheDocument();
   });
 
   it("requires confirmation before forgetting a Missing Video from the Catalog", async () => {

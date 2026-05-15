@@ -92,6 +92,7 @@ const CREATE_FAILED_PREVIEW_STRIPS_TABLE: &str = "
         id INTEGER PRIMARY KEY,
         video_id INTEGER NOT NULL UNIQUE,
         reason TEXT NOT NULL,
+        ignored_at TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
@@ -165,6 +166,20 @@ pub struct PreviewStripGenerationSummary {
 pub struct PreviewStripQueueCounts {
     pub pending_count: i64,
     pub failed_count: i64,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FailedPreviewStrip {
+    pub video_id: i64,
+    pub title: String,
+    pub failure_reason: String,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PreviewStripRetryReason {
+    Manual,
+    FfmpegConfigurationChanged,
 }
 
 pub struct PreviewStripRequest {
@@ -642,6 +657,35 @@ impl Catalog {
         Ok(unprocessable_video_candidates)
     }
 
+    pub fn list_failed_preview_strips(&self) -> Result<Vec<FailedPreviewStrip>, String> {
+        let mut statement = self
+            .database
+            .prepare(
+                "SELECT failed_preview_strips.video_id,
+                        videos.title,
+                        failed_preview_strips.reason
+                 FROM failed_preview_strips
+                 JOIN videos ON videos.id = failed_preview_strips.video_id
+                 WHERE failed_preview_strips.ignored_at IS NULL
+                 ORDER BY videos.title, failed_preview_strips.video_id",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let failed_preview_strips = statement
+            .query_map([], |row| {
+                Ok(FailedPreviewStrip {
+                    video_id: row.get(0)?,
+                    title: row.get(1)?,
+                    failure_reason: row.get(2)?,
+                })
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(failed_preview_strips)
+    }
+
     #[cfg(test)]
     pub fn generate_missing_preview_strips<G: PreviewStripGenerator>(
         &self,
@@ -765,8 +809,48 @@ impl Catalog {
                  VALUES (?1, ?2)
                  ON CONFLICT(video_id) DO UPDATE SET
                     reason = excluded.reason,
+                    ignored_at = NULL,
                     updated_at = CURRENT_TIMESTAMP",
                 params![video_id, reason],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    pub fn ignore_failed_preview_strip(&self, video_id: i64) -> Result<(), String> {
+        self.database
+            .execute(
+                "UPDATE failed_preview_strips
+                 SET ignored_at = CURRENT_TIMESTAMP,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE video_id = ?1",
+                params![video_id],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    pub fn retry_failed_preview_strip(
+        &self,
+        video_id: i64,
+        _retry_reason: PreviewStripRetryReason,
+    ) -> Result<(), String> {
+        self.remove_failed_preview_strip(video_id)
+    }
+
+    pub fn retry_ignored_failed_preview_strips(
+        &self,
+        _retry_reason: PreviewStripRetryReason,
+    ) -> Result<(), String> {
+        self.database
+            .execute(
+                "UPDATE failed_preview_strips
+                 SET ignored_at = NULL,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE ignored_at IS NOT NULL",
+                [],
             )
             .map_err(|error| error.to_string())?;
 
@@ -802,7 +886,8 @@ impl Catalog {
         self.database
             .execute_batch(&migration_batch)
             .map_err(|error| error.to_string())?;
-        self.add_scan_root_availability_column_if_missing()
+        self.add_scan_root_availability_column_if_missing()?;
+        self.add_failed_preview_strip_ignored_at_column_if_missing()
     }
 
     fn add_scan_root_availability_column_if_missing(&self) -> Result<(), String> {
@@ -814,6 +899,22 @@ impl Catalog {
             .execute(
                 "ALTER TABLE scan_roots
                  ADD COLUMN is_available INTEGER NOT NULL DEFAULT 1",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn add_failed_preview_strip_ignored_at_column_if_missing(&self) -> Result<(), String> {
+        if catalog_table_has_column(&self.database, "failed_preview_strips", "ignored_at")? {
+            return Ok(());
+        }
+
+        self.database
+            .execute(
+                "ALTER TABLE failed_preview_strips
+                 ADD COLUMN ignored_at TEXT",
                 [],
             )
             .map_err(|error| error.to_string())?;
@@ -890,6 +991,16 @@ impl Catalog {
             .execute(
                 "DELETE FROM unprocessable_video_candidates WHERE path = ?1",
                 params![video_path],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "UPDATE failed_preview_strips
+                 SET ignored_at = NULL,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE video_id = ?1
+                   AND ignored_at IS NOT NULL",
+                params![video_id],
             )
             .map_err(|error| error.to_string())?;
 
@@ -1067,9 +1178,13 @@ impl Catalog {
 
     fn failed_preview_strip_count(&self) -> Result<i64, String> {
         self.database
-            .query_row("SELECT COUNT(*) FROM failed_preview_strips", [], |row| {
-                row.get(0)
-            })
+            .query_row(
+                "SELECT COUNT(*)
+                 FROM failed_preview_strips
+                 WHERE ignored_at IS NULL",
+                [],
+                |row| row.get(0),
+            )
             .map_err(|error| error.to_string())
     }
 
@@ -1318,7 +1433,7 @@ fn fnv1a_hash(bytes: &[u8]) -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{Catalog, VideoFileProbe, VideoProbe};
+    use super::{Catalog, FailedPreviewStrip, PreviewStripRetryReason, VideoFileProbe, VideoProbe};
     use rusqlite::Connection;
     use std::path::Path;
 
@@ -2054,6 +2169,148 @@ mod tests {
     }
 
     #[test]
+    fn failed_preview_strips_are_listed_for_review_until_ignored() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = catalog_test_database(&catalog_path);
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-one", 1_i64, "Broken Trip", 21_000_i64),
+            )
+            .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO failed_preview_strips (video_id, reason)
+                 VALUES (?1, ?2)",
+                (1_i64, "ffmpeg failed"),
+            )
+            .expect("failed preview strip persists");
+
+        assert_eq!(
+            catalog
+                .list_failed_preview_strips()
+                .expect("failed preview strips list"),
+            vec![FailedPreviewStrip {
+                video_id: 1,
+                title: "Broken Trip".to_string(),
+                failure_reason: "ffmpeg failed".to_string(),
+            }]
+        );
+
+        catalog
+            .ignore_failed_preview_strip(1)
+            .expect("failed preview strip ignores");
+
+        assert_eq!(
+            catalog
+                .list_failed_preview_strips()
+                .expect("ignored failed preview strips are hidden"),
+            Vec::<FailedPreviewStrip>::new()
+        );
+    }
+
+    #[test]
+    fn failed_preview_strips_can_be_manually_retried_after_failure_or_ignore() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let preview_cache_path = temporary_folder.path().join("Preview Cache");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        catalog
+            .add_scan_root(&movies_root)
+            .expect("movies scan root adds");
+        let database = catalog_test_database(&catalog_path);
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-one", 1_i64, "Broken Trip", 21_000_i64),
+            )
+            .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+                (
+                    1_i64,
+                    1_i64,
+                    movies_root.join("broken-trip.mp4").to_string_lossy().into_owned(),
+                    17_i64,
+                    "2026-05-14T16:35:48Z",
+                ),
+            )
+            .expect("file location persists");
+        database
+            .execute(
+                "INSERT INTO failed_preview_strips (video_id, reason, ignored_at)
+                 VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+                (1_i64, "ffmpeg failed"),
+            )
+            .expect("ignored failed preview strip persists");
+        let preview_strip_generator = FakePreviewStripGenerator::default();
+
+        catalog
+            .retry_failed_preview_strip(1, PreviewStripRetryReason::Manual)
+            .expect("failed preview strip retries");
+        let generation_summary = catalog
+            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
+            .expect("retry generates preview strip");
+
+        assert_eq!(
+            generation_summary,
+            super::PreviewStripGenerationSummary {
+                generated_preview_strip_count: 1,
+                failed_preview_strip_count: 0,
+            }
+        );
+        assert_eq!(count_rows(&database, "failed_preview_strips"), 0);
+        assert_eq!(count_rows(&database, "preview_strips"), 1);
+    }
+
+    #[test]
+    fn ignored_failed_preview_strips_become_visible_when_ffmpeg_configuration_changes() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = catalog_test_database(&catalog_path);
+        database
+            .execute(
+                "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+                ("fingerprint-one", 1_i64, "Broken Trip", 21_000_i64),
+            )
+            .expect("video persists");
+        database
+            .execute(
+                "INSERT INTO failed_preview_strips (video_id, reason, ignored_at)
+                 VALUES (?1, ?2, CURRENT_TIMESTAMP)",
+                (1_i64, "ffmpeg failed"),
+            )
+            .expect("ignored failed preview strip persists");
+
+        catalog
+            .retry_ignored_failed_preview_strips(
+                PreviewStripRetryReason::FfmpegConfigurationChanged,
+            )
+            .expect("ignored failures become visible");
+
+        assert_eq!(
+            catalog
+                .list_failed_preview_strips()
+                .expect("failed preview strips list"),
+            vec![FailedPreviewStrip {
+                video_id: 1,
+                title: "Broken Trip".to_string(),
+                failure_reason: "ffmpeg failed".to_string(),
+            }]
+        );
+    }
+
+    #[test]
     fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_progress() {
         let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
         let catalog_path = temporary_folder.path().join("catalog.sqlite3");
@@ -2607,6 +2864,7 @@ mod tests {
                 "id INTEGER optional",
                 "video_id INTEGER required",
                 "reason TEXT required",
+                "ignored_at TEXT optional",
                 "created_at TEXT required",
                 "updated_at TEXT required",
             ]

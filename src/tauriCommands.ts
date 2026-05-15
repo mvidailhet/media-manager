@@ -10,6 +10,9 @@ const refreshScanRootCommand = "refresh_scan_root";
 const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
   "list_unprocessable_video_candidates";
+const listFailedPreviewStripsCommand = "list_failed_preview_strips";
+const retryFailedPreviewStripCommand = "retry_failed_preview_strip";
+const ignoreFailedPreviewStripCommand = "ignore_failed_preview_strip";
 const generateMissingPreviewStripsCommand = "generate_missing_preview_strips";
 const getPreviewStripQueueStatusCommand = "get_preview_strip_queue_status";
 const pausePreviewStripQueueCommand = "pause_preview_strip_queue";
@@ -71,6 +74,12 @@ export interface UnprocessableVideoCandidate {
   path: string;
   reason: string;
   fileSizeBytes: number;
+}
+
+export interface FailedPreviewStrip {
+  videoId: number;
+  title: string;
+  failureReason: string;
 }
 
 export type VideoExtensionAllowlist = {
@@ -150,6 +159,18 @@ export async function listUnprocessableVideoCandidates(): Promise<
   return invoke<UnprocessableVideoCandidate[]>(
     listUnprocessableVideoCandidatesCommand
   );
+}
+
+export async function listFailedPreviewStrips(): Promise<FailedPreviewStrip[]> {
+  return invoke<FailedPreviewStrip[]>(listFailedPreviewStripsCommand);
+}
+
+export async function retryFailedPreviewStrip(videoId: number): Promise<PreviewStripQueueStatus> {
+  return invoke<PreviewStripQueueStatus>(retryFailedPreviewStripCommand, { videoId });
+}
+
+export async function ignoreFailedPreviewStrip(videoId: number): Promise<void> {
+  return invoke<void>(ignoreFailedPreviewStripCommand, { videoId });
 }
 
 export async function generateMissingPreviewStrips(): Promise<PreviewStripGenerationSummary> {

@@ -12,9 +12,10 @@ use std::{
 };
 
 use catalog::{
-    Catalog, CatalogVideo, FfmpegPreviewStripGenerator, FfprobeVideoFileProbe,
-    PreviewStripGenerationSummary, PreviewStripGenerator, PreviewStripQueueCounts, ScanRoot,
-    ScanRootRefreshSummary, UnprocessableVideoCandidate, VideoExtensionAllowlist,
+    Catalog, CatalogVideo, FailedPreviewStrip, FfmpegPreviewStripGenerator, FfprobeVideoFileProbe,
+    PreviewStripGenerationSummary, PreviewStripGenerator, PreviewStripQueueCounts,
+    PreviewStripRetryReason, ScanRoot, ScanRootRefreshSummary, UnprocessableVideoCandidate,
+    VideoExtensionAllowlist,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WindowEvent};
@@ -406,11 +407,21 @@ fn preview_strip_queue_status(
 #[tauri::command]
 fn save_ffmpeg_configuration(
     app: tauri::AppHandle,
+    catalog_state: tauri::State<'_, CatalogState>,
     configuration: FfmpegConfiguration,
 ) -> Result<FfmpegToolsStatus, String> {
     let settings_path = ffmpeg_settings_path(&app)?;
 
     save_ffmpeg_configuration_to_path(&settings_path, &configuration)?;
+    {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        catalog.retry_ignored_failed_preview_strips(
+            PreviewStripRetryReason::FfmpegConfigurationChanged,
+        )?;
+    }
 
     let path_value = env::var_os("PATH").unwrap_or_default();
     let path_value = path_value.to_string_lossy();
@@ -507,6 +518,52 @@ fn list_unprocessable_video_candidates(
         .map_err(|error| error.to_string())?;
 
     catalog.list_unprocessable_video_candidates()
+}
+
+#[tauri::command]
+fn list_failed_preview_strips(
+    catalog_state: tauri::State<'_, CatalogState>,
+) -> Result<Vec<FailedPreviewStrip>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.list_failed_preview_strips()
+}
+
+#[tauri::command]
+fn retry_failed_preview_strip(
+    catalog_state: tauri::State<'_, CatalogState>,
+    preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
+    video_id: i64,
+) -> Result<PreviewStripQueueStatus, String> {
+    {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        catalog.retry_failed_preview_strip(video_id, PreviewStripRetryReason::Manual)?;
+    }
+
+    preview_strip_queue_status(&catalog_state, &preview_strip_queue_state)
+}
+
+#[tauri::command]
+fn ignore_failed_preview_strip(
+    catalog_state: tauri::State<'_, CatalogState>,
+    preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
+    video_id: i64,
+) -> Result<PreviewStripQueueStatus, String> {
+    {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        catalog.ignore_failed_preview_strip(video_id)?;
+    }
+
+    preview_strip_queue_status(&catalog_state, &preview_strip_queue_state)
 }
 
 #[tauri::command]
@@ -710,6 +767,9 @@ pub fn run() {
             refresh_scan_root,
             refresh_all_scan_roots,
             list_unprocessable_video_candidates,
+            list_failed_preview_strips,
+            retry_failed_preview_strip,
+            ignore_failed_preview_strip,
             generate_missing_preview_strips,
             get_preview_strip_queue_status,
             pause_preview_strip_queue,
