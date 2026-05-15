@@ -877,6 +877,7 @@ fn accept_metadata_suggestion_for_videos(
     scan_root_path: String,
     suggested_value: String,
     suggestion_kind: String,
+    accepted_value: Option<String>,
     video_ids: Vec<i64>,
 ) -> Result<(), String> {
     let catalog = catalog_state
@@ -888,6 +889,7 @@ fn accept_metadata_suggestion_for_videos(
         &scan_root_path,
         &suggested_value,
         &suggestion_kind,
+        accepted_value.as_deref(),
         &video_ids,
     )
 }

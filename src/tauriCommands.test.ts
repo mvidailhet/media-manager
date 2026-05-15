@@ -338,7 +338,8 @@ describe("Tauri commands", () => {
     await acceptMetadataSuggestionForVideos({
       scanRootPath: "/Volumes/Archive/Videos",
       suggestedValue: "Family",
-      suggestionKind: "tag",
+      suggestionKind: "performer",
+      acceptedValue: "The Family",
       videoIds: [7, 8],
     });
     await rejectMetadataSuggestionSource({
@@ -353,7 +354,8 @@ describe("Tauri commands", () => {
       {
         scanRootPath: "/Volumes/Archive/Videos",
         suggestedValue: "Family",
-        suggestionKind: "tag",
+        suggestionKind: "performer",
+        acceptedValue: "The Family",
         videoIds: [7, 8],
       },
     );

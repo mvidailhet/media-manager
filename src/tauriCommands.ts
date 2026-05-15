@@ -150,6 +150,7 @@ export interface AcceptMetadataSuggestionForVideosRequest {
   scanRootPath: string;
   suggestedValue: string;
   suggestionKind: string;
+  acceptedValue?: string;
   videoIds: number[];
 }
 

@@ -2285,7 +2285,7 @@ describe("Videos View shell", () => {
     metadataSuggestions = within(reviewQueue).getByRole("region", {
       name: "Metadata Suggestions",
     });
-    expect(within(metadataSuggestions).getByText("Tag")).toBeInTheDocument();
+    expect(within(metadataSuggestions).getAllByText("Tag")[0]).toBeInTheDocument();
     expect(
       within(metadataSuggestions).getByText(
         (_content, element) => element?.textContent === "  Family  ",
@@ -2378,6 +2378,67 @@ describe("Videos View shell", () => {
       videoIds: [7],
     });
     expect(await within(metadataSuggestions).findByText("Birthday")).toBeInTheDocument();
+  });
+
+  it("accepts Metadata Suggestions as Performers mapped to a different existing name", async () => {
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 7,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    mockedListPerformers.mockResolvedValue([{ id: 12, name: "The Family" }]);
+
+    renderApp();
+
+    const reviewQueue = await screen.findByRole("region", {
+      name: "Review Queue",
+    });
+    const metadataSuggestions = within(reviewQueue).getByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.change(
+      await within(metadataSuggestions).findByLabelText(
+        "Accept Family as metadata kind",
+      ),
+      { target: { value: "performer" } },
+    );
+    fireEvent.change(
+      within(metadataSuggestions).getByLabelText("Accepted metadata name"),
+      { target: { value: "The Family" } },
+    );
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept The Family as Performer for selected Videos",
+      }),
+    );
+
+    expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
+      scanRootPath: "/Volumes/Archive/Videos",
+      suggestedValue: "Family",
+      suggestionKind: "performer",
+      acceptedValue: "The Family",
+      videoIds: [7],
+    });
+    expect(
+      await within(metadataSuggestions).findByText("No Metadata Suggestions."),
+    ).toBeInTheDocument();
   });
 
   it("rejects a Metadata Suggestion for one Scan Root source", async () => {
