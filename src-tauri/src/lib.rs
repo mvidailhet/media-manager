@@ -503,6 +503,34 @@ fn performers_for_video(
 }
 
 #[tauri::command]
+fn update_video_title(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+    title: String,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.update_video_title(video_id, &title)
+}
+
+#[tauri::command]
+fn set_video_favorite(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+    is_favorite: bool,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.set_video_favorite(video_id, is_favorite)
+}
+
+#[tauri::command]
 fn get_ffmpeg_tools_status(app: tauri::AppHandle) -> Result<FfmpegToolsStatus, String> {
     let settings_path = ffmpeg_settings_path(&app)?;
     let configuration = load_ffmpeg_configuration(&settings_path)?;
@@ -959,6 +987,8 @@ pub fn run() {
             attach_performer_to_video,
             detach_performer_from_video,
             performers_for_video,
+            update_video_title,
+            set_video_favorite,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             refresh_scan_root,

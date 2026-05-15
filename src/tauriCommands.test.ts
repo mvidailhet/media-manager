@@ -31,13 +31,15 @@ import {
   retryFailedPreviewStrip,
   resumePreviewStripQueue,
   saveFfmpegConfiguration,
+  setVideoFavorite,
   updatePerformer,
   tagsForVideo,
-  updateTag
+  updateVideoTitle,
+  updateTag,
 } from "./tauriCommands";
 
 vi.mock("@tauri-apps/api/core", () => ({
-  invoke: vi.fn()
+  invoke: vi.fn(),
 }));
 
 const mockedInvoke = vi.mocked(invoke);
@@ -64,9 +66,9 @@ describe("Tauri commands", () => {
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
         isAvailable: true,
         previewStrip: {
-          status: "pending"
-        }
-      }
+          status: "pending",
+        },
+      },
     ]);
 
     const videos = await listCatalogVideos();
@@ -80,9 +82,9 @@ describe("Tauri commands", () => {
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
         isAvailable: true,
         previewStrip: {
-          status: "pending"
-        }
-      }
+          status: "pending",
+        },
+      },
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_catalog_videos");
   });
@@ -91,8 +93,8 @@ describe("Tauri commands", () => {
     mockedInvoke.mockResolvedValue([
       {
         path: "/Volumes/Archive/Videos",
-        isAvailable: true
-      }
+        isAvailable: true,
+      },
     ]);
 
     const scanRoots = await listScanRoots();
@@ -100,8 +102,8 @@ describe("Tauri commands", () => {
     expect(scanRoots).toEqual([
       {
         path: "/Volumes/Archive/Videos",
-        isAvailable: true
-      }
+        isAvailable: true,
+      },
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_scan_roots");
   });
@@ -110,7 +112,7 @@ describe("Tauri commands", () => {
     await addScanRoot("/Volumes/Archive/Videos");
 
     expect(mockedInvoke).toHaveBeenCalledWith("add_scan_root", {
-      path: "/Volumes/Archive/Videos"
+      path: "/Volumes/Archive/Videos",
     });
   });
 
@@ -119,7 +121,7 @@ describe("Tauri commands", () => {
 
     expect(mockedInvoke).toHaveBeenCalledWith("remove_scan_root", {
       path: "/Volumes/Archive/Videos",
-      removalPolicy: "preserveMissingVideos"
+      removalPolicy: "preserveMissingVideos",
     });
   });
 
@@ -127,55 +129,55 @@ describe("Tauri commands", () => {
     await forgetCatalogVideo(7);
 
     expect(mockedInvoke).toHaveBeenCalledWith("forget_catalog_video", {
-      videoId: 7
+      videoId: 7,
     });
   });
 
   it("refreshes one selected Scan Root through the Rust command", async () => {
     mockedInvoke.mockResolvedValue({
       scannedVideoCount: 1,
-      unprocessableCandidateCount: 0
+      unprocessableCandidateCount: 0,
     });
 
     const refreshSummary = await refreshScanRoot("/Volumes/Archive/Videos");
 
     expect(refreshSummary).toEqual({
       scannedVideoCount: 1,
-      unprocessableCandidateCount: 0
+      unprocessableCandidateCount: 0,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("refresh_scan_root", {
       path: "/Volumes/Archive/Videos",
-      videoExtensionAllowlist: null
+      videoExtensionAllowlist: null,
     });
   });
 
   it("passes a configured Video Extension Allowlist to Scan Root refresh", async () => {
     const videoExtensionAllowlist = {
-      extensions: [".mp4", ".flv"]
+      extensions: [".mp4", ".flv"],
     };
 
     await refreshScanRoot("/Volumes/Archive/Videos", videoExtensionAllowlist);
 
     expect(mockedInvoke).toHaveBeenCalledWith("refresh_scan_root", {
       path: "/Volumes/Archive/Videos",
-      videoExtensionAllowlist
+      videoExtensionAllowlist,
     });
   });
 
   it("refreshes all Scan Roots through the Rust command", async () => {
     mockedInvoke.mockResolvedValue({
       scannedVideoCount: 3,
-      unprocessableCandidateCount: 1
+      unprocessableCandidateCount: 1,
     });
 
     const refreshSummary = await refreshAllScanRoots();
 
     expect(refreshSummary).toEqual({
       scannedVideoCount: 3,
-      unprocessableCandidateCount: 1
+      unprocessableCandidateCount: 1,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("refresh_all_scan_roots", {
-      videoExtensionAllowlist: null
+      videoExtensionAllowlist: null,
     });
   });
 
@@ -184,8 +186,8 @@ describe("Tauri commands", () => {
       {
         path: "/Volumes/Archive/Videos/broken.mkv",
         reason: "missing moov atom",
-        fileSizeBytes: 1024
-      }
+        fileSizeBytes: 1024,
+      },
     ]);
 
     const candidates = await listUnprocessableVideoCandidates();
@@ -194,11 +196,11 @@ describe("Tauri commands", () => {
       {
         path: "/Volumes/Archive/Videos/broken.mkv",
         reason: "missing moov atom",
-        fileSizeBytes: 1024
-      }
+        fileSizeBytes: 1024,
+      },
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith(
-      "list_unprocessable_video_candidates"
+      "list_unprocessable_video_candidates",
     );
   });
 
@@ -207,8 +209,8 @@ describe("Tauri commands", () => {
       {
         videoId: 7,
         title: "Broken Trip",
-        failureReason: "ffmpeg failed"
-      }
+        failureReason: "ffmpeg failed",
+      },
     ]);
 
     const failedPreviewStrips = await listFailedPreviewStrips();
@@ -217,8 +219,8 @@ describe("Tauri commands", () => {
       {
         videoId: 7,
         title: "Broken Trip",
-        failureReason: "ffmpeg failed"
-      }
+        failureReason: "ffmpeg failed",
+      },
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_failed_preview_strips");
   });
@@ -228,7 +230,7 @@ describe("Tauri commands", () => {
       pendingCount: 1,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
 
     const retryQueueStatus = await retryFailedPreviewStrip(7);
@@ -238,36 +240,38 @@ describe("Tauri commands", () => {
       pendingCount: 1,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
     expect(ignoreQueueStatus).toEqual({
       pendingCount: 1,
       runningCount: 0,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
 
     expect(mockedInvoke).toHaveBeenCalledWith("retry_failed_preview_strip", {
-      videoId: 7
+      videoId: 7,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("ignore_failed_preview_strip", {
-      videoId: 7
+      videoId: 7,
     });
   });
 
   it("generates missing Preview Strips through the Rust command", async () => {
     mockedInvoke.mockResolvedValue({
       generatedPreviewStripCount: 2,
-      failedPreviewStripCount: 1
+      failedPreviewStripCount: 1,
     });
 
     const generationSummary = await generateMissingPreviewStrips();
 
     expect(generationSummary).toEqual({
       generatedPreviewStripCount: 2,
-      failedPreviewStripCount: 1
+      failedPreviewStripCount: 1,
     });
-    expect(mockedInvoke).toHaveBeenCalledWith("generate_missing_preview_strips");
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "generate_missing_preview_strips",
+    );
   });
 
   it("calls the typed Rust command for Preview Strip queue status", async () => {
@@ -275,7 +279,7 @@ describe("Tauri commands", () => {
       pendingCount: 2,
       runningCount: 1,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
 
     const queueStatus = await getPreviewStripQueueStatus();
@@ -284,7 +288,7 @@ describe("Tauri commands", () => {
       pendingCount: 2,
       runningCount: 1,
       failedCount: 0,
-      isPaused: false
+      isPaused: false,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("get_preview_strip_queue_status");
   });
@@ -306,13 +310,13 @@ describe("Tauri commands", () => {
   it("persists FFmpeg binary path configuration through the Rust command", async () => {
     const configuration = {
       ffmpegPath: "/opt/homebrew/bin/ffmpeg",
-      ffprobePath: "/opt/homebrew/bin/ffprobe"
+      ffprobePath: "/opt/homebrew/bin/ffprobe",
     };
 
     await saveFfmpegConfiguration(configuration);
 
     expect(mockedInvoke).toHaveBeenCalledWith("save_ffmpeg_configuration", {
-      configuration
+      configuration,
     });
   });
 
@@ -332,7 +336,7 @@ describe("Tauri commands", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("create_tag", { name: "Travel" });
     expect(mockedInvoke).toHaveBeenCalledWith("update_tag", {
       tagId: 4,
-      name: "Archive"
+      name: "Archive",
     });
     expect(mockedInvoke).toHaveBeenCalledWith("delete_tag", { tagId: 4 });
   });
@@ -351,14 +355,14 @@ describe("Tauri commands", () => {
     expect(updatedPerformer).toEqual({ id: 9, name: "Blair" });
     expect(mockedInvoke).toHaveBeenCalledWith("list_performers");
     expect(mockedInvoke).toHaveBeenCalledWith("create_performer", {
-      name: "Blair"
+      name: "Blair",
     });
     expect(mockedInvoke).toHaveBeenCalledWith("update_performer", {
       performerId: 9,
-      name: "Alex"
+      name: "Alex",
     });
     expect(mockedInvoke).toHaveBeenCalledWith("delete_performer", {
-      performerId: 9
+      performerId: 9,
     });
   });
 
@@ -372,23 +376,37 @@ describe("Tauri commands", () => {
 
     expect(mockedInvoke).toHaveBeenCalledWith("attach_tag_to_video", {
       tagId: 4,
-      videoId: 1
+      videoId: 1,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("detach_tag_from_video", {
       tagId: 4,
-      videoId: 1
+      videoId: 1,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("tags_for_video", { videoId: 1 });
     expect(mockedInvoke).toHaveBeenCalledWith("attach_performer_to_video", {
       performerId: 9,
-      videoId: 1
+      videoId: 1,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("detach_performer_from_video", {
       performerId: 9,
-      videoId: 1
+      videoId: 1,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("performers_for_video", {
-      videoId: 1
+      videoId: 1,
+    });
+  });
+
+  it("calls typed Rust commands for Video Detail metadata edits", async () => {
+    await updateVideoTitle(1, "Family Archive");
+    await setVideoFavorite(1, true);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("update_video_title", {
+      videoId: 1,
+      title: "Family Archive",
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("set_video_favorite", {
+      videoId: 1,
+      isFavorite: true,
     });
   });
 });

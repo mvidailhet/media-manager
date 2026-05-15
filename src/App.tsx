@@ -4,6 +4,7 @@ import {
   Badge,
   Box,
   Button,
+  Checkbox,
   Code,
   Divider,
   Group,
@@ -12,12 +13,14 @@ import {
   Stack,
   Text,
   TextInput,
-  Title
+  Title,
 } from "@mantine/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import {
   CatalogVideo,
+  CatalogPerformer,
+  CatalogTag,
   FailedPreviewStrip,
   FfmpegToolsStatus,
   PreviewStripQueueStatus,
@@ -32,9 +35,12 @@ import {
   getPreviewStripQueueStatus,
   ignoreFailedPreviewStrip,
   listCatalogVideos,
+  listPerformers,
   listFailedPreviewStrips,
   listScanRoots,
+  listTags,
   listUnprocessableVideoCandidates,
+  performersForVideo,
   pausePreviewStripQueue,
   processNextPreviewStripQueueItem,
   removeScanRoot,
@@ -42,7 +48,14 @@ import {
   refreshScanRoot,
   retryFailedPreviewStrip,
   resumePreviewStripQueue,
-  saveFfmpegConfiguration
+  saveFfmpegConfiguration,
+  setVideoFavorite,
+  tagsForVideo,
+  updateVideoTitle,
+  attachTagToVideo,
+  detachTagFromVideo,
+  attachPerformerToVideo,
+  detachPerformerFromVideo,
 } from "./tauriCommands";
 
 const loadingStatusMessage = "Checking Rust command...";
@@ -85,11 +98,11 @@ export default function App() {
     useState(ffmpegLoadingMessage);
   const [catalogVideos, setCatalogVideos] = useState<CatalogVideo[]>([]);
   const [catalogVideosStatusMessage, setCatalogVideosStatusMessage] = useState(
-    catalogVideosLoadingMessage
+    catalogVideosLoadingMessage,
   );
   const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
-    scanRootsLoadingMessage
+    scanRootsLoadingMessage,
   );
   const [unprocessableVideoCandidates, setUnprocessableVideoCandidates] =
     useState<UnprocessableVideoCandidate[]>([]);
@@ -97,7 +110,7 @@ export default function App() {
     FailedPreviewStrip[]
   >([]);
   const [reviewQueueStatusMessage, setReviewQueueStatusMessage] = useState(
-    reviewQueueLoadingMessage
+    reviewQueueLoadingMessage,
   );
   const [manualScanRootPath, setManualScanRootPath] = useState("");
   const [scanRootPendingRemoval, setScanRootPendingRemoval] =
@@ -112,6 +125,16 @@ export default function App() {
     useState(false);
   const [previewStripQueueStatus, setPreviewStripQueueStatus] =
     useState<PreviewStripQueueStatus | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<CatalogVideo | null>(null);
+  const [availableTags, setAvailableTags] = useState<CatalogTag[]>([]);
+  const [availablePerformers, setAvailablePerformers] = useState<
+    CatalogPerformer[]
+  >([]);
+  const [selectedVideoTags, setSelectedVideoTags] = useState<CatalogTag[]>([]);
+  const [selectedVideoPerformers, setSelectedVideoPerformers] = useState<
+    CatalogPerformer[]
+  >([]);
+  const [detailStatusMessage, setDetailStatusMessage] = useState("");
 
   async function loadCatalogVideos() {
     try {
@@ -152,7 +175,7 @@ export default function App() {
       const [storedUnprocessableVideoCandidates, storedFailedPreviewStrips] =
         await Promise.all([
           listUnprocessableVideoCandidates(),
-          listFailedPreviewStrips()
+          listFailedPreviewStrips(),
         ]);
 
       setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
@@ -256,7 +279,7 @@ export default function App() {
         const [storedUnprocessableVideoCandidates, storedFailedPreviewStrips] =
           await Promise.all([
             listUnprocessableVideoCandidates(),
-            listFailedPreviewStrips()
+            listFailedPreviewStrips(),
           ]);
 
         if (canUpdateReviewQueue) {
@@ -361,7 +384,7 @@ export default function App() {
     try {
       const status = await saveFfmpegConfiguration({
         ffmpegPath: normalizeConfiguredPath(ffmpegPath),
-        ffprobePath: normalizeConfiguredPath(ffprobePath)
+        ffprobePath: normalizeConfiguredPath(ffprobePath),
       });
 
       setFfmpegToolsStatus(status);
@@ -378,7 +401,7 @@ export default function App() {
     try {
       const selectedFolder = await open({
         directory: true,
-        multiple: false
+        multiple: false,
       });
 
       if (typeof selectedFolder === "string") {
@@ -405,8 +428,8 @@ export default function App() {
       const scanRoot = await addScanRoot(scanRootPath);
       setScanRoots((currentScanRoots) =>
         [...currentScanRoots, scanRoot].sort((left, right) =>
-          left.path.localeCompare(right.path)
-        )
+          left.path.localeCompare(right.path),
+        ),
       );
       setManualScanRootPath("");
       setScanRootsStatusMessage("");
@@ -426,8 +449,8 @@ export default function App() {
       await removeScanRoot(removedScanRoot.path, removalPolicy);
       setScanRoots((currentScanRoots) =>
         currentScanRoots.filter(
-          (scanRoot) => scanRoot.path !== removedScanRoot.path
-        )
+          (scanRoot) => scanRoot.path !== removedScanRoot.path,
+        ),
       );
       setScanRootPendingRemoval(null);
       setScanRootsStatusMessage("");
@@ -456,7 +479,7 @@ export default function App() {
   async function retryFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
     try {
       const queueStatus = await retryFailedPreviewStrip(
-        failedPreviewStrip.videoId
+        failedPreviewStrip.videoId,
       );
 
       setPreviewStripQueueStatus(queueStatus);
@@ -472,7 +495,7 @@ export default function App() {
   async function ignoreFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
     try {
       const queueStatus = await ignoreFailedPreviewStrip(
-        failedPreviewStrip.videoId
+        failedPreviewStrip.videoId,
       );
 
       setPreviewStripQueueStatus(queueStatus);
@@ -489,7 +512,7 @@ export default function App() {
       const refreshSummary = await refreshScanRoot(scanRoot.path);
 
       setScanRootsStatusMessage(
-        `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`
+        `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`,
       );
       await loadScanRoots(false);
       await loadCatalogVideos();
@@ -506,7 +529,7 @@ export default function App() {
       const refreshSummary = await refreshAllScanRoots();
 
       setScanRootsStatusMessage(
-        `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`
+        `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`,
       );
       await loadScanRoots(false);
       await loadCatalogVideos();
@@ -530,7 +553,7 @@ export default function App() {
         setPreviewStripStatusMessage(noPreviewStripsNeedGenerationMessage);
       } else {
         setPreviewStripStatusMessage(
-          `${generatedPreviewStripCount} Preview Strips generated, ${failedPreviewStripCount} Preview Strips failed`
+          `${generatedPreviewStripCount} Preview Strips generated, ${failedPreviewStripCount} Preview Strips failed`,
         );
       }
       await loadCatalogVideos();
@@ -554,6 +577,133 @@ export default function App() {
     }
   }
 
+  async function selectVideoForDetail(catalogVideo: CatalogVideo) {
+    setSelectedVideo(catalogVideo);
+    setDetailStatusMessage("");
+
+    try {
+      const [storedTags, storedPerformers, videoTags, videoPerformers] =
+        await Promise.all([
+          listTags(),
+          listPerformers(),
+          tagsForVideo(catalogVideo.id),
+          performersForVideo(catalogVideo.id),
+        ]);
+
+      setAvailableTags(storedTags);
+      setAvailablePerformers(storedPerformers);
+      setSelectedVideoTags(videoTags);
+      setSelectedVideoPerformers(videoPerformers);
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function saveSelectedVideoTitle(title: string) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    try {
+      await updateVideoTitle(selectedVideo.id, title);
+      const updatedVideo = { ...selectedVideo, title };
+      setSelectedVideo(updatedVideo);
+      setCatalogVideos((currentVideos) =>
+        currentVideos.map((catalogVideo) =>
+          catalogVideo.id === updatedVideo.id ? updatedVideo : catalogVideo,
+        ),
+      );
+      setDetailStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function setSelectedVideoFavorite(isFavorite: boolean) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    try {
+      await setVideoFavorite(selectedVideo.id, isFavorite);
+      const updatedVideo = { ...selectedVideo, isFavorite };
+      setSelectedVideo(updatedVideo);
+      setCatalogVideos((currentVideos) =>
+        currentVideos.map((catalogVideo) =>
+          catalogVideo.id === updatedVideo.id ? updatedVideo : catalogVideo,
+        ),
+      );
+      setDetailStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function attachTagToSelectedVideo(tag: CatalogTag) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    try {
+      await attachTagToVideo(tag.id, selectedVideo.id);
+      setSelectedVideoTags((currentTags) => [...currentTags, tag]);
+      setDetailStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function detachTagFromSelectedVideo(tag: CatalogTag) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    try {
+      await detachTagFromVideo(tag.id, selectedVideo.id);
+      setSelectedVideoTags((currentTags) =>
+        currentTags.filter((currentTag) => currentTag.id !== tag.id),
+      );
+      setDetailStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function attachPerformerToSelectedVideo(performer: CatalogPerformer) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    try {
+      await attachPerformerToVideo(performer.id, selectedVideo.id);
+      setSelectedVideoPerformers((currentPerformers) => [
+        ...currentPerformers,
+        performer,
+      ]);
+      setDetailStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function detachPerformerFromSelectedVideo(performer: CatalogPerformer) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    try {
+      await detachPerformerFromVideo(performer.id, selectedVideo.id);
+      setSelectedVideoPerformers((currentPerformers) =>
+        currentPerformers.filter(
+          (currentPerformer) => currentPerformer.id !== performer.id,
+        ),
+      );
+      setDetailStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
   async function resumePreviewQueue() {
     try {
       const queueStatus = await resumePreviewStripQueue();
@@ -566,10 +716,10 @@ export default function App() {
   }
 
   const missingVideos = catalogVideos.filter(
-    (catalogVideo) => !catalogVideo.isAvailable
+    (catalogVideo) => !catalogVideo.isAvailable,
   );
   const unavailableScanRoots = scanRoots.filter(
-    (scanRoot) => !scanRoot.isAvailable
+    (scanRoot) => !scanRoot.isAvailable,
   );
 
   return (
@@ -583,9 +733,26 @@ export default function App() {
         onGeneratePendingPreviewStrips={generatePendingPreviewStrips}
         onPausePreviewQueue={pausePreviewQueue}
         onResumePreviewQueue={resumePreviewQueue}
+        onSelectVideo={selectVideoForDetail}
         previewStripQueueStatus={previewStripQueueStatus}
         previewStripStatusMessage={previewStripStatusMessage}
       />
+      {selectedVideo ? (
+        <VideoDetailPanel
+          availablePerformers={availablePerformers}
+          availableTags={availableTags}
+          detailStatusMessage={detailStatusMessage}
+          onAttachPerformer={attachPerformerToSelectedVideo}
+          onAttachTag={attachTagToSelectedVideo}
+          onDetachPerformer={detachPerformerFromSelectedVideo}
+          onDetachTag={detachTagFromSelectedVideo}
+          onSaveTitle={saveSelectedVideoTitle}
+          onSetFavorite={setSelectedVideoFavorite}
+          selectedPerformers={selectedVideoPerformers}
+          selectedTags={selectedVideoTags}
+          video={selectedVideo}
+        />
+      ) : null}
       <ReviewQueuePanel
         failedPreviewStrips={failedPreviewStrips}
         missingVideos={missingVideos}
@@ -725,12 +892,17 @@ function WorkspaceHeader() {
 }
 
 function TauriStatusPanel({
-  localDesktopAppStatus
+  localDesktopAppStatus,
 }: {
   localDesktopAppStatus: string;
 }) {
   return (
-    <Paper component="section" aria-label="Tauri command status" p="md" maw={420}>
+    <Paper
+      component="section"
+      aria-label="Tauri command status"
+      p="md"
+      maw={420}
+    >
       <Stack gap={8}>
         <Text c="dimmed" fw={700} size="sm" tt="uppercase">
           Tauri bridge
@@ -750,8 +922,9 @@ function CatalogVideosPanel({
   onGeneratePendingPreviewStrips,
   onPausePreviewQueue,
   onResumePreviewQueue,
+  onSelectVideo,
   previewStripQueueStatus,
-  previewStripStatusMessage
+  previewStripStatusMessage,
 }: {
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
@@ -759,6 +932,7 @@ function CatalogVideosPanel({
   onGeneratePendingPreviewStrips: () => void;
   onPausePreviewQueue: () => void;
   onResumePreviewQueue: () => void;
+  onSelectVideo: (catalogVideo: CatalogVideo) => void;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
   previewStripStatusMessage: string;
 }) {
@@ -790,7 +964,9 @@ function CatalogVideosPanel({
         {catalogVideosStatusMessage ? (
           <Text>{catalogVideosStatusMessage}</Text>
         ) : null}
-        {previewStripStatusMessage ? <Text>{previewStripStatusMessage}</Text> : null}
+        {previewStripStatusMessage ? (
+          <Text>{previewStripStatusMessage}</Text>
+        ) : null}
 
         {!catalogVideosStatusMessage && catalogVideos.length === 0 ? (
           <Text c="dimmed">{catalogVideosEmptyMessage}</Text>
@@ -802,6 +978,7 @@ function CatalogVideosPanel({
               <CatalogVideoCard
                 catalogVideo={catalogVideo}
                 key={catalogVideo.id}
+                onSelectVideo={onSelectVideo}
               />
             ))}
           </Stack>
@@ -814,7 +991,7 @@ function CatalogVideosPanel({
 function PreviewStripQueuePanel({
   onPausePreviewQueue,
   onResumePreviewQueue,
-  previewStripQueueStatus
+  previewStripQueueStatus,
 }: {
   onPausePreviewQueue: () => void;
   onResumePreviewQueue: () => void;
@@ -823,15 +1000,21 @@ function PreviewStripQueuePanel({
   if (!previewStripQueueStatus) {
     return null;
   }
-  const queueActivityLabel = previewStripQueueActivityLabel(previewStripQueueStatus);
+  const queueActivityLabel = previewStripQueueActivityLabel(
+    previewStripQueueStatus,
+  );
 
   return (
     <Group gap="xs" align="center">
       <Badge color={previewStripQueueStatus.isPaused ? "yellow" : "teal"}>
         {queueActivityLabel}
       </Badge>
-      <Badge variant="light">{previewStripQueueStatus.pendingCount} pending</Badge>
-      <Badge variant="light">{previewStripQueueStatus.runningCount} running</Badge>
+      <Badge variant="light">
+        {previewStripQueueStatus.pendingCount} pending
+      </Badge>
+      <Badge variant="light">
+        {previewStripQueueStatus.runningCount} running
+      </Badge>
       <Badge color="red" variant="light">
         {previewStripQueueStatus.failedCount} failed
       </Badge>
@@ -859,7 +1042,7 @@ function PreviewStripQueuePanel({
 }
 
 function previewStripQueueActivityLabel(
-  previewStripQueueStatus: PreviewStripQueueStatus
+  previewStripQueueStatus: PreviewStripQueueStatus,
 ) {
   if (previewStripQueueStatus.isPaused) {
     return "Paused";
@@ -875,16 +1058,30 @@ function previewStripQueueActivityLabel(
   return "Running";
 }
 
-function CatalogVideoCard({ catalogVideo }: { catalogVideo: CatalogVideo }) {
+function CatalogVideoCard({
+  catalogVideo,
+  onSelectVideo,
+}: {
+  catalogVideo: CatalogVideo;
+  onSelectVideo: (catalogVideo: CatalogVideo) => void;
+}) {
   return (
     <Stack component="article" gap="sm">
       <Divider />
       <PreviewStripSurface catalogVideo={catalogVideo} />
       <Box>
         <Group gap="xs" align="center">
-          <Title order={3} size="h4">
+          <Button
+            type="button"
+            variant="subtle"
+            px={0}
+            onClick={() => void onSelectVideo(catalogVideo)}
+          >
             {catalogVideo.title}
-          </Title>
+          </Button>
+          {catalogVideo.isFavorite ? (
+            <Badge color="yellow">Favorite</Badge>
+          ) : null}
           <AvailabilityBadge isAvailable={catalogVideo.isAvailable} />
         </Group>
         <Text c="dimmed">
@@ -911,7 +1108,7 @@ function CatalogVideoCard({ catalogVideo }: { catalogVideo: CatalogVideo }) {
 
 function PreviewStripSurface({ catalogVideo }: { catalogVideo: CatalogVideo }) {
   const [selectedFrameIndex, setSelectedFrameIndex] = useState(
-    firstPreviewStripFrameIndex
+    firstPreviewStripFrameIndex,
   );
   const previewStrip = catalogVideo.previewStrip;
 
@@ -920,7 +1117,7 @@ function PreviewStripSurface({ catalogVideo }: { catalogVideo: CatalogVideo }) {
     const framePosition = previewStripFramePosition(
       selectedFrameIndex,
       previewStrip.columnCount,
-      previewStrip.rowCount
+      previewStrip.rowCount,
     );
 
     return (
@@ -931,12 +1128,14 @@ function PreviewStripSurface({ catalogVideo }: { catalogVideo: CatalogVideo }) {
         style={{
           backgroundImage: `url(${previewStripUrl})`,
           backgroundPosition: `${framePosition.x}% ${framePosition.y}%`,
-          backgroundSize: `${previewStrip.columnCount * percentageMultiplier}% ${previewStrip.rowCount * percentageMultiplier}%`
+          backgroundSize: `${previewStrip.columnCount * percentageMultiplier}% ${previewStrip.rowCount * percentageMultiplier}%`,
         }}
-        onPointerLeave={() => setSelectedFrameIndex(firstPreviewStripFrameIndex)}
+        onPointerLeave={() =>
+          setSelectedFrameIndex(firstPreviewStripFrameIndex)
+        }
         onPointerMove={(event) =>
           setSelectedFrameIndex(
-            previewStripFrameIndexFromPointer(event, previewStrip.frameCount)
+            previewStripFrameIndexFromPointer(event, previewStrip.frameCount),
           )
         }
       />
@@ -962,6 +1161,180 @@ function PreviewStripSurface({ catalogVideo }: { catalogVideo: CatalogVideo }) {
   );
 }
 
+function VideoDetailPanel({
+  availablePerformers,
+  availableTags,
+  detailStatusMessage,
+  onAttachPerformer,
+  onAttachTag,
+  onDetachPerformer,
+  onDetachTag,
+  onSaveTitle,
+  onSetFavorite,
+  selectedPerformers,
+  selectedTags,
+  video,
+}: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
+  detailStatusMessage: string;
+  onAttachPerformer: (performer: CatalogPerformer) => void;
+  onAttachTag: (tag: CatalogTag) => void;
+  onDetachPerformer: (performer: CatalogPerformer) => void;
+  onDetachTag: (tag: CatalogTag) => void;
+  onSaveTitle: (title: string) => void;
+  onSetFavorite: (isFavorite: boolean) => void;
+  selectedPerformers: CatalogPerformer[];
+  selectedTags: CatalogTag[];
+  video: CatalogVideo;
+}) {
+  const [title, setTitle] = useState(video.title);
+  const selectedTagIds = new Set(selectedTags.map((tag) => tag.id));
+  const selectedPerformerIds = new Set(
+    selectedPerformers.map((performer) => performer.id),
+  );
+  const attachableTags = availableTags.filter(
+    (tag) => !selectedTagIds.has(tag.id),
+  );
+  const attachablePerformers = availablePerformers.filter(
+    (performer) => !selectedPerformerIds.has(performer.id),
+  );
+  const fileLocations = video.fileLocations ?? legacyFileLocations(video);
+
+  useEffect(() => {
+    setTitle(video.title);
+  }, [video.id, video.title]);
+
+  return (
+    <Paper component="section" aria-label="Video Detail Panel" p="md" maw={760}>
+      <Stack gap="md">
+        <SectionHeader label="Selected Video" title="Video Detail Panel" />
+        {detailStatusMessage ? <Text>{detailStatusMessage}</Text> : null}
+        <Group align="end">
+          <TextInput
+            label="Title"
+            value={title}
+            onChange={(event) => setTitle(event.currentTarget.value)}
+          />
+          <Button type="button" onClick={() => void onSaveTitle(title)}>
+            Save Title
+          </Button>
+        </Group>
+        <Checkbox
+          checked={video.isFavorite ?? false}
+          label="Favorite"
+          onChange={(event) => void onSetFavorite(event.currentTarget.checked)}
+        />
+
+        <Group gap="xl" align="start">
+          <MetadataChecklist
+            attachableItems={attachableTags}
+            label="Tags"
+            onAttach={onAttachTag}
+            onDetach={onDetachTag}
+            selectedItems={selectedTags}
+          />
+          <MetadataChecklist
+            attachableItems={attachablePerformers}
+            label="Performers"
+            onAttach={onAttachPerformer}
+            onDetach={onDetachPerformer}
+            selectedItems={selectedPerformers}
+          />
+        </Group>
+
+        <Box component="dl" className="definition-list">
+          <DefinitionTerm label="Duration">
+            {formatDuration(video.durationMilliseconds)}
+          </DefinitionTerm>
+          <DefinitionTerm label="File Size">
+            {formatFileSize(video.fileSizeBytes)}
+          </DefinitionTerm>
+        </Box>
+
+        <Stack gap="xs">
+          <Title order={3} size="h4">
+            File Locations
+          </Title>
+          {fileLocations.length > 0 ? (
+            fileLocations.map((fileLocation) => (
+              <Group key={fileLocation.path} gap="xs" align="center">
+                <Code className="wrapping-code">{fileLocation.path}</Code>
+                <Text c="dimmed">
+                  {formatFileSize(fileLocation.fileSizeBytes)}
+                </Text>
+                {fileLocation.isPreferred ? (
+                  <Badge>Preferred File Location</Badge>
+                ) : null}
+              </Group>
+            ))
+          ) : (
+            <Text c="dimmed">Missing</Text>
+          )}
+        </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function MetadataChecklist<T extends { id: number; name: string }>({
+  attachableItems,
+  label,
+  onAttach,
+  onDetach,
+  selectedItems,
+}: {
+  attachableItems: T[];
+  label: string;
+  onAttach: (item: T) => void;
+  onDetach: (item: T) => void;
+  selectedItems: T[];
+}) {
+  return (
+    <Stack component="section" gap="xs" aria-label={label}>
+      <Title order={3} size="h4">
+        {label}
+      </Title>
+      {selectedItems.map((item) => (
+        <Button
+          key={item.id}
+          type="button"
+          size="xs"
+          variant="light"
+          onClick={() => void onDetach(item)}
+        >
+          Remove {item.name}
+        </Button>
+      ))}
+      {attachableItems.map((item) => (
+        <Button
+          key={item.id}
+          type="button"
+          size="xs"
+          variant="default"
+          onClick={() => void onAttach(item)}
+        >
+          Attach {item.name}
+        </Button>
+      ))}
+    </Stack>
+  );
+}
+
+function legacyFileLocations(video: CatalogVideo) {
+  if (!video.fileLocationPath || video.fileSizeBytes === null) {
+    return [];
+  }
+
+  return [
+    {
+      path: video.fileLocationPath,
+      fileSizeBytes: video.fileSizeBytes,
+      isPreferred: true,
+    },
+  ];
+}
+
 function ReviewQueuePanel({
   failedPreviewStrips,
   missingVideos,
@@ -970,7 +1343,7 @@ function ReviewQueuePanel({
   onRetryFailedPreview,
   reviewQueueStatusMessage,
   unavailableScanRoots,
-  unprocessableVideoCandidates
+  unprocessableVideoCandidates,
 }: {
   failedPreviewStrips: FailedPreviewStrip[];
   missingVideos: CatalogVideo[];
@@ -986,14 +1359,18 @@ function ReviewQueuePanel({
       <Stack gap="md">
         <SectionHeader label="Scan issues" title="Review Queue" />
 
-        {reviewQueueStatusMessage ? <Text>{reviewQueueStatusMessage}</Text> : null}
+        {reviewQueueStatusMessage ? (
+          <Text>{reviewQueueStatusMessage}</Text>
+        ) : null}
 
         <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
           <MissingVideosPanel
             missingVideos={missingVideos}
             onRequestMissingVideoForget={onRequestMissingVideoForget}
           />
-          <UnavailableScanRootsPanel unavailableScanRoots={unavailableScanRoots} />
+          <UnavailableScanRootsPanel
+            unavailableScanRoots={unavailableScanRoots}
+          />
           <UnprocessableCandidatesPanel
             unprocessableVideoCandidates={unprocessableVideoCandidates}
           />
@@ -1010,7 +1387,7 @@ function ReviewQueuePanel({
 
 function MissingVideosPanel({
   missingVideos,
-  onRequestMissingVideoForget
+  onRequestMissingVideoForget,
 }: {
   missingVideos: CatalogVideo[];
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
@@ -1052,7 +1429,7 @@ function MissingVideosPanel({
 }
 
 function UnavailableScanRootsPanel({
-  unavailableScanRoots
+  unavailableScanRoots,
 }: {
   unavailableScanRoots: ScanRoot[];
 }) {
@@ -1082,7 +1459,7 @@ function UnavailableScanRootsPanel({
 }
 
 function UnprocessableCandidatesPanel({
-  unprocessableVideoCandidates
+  unprocessableVideoCandidates,
 }: {
   unprocessableVideoCandidates: UnprocessableVideoCandidate[];
 }) {
@@ -1122,7 +1499,7 @@ function UnprocessableCandidatesPanel({
 function FailedPreviewStripsPanel({
   failedPreviewStrips,
   onIgnoreFailedPreview,
-  onRetryFailedPreview
+  onRetryFailedPreview,
 }: {
   failedPreviewStrips: FailedPreviewStrip[];
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
@@ -1140,7 +1517,11 @@ function FailedPreviewStripsPanel({
       {failedPreviewStrips.length > 0 ? (
         <Stack gap="sm">
           {failedPreviewStrips.map((failedPreviewStrip) => (
-            <Stack component="article" gap="xs" key={failedPreviewStrip.videoId}>
+            <Stack
+              component="article"
+              gap="xs"
+              key={failedPreviewStrip.videoId}
+            >
               <Divider />
               <Box>
                 <Title order={4} size="h5">
@@ -1191,7 +1572,7 @@ function ScanRootsPanel({
   onRefreshSelectedScanRoot,
   onRequestScanRootRemoval,
   scanRoots,
-  scanRootsStatusMessage
+  scanRootsStatusMessage,
 }: {
   manualScanRootPath: string;
   onAddManualScanRoot: (event: React.FormEvent) => void;
@@ -1209,7 +1590,11 @@ function ScanRootsPanel({
         <Group justify="space-between" align="start">
           <SectionHeader label="Catalog sources" title="Scan Roots" />
           <Group gap="xs">
-            <Button type="button" variant="light" onClick={onChooseScanRootFolder}>
+            <Button
+              type="button"
+              variant="light"
+              onClick={onChooseScanRootFolder}
+            >
               Choose folder
             </Button>
             <Button
@@ -1261,7 +1646,7 @@ function ScanRootsPanel({
 function ScanRootCard({
   onRefreshSelectedScanRoot,
   onRequestScanRootRemoval,
-  scanRoot
+  scanRoot,
 }: {
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
@@ -1303,7 +1688,7 @@ function FfmpegStatusPanel({
   ffprobePath,
   onFfmpegPathChange,
   onFfprobePathChange,
-  onSaveConfiguredFfmpegPaths
+  onSaveConfiguredFfmpegPaths,
 }: {
   ffmpegPath: string;
   ffmpegStatusMessage: string;
@@ -1314,7 +1699,12 @@ function FfmpegStatusPanel({
   onSaveConfiguredFfmpegPaths: (event: React.FormEvent) => void;
 }) {
   return (
-    <Paper component="section" aria-label="FFmpeg tools status" p="md" maw={760}>
+    <Paper
+      component="section"
+      aria-label="FFmpeg tools status"
+      p="md"
+      maw={760}
+    >
       <Stack gap="md">
         <SectionHeader label="Video tooling" title="FFmpeg status" />
 
@@ -1328,7 +1718,7 @@ function FfmpegStatusPanel({
                   key={toolStatus.binaryName}
                   toolStatus={toolStatus}
                 />
-              )
+              ),
             )}
           </Stack>
         ) : null}
@@ -1358,7 +1748,7 @@ function FfmpegStatusPanel({
 }
 
 function FfmpegToolStatusCard({
-  toolStatus
+  toolStatus,
 }: {
   toolStatus: FfmpegToolsStatus["ffmpeg"];
 }) {
@@ -1387,7 +1777,7 @@ function FfmpegToolStatusCard({
 
 function AvailabilityBadge({
   isAvailable,
-  missingLabel = "Unavailable"
+  missingLabel = "Unavailable",
 }: {
   isAvailable: boolean;
   missingLabel?: string;
@@ -1401,14 +1791,14 @@ function AvailabilityBadge({
 
 function previewStripFrameIndexFromPointer(
   event: React.PointerEvent<HTMLElement>,
-  frameCount: number
+  frameCount: number,
 ) {
   const previewStripBounds = event.currentTarget.getBoundingClientRect();
   const pointerOffset = event.clientX - previewStripBounds.left;
   const pointerRatio = pointerOffset / previewStripBounds.width;
   const boundedPointerRatio = Math.min(
     previewStripPointerMaximum,
-    Math.max(previewStripPointerMinimum, pointerRatio)
+    Math.max(previewStripPointerMinimum, pointerRatio),
   );
   const lastFrameIndex = frameCount - 1;
 
@@ -1418,7 +1808,7 @@ function previewStripFrameIndexFromPointer(
 function previewStripFramePosition(
   frameIndex: number,
   columnCount: number,
-  rowCount: number
+  rowCount: number,
 ) {
   const columnIndex = frameIndex % columnCount;
   const rowIndex = Math.floor(frameIndex / columnCount);
@@ -1427,13 +1817,13 @@ function previewStripFramePosition(
 
   return {
     x: (columnIndex / lastColumnIndex) * percentageMultiplier,
-    y: (rowIndex / lastRowIndex) * percentageMultiplier
+    y: (rowIndex / lastRowIndex) * percentageMultiplier,
   };
 }
 
 function DefinitionTerm({
   children,
-  label
+  label,
 }: {
   children: React.ReactNode;
   label: string;
