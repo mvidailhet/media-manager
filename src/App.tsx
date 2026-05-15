@@ -759,11 +759,12 @@ function PreviewStripQueuePanel({
   if (!previewStripQueueStatus) {
     return null;
   }
+  const queueActivityLabel = previewStripQueueActivityLabel(previewStripQueueStatus);
 
   return (
     <Group gap="xs" align="center">
       <Badge color={previewStripQueueStatus.isPaused ? "yellow" : "teal"}>
-        {previewStripQueueStatus.isPaused ? "Paused" : "Running"}
+        {queueActivityLabel}
       </Badge>
       <Badge variant="light">{previewStripQueueStatus.pendingCount} pending</Badge>
       <Badge variant="light">{previewStripQueueStatus.runningCount} running</Badge>
@@ -791,6 +792,23 @@ function PreviewStripQueuePanel({
       )}
     </Group>
   );
+}
+
+function previewStripQueueActivityLabel(
+  previewStripQueueStatus: PreviewStripQueueStatus
+) {
+  if (previewStripQueueStatus.isPaused) {
+    return "Paused";
+  }
+
+  if (
+    previewStripQueueStatus.runningCount === 0 &&
+    previewStripQueueStatus.pendingCount === 0
+  ) {
+    return "Idle";
+  }
+
+  return "Running";
 }
 
 function CatalogVideoCard({ catalogVideo }: { catalogVideo: CatalogVideo }) {

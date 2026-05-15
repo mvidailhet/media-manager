@@ -3,7 +3,13 @@ use std::{
     fs,
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread,
+    time::Duration,
 };
 
 use rusqlite::{params, Connection, OptionalExtension, Row};
@@ -248,11 +254,15 @@ pub struct Catalog {
 
 pub struct FfmpegPreviewStripGenerator {
     ffmpeg_path: PathBuf,
+    stop_requested: Arc<AtomicBool>,
 }
 
 impl FfmpegPreviewStripGenerator {
-    pub fn new(ffmpeg_path: PathBuf) -> Self {
-        Self { ffmpeg_path }
+    pub fn new(ffmpeg_path: PathBuf, stop_requested: Arc<AtomicBool>) -> Self {
+        Self {
+            ffmpeg_path,
+            stop_requested,
+        }
     }
 }
 
@@ -277,7 +287,7 @@ impl PreviewStripGenerator for FfmpegPreviewStripGenerator {
         );
         let video_id_comment = format!("comment=Video ID {}", request.video_id);
 
-        let output = Command::new(&self.ffmpeg_path)
+        let mut child = Command::new(&self.ffmpeg_path)
             .args(["-y", "-ss", &timeline_inset_seconds.to_string()])
             .args(["-t", &sampled_duration_seconds.to_string()])
             .arg("-i")
@@ -285,7 +295,33 @@ impl PreviewStripGenerator for FfmpegPreviewStripGenerator {
             .args(["-metadata", &video_id_comment])
             .args(["-frames:v", "1", "-vf", &video_filter])
             .arg(&request.output_path)
-            .output()
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .map_err(|error| error.to_string())?;
+
+        loop {
+            if self.stop_requested.load(Ordering::SeqCst) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err(
+                    "Preview Strip generation stopped because the app is quitting".to_string(),
+                );
+            }
+
+            if child
+                .try_wait()
+                .map_err(|error| error.to_string())?
+                .is_some()
+            {
+                break;
+            }
+
+            thread::sleep(Duration::from_millis(100));
+        }
+
+        let output = child
+            .wait_with_output()
             .map_err(|error| error.to_string())?;
 
         if !output.status.success() {
@@ -659,6 +695,16 @@ impl Catalog {
             .collect()
     }
 
+    pub fn next_preview_strip_request(
+        &self,
+        preview_cache_path: &Path,
+    ) -> Result<Option<PreviewStripRequest>, String> {
+        Ok(self
+            .pending_preview_strip_requests(preview_cache_path)?
+            .into_iter()
+            .next())
+    }
+
     pub fn preview_strip_queue_counts(&self) -> Result<PreviewStripQueueCounts, String> {
         self.remove_preview_strip_rows_without_cache_files()?;
 
@@ -668,6 +714,7 @@ impl Catalog {
         })
     }
 
+    #[cfg(test)]
     pub fn generate_next_preview_strip<G: PreviewStripGenerator>(
         &self,
         preview_cache_path: &Path,
