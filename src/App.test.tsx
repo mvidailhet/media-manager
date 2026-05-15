@@ -230,6 +230,18 @@ async function openMetadataSuggestionsView() {
   );
 }
 
+async function openScanIssuesTab() {
+  await openScanModule();
+  fireEvent.click(await screen.findByRole("tab", { name: /Scan Issues/ }));
+}
+
+async function openPreviewGenerationTab() {
+  await openScanModule();
+  fireEvent.click(
+    await screen.findByRole("tab", { name: /Preview Generation/ }),
+  );
+}
+
 describe("Videos View shell", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -2101,6 +2113,164 @@ describe("Videos View shell", () => {
     ).toBeInTheDocument();
   });
 
+  it("routes Scan attention badges to Scan Issues and Preview Generation", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Missing Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/missing-trip.mp4",
+        isAvailable: false,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Generated Trip",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 4096,
+        fileLocationPath: "/Volumes/Archive/Videos/generated-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: {
+          status: "generated",
+          path: "/Users/michel/Library/Caches/preview-strips/video-2.jpg",
+          frameCount: 40,
+          columnCount: 5,
+          rowCount: 8,
+        },
+      },
+      {
+        id: 3,
+        title: "Generating Trip",
+        durationMilliseconds: 1200000,
+        fileSizeBytes: 2048,
+        fileLocationPath: "/Volumes/Archive/Videos/generating-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 1,
+      runningVideoId: 3,
+      failedCount: 1,
+      isPaused: false,
+    });
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: false,
+        path: "/Volumes/Archive/Videos",
+      },
+    ]);
+    mockedListUnprocessableVideoCandidates.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos/broken.mov",
+        reason: "ffprobe failed",
+        fileSizeBytes: 1234,
+      },
+    ]);
+    mockedListFailedPreviewStrips.mockResolvedValue([
+      {
+        videoId: 7,
+        title: "Broken Preview",
+        failureReason: "ffmpeg failed",
+      },
+    ]);
+
+    renderApp();
+    await openScanModule();
+
+    expect(
+      await screen.findByRole("tab", { name: "Scan Roots" }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Scan")).toBeInTheDocument();
+    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Scan Issues 3" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Preview Generation 1" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Scan Issues 3" }));
+
+    const scanIssues = await screen.findByRole("tabpanel", {
+      name: "Scan Issues 3",
+    });
+    expect(within(scanIssues).getByText("Missing Trip")).toBeInTheDocument();
+    expect(
+      within(scanIssues).getByText("/Volumes/Archive/Videos"),
+    ).toBeInTheDocument();
+    expect(
+      within(scanIssues).getByText("/Volumes/Archive/Videos/broken.mov"),
+    ).toBeInTheDocument();
+    expect(
+      within(scanIssues).queryByText("Broken Preview"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Preview Generation 1" }));
+
+    const previewGeneration = await screen.findByRole("tabpanel", {
+      name: "Preview Generation 1",
+    });
+    expect(
+      within(previewGeneration).getByText("Broken Preview"),
+    ).toBeInTheDocument();
+    expect(within(previewGeneration).getByText("1 generated")).toBeInTheDocument();
+    expect(
+      within(previewGeneration).getByText(
+        "Generating Preview Strip: Generating Trip",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(previewGeneration).getByText("1 generated"),
+    ).toBeInTheDocument();
+    expect(
+      within(previewGeneration).getByText(
+        "Generating Preview Strip: Generating Trip",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(previewGeneration).getByRole("button", {
+        name: "Retry Failed Preview Strip for Broken Preview",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Settings attention when the bridge or FFmpeg tools need attention", async () => {
+    mockedGetLocalDesktopAppStatus.mockRejectedValue(
+      new Error("bridge unavailable"),
+    );
+    mockedGetFfmpegToolsStatus.mockResolvedValue({
+      ...availableFfmpegToolsStatus,
+      ffprobe: {
+        binaryName: "ffprobe",
+        isAvailable: false,
+        resolvedPath: null,
+        statusMessage: "ffprobe is not available from PATH or settings",
+      },
+    });
+
+    renderApp();
+
+    expect(
+      await screen.findByRole("button", { name: "Settings 2" }),
+    ).toBeInTheDocument();
+  });
+
   it("shows Scan Root Inference Rules with their safe defaults", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
@@ -2392,8 +2562,7 @@ describe("Videos View shell", () => {
     ]);
 
     renderApp();
-
-    await openScanModule();
+    await openScanIssuesTab();
 
     await waitFor(() => {
       expect(mockedListMetadataSuggestionGroups).toHaveBeenCalled();
@@ -2467,7 +2636,6 @@ describe("Videos View shell", () => {
     );
 
     renderApp();
-
     await openMetadataSuggestionsView();
 
     let metadataSuggestions = await screen.findByRole("region", {
@@ -2555,7 +2723,6 @@ describe("Videos View shell", () => {
       ]);
 
     renderApp();
-
     await openMetadataSuggestionsView();
 
     const metadataSuggestions = await screen.findByRole("region", {
@@ -2608,7 +2775,6 @@ describe("Videos View shell", () => {
     mockedListPerformers.mockResolvedValue([{ id: 12, name: "The Family" }]);
 
     renderApp();
-
     await openMetadataSuggestionsView();
 
     const metadataSuggestions = await screen.findByRole("region", {
@@ -2673,7 +2839,6 @@ describe("Videos View shell", () => {
       .mockResolvedValueOnce([]);
 
     renderApp();
-
     await openMetadataSuggestionsView();
 
     const metadataSuggestions = await screen.findByRole("region", {
@@ -2729,7 +2894,6 @@ describe("Videos View shell", () => {
       .mockResolvedValueOnce([]);
 
     renderApp();
-
     await openMetadataSuggestionsView();
 
     const metadataSuggestions = await screen.findByRole("region", {
@@ -2752,7 +2916,7 @@ describe("Videos View shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("lists Failed Preview Strips in the Review Queue with retry and ignore actions", async () => {
+  it("lists Failed Preview Strips in Preview Generation with retry and ignore actions", async () => {
     mockedListFailedPreviewStrips
       .mockResolvedValueOnce([
         {
@@ -2771,22 +2935,25 @@ describe("Videos View shell", () => {
       .mockResolvedValueOnce([]);
 
     renderApp();
+    await openPreviewGenerationTab();
 
-    await openScanModule();
-
-    const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue",
+    const previewGeneration = await screen.findByRole("region", {
+      name: "Preview Generation",
     });
     expect(
-      within(reviewQueue).getByRole("heading", {
+      within(previewGeneration).getByRole("heading", {
         name: "Failed Preview Strips",
       }),
     ).toBeInTheDocument();
-    expect(within(reviewQueue).getByText("Broken Trip")).toBeInTheDocument();
-    expect(within(reviewQueue).getByText("ffmpeg failed")).toBeInTheDocument();
+    expect(
+      within(previewGeneration).getByText("Broken Trip"),
+    ).toBeInTheDocument();
+    expect(
+      within(previewGeneration).getByText("ffmpeg failed"),
+    ).toBeInTheDocument();
 
     fireEvent.click(
-      within(reviewQueue).getByRole("button", {
+      within(previewGeneration).getByRole("button", {
         name: "Retry Failed Preview Strip for Broken Trip",
       }),
     );
@@ -2796,7 +2963,7 @@ describe("Videos View shell", () => {
     expect(mockedGetPreviewStripQueueStatus).toHaveBeenCalled();
 
     fireEvent.click(
-      within(reviewQueue).getByRole("button", {
+      within(previewGeneration).getByRole("button", {
         name: "Ignore Failed Preview Strip for Broken Trip",
       }),
     );
@@ -2804,7 +2971,7 @@ describe("Videos View shell", () => {
       expect(mockedIgnoreFailedPreviewStrip).toHaveBeenCalledWith(7);
     });
     expect(
-      within(reviewQueue).queryByText("Broken Trip"),
+      within(previewGeneration).queryByText("Broken Trip"),
     ).not.toBeInTheDocument();
   });
 
@@ -2840,14 +3007,13 @@ describe("Videos View shell", () => {
     ]);
 
     renderApp();
+    await openPreviewGenerationTab();
 
-    await openScanModule();
-
-    const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue",
+    const previewGeneration = await screen.findByRole("region", {
+      name: "Preview Generation",
     });
     expect(
-      await within(reviewQueue).findByText("Broken Trip"),
+      await within(previewGeneration).findByText("Broken Trip"),
     ).toBeInTheDocument();
   });
 
@@ -2871,8 +3037,7 @@ describe("Videos View shell", () => {
       .mockResolvedValueOnce([]);
 
     renderApp();
-
-    await openScanModule();
+    await openScanIssuesTab();
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Forget From Catalog" }),
@@ -2890,6 +3055,8 @@ describe("Videos View shell", () => {
     await waitFor(() => {
       expect(mockedForgetCatalogVideo).toHaveBeenCalledWith(1);
     });
-    expect(screen.queryByText("Family Trip")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Forget Missing Video" }),
+    ).not.toBeInTheDocument();
   });
 });
