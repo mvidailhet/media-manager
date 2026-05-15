@@ -21,6 +21,11 @@ export type CatalogVideoSort =
   | "lastOpenedDescending"
   | "openCountDescending";
 export type CatalogVideoWorkspace = "videos" | "favorites" | "recentlyOpened";
+export type CatalogView =
+  | "allVideos"
+  | "favorites"
+  | "recentlyOpened"
+  | "metadataSuggestions";
 
 export const defaultCatalogVideoFilters: CatalogVideoFilters = {
   searchText: "",

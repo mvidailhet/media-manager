@@ -15,12 +15,14 @@ export function MetadataSuggestionsPanel({
   metadataSuggestionGroups,
   onAcceptMetadataSuggestionVideos,
   onRejectMetadataSuggestionSource,
+  onReviewVideo,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
   onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
+  onReviewVideo?: (videoId: number) => void;
 }) {
   return (
     <Stack
@@ -63,6 +65,7 @@ export function MetadataSuggestionsPanel({
                     onRejectMetadataSuggestionSource={
                       onRejectMetadataSuggestionSource
                     }
+                    onReviewVideo={onReviewVideo}
                   />
                 ))}
               </Stack>
@@ -81,6 +84,7 @@ export function MetadataSuggestionSource({
   availableTags,
   onAcceptMetadataSuggestionVideos,
   onRejectMetadataSuggestionSource,
+  onReviewVideo,
   sourceGroup,
   suggestionKind,
   suggestedValue,
@@ -89,6 +93,7 @@ export function MetadataSuggestionSource({
   availableTags: CatalogTag[];
   onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
   onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
+  onReviewVideo?: (videoId: number) => void;
   sourceGroup: MetadataSuggestionGroup["sources"][number];
   suggestionKind: string;
   suggestedValue: string;
@@ -168,20 +173,31 @@ export function MetadataSuggestionSource({
       ) : null}
       <Stack gap={4}>
         {sourceGroup.videos.map((video) => (
-          <Checkbox
-            checked={selectedVideoIdSet.has(video.videoId)}
-            key={video.videoId}
-            label={
-              <Box>
-                <Text>{video.title}</Text>
-                <Code className="wrapping-code">{video.fileLocationPath}</Code>
-              </Box>
-            }
-            onChange={(event) =>
-              toggleVideo(video.videoId, event.currentTarget.checked)
-            }
-            aria-label={`Include ${video.title}`}
-          />
+          <Group key={video.videoId} align="start" gap="xs">
+            <Checkbox
+              checked={selectedVideoIdSet.has(video.videoId)}
+              label={
+                <Box>
+                  <Text>{video.title}</Text>
+                  <Code className="wrapping-code">{video.fileLocationPath}</Code>
+                </Box>
+              }
+              onChange={(event) =>
+                toggleVideo(video.videoId, event.currentTarget.checked)
+              }
+              aria-label={`Include ${video.title}`}
+            />
+            {onReviewVideo ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="subtle"
+                onClick={() => onReviewVideo(video.videoId)}
+              >
+                Review {video.title}
+              </Button>
+            ) : null}
+          </Group>
         ))}
       </Stack>
       <Group gap="xs" mt="xs">

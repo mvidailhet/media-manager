@@ -29,7 +29,6 @@ export function CatalogVideosPanel({
   catalogVideosStatusMessage,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
-  onCatalogVideoWorkspaceChange,
   onPausePreviewQueue,
   onResumePreviewQueue,
   onOpenVideo,
@@ -50,7 +49,6 @@ export function CatalogVideosPanel({
   catalogVideosStatusMessage: string;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
-  onCatalogVideoWorkspaceChange: (workspace: CatalogVideoWorkspace) => void;
   onPausePreviewQueue: () => void;
   onResumePreviewQueue: () => void;
   onOpenVideo: (catalogVideo: CatalogVideo) => void;
@@ -73,37 +71,6 @@ export function CatalogVideosPanel({
       <Stack gap="md">
         <Group justify="space-between" align="start">
           <SectionHeader label="Catalog results" title={panelTitle} />
-          <Group gap="xs">
-            <Button
-              type="button"
-              variant={
-                catalogVideoWorkspace === "videos" ? "filled" : "default"
-              }
-              onClick={() => onCatalogVideoWorkspaceChange("videos")}
-            >
-              Videos View
-            </Button>
-            <Button
-              type="button"
-              variant={
-                catalogVideoWorkspace === "favorites" ? "filled" : "default"
-              }
-              onClick={() => onCatalogVideoWorkspaceChange("favorites")}
-            >
-              Favorites View
-            </Button>
-            <Button
-              type="button"
-              variant={
-                catalogVideoWorkspace === "recentlyOpened"
-                  ? "filled"
-                  : "default"
-              }
-              onClick={() => onCatalogVideoWorkspaceChange("recentlyOpened")}
-            >
-              Recently Opened View
-            </Button>
-          </Group>
         </Group>
 
         <PreviewStripQueuePanel
