@@ -22,6 +22,7 @@ const detachPerformerFromVideoCommand = "detach_performer_from_video";
 const performersForVideoCommand = "performers_for_video";
 const updateVideoTitleCommand = "update_video_title";
 const setVideoFavoriteCommand = "set_video_favorite";
+const openCatalogVideoCommand = "open_catalog_video";
 const refreshScanRootCommand = "refresh_scan_root";
 const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
@@ -46,6 +47,8 @@ export interface CatalogVideo {
   fileLocations: CatalogVideoFileLocation[];
   isAvailable: boolean;
   isFavorite: boolean;
+  lastOpenedAt: string | null;
+  openCount: number;
   previewStrip: PreviewStripStatus;
 }
 
@@ -263,6 +266,10 @@ export async function setVideoFavorite(
   isFavorite: boolean,
 ): Promise<void> {
   return invoke<void>(setVideoFavoriteCommand, { videoId, isFavorite });
+}
+
+export async function openCatalogVideo(videoId: number): Promise<void> {
+  return invoke<void>(openCatalogVideoCommand, { videoId });
 }
 
 export async function refreshScanRoot(

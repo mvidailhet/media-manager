@@ -42,6 +42,7 @@ import {
   listScanRoots,
   listTags,
   listUnprocessableVideoCandidates,
+  openCatalogVideo,
   createPerformer,
   createTag,
   performersForVideo,
@@ -102,8 +103,13 @@ interface CatalogVideoFilters {
   maximumDurationMinutes: number | "";
 }
 
-type CatalogVideoSort = "titleAscending" | "fileSizeAscending" | "fileSizeDescending";
-type CatalogVideoWorkspace = "videos" | "favorites";
+type CatalogVideoSort =
+  | "titleAscending"
+  | "fileSizeAscending"
+  | "fileSizeDescending"
+  | "lastOpenedDescending"
+  | "openCountDescending";
+type CatalogVideoWorkspace = "videos" | "favorites" | "recentlyOpened";
 
 const defaultCatalogVideoFilters: CatalogVideoFilters = {
   searchText: "",
@@ -312,7 +318,10 @@ export default function App() {
   }, [previewStripQueueStatus]);
 
   useEffect(() => {
-    if (!previewStripQueueStatus || previewStripQueueStatus.runningCount === 0) {
+    if (
+      !previewStripQueueStatus ||
+      previewStripQueueStatus.runningCount === 0
+    ) {
       return;
     }
 
@@ -779,6 +788,16 @@ export default function App() {
     }
   }
 
+  async function openVideoFromCatalog(video: CatalogVideo) {
+    try {
+      await openCatalogVideo(video.id);
+      await loadCatalogVideos();
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
   async function attachTagToSelectedVideo(tag: CatalogTag) {
     if (!selectedVideo) {
       return;
@@ -1012,15 +1031,20 @@ export default function App() {
     catalogVideoWorkspace === "favorites"
       ? { ...catalogVideoFilters, favoritesOnly: true }
       : catalogVideoFilters;
+  const workspaceCatalogVideoSort =
+    catalogVideoWorkspace === "recentlyOpened"
+      ? "lastOpenedDescending"
+      : catalogVideoSort;
   const filteredCatalogVideos = sortedCatalogVideos(
-    catalogVideos.filter((catalogVideo) =>
-      catalogVideoMatchesFilters(
-        catalogVideo,
-        catalogVideoMetadataById[catalogVideo.id],
-        activeCatalogVideoFilters,
-      ),
+    workspaceCatalogVideos(catalogVideos, catalogVideoWorkspace).filter(
+      (catalogVideo) =>
+        catalogVideoMatchesFilters(
+          catalogVideo,
+          catalogVideoMetadataById[catalogVideo.id],
+          activeCatalogVideoFilters,
+        ),
     ),
-    catalogVideoSort,
+    workspaceCatalogVideoSort,
   );
   const unavailableScanRoots = scanRoots.filter(
     (scanRoot) => !scanRoot.isAvailable,
@@ -1036,7 +1060,7 @@ export default function App() {
         catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
         catalogVideoFilters={activeCatalogVideoFilters}
         catalogVideoWorkspace={catalogVideoWorkspace}
-        catalogVideoSort={catalogVideoSort}
+        catalogVideoSort={workspaceCatalogVideoSort}
         catalogVideos={filteredCatalogVideos}
         catalogVideosStatusMessage={catalogVideosStatusMessage}
         onCatalogVideoFiltersChange={setCatalogVideoFilters}
@@ -1044,6 +1068,7 @@ export default function App() {
         onCatalogVideoWorkspaceChange={setCatalogVideoWorkspace}
         onPausePreviewQueue={pausePreviewQueue}
         onResumePreviewQueue={resumePreviewQueue}
+        onOpenVideo={openVideoFromCatalog}
         onSelectVideo={selectVideoForDetail}
         onSetFavorite={setCatalogVideoFavorite}
         previewStripQueueStatus={previewStripQueueStatus}
@@ -1194,7 +1219,11 @@ function WorkspaceHeader({
   catalogVideoWorkspace: CatalogVideoWorkspace;
 }) {
   const workspaceTitle =
-    catalogVideoWorkspace === "favorites" ? "Favorites View" : "Videos View";
+    catalogVideoWorkspace === "favorites"
+      ? "Favorites View"
+      : catalogVideoWorkspace === "recentlyOpened"
+        ? "Recently Opened View"
+        : "Videos View";
 
   return (
     <Box component="section" maw={720} aria-labelledby="videos-view-title">
@@ -1250,6 +1279,7 @@ function CatalogVideosPanel({
   onCatalogVideoWorkspaceChange,
   onPausePreviewQueue,
   onResumePreviewQueue,
+  onOpenVideo,
   onSelectVideo,
   onSetFavorite,
   previewStripQueueStatus,
@@ -1268,13 +1298,18 @@ function CatalogVideosPanel({
   onCatalogVideoWorkspaceChange: (workspace: CatalogVideoWorkspace) => void;
   onPausePreviewQueue: () => void;
   onResumePreviewQueue: () => void;
+  onOpenVideo: (catalogVideo: CatalogVideo) => void;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
   previewStripStatusMessage: string;
 }) {
   const panelTitle =
-    catalogVideoWorkspace === "favorites" ? "Favorite Videos" : "Videos";
+    catalogVideoWorkspace === "favorites"
+      ? "Favorite Videos"
+      : catalogVideoWorkspace === "recentlyOpened"
+        ? "Recently Opened Videos"
+        : "Videos";
 
   return (
     <Paper component="section" aria-label="Catalog Videos" p="md" maw={760}>
@@ -1300,6 +1335,17 @@ function CatalogVideosPanel({
             >
               Favorites View
             </Button>
+            <Button
+              type="button"
+              variant={
+                catalogVideoWorkspace === "recentlyOpened"
+                  ? "filled"
+                  : "default"
+              }
+              onClick={() => onCatalogVideoWorkspaceChange("recentlyOpened")}
+            >
+              Recently Opened View
+            </Button>
           </Group>
         </Group>
 
@@ -1320,13 +1366,18 @@ function CatalogVideosPanel({
         <NativeSelect
           label="Sort Videos"
           value={catalogVideoSort}
+          disabled={catalogVideoWorkspace === "recentlyOpened"}
           data={[
             { value: "titleAscending", label: "Title" },
             { value: "fileSizeAscending", label: "File Size ascending" },
             { value: "fileSizeDescending", label: "File Size descending" },
+            { value: "lastOpenedDescending", label: "Last Opened" },
+            { value: "openCountDescending", label: "Open Count" },
           ]}
           onChange={(event) =>
-            onCatalogVideoSortChange(event.currentTarget.value as CatalogVideoSort)
+            onCatalogVideoSortChange(
+              event.currentTarget.value as CatalogVideoSort,
+            )
           }
         />
 
@@ -1351,6 +1402,7 @@ function CatalogVideosPanel({
                 catalogVideo={catalogVideo}
                 key={catalogVideo.id}
                 onSelectVideo={onSelectVideo}
+                onOpenVideo={onOpenVideo}
                 onSetFavorite={onSetFavorite}
                 runningPreviewStripVideoId={
                   previewStripQueueStatus?.runningVideoId ?? null
@@ -1533,15 +1585,18 @@ function previewStripQueueActivityLabel(
 function CatalogVideoCard({
   catalogVideo,
   onSelectVideo,
+  onOpenVideo,
   onSetFavorite,
   runningPreviewStripVideoId,
 }: {
   catalogVideo: CatalogVideo;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
+  onOpenVideo: (catalogVideo: CatalogVideo) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   runningPreviewStripVideoId: number | null;
 }) {
-  const isGeneratingPreviewStrip = catalogVideo.id === runningPreviewStripVideoId;
+  const isGeneratingPreviewStrip =
+    catalogVideo.id === runningPreviewStripVideoId;
   const favoriteButtonLabel = catalogVideo.isFavorite
     ? `Unmark ${catalogVideo.title} as Favorite`
     : `Mark ${catalogVideo.title} as Favorite`;
@@ -1562,6 +1617,15 @@ function CatalogVideoCard({
             onClick={() => void onSelectVideo(catalogVideo)}
           >
             {catalogVideo.title}
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="default"
+            disabled={!catalogVideo.isAvailable}
+            onClick={() => void onOpenVideo(catalogVideo)}
+          >
+            {`Open ${catalogVideo.title}`}
           </Button>
           {catalogVideo.isFavorite ? (
             <Badge color="yellow">Favorite</Badge>
@@ -1594,6 +1658,9 @@ function CatalogVideoCard({
         </DefinitionTerm>
         <DefinitionTerm label="File Size">
           {formatFileSize(catalogVideo.fileSizeBytes)}
+        </DefinitionTerm>
+        <DefinitionTerm label="Open History">
+          {formatOpenHistory(catalogVideo)}
         </DefinitionTerm>
       </Box>
     </Stack>
@@ -1831,8 +1898,8 @@ function MetadataChecklist<T extends { id: number; name: string }>({
   const actionLabel = isAlreadyAttached
     ? `${singularMetadataLabel(label)} already attached`
     : exactAttachableMatch
-    ? `Attach existing ${singularMetadataLabel(label)}`
-    : `Create and attach ${singularMetadataLabel(label)}`;
+      ? `Attach existing ${singularMetadataLabel(label)}`
+      : `Create and attach ${singularMetadataLabel(label)}`;
 
   return (
     <Stack component="section" gap="xs" aria-label={label}>
@@ -1891,13 +1958,21 @@ function appendUniqueMetadata<T extends { id: number }>(items: T[], item: T) {
   return [...items, item];
 }
 
-function findMetadataByName<T extends { name: string }>(items: T[], name: string) {
+function findMetadataByName<T extends { name: string }>(
+  items: T[],
+  name: string,
+) {
   const normalizedName = normalizedMetadataName(name);
 
-  return items.find((item) => normalizedMetadataName(item.name) === normalizedName);
+  return items.find(
+    (item) => normalizedMetadataName(item.name) === normalizedName,
+  );
 }
 
-function findNearMetadataMatch<T extends { name: string }>(items: T[], name: string) {
+function findNearMetadataMatch<T extends { name: string }>(
+  items: T[],
+  name: string,
+) {
   const normalizedName = normalizedMetadataName(name);
 
   if (normalizedName.length === 0) {
@@ -2503,7 +2578,9 @@ function catalogVideoMatchesDurationFilter(
   filters: CatalogVideoFilters,
 ) {
   const durationMinutes =
-    catalogVideo.durationMilliseconds / millisecondsPerSecond / secondsPerMinute;
+    catalogVideo.durationMilliseconds /
+    millisecondsPerSecond /
+    secondsPerMinute;
   const minimumMinutes = filters.minimumDurationMinutes;
   const maximumMinutes = filters.maximumDurationMinutes;
 
@@ -2553,9 +2630,16 @@ function sortedCatalogVideos(
   catalogVideoSort: CatalogVideoSort,
 ) {
   return [...catalogVideos].sort((firstVideo, secondVideo) => {
-    const fileSizeNullSortResult = fileSizeNullSortOrder(firstVideo, secondVideo);
+    const fileSizeNullSortResult = fileSizeNullSortOrder(
+      firstVideo,
+      secondVideo,
+    );
 
-    if (fileSizeNullSortResult !== 0 && catalogVideoSort !== "titleAscending") {
+    if (
+      fileSizeNullSortResult !== 0 &&
+      (catalogVideoSort === "fileSizeAscending" ||
+        catalogVideoSort === "fileSizeDescending")
+    ) {
       return fileSizeNullSortResult;
     }
 
@@ -2567,8 +2651,70 @@ function sortedCatalogVideos(
       return secondVideo.fileSizeBytes! - firstVideo.fileSizeBytes!;
     }
 
+    if (catalogVideoSort === "lastOpenedDescending") {
+      return compareNullableTextDescending(
+        firstVideo.lastOpenedAt,
+        secondVideo.lastOpenedAt,
+      );
+    }
+
+    if (catalogVideoSort === "openCountDescending") {
+      return (
+        secondVideo.openCount - firstVideo.openCount ||
+        compareNullableTextDescending(
+          firstVideo.lastOpenedAt,
+          secondVideo.lastOpenedAt,
+        )
+      );
+    }
+
     return firstVideo.title.localeCompare(secondVideo.title);
   });
+}
+
+function workspaceCatalogVideos(
+  catalogVideos: CatalogVideo[],
+  catalogVideoWorkspace: CatalogVideoWorkspace,
+) {
+  if (catalogVideoWorkspace === "recentlyOpened") {
+    return catalogVideos.filter((catalogVideo) => catalogVideo.openCount > 0);
+  }
+
+  return catalogVideos;
+}
+
+function compareNullableTextDescending(
+  firstValue: string | null,
+  secondValue: string | null,
+) {
+  if (firstValue === null && secondValue === null) {
+    return 0;
+  }
+
+  if (firstValue === null) {
+    return 1;
+  }
+
+  if (secondValue === null) {
+    return -1;
+  }
+
+  return secondValue.localeCompare(firstValue);
+}
+
+function formatOpenHistory(catalogVideo: CatalogVideo) {
+  if (catalogVideo.openCount === 0) {
+    return "Never opened";
+  }
+
+  const openCountLabel =
+    catalogVideo.openCount === 1
+      ? "Opened 1 time"
+      : `Opened ${catalogVideo.openCount} times`;
+
+  return catalogVideo.lastOpenedAt
+    ? `${openCountLabel}, last opened ${catalogVideo.lastOpenedAt}`
+    : openCountLabel;
 }
 
 function fileSizeNullSortOrder(

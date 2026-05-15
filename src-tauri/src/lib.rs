@@ -5,6 +5,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
+    process::Command,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -536,6 +537,76 @@ fn set_video_favorite(
 }
 
 #[tauri::command]
+fn open_catalog_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+    let file_location_path = catalog.preferred_file_location_path(video_id)?;
+
+    open_file_location(&file_location_path)?;
+    catalog.record_video_opened(video_id)
+}
+
+fn open_file_location(file_location_path: &Path) -> Result<(), String> {
+    let open_command = file_location_open_command(file_location_path);
+    let output = Command::new(&open_command.program)
+        .args(&open_command.arguments)
+        .output()
+        .map_err(|error| error.to_string())?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(if stderr.is_empty() {
+        "Could not open Video".to_string()
+    } else {
+        stderr
+    })
+}
+
+struct FileLocationOpenCommand {
+    program: String,
+    arguments: Vec<String>,
+}
+
+fn file_location_open_command(file_location_path: &Path) -> FileLocationOpenCommand {
+    file_location_open_command_for_platform(file_location_path, std::env::consts::OS)
+}
+
+fn file_location_open_command_for_platform(
+    file_location_path: &Path,
+    operating_system: &str,
+) -> FileLocationOpenCommand {
+    let file_location_path_text = file_location_path.to_string_lossy().into_owned();
+
+    match operating_system {
+        "macos" => FileLocationOpenCommand {
+            program: "open".to_string(),
+            arguments: vec![file_location_path_text],
+        },
+        "windows" => FileLocationOpenCommand {
+            program: "cmd".to_string(),
+            arguments: vec![
+                "/C".to_string(),
+                "start".to_string(),
+                "".to_string(),
+                file_location_path_text,
+            ],
+        },
+        _ => FileLocationOpenCommand {
+            program: "xdg-open".to_string(),
+            arguments: vec![file_location_path_text],
+        },
+    }
+}
+
+#[tauri::command]
 fn get_ffmpeg_tools_status(app: tauri::AppHandle) -> Result<FfmpegToolsStatus, String> {
     let settings_path = ffmpeg_settings_path(&app)?;
     let configuration = load_ffmpeg_configuration(&settings_path)?;
@@ -1009,6 +1080,7 @@ pub fn run() {
             performers_for_video,
             update_video_title,
             set_video_favorite,
+            open_catalog_video,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             refresh_scan_root,
@@ -1033,7 +1105,8 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     use super::{
-        discover_ffmpeg_tools_status, executable_binary_names, load_ffmpeg_configuration,
+        discover_ffmpeg_tools_status, executable_binary_names,
+        file_location_open_command_for_platform, load_ffmpeg_configuration,
         local_desktop_app_status, save_ffmpeg_configuration_to_path, FfmpegConfiguration,
         CATALOG_DATABASE_FILENAME, PREVIEW_STRIP_CACHE_FOLDER_NAME,
     };
@@ -1100,6 +1173,31 @@ mod tests {
 
         assert!(binary_names.contains(&"ffmpeg".to_string()));
         assert!(binary_names.contains(&"ffmpeg.exe".to_string()));
+    }
+
+    #[test]
+    fn file_location_open_command_uses_the_platform_launcher() {
+        let video_path = std::path::Path::new("/Volumes/Archive/Videos/family trip.mp4");
+
+        let macos_command = file_location_open_command_for_platform(video_path, "macos");
+        let linux_command = file_location_open_command_for_platform(video_path, "linux");
+        let windows_command = file_location_open_command_for_platform(video_path, "windows");
+
+        assert_eq!(macos_command.program, "open");
+        assert_eq!(
+            macos_command.arguments,
+            vec!["/Volumes/Archive/Videos/family trip.mp4"]
+        );
+        assert_eq!(linux_command.program, "xdg-open");
+        assert_eq!(
+            linux_command.arguments,
+            vec!["/Volumes/Archive/Videos/family trip.mp4"]
+        );
+        assert_eq!(windows_command.program, "cmd");
+        assert_eq!(
+            windows_command.arguments,
+            vec!["/C", "start", "", "/Volumes/Archive/Videos/family trip.mp4"]
+        );
     }
 
     #[test]

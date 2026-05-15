@@ -31,6 +31,7 @@ import {
   resumePreviewStripQueue,
   saveFfmpegConfiguration,
   setVideoFavorite,
+  openCatalogVideo,
   updatePerformer,
   tagsForVideo,
   updateVideoTitle,
@@ -86,6 +87,14 @@ describe("Tauri commands", () => {
       },
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_catalog_videos");
+  });
+
+  it("calls the typed Rust command for opening a Catalog Video", async () => {
+    await openCatalogVideo(7);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("open_catalog_video", {
+      videoId: 7,
+    });
   });
 
   it("calls the typed Rust command for persisted Scan Roots", async () => {
