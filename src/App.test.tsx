@@ -1053,9 +1053,9 @@ describe("Videos View shell", () => {
         previewStrip: {
           status: "generated",
           path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
-          frameCount: 20,
+          frameCount: 40,
           columnCount: 5,
-          rowCount: 4,
+          rowCount: 8,
         },
       },
     ]);
@@ -1103,7 +1103,7 @@ describe("Videos View shell", () => {
     );
 
     expect(previewStrip).toHaveStyle({
-      backgroundPosition: "0% 66.66666666666666%",
+      backgroundPosition: "0% 57.14285714285714%",
     });
   });
 

@@ -152,7 +152,7 @@ const CREATE_PERFORMER_VIDEOS_VIDEO_INDEX: &str = "
     ON performer_videos (video_id);
 ";
 
-const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 20;
+const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 40;
 const PREVIEW_STRIP_COLUMNS: i64 = 5;
 const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 640;
 pub const PREVIEW_STRIP_GENERATION_CANCELLED_REASON: &str =
@@ -2314,9 +2314,9 @@ mod tests {
                 (
                     1_i64,
                     "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
-                    20_i64,
+                    40_i64,
                     5_i64,
-                    4_i64,
+                    8_i64,
                 ),
             )
             .expect("preview strip persists");
@@ -2351,9 +2351,9 @@ mod tests {
                         path:
                             "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg"
                                 .to_string(),
-                        frame_count: 20,
+                        frame_count: 40,
                         column_count: 5,
-                        row_count: 4,
+                        row_count: 8,
                     },
                     title: "Generated Trip".to_string(),
                     duration_milliseconds: 1_000,
@@ -2642,9 +2642,10 @@ mod tests {
         let stored_preview_strips = stored_preview_strips(&catalog_path);
         assert_eq!(stored_preview_strips.len(), 1);
         assert_eq!(stored_preview_strips[0].video_id, 1);
-        assert_eq!(stored_preview_strips[0].frame_count, 20);
+        assert_eq!(stored_preview_strips[0].frame_count, 40);
         assert_eq!(stored_preview_strips[0].column_count, 5);
-        assert_eq!(stored_preview_strips[0].row_count, 4);
+        assert_eq!(stored_preview_strips[0].row_count, 8);
+        assert!(stored_preview_strips[0].path.ends_with(".jpg"));
         assert!(Path::new(&stored_preview_strips[0].path).exists());
     }
 
@@ -4252,7 +4253,7 @@ mod tests {
             &self,
             request: &super::PreviewStripRequest,
         ) -> Result<super::GeneratedPreviewStrip, String> {
-            assert_eq!(request.frame_count, 20);
+            assert_eq!(request.frame_count, 40);
             assert_eq!(request.duration_milliseconds, 21_000);
             if self.failed_video_id == Some(request.video_id) {
                 return Err(self.failure_reason.clone());
@@ -4267,7 +4268,7 @@ mod tests {
                 path: request.output_path.clone(),
                 frame_count: request.frame_count,
                 column_count: 5,
-                row_count: 4,
+                row_count: 8,
             })
         }
     }

@@ -236,7 +236,7 @@ _Avoid_: Metadata suggestion
 - A **Performer** can appear in many **Videos**.
 - A **Video** can have one **Preview Strip**.
 - A **Preview Strip** belongs to a **Video**, not to a specific **File Location**.
-- A **Preview Strip** defaults to 20 evenly sampled frames across the **Video**.
+- A **Preview Strip** defaults to 40 evenly sampled frames across the **Video**.
 - A **Preview Strip** frame is generated at 640 pixels wide for clearer display on high-density screens.
 - A **Preview Strip** samples from inside the **Video** timeline rather than exact first and last frames.
 - Hovering a **Video** preview scrubs across **Preview Strip** frames by horizontal pointer position.
@@ -462,7 +462,7 @@ _Avoid_: Metadata suggestion
 > **Domain expert:** "No. One **Preview Strip** belongs to the **Video**."
 >
 > **Dev:** "How much of a **Video** should the **Preview Strip** show?"
-> **Domain expert:** "By default it uses 20 evenly sampled frames across the **Video**."
+> **Domain expert:** "By default it uses 40 evenly sampled frames across the **Video**."
 >
 > **Dev:** "Should preview sampling include the exact first and last frames?"
 > **Domain expert:** "No. Sampling should avoid the edges where black frames or fades are common."
