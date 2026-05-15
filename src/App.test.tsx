@@ -12,6 +12,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "./App";
 import { AppProviders } from "./AppProviders";
 import {
+  acceptMetadataSuggestionForVideos,
   addScanRoot,
   attachPerformerToVideo,
   attachTagToVideo,
@@ -38,6 +39,7 @@ import {
   resumePreviewStripQueue,
   refreshAllScanRoots,
   refreshScanRoot,
+  rejectMetadataSuggestionSource,
   retryFailedPreviewStrip,
   saveFfmpegConfiguration,
   setVideoFavorite,
@@ -56,6 +58,7 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 vi.mock("./tauriCommands", () => ({
+  acceptMetadataSuggestionForVideos: vi.fn(),
   addScanRoot: vi.fn(),
   attachPerformerToVideo: vi.fn(),
   attachTagToVideo: vi.fn(),
@@ -82,6 +85,7 @@ vi.mock("./tauriCommands", () => ({
   resumePreviewStripQueue: vi.fn(),
   refreshAllScanRoots: vi.fn(),
   refreshScanRoot: vi.fn(),
+  rejectMetadataSuggestionSource: vi.fn(),
   retryFailedPreviewStrip: vi.fn(),
   saveFfmpegConfiguration: vi.fn(),
   setVideoFavorite: vi.fn(),
@@ -99,6 +103,12 @@ const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
 const mockedListFailedPreviewStrips = vi.mocked(listFailedPreviewStrips);
 const mockedListMetadataSuggestionGroups = vi.mocked(
   listMetadataSuggestionGroups,
+);
+const mockedAcceptMetadataSuggestionForVideos = vi.mocked(
+  acceptMetadataSuggestionForVideos,
+);
+const mockedRejectMetadataSuggestionSource = vi.mocked(
+  rejectMetadataSuggestionSource,
 );
 const mockedListTags = vi.mocked(listTags);
 const mockedListPerformers = vi.mocked(listPerformers);
@@ -214,6 +224,8 @@ describe("Videos View shell", () => {
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
     mockedListFailedPreviewStrips.mockResolvedValue([]);
     mockedListMetadataSuggestionGroups.mockResolvedValue([]);
+    mockedAcceptMetadataSuggestionForVideos.mockResolvedValue(undefined);
+    mockedRejectMetadataSuggestionSource.mockResolvedValue(undefined);
     mockedListTags.mockResolvedValue([]);
     mockedListPerformers.mockResolvedValue([]);
     mockedTagsForVideo.mockResolvedValue([]);
@@ -2289,6 +2301,132 @@ describe("Videos View shell", () => {
       within(metadataSuggestions).getByText("Birthday"),
     ).toBeInTheDocument();
     expect(within(metadataSuggestions).getByText("Picnic")).toBeInTheDocument();
+  });
+
+  it("accepts Metadata Suggestions in bulk while allowing individual Videos to be excluded", async () => {
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 7,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                },
+                {
+                  videoId: 8,
+                  title: "Birthday",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/birthday.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 8,
+                  title: "Birthday",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/birthday.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+
+    renderApp();
+
+    const reviewQueue = await screen.findByRole("region", {
+      name: "Review Queue",
+    });
+    const metadataSuggestions = within(reviewQueue).getByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      await within(metadataSuggestions).findByRole("checkbox", {
+        name: "Include Birthday",
+      }),
+    );
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept Family for selected Videos",
+      }),
+    );
+
+    expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
+      scanRootPath: "/Volumes/Archive/Videos",
+      suggestedValue: "Family",
+      suggestionKind: "tag",
+      videoIds: [7],
+    });
+    expect(await within(metadataSuggestions).findByText("Birthday")).toBeInTheDocument();
+  });
+
+  it("rejects a Metadata Suggestion for one Scan Root source", async () => {
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 7,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    renderApp();
+
+    const reviewQueue = await screen.findByRole("region", {
+      name: "Review Queue",
+    });
+    const metadataSuggestions = within(reviewQueue).getByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      await within(metadataSuggestions).findByRole("button", {
+        name: "Reject Family from Family",
+      }),
+    );
+
+    expect(mockedRejectMetadataSuggestionSource).toHaveBeenCalledWith({
+      scanRootPath: "/Volumes/Archive/Videos",
+      sourcePathSegment: "Family",
+      suggestedValue: "Family",
+      suggestionKind: "tag",
+    });
+    expect(
+      await within(metadataSuggestions).findByText("No Metadata Suggestions."),
+    ).toBeInTheDocument();
   });
 
   it("lists Failed Preview Strips in the Review Queue with retry and ignore actions", async () => {

@@ -31,6 +31,7 @@ import {
   ScanRoot,
   ScanRootRemovalPolicy,
   UnprocessableVideoCandidate,
+  acceptMetadataSuggestionForVideos,
   addScanRoot,
   forgetCatalogVideo,
   getFfmpegToolsStatus,
@@ -53,6 +54,7 @@ import {
   removeScanRoot,
   refreshAllScanRoots,
   refreshScanRoot,
+  rejectMetadataSuggestionSource,
   retryFailedPreviewStrip,
   resumePreviewStripQueue,
   saveFfmpegConfiguration,
@@ -64,6 +66,10 @@ import {
   detachTagFromVideo,
   attachPerformerToVideo,
   detachPerformerFromVideo,
+} from "./tauriCommands";
+import type {
+  AcceptMetadataSuggestionForVideosRequest,
+  RejectMetadataSuggestionSourceRequest,
 } from "./tauriCommands";
 
 const loadingStatusMessage = "Checking Rust command...";
@@ -88,6 +94,13 @@ const previewStripPointerMinimum = 0;
 const previewStripPointerMaximum = 1;
 const percentageMultiplier = 100;
 const previewStripQueuePollingIntervalMilliseconds = 250;
+
+type AcceptMetadataSuggestionVideos = (
+  request: AcceptMetadataSuggestionForVideosRequest,
+) => void;
+type RejectMetadataSuggestionSource = (
+  request: RejectMetadataSuggestionSourceRequest,
+) => void;
 const emptyMetadataInputMessage = "Enter a name first.";
 const minimumDurationMinutes = 0;
 const maximumDurationMinutes = 24 * 60;
@@ -247,6 +260,54 @@ export default function App() {
       }
     } catch {
       setReviewQueueStatusMessage(reviewQueueErrorMessage);
+    }
+  }
+
+  async function acceptSelectedMetadataSuggestionVideos({
+    scanRootPath,
+    suggestedValue,
+    suggestionKind,
+    videoIds,
+  }: {
+    scanRootPath: AcceptMetadataSuggestionForVideosRequest["scanRootPath"];
+    suggestedValue: AcceptMetadataSuggestionForVideosRequest["suggestedValue"];
+    suggestionKind: AcceptMetadataSuggestionForVideosRequest["suggestionKind"];
+    videoIds: AcceptMetadataSuggestionForVideosRequest["videoIds"];
+  }) {
+    try {
+      await acceptMetadataSuggestionForVideos({
+        scanRootPath,
+        suggestedValue,
+        suggestionKind,
+        videoIds,
+      });
+      await loadReviewQueue(false);
+    } catch (error) {
+      setReviewQueueStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function rejectMetadataSuggestionForSource({
+    scanRootPath,
+    sourcePathSegment,
+    suggestedValue,
+    suggestionKind,
+  }: {
+    scanRootPath: RejectMetadataSuggestionSourceRequest["scanRootPath"];
+    sourcePathSegment: RejectMetadataSuggestionSourceRequest["sourcePathSegment"];
+    suggestedValue: RejectMetadataSuggestionSourceRequest["suggestedValue"];
+    suggestionKind: RejectMetadataSuggestionSourceRequest["suggestionKind"];
+  }) {
+    try {
+      await rejectMetadataSuggestionSource({
+        scanRootPath,
+        sourcePathSegment,
+        suggestedValue,
+        suggestionKind,
+      });
+      await loadReviewQueue(false);
+    } catch (error) {
+      setReviewQueueStatusMessage(errorMessage(error));
     }
   }
 
@@ -1376,7 +1437,9 @@ export default function App() {
         failedPreviewStrips={failedPreviewStrips}
         metadataSuggestionGroups={metadataSuggestionGroups}
         missingVideos={missingVideos}
+        onAcceptMetadataSuggestionVideos={acceptSelectedMetadataSuggestionVideos}
         onIgnoreFailedPreview={ignoreFailedPreview}
+        onRejectMetadataSuggestionSource={rejectMetadataSuggestionForSource}
         reviewQueueStatusMessage={reviewQueueStatusMessage}
         onRetryFailedPreview={retryFailedPreview}
         unavailableScanRoots={unavailableScanRoots}
@@ -2465,8 +2528,10 @@ function singularMetadataLabel(label: string) {
 function ReviewQueuePanel({
   failedPreviewStrips,
   metadataSuggestionGroups,
+  onAcceptMetadataSuggestionVideos,
   missingVideos,
   onIgnoreFailedPreview,
+  onRejectMetadataSuggestionSource,
   onRequestMissingVideoForget,
   onRetryFailedPreview,
   reviewQueueStatusMessage,
@@ -2476,7 +2541,9 @@ function ReviewQueuePanel({
   failedPreviewStrips: FailedPreviewStrip[];
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   missingVideos: CatalogVideo[];
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   reviewQueueStatusMessage: string;
@@ -2510,6 +2577,8 @@ function ReviewQueuePanel({
           />
           <MetadataSuggestionsPanel
             metadataSuggestionGroups={metadataSuggestionGroups}
+            onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
+            onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
           />
         </SimpleGrid>
       </Stack>
@@ -2519,8 +2588,12 @@ function ReviewQueuePanel({
 
 function MetadataSuggestionsPanel({
   metadataSuggestionGroups,
+  onAcceptMetadataSuggestionVideos,
+  onRejectMetadataSuggestionSource,
 }: {
   metadataSuggestionGroups: MetadataSuggestionGroup[];
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
 }) {
   return (
     <Stack
@@ -2550,28 +2623,18 @@ function MetadataSuggestionsPanel({
               </Group>
               <Stack gap="xs">
                 {suggestionGroup.sources.map((sourceGroup) => (
-                  <Box
+                  <MetadataSuggestionSource
                     key={`${sourceGroup.scanRootPath}:${sourceGroup.sourcePathSegment}`}
-                  >
-                    <Box component="dl" className="definition-list">
-                      <DefinitionTerm label="Source Segment">
-                        {sourceGroup.sourcePathSegment}
-                      </DefinitionTerm>
-                      <DefinitionTerm label="Scan Root">
-                        {sourceGroup.scanRootPath}
-                      </DefinitionTerm>
-                    </Box>
-                    <Stack gap={4}>
-                      {sourceGroup.videos.map((video) => (
-                        <Box key={video.videoId}>
-                          <Text>{video.title}</Text>
-                          <Code className="wrapping-code">
-                            {video.fileLocationPath}
-                          </Code>
-                        </Box>
-                      ))}
-                    </Stack>
-                  </Box>
+                    sourceGroup={sourceGroup}
+                    suggestionKind={suggestionGroup.suggestionKind}
+                    suggestedValue={suggestionGroup.suggestedValue}
+                    onAcceptMetadataSuggestionVideos={
+                      onAcceptMetadataSuggestionVideos
+                    }
+                    onRejectMetadataSuggestionSource={
+                      onRejectMetadataSuggestionSource
+                    }
+                  />
                 ))}
               </Stack>
             </Stack>
@@ -2581,6 +2644,98 @@ function MetadataSuggestionsPanel({
         <Text c="dimmed">No Metadata Suggestions.</Text>
       )}
     </Stack>
+  );
+}
+
+function MetadataSuggestionSource({
+  onAcceptMetadataSuggestionVideos,
+  onRejectMetadataSuggestionSource,
+  sourceGroup,
+  suggestionKind,
+  suggestedValue,
+}: {
+  onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
+  onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
+  sourceGroup: MetadataSuggestionGroup["sources"][number];
+  suggestionKind: string;
+  suggestedValue: string;
+}) {
+  const allVideoIds = sourceGroup.videos.map((video) => video.videoId);
+  const [selectedVideoIds, setSelectedVideoIds] = useState(allVideoIds);
+  const selectedVideoIdSet = new Set(selectedVideoIds);
+
+  useEffect(() => {
+    setSelectedVideoIds(allVideoIds);
+  }, [sourceGroup]);
+
+  function toggleVideo(videoId: number, isSelected: boolean) {
+    setSelectedVideoIds((currentVideoIds) => {
+      if (isSelected) {
+        return [...currentVideoIds, videoId].sort();
+      }
+
+      return currentVideoIds.filter((currentVideoId) => currentVideoId !== videoId);
+    });
+  }
+
+  return (
+    <Box>
+      <Box component="dl" className="definition-list">
+        <DefinitionTerm label="Source Segment">
+          {sourceGroup.sourcePathSegment}
+        </DefinitionTerm>
+        <DefinitionTerm label="Scan Root">{sourceGroup.scanRootPath}</DefinitionTerm>
+      </Box>
+      <Stack gap={4}>
+        {sourceGroup.videos.map((video) => (
+          <Checkbox
+            checked={selectedVideoIdSet.has(video.videoId)}
+            key={video.videoId}
+            label={
+              <Box>
+                <Text>{video.title}</Text>
+                <Code className="wrapping-code">{video.fileLocationPath}</Code>
+              </Box>
+            }
+            onChange={(event) =>
+              toggleVideo(video.videoId, event.currentTarget.checked)
+            }
+            aria-label={`Include ${video.title}`}
+          />
+        ))}
+      </Stack>
+      <Group gap="xs" mt="xs">
+        <Button
+          size="xs"
+          disabled={selectedVideoIds.length === 0}
+          onClick={() =>
+            onAcceptMetadataSuggestionVideos({
+              scanRootPath: sourceGroup.scanRootPath,
+              suggestedValue,
+              suggestionKind,
+              videoIds: selectedVideoIds,
+            })
+          }
+        >
+          Accept {suggestedValue} for selected Videos
+        </Button>
+        <Button
+          size="xs"
+          variant="light"
+          color="red"
+          onClick={() =>
+            onRejectMetadataSuggestionSource({
+              scanRootPath: sourceGroup.scanRootPath,
+              sourcePathSegment: sourceGroup.sourcePathSegment,
+              suggestedValue,
+              suggestionKind,
+            })
+          }
+        >
+          Reject {suggestedValue} from {sourceGroup.sourcePathSegment}
+        </Button>
+      </Group>
+    </Box>
   );
 }
 
