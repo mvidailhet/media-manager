@@ -264,24 +264,51 @@ export default function App() {
   }
 
   async function acceptSelectedMetadataSuggestionVideos({
+    acceptedMetadataKind,
+    acceptedValue,
     scanRootPath,
     suggestedValue,
     suggestionKind,
     videoIds,
-  }: {
-    scanRootPath: AcceptMetadataSuggestionForVideosRequest["scanRootPath"];
-    suggestedValue: AcceptMetadataSuggestionForVideosRequest["suggestedValue"];
-    suggestionKind: AcceptMetadataSuggestionForVideosRequest["suggestionKind"];
-    videoIds: AcceptMetadataSuggestionForVideosRequest["videoIds"];
-  }) {
+  }: AcceptMetadataSuggestionForVideosRequest) {
     try {
       await acceptMetadataSuggestionForVideos({
+        acceptedMetadataKind,
+        acceptedValue,
         scanRootPath,
         suggestedValue,
         suggestionKind,
         videoIds,
       });
       await loadReviewQueue(false);
+      const [storedTags, storedPerformers] = await Promise.all([
+        listTags(),
+        listPerformers(),
+      ]);
+      setAvailableTags(storedTags);
+      setAvailablePerformers(storedPerformers);
+      const metadataEntries = await Promise.all(
+        videoIds.map(async (videoId) => {
+          const [videoTags, videoPerformers] = await Promise.all([
+            tagsForVideo(videoId),
+            performersForVideo(videoId),
+          ]);
+
+          return [videoId, { tags: videoTags, performers: videoPerformers }] as const;
+        }),
+      );
+      setCatalogVideoMetadataById((currentMetadataById) => ({
+        ...currentMetadataById,
+        ...Object.fromEntries(metadataEntries),
+      }));
+
+      if (selectedVideo && videoIds.includes(selectedVideo.id)) {
+        const selectedVideoMetadata = Object.fromEntries(metadataEntries)[
+          selectedVideo.id
+        ];
+        setSelectedVideoTags(selectedVideoMetadata.tags);
+        setSelectedVideoPerformers(selectedVideoMetadata.performers);
+      }
     } catch (error) {
       setReviewQueueStatusMessage(errorMessage(error));
     }
@@ -1434,6 +1461,8 @@ export default function App() {
         />
       ) : null}
       <ReviewQueuePanel
+        availablePerformers={availablePerformers}
+        availableTags={availableTags}
         failedPreviewStrips={failedPreviewStrips}
         metadataSuggestionGroups={metadataSuggestionGroups}
         missingVideos={missingVideos}
@@ -2526,6 +2555,8 @@ function singularMetadataLabel(label: string) {
 }
 
 function ReviewQueuePanel({
+  availablePerformers,
+  availableTags,
   failedPreviewStrips,
   metadataSuggestionGroups,
   onAcceptMetadataSuggestionVideos,
@@ -2538,6 +2569,8 @@ function ReviewQueuePanel({
   unavailableScanRoots,
   unprocessableVideoCandidates,
 }: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
   failedPreviewStrips: FailedPreviewStrip[];
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   missingVideos: CatalogVideo[];
@@ -2576,6 +2609,8 @@ function ReviewQueuePanel({
             onRetryFailedPreview={onRetryFailedPreview}
           />
           <MetadataSuggestionsPanel
+            availablePerformers={availablePerformers}
+            availableTags={availableTags}
             metadataSuggestionGroups={metadataSuggestionGroups}
             onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
             onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
@@ -2587,10 +2622,14 @@ function ReviewQueuePanel({
 }
 
 function MetadataSuggestionsPanel({
+  availablePerformers,
+  availableTags,
   metadataSuggestionGroups,
   onAcceptMetadataSuggestionVideos,
   onRejectMetadataSuggestionSource,
 }: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
   onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
@@ -2624,6 +2663,8 @@ function MetadataSuggestionsPanel({
               <Stack gap="xs">
                 {suggestionGroup.sources.map((sourceGroup) => (
                   <MetadataSuggestionSource
+                    availablePerformers={availablePerformers}
+                    availableTags={availableTags}
                     key={`${sourceGroup.scanRootPath}:${sourceGroup.sourcePathSegment}`}
                     sourceGroup={sourceGroup}
                     suggestionKind={suggestionGroup.suggestionKind}
@@ -2648,12 +2689,16 @@ function MetadataSuggestionsPanel({
 }
 
 function MetadataSuggestionSource({
+  availablePerformers,
+  availableTags,
   onAcceptMetadataSuggestionVideos,
   onRejectMetadataSuggestionSource,
   sourceGroup,
   suggestionKind,
   suggestedValue,
 }: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
   onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
   onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
   sourceGroup: MetadataSuggestionGroup["sources"][number];
@@ -2662,11 +2707,39 @@ function MetadataSuggestionSource({
 }) {
   const allVideoIds = sourceGroup.videos.map((video) => video.videoId);
   const [selectedVideoIds, setSelectedVideoIds] = useState(allVideoIds);
+  const [acceptedSuggestionKind, setAcceptedSuggestionKind] =
+    useState(suggestionKind);
+  const [acceptedValue, setAcceptedValue] = useState(suggestedValue);
   const selectedVideoIdSet = new Set(selectedVideoIds);
+  const trimmedAcceptedValue = acceptedValue.trim();
+  const availableMetadataValues =
+    acceptedSuggestionKind === "performer" ? availablePerformers : availableTags;
+  const exactAcceptedValue = findMetadataByName(
+    availableMetadataValues,
+    trimmedAcceptedValue,
+  );
+  const nearAcceptedValue = findNearMetadataMatch(
+    availableMetadataValues,
+    trimmedAcceptedValue,
+  );
+  const acceptedSuggestionKindLabel = formatSuggestionKind(acceptedSuggestionKind);
+  const acceptedMetadataName =
+    exactAcceptedValue?.name ?? trimmedAcceptedValue;
+  const isDefaultAcceptance =
+    acceptedSuggestionKind === suggestionKind &&
+    acceptedMetadataName === suggestedValue;
+  const acceptButtonLabel = isDefaultAcceptance
+    ? `Accept ${suggestedValue} for selected Videos`
+    : `Accept ${acceptedMetadataName} as ${acceptedSuggestionKindLabel} for selected Videos`;
 
   useEffect(() => {
     setSelectedVideoIds(allVideoIds);
   }, [sourceGroup]);
+
+  useEffect(() => {
+    setAcceptedSuggestionKind(suggestionKind);
+    setAcceptedValue(suggestedValue);
+  }, [suggestedValue, suggestionKind]);
 
   function toggleVideo(videoId: number, isSelected: boolean) {
     setSelectedVideoIds((currentVideoIds) => {
@@ -2686,6 +2759,25 @@ function MetadataSuggestionSource({
         </DefinitionTerm>
         <DefinitionTerm label="Scan Root">{sourceGroup.scanRootPath}</DefinitionTerm>
       </Box>
+      <Group gap="xs" align="end" mb="xs">
+        <NativeSelect
+          label={`Accept ${suggestedValue} as metadata kind`}
+          value={acceptedSuggestionKind}
+          data={[
+            { value: "tag", label: "Tag" },
+            { value: "performer", label: "Performer" },
+          ]}
+          onChange={(event) => setAcceptedSuggestionKind(event.currentTarget.value)}
+        />
+        <TextInput
+          label="Accepted metadata name"
+          value={acceptedValue}
+          onChange={(event) => setAcceptedValue(event.currentTarget.value)}
+        />
+      </Group>
+      {nearAcceptedValue ? (
+        <Text size="sm">Near match: {nearAcceptedValue.name}</Text>
+      ) : null}
       <Stack gap={4}>
         {sourceGroup.videos.map((video) => (
           <Checkbox
@@ -2707,9 +2799,17 @@ function MetadataSuggestionSource({
       <Group gap="xs" mt="xs">
         <Button
           size="xs"
-          disabled={selectedVideoIds.length === 0}
+          disabled={
+            selectedVideoIds.length === 0 || trimmedAcceptedValue.length === 0
+          }
           onClick={() =>
             onAcceptMetadataSuggestionVideos({
+              ...(isDefaultAcceptance
+                ? {}
+                : { acceptedValue: acceptedMetadataName }),
+              ...(acceptedSuggestionKind === suggestionKind
+                ? {}
+                : { acceptedMetadataKind: acceptedSuggestionKind }),
               scanRootPath: sourceGroup.scanRootPath,
               suggestedValue,
               suggestionKind,
@@ -2717,7 +2817,7 @@ function MetadataSuggestionSource({
             })
           }
         >
-          Accept {suggestedValue} for selected Videos
+          {acceptButtonLabel}
         </Button>
         <Button
           size="xs"

@@ -1102,12 +1102,17 @@ impl Catalog {
         scan_root_path: &str,
         suggested_value: &str,
         suggestion_kind: &str,
+        accepted_metadata_kind: Option<&str>,
+        accepted_value: Option<&str>,
         video_ids: &[i64],
     ) -> Result<(), String> {
         if video_ids.is_empty() {
             return Err("Select at least one Video to accept".to_string());
         }
 
+        self.reject_unknown_suggestion_kind(suggestion_kind)?;
+        let metadata_kind = accepted_metadata_kind.unwrap_or(suggestion_kind);
+        self.reject_unknown_suggestion_kind(metadata_kind)?;
         let scan_root_id = self.scan_root_id(scan_root_path)?;
         self.reject_videos_without_pending_metadata_suggestions(
             scan_root_id,
@@ -1120,13 +1125,14 @@ impl Catalog {
             .database
             .unchecked_transaction()
             .map_err(|error| error.to_string())?;
+        let metadata_value_name = accepted_value.unwrap_or(suggested_value);
         let metadata_value_id =
-            metadata_value_id_for_suggestion(&transaction, suggestion_kind, suggested_value)?;
+            metadata_value_id_for_suggestion(&transaction, metadata_kind, metadata_value_name)?;
 
         for video_id in video_ids {
             attach_metadata_suggestion_to_video(
                 &transaction,
-                suggestion_kind,
+                metadata_kind,
                 metadata_value_id,
                 *video_id,
             )?;
@@ -1686,7 +1692,6 @@ impl Catalog {
         suggestion_kind: &str,
         video_ids: &[i64],
     ) -> Result<(), String> {
-        self.reject_unknown_suggestion_kind(suggestion_kind)?;
         let requested_video_ids = video_ids.iter().copied().collect::<HashSet<_>>();
 
         if requested_video_ids.len() != video_ids.len() {
@@ -2974,7 +2979,7 @@ fn validated_inference_rules(
 #[cfg(test)]
 mod tests {
     use super::{Catalog, FailedPreviewStrip, PreviewStripRetryReason, VideoFileProbe, VideoProbe};
-    use rusqlite::Connection;
+    use rusqlite::{params, Connection};
     use std::path::Path;
 
     #[test]
@@ -3391,6 +3396,8 @@ mod tests {
                 &scan_root.path,
                 "Family",
                 "tag",
+                None,
+                None,
                 &[accepted_video_id],
             )
             .expect("metadata suggestion accepts");
@@ -3423,6 +3430,161 @@ mod tests {
         );
         assert!(accepted_video_path.exists());
         assert!(excluded_video_path.exists());
+    }
+
+    #[test]
+    fn accepting_metadata_suggestion_can_create_a_performer_instead_of_a_tag() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
+            .expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let video_id = video_id_for_title(&catalog.database, "family-trip");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &scan_root.path,
+                "Family",
+                "tag",
+                Some("performer"),
+                Some("The Family"),
+                &[video_id],
+            )
+            .expect("metadata suggestion accepts as performer");
+
+        assert_eq!(
+            catalog
+                .performers_for_video(video_id)
+                .expect("video performers list"),
+            vec![super::CatalogPerformer {
+                id: 1,
+                name: "The Family".to_string()
+            }]
+        );
+        assert_eq!(
+            catalog.tags_for_video(video_id).expect("video tags list"),
+            Vec::<super::CatalogTag>::new()
+        );
+        assert_eq!(
+            catalog
+                .list_metadata_suggestion_groups()
+                .expect("metadata suggestions list"),
+            Vec::<super::MetadataSuggestionGroup>::new()
+        );
+    }
+
+    #[test]
+    fn accepting_metadata_suggestion_can_map_to_an_existing_tag_with_a_different_name() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let existing_tag = catalog.create_tag("Home Movies").expect("tag creates");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
+            .expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let video_id = video_id_for_title(&catalog.database, "family-trip");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &scan_root.path,
+                "Family",
+                "tag",
+                None,
+                Some("home movies"),
+                &[video_id],
+            )
+            .expect("metadata suggestion accepts as existing tag");
+
+        assert_eq!(
+            catalog.tags_for_video(video_id).expect("video tags list"),
+            vec![existing_tag]
+        );
+        assert_eq!(
+            catalog
+                .list_tags()
+                .expect("tags list")
+                .into_iter()
+                .map(|tag| tag.name)
+                .collect::<Vec<_>>(),
+            vec!["Home Movies".to_string()]
+        );
+    }
+
+    #[test]
+    fn accepting_one_metadata_suggestion_kind_keeps_other_pending_kinds_with_the_same_value() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
+            .expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let scan_root_id = catalog
+            .scan_root_id(&scan_root.path)
+            .expect("scan root id exists");
+        let video_id = video_id_for_title(&catalog.database, "family-trip");
+        catalog
+            .database
+            .execute(
+                "INSERT INTO metadata_suggestions (
+                    scan_root_id,
+                    video_id,
+                    source_path_segment,
+                    suggested_value,
+                    suggestion_kind
+                 )
+                 VALUES (?1, ?2, 'Family', 'Family', 'performer')",
+                params![scan_root_id, video_id],
+            )
+            .expect("performer suggestion inserts");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &scan_root.path,
+                "Family",
+                "tag",
+                None,
+                None,
+                &[video_id],
+            )
+            .expect("tag suggestion accepts");
+
+        let remaining_suggestion_groups = catalog
+            .list_metadata_suggestion_groups()
+            .expect("metadata suggestions list");
+        assert_eq!(remaining_suggestion_groups.len(), 1);
+        assert_eq!(remaining_suggestion_groups[0].suggestion_kind, "performer");
+        assert_eq!(remaining_suggestion_groups[0].suggested_value, "Family");
     }
 
     #[test]
@@ -3543,6 +3705,8 @@ mod tests {
                 &scan_root.path,
                 "Family",
                 "tag",
+                None,
+                None,
                 &[travel_video_id],
             )
             .expect_err("unmatched suggestion acceptance is rejected");
