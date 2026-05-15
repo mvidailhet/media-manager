@@ -1015,6 +1015,119 @@ describe("Videos View shell", () => {
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
   });
 
+  it("applies Batch Metadata Edit append and remove actions to selected Videos", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Archive" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, name: "Blair" },
+      { id: 10, name: "Alex" },
+    ]);
+    mockedCreateTag.mockResolvedValue({ id: 6, name: "Road Trip" });
+    mockedTagsForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 1) {
+        return [{ id: 4, name: "Travel" }];
+      }
+
+      return [{ id: 5, name: "Archive" }];
+    });
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 50740352,
+        fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: true,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByLabelText("Select Family Trip"),
+    );
+    fireEvent.click(within(catalogVideos).getByLabelText("Select City Walk"));
+
+    const batchMetadataEdit = await screen.findByRole("region", {
+      name: "Batch Metadata Edit",
+    });
+
+    expect(within(batchMetadataEdit).queryByLabelText("Title")).toBeNull();
+    expect(
+      within(batchMetadataEdit).queryByRole("button", {
+        name: /Replace/,
+      }),
+    ).toBeNull();
+
+    fireEvent.click(
+      within(batchMetadataEdit).getByRole("button", {
+        name: "Append Travel to selected Videos",
+      }),
+    );
+    fireEvent.change(within(batchMetadataEdit).getByLabelText("New Tag"), {
+      target: { value: "Road Trip" },
+    });
+    fireEvent.click(
+      within(batchMetadataEdit).getByRole("button", {
+        name: "Create and append Tag to selected Videos",
+      }),
+    );
+    fireEvent.click(
+      within(batchMetadataEdit).getByRole("button", {
+        name: "Remove Blair from selected Videos",
+      }),
+    );
+    fireEvent.click(
+      within(batchMetadataEdit).getByRole("button", {
+        name: "Mark selected Videos as Favorite",
+      }),
+    );
+    fireEvent.click(
+      within(batchMetadataEdit).getByRole("button", {
+        name: "Unmark selected Videos as Favorite",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 1);
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 2);
+    });
+    expect(mockedCreateTag).toHaveBeenCalledWith("Road Trip");
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(6, 1);
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(6, 2);
+    expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 1);
+    expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 2);
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(2, true);
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, false);
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(2, false);
+    expect(mockedUpdateVideoTitle).not.toHaveBeenCalled();
+  });
+
   it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },

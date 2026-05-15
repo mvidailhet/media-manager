@@ -171,6 +171,9 @@ export default function App() {
   const [selectedVideoPerformers, setSelectedVideoPerformers] = useState<
     CatalogPerformer[]
   >([]);
+  const [batchSelectedVideoIds, setBatchSelectedVideoIds] = useState<number[]>(
+    [],
+  );
   const [catalogVideoMetadataById, setCatalogVideoMetadataById] = useState<
     Record<number, CatalogVideoMetadata>
   >({});
@@ -798,6 +801,76 @@ export default function App() {
     }
   }
 
+  function setBatchVideoSelected(videoId: number, isSelected: boolean) {
+    setBatchSelectedVideoIds((currentVideoIds) => {
+      if (isSelected) {
+        return currentVideoIds.includes(videoId)
+          ? currentVideoIds
+          : [...currentVideoIds, videoId];
+      }
+
+      return currentVideoIds.filter(
+        (currentVideoId) => currentVideoId !== videoId,
+      );
+    });
+  }
+
+  async function appendTagToBatchSelectedVideos(tag: CatalogTag) {
+    try {
+      await Promise.all(
+        batchSelectedVideoIds.map((videoId) => attachTagToVideo(tag.id, videoId)),
+      );
+      batchSelectedVideoIds.forEach((videoId) =>
+        addTagToCatalogVideoMetadata(videoId, tag),
+      );
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function createOrAppendTagToBatchSelectedVideos(tagName: string) {
+    const trimmedTagName = tagName.trim();
+
+    if (trimmedTagName.length === 0) {
+      setCatalogVideoActionStatusMessage(emptyMetadataInputMessage);
+      return;
+    }
+
+    try {
+      const existingTag = findMetadataByName(availableTags, trimmedTagName);
+      const tag = existingTag ?? (await createTag(trimmedTagName));
+
+      await Promise.all(
+        batchSelectedVideoIds.map((videoId) => attachTagToVideo(tag.id, videoId)),
+      );
+      setAvailableTags((currentTags) => appendUniqueMetadata(currentTags, tag));
+      batchSelectedVideoIds.forEach((videoId) =>
+        addTagToCatalogVideoMetadata(videoId, tag),
+      );
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function removeTagFromBatchSelectedVideos(tag: CatalogTag) {
+    try {
+      await Promise.all(
+        batchSelectedVideoIds.map((videoId) =>
+          detachTagFromVideo(tag.id, videoId),
+        ),
+      );
+      batchSelectedVideoIds.forEach((videoId) =>
+        removeTagFromCatalogVideoMetadata(videoId, tag),
+      );
+      setAvailableTags(await listTags());
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
   async function attachTagToSelectedVideo(tag: CatalogTag) {
     if (!selectedVideo) {
       return;
@@ -932,6 +1005,106 @@ export default function App() {
     }
   }
 
+  async function appendPerformerToBatchSelectedVideos(
+    performer: CatalogPerformer,
+  ) {
+    try {
+      await Promise.all(
+        batchSelectedVideoIds.map((videoId) =>
+          attachPerformerToVideo(performer.id, videoId),
+        ),
+      );
+      batchSelectedVideoIds.forEach((videoId) =>
+        addPerformerToCatalogVideoMetadata(videoId, performer),
+      );
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function createOrAppendPerformerToBatchSelectedVideos(
+    performerName: string,
+  ) {
+    const trimmedPerformerName = performerName.trim();
+
+    if (trimmedPerformerName.length === 0) {
+      setCatalogVideoActionStatusMessage(emptyMetadataInputMessage);
+      return;
+    }
+
+    try {
+      const existingPerformer = findMetadataByName(
+        availablePerformers,
+        trimmedPerformerName,
+      );
+      const performer =
+        existingPerformer ?? (await createPerformer(trimmedPerformerName));
+
+      await Promise.all(
+        batchSelectedVideoIds.map((videoId) =>
+          attachPerformerToVideo(performer.id, videoId),
+        ),
+      );
+      setAvailablePerformers((currentPerformers) =>
+        appendUniqueMetadata(currentPerformers, performer),
+      );
+      batchSelectedVideoIds.forEach((videoId) =>
+        addPerformerToCatalogVideoMetadata(videoId, performer),
+      );
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function removePerformerFromBatchSelectedVideos(
+    performer: CatalogPerformer,
+  ) {
+    try {
+      await Promise.all(
+        batchSelectedVideoIds.map((videoId) =>
+          detachPerformerFromVideo(performer.id, videoId),
+        ),
+      );
+      batchSelectedVideoIds.forEach((videoId) =>
+        removePerformerFromCatalogVideoMetadata(videoId, performer),
+      );
+      setAvailablePerformers(await listPerformers());
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function setBatchSelectedVideosFavorite(isFavorite: boolean) {
+    try {
+      await Promise.all(
+        batchSelectedVideoIds.map((videoId) =>
+          setVideoFavorite(videoId, isFavorite),
+        ),
+      );
+      setCatalogVideos((currentVideos) =>
+        currentVideos.map((catalogVideo) =>
+          batchSelectedVideoIds.includes(catalogVideo.id)
+            ? { ...catalogVideo, isFavorite }
+            : catalogVideo,
+        ),
+      );
+      setSelectedVideo((currentSelectedVideo) =>
+        currentSelectedVideo &&
+        batchSelectedVideoIds.includes(currentSelectedVideo.id)
+          ? { ...currentSelectedVideo, isFavorite }
+          : currentSelectedVideo,
+      );
+      setCatalogVideoActionStatusMessage("");
+      setDetailStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+      setDetailStatusMessage(errorMessage(error));
+    }
+  }
+
   async function resumePreviewQueue() {
     try {
       const queueStatus = await resumePreviewStripQueue();
@@ -1046,6 +1219,9 @@ export default function App() {
     ),
     workspaceCatalogVideoSort,
   );
+  const batchSelectedVideos = catalogVideos.filter((catalogVideo) =>
+    batchSelectedVideoIds.includes(catalogVideo.id),
+  );
   const unavailableScanRoots = scanRoots.filter(
     (scanRoot) => !scanRoot.isAvailable,
   );
@@ -1069,11 +1245,29 @@ export default function App() {
         onPausePreviewQueue={pausePreviewQueue}
         onResumePreviewQueue={resumePreviewQueue}
         onOpenVideo={openVideoFromCatalog}
+        onSetBatchVideoSelected={setBatchVideoSelected}
         onSelectVideo={selectVideoForDetail}
         onSetFavorite={setCatalogVideoFavorite}
         previewStripQueueStatus={previewStripQueueStatus}
         previewStripStatusMessage={previewStripStatusMessage}
+        selectedVideoIds={batchSelectedVideoIds}
       />
+      {batchSelectedVideos.length > 0 ? (
+        <BatchMetadataEditPanel
+          availablePerformers={availablePerformers}
+          availableTags={availableTags}
+          onAppendPerformer={appendPerformerToBatchSelectedVideos}
+          onAppendTag={appendTagToBatchSelectedVideos}
+          onCreateOrAppendPerformer={
+            createOrAppendPerformerToBatchSelectedVideos
+          }
+          onCreateOrAppendTag={createOrAppendTagToBatchSelectedVideos}
+          onRemovePerformer={removePerformerFromBatchSelectedVideos}
+          onRemoveTag={removeTagFromBatchSelectedVideos}
+          onSetFavorite={setBatchSelectedVideosFavorite}
+          selectedVideoCount={batchSelectedVideos.length}
+        />
+      ) : null}
       {selectedVideo ? (
         <VideoDetailPanel
           availablePerformers={availablePerformers}
@@ -1280,10 +1474,12 @@ function CatalogVideosPanel({
   onPausePreviewQueue,
   onResumePreviewQueue,
   onOpenVideo,
+  onSetBatchVideoSelected,
   onSelectVideo,
   onSetFavorite,
   previewStripQueueStatus,
   previewStripStatusMessage,
+  selectedVideoIds,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
@@ -1299,10 +1495,12 @@ function CatalogVideosPanel({
   onPausePreviewQueue: () => void;
   onResumePreviewQueue: () => void;
   onOpenVideo: (catalogVideo: CatalogVideo) => void;
+  onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
   previewStripStatusMessage: string;
+  selectedVideoIds: number[];
 }) {
   const panelTitle =
     catalogVideoWorkspace === "favorites"
@@ -1403,10 +1601,12 @@ function CatalogVideosPanel({
                 key={catalogVideo.id}
                 onSelectVideo={onSelectVideo}
                 onOpenVideo={onOpenVideo}
+                onSetBatchVideoSelected={onSetBatchVideoSelected}
                 onSetFavorite={onSetFavorite}
                 runningPreviewStripVideoId={
                   previewStripQueueStatus?.runningVideoId ?? null
                 }
+                isSelectedForBatch={selectedVideoIds.includes(catalogVideo.id)}
               />
             ))}
           </Stack>
@@ -1584,14 +1784,18 @@ function previewStripQueueActivityLabel(
 
 function CatalogVideoCard({
   catalogVideo,
+  isSelectedForBatch,
   onSelectVideo,
   onOpenVideo,
+  onSetBatchVideoSelected,
   onSetFavorite,
   runningPreviewStripVideoId,
 }: {
   catalogVideo: CatalogVideo;
+  isSelectedForBatch: boolean;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
   onOpenVideo: (catalogVideo: CatalogVideo) => void;
+  onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   runningPreviewStripVideoId: number | null;
 }) {
@@ -1610,6 +1814,16 @@ function CatalogVideoCard({
       />
       <Box>
         <Group gap="xs" align="center">
+          <Checkbox
+            aria-label={`Select ${catalogVideo.title}`}
+            checked={isSelectedForBatch}
+            onChange={(event) =>
+              onSetBatchVideoSelected(
+                catalogVideo.id,
+                event.currentTarget.checked,
+              )
+            }
+          />
           <Button
             type="button"
             variant="subtle"
@@ -1738,6 +1952,143 @@ function PreviewStripSurface({
         Pending Preview Strip
       </Badge>
     </Box>
+  );
+}
+
+function BatchMetadataEditPanel({
+  availablePerformers,
+  availableTags,
+  onAppendPerformer,
+  onAppendTag,
+  onCreateOrAppendPerformer,
+  onCreateOrAppendTag,
+  onRemovePerformer,
+  onRemoveTag,
+  onSetFavorite,
+  selectedVideoCount,
+}: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
+  onAppendPerformer: (performer: CatalogPerformer) => void;
+  onAppendTag: (tag: CatalogTag) => void;
+  onCreateOrAppendPerformer: (name: string) => void;
+  onCreateOrAppendTag: (name: string) => void;
+  onRemovePerformer: (performer: CatalogPerformer) => void;
+  onRemoveTag: (tag: CatalogTag) => void;
+  onSetFavorite: (isFavorite: boolean) => void;
+  selectedVideoCount: number;
+}) {
+  return (
+    <Paper component="section" aria-label="Batch Metadata Edit" p="md" maw={760}>
+      <Stack gap="md">
+        <SectionHeader
+          label={`${selectedVideoCount} selected`}
+          title="Batch Metadata Edit"
+        />
+        <Group gap="xs">
+          <Button
+            type="button"
+            variant="default"
+            onClick={() => void onSetFavorite(true)}
+          >
+            Mark selected Videos as Favorite
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            onClick={() => void onSetFavorite(false)}
+          >
+            Unmark selected Videos as Favorite
+          </Button>
+        </Group>
+        <Group gap="xl" align="start">
+          <BatchMetadataActions
+            availableItems={availableTags}
+            label="Tags"
+            onAppend={onAppendTag}
+            onCreateOrAppend={onCreateOrAppendTag}
+            onRemove={onRemoveTag}
+          />
+          <BatchMetadataActions
+            availableItems={availablePerformers}
+            label="Performers"
+            onAppend={onAppendPerformer}
+            onCreateOrAppend={onCreateOrAppendPerformer}
+            onRemove={onRemovePerformer}
+          />
+        </Group>
+      </Stack>
+    </Paper>
+  );
+}
+
+function BatchMetadataActions<T extends { id: number; name: string }>({
+  availableItems,
+  label,
+  onAppend,
+  onCreateOrAppend,
+  onRemove,
+}: {
+  availableItems: T[];
+  label: string;
+  onAppend: (item: T) => void;
+  onCreateOrAppend: (name: string) => void;
+  onRemove: (item: T) => void;
+}) {
+  const [newItemName, setNewItemName] = useState("");
+  const trimmedNewItemName = newItemName.trim();
+  const exactAvailableMatch = findMetadataByName(
+    availableItems,
+    trimmedNewItemName,
+  );
+  const nearMatch = findNearMetadataMatch(availableItems, trimmedNewItemName);
+  const actionLabel = exactAvailableMatch
+    ? `Append existing ${singularMetadataLabel(label)} to selected Videos`
+    : `Create and append ${singularMetadataLabel(label)} to selected Videos`;
+
+  return (
+    <Stack component="section" gap="xs" aria-label={`Batch ${label}`}>
+      <Title order={3} size="h4">
+        {label}
+      </Title>
+      <TextInput
+        label={`New ${singularMetadataLabel(label)}`}
+        value={newItemName}
+        onChange={(event) => setNewItemName(event.currentTarget.value)}
+      />
+      {nearMatch ? <Text size="sm">Near match: {nearMatch.name}</Text> : null}
+      <Button
+        type="button"
+        size="xs"
+        variant="default"
+        onClick={() => {
+          void onCreateOrAppend(trimmedNewItemName);
+          setNewItemName("");
+        }}
+      >
+        {actionLabel}
+      </Button>
+      {availableItems.map((item) => (
+        <Group key={item.id} gap="xs">
+          <Button
+            type="button"
+            size="xs"
+            variant="default"
+            onClick={() => void onAppend(item)}
+          >
+            Append {item.name} to selected Videos
+          </Button>
+          <Button
+            type="button"
+            size="xs"
+            variant="light"
+            onClick={() => void onRemove(item)}
+          >
+            Remove {item.name} from selected Videos
+          </Button>
+        </Group>
+      ))}
+    </Stack>
   );
 }
 
