@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addScanRoot,
   forgetCatalogVideo,
+  generateMissingPreviewStrips,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   listUnprocessableVideoCandidates,
@@ -173,6 +174,21 @@ describe("Tauri commands", () => {
     expect(mockedInvoke).toHaveBeenCalledWith(
       "list_unprocessable_video_candidates"
     );
+  });
+
+  it("generates missing Preview Strips through the Rust command", async () => {
+    mockedInvoke.mockResolvedValue({
+      generatedPreviewStripCount: 2,
+      failedPreviewStripCount: 1
+    });
+
+    const generationSummary = await generateMissingPreviewStrips();
+
+    expect(generationSummary).toEqual({
+      generatedPreviewStripCount: 2,
+      failedPreviewStripCount: 1
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("generate_missing_preview_strips");
   });
 
   it("calls the typed Rust command for FFmpeg tools status", async () => {

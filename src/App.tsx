@@ -23,6 +23,7 @@ import {
   UnprocessableVideoCandidate,
   addScanRoot,
   forgetCatalogVideo,
+  generateMissingPreviewStrips,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   listCatalogVideos,
@@ -46,6 +47,7 @@ const scanRootsErrorMessage = "Scan Roots unavailable";
 const reviewQueueLoadingMessage = "Loading Review Queue...";
 const reviewQueueErrorMessage = "Review Queue unavailable";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
+const previewStripGenerationStartedMessage = "Generating Preview Strips...";
 const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
 const minutesPerHour = 60;
@@ -84,6 +86,10 @@ export default function App() {
     useState<CatalogVideo | null>(null);
   const [ffmpegPath, setFfmpegPath] = useState("");
   const [ffprobePath, setFfprobePath] = useState("");
+  const [previewStripStatusMessage, setPreviewStripStatusMessage] =
+    useState("");
+  const [isGeneratingPreviewStrips, setIsGeneratingPreviewStrips] =
+    useState(false);
 
   async function loadCatalogVideos() {
     try {
@@ -375,6 +381,22 @@ export default function App() {
     }
   }
 
+  async function generatePendingPreviewStrips() {
+    try {
+      setIsGeneratingPreviewStrips(true);
+      setPreviewStripStatusMessage(previewStripGenerationStartedMessage);
+      const generationSummary = await generateMissingPreviewStrips();
+
+      setPreviewStripStatusMessage(
+        `${generationSummary.generatedPreviewStripCount} Preview Strips generated, ${generationSummary.failedPreviewStripCount} Preview Strips failed`
+      );
+    } catch (error) {
+      setPreviewStripStatusMessage(errorMessage(error));
+    } finally {
+      setIsGeneratingPreviewStrips(false);
+    }
+  }
+
   const missingVideos = catalogVideos.filter(
     (catalogVideo) => !catalogVideo.isAvailable
   );
@@ -389,6 +411,9 @@ export default function App() {
       <CatalogVideosPanel
         catalogVideos={catalogVideos}
         catalogVideosStatusMessage={catalogVideosStatusMessage}
+        isGeneratingPreviewStrips={isGeneratingPreviewStrips}
+        onGeneratePendingPreviewStrips={generatePendingPreviewStrips}
+        previewStripStatusMessage={previewStripStatusMessage}
       />
       <ReviewQueuePanel
         missingVideos={missingVideos}
@@ -546,19 +571,36 @@ function TauriStatusPanel({
 
 function CatalogVideosPanel({
   catalogVideos,
-  catalogVideosStatusMessage
+  catalogVideosStatusMessage,
+  isGeneratingPreviewStrips,
+  onGeneratePendingPreviewStrips,
+  previewStripStatusMessage
 }: {
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
+  isGeneratingPreviewStrips: boolean;
+  onGeneratePendingPreviewStrips: () => void;
+  previewStripStatusMessage: string;
 }) {
   return (
     <Paper component="section" aria-label="Catalog Videos" p="md" maw={760}>
       <Stack gap="md">
-        <SectionHeader label="Catalog results" title="Videos" />
+        <Group justify="space-between" align="start">
+          <SectionHeader label="Catalog results" title="Videos" />
+          <Button
+            type="button"
+            disabled={isGeneratingPreviewStrips}
+            variant="default"
+            onClick={() => void onGeneratePendingPreviewStrips()}
+          >
+            Generate Preview Strips
+          </Button>
+        </Group>
 
         {catalogVideosStatusMessage ? (
           <Text>{catalogVideosStatusMessage}</Text>
         ) : null}
+        {previewStripStatusMessage ? <Text>{previewStripStatusMessage}</Text> : null}
 
         {!catalogVideosStatusMessage && catalogVideos.length === 0 ? (
           <Text c="dimmed">{catalogVideosEmptyMessage}</Text>

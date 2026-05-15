@@ -13,6 +13,7 @@ import { AppProviders } from "./AppProviders";
 import {
   addScanRoot,
   forgetCatalogVideo,
+  generateMissingPreviewStrips,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   listUnprocessableVideoCandidates,
@@ -31,6 +32,7 @@ vi.mock("@tauri-apps/plugin-dialog", () => ({
 vi.mock("./tauriCommands", () => ({
   addScanRoot: vi.fn(),
   forgetCatalogVideo: vi.fn(),
+  generateMissingPreviewStrips: vi.fn(),
   getFfmpegToolsStatus: vi.fn(),
   getLocalDesktopAppStatus: vi.fn(),
   listUnprocessableVideoCandidates: vi.fn(),
@@ -53,6 +55,7 @@ const mockedListUnprocessableVideoCandidates = vi.mocked(
 const mockedListScanRoots = vi.mocked(listScanRoots);
 const mockedAddScanRoot = vi.mocked(addScanRoot);
 const mockedForgetCatalogVideo = vi.mocked(forgetCatalogVideo);
+const mockedGenerateMissingPreviewStrips = vi.mocked(generateMissingPreviewStrips);
 const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
 const mockedRefreshAllScanRoots = vi.mocked(refreshAllScanRoots);
 const mockedRefreshScanRoot = vi.mocked(refreshScanRoot);
@@ -97,6 +100,10 @@ describe("Videos View shell", () => {
       isAvailable: true
     }));
     mockedForgetCatalogVideo.mockResolvedValue(undefined);
+    mockedGenerateMissingPreviewStrips.mockResolvedValue({
+      generatedPreviewStripCount: 0,
+      failedPreviewStripCount: 0
+    });
     mockedRemoveScanRoot.mockResolvedValue(undefined);
     mockedRefreshScanRoot.mockResolvedValue({
       scannedVideoCount: 0,
@@ -179,6 +186,26 @@ describe("Videos View shell", () => {
 
     expect(screen.getByText("Loading Videos...")).toBeInTheDocument();
     expect(await screen.findByText("Videos unavailable")).toBeInTheDocument();
+  });
+
+  it("queues cataloged Videos missing Preview Strips for generation", async () => {
+    mockedGenerateMissingPreviewStrips.mockResolvedValue({
+      generatedPreviewStripCount: 3,
+      failedPreviewStripCount: 1
+    });
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Generate Preview Strips" })
+    );
+
+    expect(mockedGenerateMissingPreviewStrips).toHaveBeenCalled();
+    expect(
+      await screen.findByText(
+        "3 Preview Strips generated, 1 Preview Strips failed"
+      )
+    ).toBeInTheDocument();
   });
 
   it("shows FFmpeg and ffprobe availability in the app status", async () => {
