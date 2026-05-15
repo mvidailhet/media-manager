@@ -18,6 +18,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 import {
   CatalogVideo,
+  FailedPreviewStrip,
   FfmpegToolsStatus,
   PreviewStripQueueStatus,
   ScanRoot,
@@ -29,7 +30,9 @@ import {
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   getPreviewStripQueueStatus,
+  ignoreFailedPreviewStrip,
   listCatalogVideos,
+  listFailedPreviewStrips,
   listScanRoots,
   listUnprocessableVideoCandidates,
   pausePreviewStripQueue,
@@ -37,6 +40,7 @@ import {
   removeScanRoot,
   refreshAllScanRoots,
   refreshScanRoot,
+  retryFailedPreviewStrip,
   resumePreviewStripQueue,
   saveFfmpegConfiguration
 } from "./tauriCommands";
@@ -87,6 +91,9 @@ export default function App() {
   );
   const [unprocessableVideoCandidates, setUnprocessableVideoCandidates] =
     useState<UnprocessableVideoCandidate[]>([]);
+  const [failedPreviewStrips, setFailedPreviewStrips] = useState<
+    FailedPreviewStrip[]
+  >([]);
   const [reviewQueueStatusMessage, setReviewQueueStatusMessage] = useState(
     reviewQueueLoadingMessage
   );
@@ -140,10 +147,14 @@ export default function App() {
 
   async function loadReviewQueue(shouldClearStatusMessage = true) {
     try {
-      const storedUnprocessableVideoCandidates =
-        await listUnprocessableVideoCandidates();
+      const [storedUnprocessableVideoCandidates, storedFailedPreviewStrips] =
+        await Promise.all([
+          listUnprocessableVideoCandidates(),
+          listFailedPreviewStrips()
+        ]);
 
       setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
+      setFailedPreviewStrips(storedFailedPreviewStrips);
       if (shouldClearStatusMessage) {
         setReviewQueueStatusMessage("");
       }
@@ -219,6 +230,7 @@ export default function App() {
         if (canProcessQueue) {
           setPreviewStripQueueStatus(queueStatus);
           await loadCatalogVideos();
+          await loadReviewQueue(false);
         }
       } catch (error) {
         if (canProcessQueue) {
@@ -239,11 +251,15 @@ export default function App() {
 
     async function loadInitialReviewQueue() {
       try {
-        const storedUnprocessableVideoCandidates =
-          await listUnprocessableVideoCandidates();
+        const [storedUnprocessableVideoCandidates, storedFailedPreviewStrips] =
+          await Promise.all([
+            listUnprocessableVideoCandidates(),
+            listFailedPreviewStrips()
+          ]);
 
         if (canUpdateReviewQueue) {
           setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
+          setFailedPreviewStrips(storedFailedPreviewStrips);
           setReviewQueueStatusMessage("");
         }
       } catch {
@@ -350,6 +366,7 @@ export default function App() {
       setFfmpegPath(status.configuration.ffmpegPath ?? "");
       setFfprobePath(status.configuration.ffprobePath ?? "");
       setFfmpegStatusMessage("");
+      await loadReviewQueue(false);
     } catch {
       setFfmpegStatusMessage(ffmpegErrorMessage);
     }
@@ -434,6 +451,36 @@ export default function App() {
     }
   }
 
+  async function retryFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
+    try {
+      const queueStatus = await retryFailedPreviewStrip(
+        failedPreviewStrip.videoId
+      );
+
+      setPreviewStripQueueStatus(queueStatus);
+      setReviewQueueStatusMessage("");
+      await loadCatalogVideos();
+      await loadReviewQueue(false);
+      await loadPreviewStripQueueStatus();
+    } catch (error) {
+      setReviewQueueStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function ignoreFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
+    try {
+      const queueStatus = await ignoreFailedPreviewStrip(
+        failedPreviewStrip.videoId
+      );
+
+      setPreviewStripQueueStatus(queueStatus);
+      setReviewQueueStatusMessage("");
+      await loadReviewQueue(false);
+    } catch (error) {
+      setReviewQueueStatusMessage(errorMessage(error));
+    }
+  }
+
   async function refreshSelectedScanRoot(scanRoot: ScanRoot) {
     try {
       setScanRootsStatusMessage(scanRootRefreshStartedMessage);
@@ -478,6 +525,7 @@ export default function App() {
         `${generationSummary.generatedPreviewStripCount} Preview Strips generated, ${generationSummary.failedPreviewStripCount} Preview Strips failed`
       );
       await loadCatalogVideos();
+      await loadReviewQueue(false);
       await loadPreviewStripQueueStatus();
     } catch (error) {
       setPreviewStripStatusMessage(errorMessage(error));
@@ -530,8 +578,11 @@ export default function App() {
         previewStripStatusMessage={previewStripStatusMessage}
       />
       <ReviewQueuePanel
+        failedPreviewStrips={failedPreviewStrips}
         missingVideos={missingVideos}
+        onIgnoreFailedPreview={ignoreFailedPreview}
         reviewQueueStatusMessage={reviewQueueStatusMessage}
+        onRetryFailedPreview={retryFailedPreview}
         unavailableScanRoots={unavailableScanRoots}
         unprocessableVideoCandidates={unprocessableVideoCandidates}
         onRequestMissingVideoForget={setMissingVideoPendingForget}
@@ -899,14 +950,20 @@ function PreviewStripSurface({ catalogVideo }: { catalogVideo: CatalogVideo }) {
 }
 
 function ReviewQueuePanel({
+  failedPreviewStrips,
   missingVideos,
+  onIgnoreFailedPreview,
   onRequestMissingVideoForget,
+  onRetryFailedPreview,
   reviewQueueStatusMessage,
   unavailableScanRoots,
   unprocessableVideoCandidates
 }: {
+  failedPreviewStrips: FailedPreviewStrip[];
   missingVideos: CatalogVideo[];
+  onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
+  onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   reviewQueueStatusMessage: string;
   unavailableScanRoots: ScanRoot[];
   unprocessableVideoCandidates: UnprocessableVideoCandidate[];
@@ -918,7 +975,7 @@ function ReviewQueuePanel({
 
         {reviewQueueStatusMessage ? <Text>{reviewQueueStatusMessage}</Text> : null}
 
-        <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="md">
+        <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
           <MissingVideosPanel
             missingVideos={missingVideos}
             onRequestMissingVideoForget={onRequestMissingVideoForget}
@@ -926,6 +983,11 @@ function ReviewQueuePanel({
           <UnavailableScanRootsPanel unavailableScanRoots={unavailableScanRoots} />
           <UnprocessableCandidatesPanel
             unprocessableVideoCandidates={unprocessableVideoCandidates}
+          />
+          <FailedPreviewStripsPanel
+            failedPreviewStrips={failedPreviewStrips}
+            onIgnoreFailedPreview={onIgnoreFailedPreview}
+            onRetryFailedPreview={onRetryFailedPreview}
           />
         </SimpleGrid>
       </Stack>
@@ -1039,6 +1101,69 @@ function UnprocessableCandidatesPanel({
         </Stack>
       ) : (
         <Text c="dimmed">No Unprocessable Video Candidates.</Text>
+      )}
+    </Stack>
+  );
+}
+
+function FailedPreviewStripsPanel({
+  failedPreviewStrips,
+  onIgnoreFailedPreview,
+  onRetryFailedPreview
+}: {
+  failedPreviewStrips: FailedPreviewStrip[];
+  onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
+  onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
+}) {
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-labelledby="failed-preview-strips-title"
+    >
+      <Title order={3} id="failed-preview-strips-title" size="h4">
+        Failed Preview Strips
+      </Title>
+      {failedPreviewStrips.length > 0 ? (
+        <Stack gap="sm">
+          {failedPreviewStrips.map((failedPreviewStrip) => (
+            <Stack component="article" gap="xs" key={failedPreviewStrip.videoId}>
+              <Divider />
+              <Box>
+                <Title order={4} size="h5">
+                  {failedPreviewStrip.title}
+                </Title>
+                <Box component="dl" className="definition-list">
+                  <DefinitionTerm label="Failure Reason">
+                    {failedPreviewStrip.failureReason}
+                  </DefinitionTerm>
+                </Box>
+              </Box>
+              <Group gap="xs">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="light"
+                  aria-label={`Retry Failed Preview Strip for ${failedPreviewStrip.title}`}
+                  onClick={() => void onRetryFailedPreview(failedPreviewStrip)}
+                >
+                  Retry
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="default"
+                  aria-label={`Ignore Failed Preview Strip for ${failedPreviewStrip.title}`}
+                  onClick={() => void onIgnoreFailedPreview(failedPreviewStrip)}
+                >
+                  Ignore
+                </Button>
+              </Group>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Failed Preview Strips.</Text>
       )}
     </Stack>
   );

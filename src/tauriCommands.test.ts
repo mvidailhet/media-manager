@@ -8,6 +8,8 @@ import {
   getPreviewStripQueueStatus,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
+  ignoreFailedPreviewStrip,
+  listFailedPreviewStrips,
   listUnprocessableVideoCandidates,
   listCatalogVideos,
   listScanRoots,
@@ -15,6 +17,7 @@ import {
   removeScanRoot,
   refreshAllScanRoots,
   refreshScanRoot,
+  retryFailedPreviewStrip,
   resumePreviewStripQueue,
   saveFfmpegConfiguration
 } from "./tauriCommands";
@@ -183,6 +186,59 @@ describe("Tauri commands", () => {
     expect(mockedInvoke).toHaveBeenCalledWith(
       "list_unprocessable_video_candidates"
     );
+  });
+
+  it("calls the typed Rust command for Failed Preview Strips", async () => {
+    mockedInvoke.mockResolvedValue([
+      {
+        videoId: 7,
+        title: "Broken Trip",
+        failureReason: "ffmpeg failed"
+      }
+    ]);
+
+    const failedPreviewStrips = await listFailedPreviewStrips();
+
+    expect(failedPreviewStrips).toEqual([
+      {
+        videoId: 7,
+        title: "Broken Trip",
+        failureReason: "ffmpeg failed"
+      }
+    ]);
+    expect(mockedInvoke).toHaveBeenCalledWith("list_failed_preview_strips");
+  });
+
+  it("retries and ignores Failed Preview Strips through Rust commands", async () => {
+    mockedInvoke.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
+
+    const retryQueueStatus = await retryFailedPreviewStrip(7);
+    const ignoreQueueStatus = await ignoreFailedPreviewStrip(7);
+
+    expect(retryQueueStatus).toEqual({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
+    expect(ignoreQueueStatus).toEqual({
+      pendingCount: 1,
+      runningCount: 0,
+      failedCount: 0,
+      isPaused: false
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith("retry_failed_preview_strip", {
+      videoId: 7
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("ignore_failed_preview_strip", {
+      videoId: 7
+    });
   });
 
   it("generates missing Preview Strips through the Rust command", async () => {
