@@ -63,7 +63,7 @@ import type {
   AcceptMetadataSuggestionForVideosRequest,
   RejectMetadataSuggestionSourceRequest,
 } from "./tauriCommands";
-import { WorkspaceHeader } from "./app/WorkspaceHeader";
+import { WorkspaceHeader } from "./modules/catalog/WorkspaceHeader";
 import { BatchMetadataEditPanel } from "./modules/catalog/BatchMetadataEditPanel";
 import { CatalogVideosPanel } from "./modules/catalog/CatalogVideosPanel";
 import { VideoDetailPanel } from "./modules/catalog/VideoDetailPanel";
@@ -79,6 +79,7 @@ import {
   sortedCatalogVideos,
   workspaceCatalogVideos,
 } from "./modules/catalog/catalogVideoFiltering";
+import { MetadataSuggestionsPanel } from "./modules/catalog/MetadataSuggestionsPanel";
 import { ReviewQueuePanel } from "./modules/scan/ScanIssuesPanel";
 import { ScanRootsPanel } from "./modules/scan/ScanRootsPanel";
 import { FfmpegStatusPanel, TauriStatusPanel } from "./modules/settings/SettingsStatusPanels";
@@ -1426,14 +1427,20 @@ export default function App() {
         />
       ) : null}
       <ReviewQueuePanel
-        availablePerformers={availablePerformers}
-        availableTags={availableTags}
         failedPreviewStrips={failedPreviewStrips}
-        metadataSuggestionGroups={metadataSuggestionGroups}
+        metadataSuggestionsPanel={
+          <MetadataSuggestionsPanel
+            availablePerformers={availablePerformers}
+            availableTags={availableTags}
+            metadataSuggestionGroups={metadataSuggestionGroups}
+            onAcceptMetadataSuggestionVideos={
+              acceptSelectedMetadataSuggestionVideos
+            }
+            onRejectMetadataSuggestionSource={rejectMetadataSuggestionForSource}
+          />
+        }
         missingVideos={missingVideos}
-        onAcceptMetadataSuggestionVideos={acceptSelectedMetadataSuggestionVideos}
         onIgnoreFailedPreview={ignoreFailedPreview}
-        onRejectMetadataSuggestionSource={rejectMetadataSuggestionForSource}
         reviewQueueStatusMessage={reviewQueueStatusMessage}
         onRetryFailedPreview={retryFailedPreview}
         unavailableScanRoots={unavailableScanRoots}

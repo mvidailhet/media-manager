@@ -1,6 +1,6 @@
 import { Box, Text, Title } from "@mantine/core";
 
-import type { CatalogVideoWorkspace } from "../modules/catalog/catalogTypes";
+import type { CatalogVideoWorkspace } from "./catalogTypes";
 
 export function WorkspaceHeader({
   catalogVideoWorkspace,

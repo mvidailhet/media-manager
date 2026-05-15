@@ -3,11 +3,11 @@ import { convertFileSrc } from "@tauri-apps/api/core";
 import { Badge, Box, Button, Checkbox, Code, Divider, Group, Loader, NativeSelect, NumberInput, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, CatalogVideo, PreviewStripQueueStatus } from "../../tauriCommands";
+import { PreviewStripQueuePanel } from "../scan/PreviewGenerationView";
 import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
 import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { formatDuration, formatFileSize, formatOpenHistory } from "../../shared/formatting/videoFormatting";
-import { findMetadataByName, findNearMetadataMatch, singularMetadataLabel } from "../../shared/metadata/metadataHelpers";
 import type { CatalogVideoFilters, CatalogVideoSort, CatalogVideoWorkspace } from "./catalogTypes";
 
 const catalogVideosEmptyMessage = "No Videos in the Catalog.";
@@ -269,76 +269,6 @@ export function CatalogVideoFiltersPanel({
       ) : null}
     </Stack>
   );
-}
-
-export function PreviewStripQueuePanel({
-  onPausePreviewQueue,
-  onResumePreviewQueue,
-  previewStripQueueStatus,
-}: {
-  onPausePreviewQueue: () => void;
-  onResumePreviewQueue: () => void;
-  previewStripQueueStatus: PreviewStripQueueStatus | null;
-}) {
-  if (!previewStripQueueStatus) {
-    return null;
-  }
-  const queueActivityLabel = previewStripQueueActivityLabel(
-    previewStripQueueStatus,
-  );
-
-  return (
-    <Group gap="xs" align="center">
-      <Badge color={previewStripQueueStatus.isPaused ? "yellow" : "teal"}>
-        {queueActivityLabel}
-      </Badge>
-      <Badge variant="light">
-        {previewStripQueueStatus.pendingCount} pending
-      </Badge>
-      <Badge variant="light">
-        {previewStripQueueStatus.runningCount} running
-      </Badge>
-      <Badge color="red" variant="light">
-        {previewStripQueueStatus.failedCount} failed
-      </Badge>
-      {previewStripQueueStatus.isPaused ? (
-        <Button
-          type="button"
-          size="xs"
-          variant="default"
-          onClick={() => void onResumePreviewQueue()}
-        >
-          Resume Preview Queue
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          size="xs"
-          variant="default"
-          onClick={() => void onPausePreviewQueue()}
-        >
-          Pause Preview Queue
-        </Button>
-      )}
-    </Group>
-  );
-}
-
-export function previewStripQueueActivityLabel(
-  previewStripQueueStatus: PreviewStripQueueStatus,
-) {
-  if (previewStripQueueStatus.isPaused) {
-    return "Paused";
-  }
-
-  if (
-    previewStripQueueStatus.runningCount === 0 &&
-    previewStripQueueStatus.pendingCount === 0
-  ) {
-    return "Idle";
-  }
-
-  return "Running";
 }
 
 export function CatalogVideoCard({
