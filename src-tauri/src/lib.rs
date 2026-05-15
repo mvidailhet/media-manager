@@ -5,6 +5,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::{
     env, fs, io,
     path::{Path, PathBuf},
+    process::Command,
     sync::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
@@ -536,6 +537,39 @@ fn set_video_favorite(
 }
 
 #[tauri::command]
+fn open_catalog_video(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+    let file_location_path = catalog.preferred_file_location_path(video_id)?;
+
+    open_file_location(&file_location_path)?;
+    catalog.record_video_opened(video_id)
+}
+
+fn open_file_location(file_location_path: &Path) -> Result<(), String> {
+    let output = Command::new("open")
+        .arg(file_location_path)
+        .output()
+        .map_err(|error| error.to_string())?;
+
+    if output.status.success() {
+        return Ok(());
+    }
+
+    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    Err(if stderr.is_empty() {
+        "Could not open Video".to_string()
+    } else {
+        stderr
+    })
+}
+
+#[tauri::command]
 fn get_ffmpeg_tools_status(app: tauri::AppHandle) -> Result<FfmpegToolsStatus, String> {
     let settings_path = ffmpeg_settings_path(&app)?;
     let configuration = load_ffmpeg_configuration(&settings_path)?;
@@ -1009,6 +1043,7 @@ pub fn run() {
             performers_for_video,
             update_video_title,
             set_video_favorite,
+            open_catalog_video,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             refresh_scan_root,

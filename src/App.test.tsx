@@ -40,6 +40,7 @@ import {
   retryFailedPreviewStrip,
   saveFfmpegConfiguration,
   setVideoFavorite,
+  openCatalogVideo,
   tagsForVideo,
   updateVideoTitle,
 } from "./tauriCommands";
@@ -81,6 +82,7 @@ vi.mock("./tauriCommands", () => ({
   retryFailedPreviewStrip: vi.fn(),
   saveFfmpegConfiguration: vi.fn(),
   setVideoFavorite: vi.fn(),
+  openCatalogVideo: vi.fn(),
   tagsForVideo: vi.fn(),
   updateVideoTitle: vi.fn(),
 }));
@@ -103,6 +105,7 @@ const mockedCreateTag = vi.mocked(createTag);
 const mockedCreatePerformer = vi.mocked(createPerformer);
 const mockedUpdateVideoTitle = vi.mocked(updateVideoTitle);
 const mockedSetVideoFavorite = vi.mocked(setVideoFavorite);
+const mockedOpenCatalogVideo = vi.mocked(openCatalogVideo);
 const mockedRetryFailedPreviewStrip = vi.mocked(retryFailedPreviewStrip);
 const mockedIgnoreFailedPreviewStrip = vi.mocked(ignoreFailedPreviewStrip);
 const mockedListCatalogVideos = vi.mocked(listCatalogVideos);
@@ -191,6 +194,7 @@ describe("Videos View shell", () => {
     mockedCreatePerformer.mockResolvedValue({ id: 200, name: "New Performer" });
     mockedUpdateVideoTitle.mockResolvedValue(undefined);
     mockedSetVideoFavorite.mockResolvedValue(undefined);
+    mockedOpenCatalogVideo.mockResolvedValue(undefined);
     mockedRetryFailedPreviewStrip.mockResolvedValue({
       pendingCount: 1,
       runningCount: 0,
@@ -276,6 +280,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -301,6 +307,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: true,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -312,6 +320,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -323,6 +333,8 @@ describe("Videos View shell", () => {
         isAvailable: false,
         fileLocations: [],
         isFavorite: true,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -353,7 +365,9 @@ describe("Videos View shell", () => {
       within(catalogVideos).getByText("Archive Family Cut"),
     ).toBeInTheDocument();
     expect(within(catalogVideos).getByText("Unavailable")).toBeInTheDocument();
-    expect(within(catalogVideos).queryByText("Studio Clip")).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Studio Clip"),
+    ).not.toBeInTheDocument();
   });
 
   it("marks and unmarks a Video as Favorite from the Videos View", async () => {
@@ -367,6 +381,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -411,6 +427,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -444,6 +462,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -453,9 +473,11 @@ describe("Videos View shell", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    fireEvent.click(await within(catalogVideos).findByRole("button", {
-      name: "Family Trip",
-    }));
+    fireEvent.click(
+      await within(catalogVideos).findByRole("button", {
+        name: "Family Trip",
+      }),
+    );
     fireEvent.click(
       within(catalogVideos).getByRole("button", {
         name: "Mark Family Trip as Favorite",
@@ -494,6 +516,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: true,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -505,6 +529,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -523,10 +549,14 @@ describe("Videos View shell", () => {
     expect(
       screen.getByRole("heading", { name: "Favorites View" }),
     ).toBeInTheDocument();
-    expect(within(catalogVideos).getByLabelText("Favorites only")).toBeChecked();
+    expect(
+      within(catalogVideos).getByLabelText("Favorites only"),
+    ).toBeChecked();
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("1h 2m")).toBeInTheDocument();
-    expect(within(catalogVideos).queryByText("Studio Clip")).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Studio Clip"),
+    ).not.toBeInTheDocument();
   });
 
   it("matches text search against the current filename without matching parent folders", async () => {
@@ -540,6 +570,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -551,6 +583,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -565,7 +599,9 @@ describe("Videos View shell", () => {
       target: { value: "archive" },
     });
 
-    expect(within(catalogVideos).queryByText("Mountain Ride")).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Mountain Ride"),
+    ).not.toBeInTheDocument();
     expect(within(catalogVideos).getByText("Studio Clip")).toBeInTheDocument();
   });
 
@@ -605,6 +641,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -616,6 +654,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -634,17 +674,25 @@ describe("Videos View shell", () => {
     fireEvent.click(within(catalogVideos).getByLabelText("Family"));
 
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
-    expect(within(catalogVideos).queryByText("Travel Clip")).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Travel Clip"),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(within(catalogVideos).getByLabelText("Alex"));
 
-    expect(within(catalogVideos).queryByText("Family Trip")).not.toBeInTheDocument();
-    expect(within(catalogVideos).queryByText("Travel Clip")).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Family Trip"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Travel Clip"),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(within(catalogVideos).getByLabelText("Blair"));
 
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
-    expect(within(catalogVideos).queryByText("Travel Clip")).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Travel Clip"),
+    ).not.toBeInTheDocument();
   });
 
   it("sorts Catalog Videos by File Size without adding File Size as a Search Filter", async () => {
@@ -658,6 +706,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -669,6 +719,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -678,7 +730,9 @@ describe("Videos View shell", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    expect(within(catalogVideos).queryByLabelText("File Size")).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("File Size"),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
       target: { value: "fileSizeAscending" },
@@ -694,6 +748,128 @@ describe("Videos View shell", () => {
     ]);
   });
 
+  it("opens a Video from the app and refreshes Open History fields", async () => {
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          isAvailable: true,
+          fileLocations: [],
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          isAvailable: true,
+          fileLocations: [],
+          isFavorite: false,
+          lastOpenedAt: "2026-05-15 18:00:00",
+          openCount: 1,
+          previewStrip: pendingPreviewStrip,
+        },
+      ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      within(catalogVideos).getByRole("button", {
+        name: "Open Family Trip",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedOpenCatalogVideo).toHaveBeenCalledWith(1);
+    });
+    expect(
+      await within(catalogVideos).findByText(/Opened 1 time/),
+    ).toBeInTheDocument();
+  });
+
+  it("shows Recently Opened View ordered by recent Open History activity", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Older Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/older-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: "2026-05-14 18:00:00",
+        openCount: 5,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Fresh Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/fresh-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: "2026-05-15 18:00:00",
+        openCount: 1,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 3,
+        title: "Never Opened",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/never-opened.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      within(catalogVideos).getByRole("button", {
+        name: "Recently Opened View",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Recently Opened View" }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Never Opened"),
+    ).not.toBeInTheDocument();
+    const videoTitles = within(catalogVideos).getAllByRole("button", {
+      name: /^(Older Clip|Fresh Clip)$/,
+    });
+
+    expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
+      "Fresh Clip",
+      "Older Clip",
+    ]);
+  });
+
   it("keeps unknown File Sizes last when sorting by File Size descending", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -705,6 +881,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -716,6 +894,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -756,6 +936,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -816,6 +998,8 @@ describe("Videos View shell", () => {
         ],
         isAvailable: true,
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -898,6 +1082,8 @@ describe("Videos View shell", () => {
         fileLocations: [],
         isAvailable: true,
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -916,7 +1102,9 @@ describe("Videos View shell", () => {
       within(detailPanel).getByText("Near match: Road Trip"),
     ).toBeInTheDocument();
     fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Create and attach Tag" }),
+      within(detailPanel).getByRole("button", {
+        name: "Create and attach Tag",
+      }),
     );
 
     fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
@@ -952,6 +1140,8 @@ describe("Videos View shell", () => {
         fileLocations: [],
         isAvailable: true,
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -967,7 +1157,9 @@ describe("Videos View shell", () => {
       target: { value: "Road Trip" },
     });
 
-    expect(within(detailPanel).queryByText(/Near match:/)).not.toBeInTheDocument();
+    expect(
+      within(detailPanel).queryByText(/Near match:/),
+    ).not.toBeInTheDocument();
   });
 
   it("reuses case-insensitive Tag and Performer matches instead of creating duplicates", async () => {
@@ -983,6 +1175,8 @@ describe("Videos View shell", () => {
         fileLocations: [],
         isAvailable: true,
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -1032,6 +1226,8 @@ describe("Videos View shell", () => {
         fileLocations: [],
         isAvailable: true,
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -1073,6 +1269,8 @@ describe("Videos View shell", () => {
         isAvailable: false,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -1125,6 +1323,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -1132,8 +1332,9 @@ describe("Videos View shell", () => {
     renderApp();
 
     expect(await screen.findByText("1 pending")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Resume Preview Queue" }))
-      .toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Resume Preview Queue" }),
+    ).toBeInTheDocument();
     expect(mockedProcessNextPreviewStripQueueItem).not.toHaveBeenCalled();
   });
 
@@ -1207,6 +1408,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -1218,6 +1421,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -1241,6 +1446,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: {
           status: "generated",
           path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
@@ -1309,6 +1516,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: {
           status: "pending",
         },
@@ -1322,6 +1531,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: {
           status: "failed",
           failureReason: "ffmpeg failed",
@@ -1514,6 +1725,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -1569,6 +1782,8 @@ describe("Videos View shell", () => {
         isAvailable: false,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
       {
@@ -1580,6 +1795,8 @@ describe("Videos View shell", () => {
         isAvailable: true,
         fileLocations: [],
         isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
         previewStrip: pendingPreviewStrip,
       },
     ]);
@@ -1734,6 +1951,8 @@ describe("Videos View shell", () => {
           isAvailable: false,
           fileLocations: [],
           isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
           previewStrip: pendingPreviewStrip,
         },
       ])

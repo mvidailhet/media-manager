@@ -40,6 +40,8 @@ const CREATE_VIDEOS_TABLE: &str = "
         title TEXT NOT NULL,
         duration_milliseconds INTEGER NOT NULL,
         is_favorite INTEGER NOT NULL DEFAULT 0,
+        last_opened_at TEXT,
+        open_count INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -169,6 +171,8 @@ pub struct CatalogVideo {
     pub file_locations: Vec<CatalogVideoFileLocation>,
     pub is_available: bool,
     pub is_favorite: bool,
+    pub last_opened_at: Option<String>,
+    pub open_count: i64,
     pub preview_strip: PreviewStripStatus,
 }
 
@@ -460,6 +464,8 @@ impl Catalog {
                         videos.title,
                         videos.duration_milliseconds,
                         videos.is_favorite,
+                        videos.last_opened_at,
+                        videos.open_count,
                         preferred_file_locations.file_size_bytes,
                         preferred_file_locations.path,
                         preferred_file_locations.path IS NOT NULL,
@@ -491,11 +497,13 @@ impl Catalog {
                     title: row.get(1)?,
                     duration_milliseconds: row.get(2)?,
                     is_favorite: row.get::<_, i64>(3)? == 1,
-                    file_size_bytes: row.get(4)?,
-                    file_location_path: row.get(5)?,
+                    last_opened_at: row.get(4)?,
+                    open_count: row.get(5)?,
+                    file_size_bytes: row.get(6)?,
+                    file_location_path: row.get(7)?,
                     file_locations: self.file_locations_for_video(video_id)?,
-                    is_available: row.get::<_, i64>(6)? == 1,
-                    preview_strip: preview_strip_status_from_row(row, 7)?,
+                    is_available: row.get::<_, i64>(8)? == 1,
+                    preview_strip: preview_strip_status_from_row(row, 9)?,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -540,6 +548,45 @@ impl Catalog {
         }
 
         Ok(())
+    }
+
+    pub fn record_video_opened(&self, video_id: i64) -> Result<(), String> {
+        let updated_video_count = self
+            .database
+            .execute(
+                "UPDATE videos
+                 SET last_opened_at = CURRENT_TIMESTAMP,
+                     open_count = open_count + 1,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?1",
+                params![video_id],
+            )
+            .map_err(|error| error.to_string())?;
+        if updated_video_count == 0 {
+            return Err("Video is not in the Catalog".to_string());
+        }
+
+        Ok(())
+    }
+
+    pub fn preferred_file_location_path(&self, video_id: i64) -> Result<PathBuf, String> {
+        let file_location_path = self
+            .database
+            .query_row(
+                "SELECT path
+                 FROM file_locations
+                 WHERE video_id = ?1
+                 ORDER BY path
+                 LIMIT 1",
+                params![video_id],
+                |row| row.get::<_, String>(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+
+        file_location_path
+            .map(PathBuf::from)
+            .ok_or_else(|| "Video has no available File Location".to_string())
     }
 
     pub fn add_scan_root(&self, scan_root_path: &Path) -> Result<ScanRoot, String> {
@@ -1447,7 +1494,8 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
         self.add_scan_root_availability_column_if_missing()?;
         self.add_failed_preview_strip_ignored_at_column_if_missing()?;
-        self.add_video_favorite_column_if_missing()
+        self.add_video_favorite_column_if_missing()?;
+        self.add_video_open_history_columns_if_missing()
     }
 
     fn add_scan_root_availability_column_if_missing(&self) -> Result<(), String> {
@@ -1494,6 +1542,30 @@ impl Catalog {
                 [],
             )
             .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn add_video_open_history_columns_if_missing(&self) -> Result<(), String> {
+        if !catalog_table_has_column(&self.database, "videos", "last_opened_at")? {
+            self.database
+                .execute(
+                    "ALTER TABLE videos
+                     ADD COLUMN last_opened_at TEXT",
+                    [],
+                )
+                .map_err(|error| error.to_string())?;
+        }
+
+        if !catalog_table_has_column(&self.database, "videos", "open_count")? {
+            self.database
+                .execute(
+                    "ALTER TABLE videos
+                     ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
+                    [],
+                )
+                .map_err(|error| error.to_string())?;
+        }
 
         Ok(())
     }
@@ -2170,6 +2242,8 @@ mod tests {
                 file_location_path: None,
                 file_locations: Vec::new(),
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
     }
@@ -2237,7 +2311,40 @@ mod tests {
                     },
                 ],
                 is_favorite: true,
+                last_opened_at: None,
+                open_count: 0,
             }]
+        );
+    }
+
+    #[test]
+    fn opening_a_video_records_open_history_without_playback_progress() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let database = Connection::open(&catalog_path).expect("catalog database opens");
+
+        database
+            .execute(
+                "INSERT INTO videos (id, fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (1, 'fingerprint', 1, 'Family Trip', 3723000)",
+                [],
+            )
+            .expect("video persists");
+
+        catalog.record_video_opened(1).expect("first open records");
+        catalog.record_video_opened(1).expect("second open records");
+
+        let listed_video = catalog
+            .listed_videos()
+            .expect("stored videos list")
+            .pop()
+            .expect("video listed");
+        assert_eq!(listed_video.open_count, 2);
+        assert!(listed_video.last_opened_at.is_some());
+        assert!(
+            !super::catalog_table_has_column(&database, "videos", "playback_progress")
+                .expect("column presence loads")
         );
     }
 
@@ -2282,6 +2389,8 @@ mod tests {
                 file_location_path: None,
                 file_locations: Vec::new(),
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
     }
@@ -2343,6 +2452,8 @@ mod tests {
                     file_location_path: None,
                     file_locations: Vec::new(),
                     is_favorite: false,
+                    last_opened_at: None,
+                    open_count: 0,
                 },
                 super::CatalogVideo {
                     id: 1,
@@ -2361,6 +2472,8 @@ mod tests {
                     file_location_path: None,
                     file_locations: Vec::new(),
                     is_favorite: false,
+                    last_opened_at: None,
+                    open_count: 0,
                 },
             ]
         );
@@ -2466,6 +2579,8 @@ mod tests {
                     file_location_path: None,
                     file_locations: Vec::new(),
                     is_favorite: false,
+                    last_opened_at: None,
+                    open_count: 0,
                 },
                 super::CatalogVideo {
                     id: 1,
@@ -2491,6 +2606,8 @@ mod tests {
                         is_preferred: true,
                     }],
                     is_favorite: false,
+                    last_opened_at: None,
+                    open_count: 0,
                 },
             ]
         );
@@ -2548,6 +2665,8 @@ mod tests {
                 file_location_path: None,
                 file_locations: Vec::new(),
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
     }
@@ -2601,6 +2720,8 @@ mod tests {
                     is_preferred: true,
                 }],
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
     }
@@ -3157,6 +3278,8 @@ mod tests {
                     is_preferred: true,
                 }],
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
         assert_eq!(
@@ -3220,6 +3343,8 @@ mod tests {
                 file_location_path: None,
                 file_locations: Vec::new(),
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
     }
@@ -3279,6 +3404,8 @@ mod tests {
                 file_location_path: None,
                 file_locations: Vec::new(),
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
         assert_eq!(
@@ -3490,6 +3617,8 @@ mod tests {
                     is_preferred: true,
                 }],
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
     }
@@ -3617,6 +3746,8 @@ mod tests {
                 "title TEXT required",
                 "duration_milliseconds INTEGER required",
                 "is_favorite INTEGER required",
+                "last_opened_at TEXT optional",
+                "open_count INTEGER required",
                 "created_at TEXT required",
                 "updated_at TEXT required",
             ]
@@ -3806,6 +3937,8 @@ mod tests {
                     is_preferred: true,
                 }],
                 is_favorite: false,
+                last_opened_at: None,
+                open_count: 0,
             }]
         );
     }
