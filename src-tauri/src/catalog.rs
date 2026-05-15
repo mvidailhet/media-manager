@@ -128,6 +128,33 @@ const CREATE_METADATA_SUGGESTION_REJECTIONS_TABLE: &str = "
     );
 ";
 
+const CREATE_METADATA_SUGGESTION_MAPPINGS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS metadata_suggestion_mappings (
+        id INTEGER PRIMARY KEY,
+        scan_root_id INTEGER NOT NULL,
+        source_path_segment TEXT NOT NULL,
+        normalized_suggested_value TEXT NOT NULL,
+        suggestion_kind TEXT NOT NULL,
+        accepted_tag_id INTEGER,
+        accepted_performer_id INTEGER,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        CHECK (
+            (accepted_tag_id IS NOT NULL AND accepted_performer_id IS NULL)
+            OR (accepted_tag_id IS NULL AND accepted_performer_id IS NOT NULL)
+        ),
+        UNIQUE (
+            scan_root_id,
+            source_path_segment,
+            normalized_suggested_value,
+            suggestion_kind
+        ),
+        FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE,
+        FOREIGN KEY (accepted_tag_id) REFERENCES tags (id) ON DELETE CASCADE,
+        FOREIGN KEY (accepted_performer_id) REFERENCES performers (id) ON DELETE CASCADE
+    );
+";
+
 const CREATE_PREVIEW_STRIPS_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS preview_strips (
         id INTEGER PRIMARY KEY,
@@ -1101,6 +1128,7 @@ impl Catalog {
         &self,
         scan_root_path: &str,
         suggested_value: &str,
+        source_path_segment: &str,
         suggestion_kind: &str,
         accepted_metadata_kind: Option<&str>,
         accepted_value: Option<&str>,
@@ -1117,6 +1145,7 @@ impl Catalog {
         self.reject_videos_without_pending_metadata_suggestions(
             scan_root_id,
             suggested_value,
+            source_path_segment,
             suggestion_kind,
             video_ids,
         )?;
@@ -1128,6 +1157,13 @@ impl Catalog {
         let metadata_value_name = accepted_value.unwrap_or(suggested_value);
         let metadata_value_id =
             metadata_value_id_for_suggestion(&transaction, metadata_kind, metadata_value_name)?;
+        let suggestion_mapping = AcceptedMetadataSuggestionMapping::new(
+            scan_root_id,
+            suggested_value,
+            suggestion_kind,
+            metadata_kind,
+            metadata_value_id,
+        )?;
 
         for video_id in video_ids {
             attach_metadata_suggestion_to_video(
@@ -1136,6 +1172,21 @@ impl Catalog {
                 metadata_value_id,
                 *video_id,
             )?;
+            let source_path_segments = pending_metadata_suggestion_source_path_segments(
+                &transaction,
+                scan_root_id,
+                *video_id,
+                suggested_value,
+                source_path_segment,
+                suggestion_kind,
+            )?;
+            for source_path_segment in source_path_segments {
+                remember_metadata_suggestion_mapping(
+                    &transaction,
+                    &suggestion_mapping,
+                    &source_path_segment,
+                )?;
+            }
             transaction
                 .execute(
                     "UPDATE metadata_suggestions
@@ -1144,10 +1195,17 @@ impl Catalog {
                      WHERE scan_root_id = ?1
                        AND video_id = ?2
                        AND lower(suggested_value) = lower(?3)
-                       AND suggestion_kind = ?4
+                       AND source_path_segment = ?4
+                       AND suggestion_kind = ?5
                        AND accepted_at IS NULL
                        AND rejected_at IS NULL",
-                    params![scan_root_id, video_id, suggested_value, suggestion_kind],
+                    params![
+                        scan_root_id,
+                        video_id,
+                        suggested_value,
+                        source_path_segment,
+                        suggestion_kind
+                    ],
                 )
                 .map_err(|error| error.to_string())?;
         }
@@ -1689,6 +1747,7 @@ impl Catalog {
         &self,
         scan_root_id: i64,
         suggested_value: &str,
+        source_path_segment: &str,
         suggestion_kind: &str,
         video_ids: &[i64],
     ) -> Result<(), String> {
@@ -1707,11 +1766,18 @@ impl Catalog {
                      WHERE scan_root_id = ?1
                        AND video_id = ?2
                        AND lower(suggested_value) = lower(?3)
-                       AND suggestion_kind = ?4
+                       AND source_path_segment = ?4
+                       AND suggestion_kind = ?5
                        AND accepted_at IS NULL
                        AND rejected_at IS NULL
                      LIMIT 1",
-                    params![scan_root_id, video_id, suggested_value, suggestion_kind],
+                    params![
+                        scan_root_id,
+                        video_id,
+                        suggested_value,
+                        source_path_segment,
+                        suggestion_kind
+                    ],
                     |_| Ok(()),
                 )
                 .optional()
@@ -1883,6 +1949,7 @@ impl Catalog {
             CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE,
             CREATE_METADATA_SUGGESTIONS_TABLE,
             CREATE_METADATA_SUGGESTION_REJECTIONS_TABLE,
+            CREATE_METADATA_SUGGESTION_MAPPINGS_TABLE,
             CREATE_PREVIEW_STRIPS_TABLE,
             CREATE_FAILED_PREVIEW_STRIPS_TABLE,
             CREATE_TAGS_TABLE,
@@ -2415,6 +2482,41 @@ impl Catalog {
                     continue;
                 }
 
+                if let Some(suggestion_mapping) = mapped_metadata_suggestion(
+                    &transaction,
+                    scan_root_id,
+                    &folder_segment,
+                    &suggested_value,
+                    "tag",
+                )? {
+                    attach_mapped_metadata_suggestion_to_video(
+                        &transaction,
+                        &suggestion_mapping,
+                        video_id,
+                    )?;
+                    transaction
+                        .execute(
+                            "INSERT INTO metadata_suggestions (
+                                scan_root_id,
+                                video_id,
+                                source_path_segment,
+                                suggested_value,
+                                suggestion_kind,
+                                accepted_at
+                             )
+                             VALUES (?1, ?2, ?3, ?4, 'tag', CURRENT_TIMESTAMP)
+                             ON CONFLICT(scan_root_id, video_id, source_path_segment, suggestion_kind)
+                             DO UPDATE SET
+                                suggested_value = excluded.suggested_value,
+                                accepted_at = CURRENT_TIMESTAMP,
+                                rejected_at = NULL,
+                                updated_at = CURRENT_TIMESTAMP",
+                            params![scan_root_id, video_id, folder_segment, suggested_value],
+                        )
+                        .map_err(|error| error.to_string())?;
+                    continue;
+                }
+
                 transaction
                     .execute(
                         "INSERT INTO metadata_suggestions (
@@ -2471,6 +2573,53 @@ struct PendingPreviewStrip {
 struct NormalizedMetadataName {
     display_name: String,
     normalized_name: String,
+}
+
+struct AcceptedMetadataSuggestionMapping {
+    scan_root_id: i64,
+    normalized_suggested_value: String,
+    suggestion_kind: String,
+    accepted_tag_id: Option<i64>,
+    accepted_performer_id: Option<i64>,
+}
+
+impl AcceptedMetadataSuggestionMapping {
+    fn new(
+        scan_root_id: i64,
+        suggested_value: &str,
+        suggestion_kind: &str,
+        metadata_kind: &str,
+        metadata_value_id: i64,
+    ) -> Result<Self, String> {
+        let metadata_name = normalized_metadata_input(suggested_value)?;
+        let (accepted_tag_id, accepted_performer_id) = match metadata_kind {
+            "tag" => (Some(metadata_value_id), None),
+            "performer" => (None, Some(metadata_value_id)),
+            _ => return Err("Metadata Suggestion kind is not supported".to_string()),
+        };
+
+        Ok(Self {
+            scan_root_id,
+            normalized_suggested_value: metadata_name.normalized_name,
+            suggestion_kind: suggestion_kind.to_string(),
+            accepted_tag_id,
+            accepted_performer_id,
+        })
+    }
+
+    fn accepted_metadata_kind(&self) -> &'static str {
+        if self.accepted_tag_id.is_some() {
+            "tag"
+        } else {
+            "performer"
+        }
+    }
+
+    fn accepted_metadata_id(&self) -> i64 {
+        self.accepted_tag_id
+            .or(self.accepted_performer_id)
+            .expect("mapping has one accepted metadata id")
+    }
 }
 
 fn normalized_metadata_input(name: &str) -> Result<NormalizedMetadataName, String> {
@@ -2556,6 +2705,137 @@ fn attach_metadata_suggestion_to_video(
         .map_err(|error| error.to_string())?;
 
     Ok(())
+}
+
+fn attach_mapped_metadata_suggestion_to_video(
+    transaction: &Transaction<'_>,
+    suggestion_mapping: &AcceptedMetadataSuggestionMapping,
+    video_id: i64,
+) -> Result<(), String> {
+    attach_metadata_suggestion_to_video(
+        transaction,
+        suggestion_mapping.accepted_metadata_kind(),
+        suggestion_mapping.accepted_metadata_id(),
+        video_id,
+    )
+}
+
+fn pending_metadata_suggestion_source_path_segments(
+    transaction: &Transaction<'_>,
+    scan_root_id: i64,
+    video_id: i64,
+    suggested_value: &str,
+    source_path_segment: &str,
+    suggestion_kind: &str,
+) -> Result<Vec<String>, String> {
+    let mut statement = transaction
+        .prepare(
+            "SELECT source_path_segment
+             FROM metadata_suggestions
+             WHERE scan_root_id = ?1
+               AND video_id = ?2
+               AND lower(suggested_value) = lower(?3)
+               AND source_path_segment = ?4
+               AND suggestion_kind = ?5
+               AND accepted_at IS NULL
+               AND rejected_at IS NULL
+             ORDER BY source_path_segment",
+        )
+        .map_err(|error| error.to_string())?;
+
+    let source_path_segments = statement
+        .query_map(
+            params![
+                scan_root_id,
+                video_id,
+                suggested_value,
+                source_path_segment,
+                suggestion_kind
+            ],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+
+    Ok(source_path_segments)
+}
+
+fn remember_metadata_suggestion_mapping(
+    transaction: &Transaction<'_>,
+    suggestion_mapping: &AcceptedMetadataSuggestionMapping,
+    source_path_segment: &str,
+) -> Result<(), String> {
+    transaction
+        .execute(
+            "INSERT INTO metadata_suggestion_mappings (
+                scan_root_id,
+                source_path_segment,
+                normalized_suggested_value,
+                suggestion_kind,
+                accepted_tag_id,
+                accepted_performer_id
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+             ON CONFLICT (
+                scan_root_id,
+                source_path_segment,
+                normalized_suggested_value,
+                suggestion_kind
+             )
+             DO UPDATE SET
+                accepted_tag_id = excluded.accepted_tag_id,
+                accepted_performer_id = excluded.accepted_performer_id,
+                updated_at = CURRENT_TIMESTAMP",
+            params![
+                suggestion_mapping.scan_root_id,
+                source_path_segment,
+                suggestion_mapping.normalized_suggested_value,
+                suggestion_mapping.suggestion_kind,
+                suggestion_mapping.accepted_tag_id,
+                suggestion_mapping.accepted_performer_id,
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+fn mapped_metadata_suggestion(
+    transaction: &Transaction<'_>,
+    scan_root_id: i64,
+    source_path_segment: &str,
+    suggested_value: &str,
+    suggestion_kind: &str,
+) -> Result<Option<AcceptedMetadataSuggestionMapping>, String> {
+    let metadata_name = normalized_metadata_input(suggested_value)?;
+    transaction
+        .query_row(
+            "SELECT accepted_tag_id, accepted_performer_id
+             FROM metadata_suggestion_mappings
+             WHERE scan_root_id = ?1
+               AND source_path_segment = ?2
+               AND normalized_suggested_value = ?3
+               AND suggestion_kind = ?4
+             LIMIT 1",
+            params![
+                scan_root_id,
+                source_path_segment,
+                metadata_name.normalized_name,
+                suggestion_kind
+            ],
+            |row| {
+                Ok(AcceptedMetadataSuggestionMapping {
+                    scan_root_id,
+                    normalized_suggested_value: metadata_name.normalized_name.clone(),
+                    suggestion_kind: suggestion_kind.to_string(),
+                    accepted_tag_id: row.get(0)?,
+                    accepted_performer_id: row.get(1)?,
+                })
+            },
+        )
+        .optional()
+        .map_err(|error| error.to_string())
 }
 
 fn catalog_tag_from_value(metadata_value: CatalogMetadataValue) -> CatalogTag {
@@ -3395,6 +3675,7 @@ mod tests {
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
                 "Family",
+                "Family",
                 "tag",
                 None,
                 None,
@@ -3456,6 +3737,7 @@ mod tests {
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
                 "Family",
+                "Family",
                 "tag",
                 Some("performer"),
                 Some("The Family"),
@@ -3509,6 +3791,7 @@ mod tests {
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
                 "Family",
+                "Family",
                 "tag",
                 None,
                 Some("home movies"),
@@ -3528,6 +3811,270 @@ mod tests {
                 .map(|tag| tag.name)
                 .collect::<Vec<_>>(),
             vec!["Home Movies".to_string()]
+        );
+    }
+
+    #[test]
+    fn accepting_metadata_suggestion_only_maps_the_accepted_source_segment() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        let spaced_family_folder = family_folder.join("  Family  ");
+        std::fs::create_dir_all(&spaced_family_folder).expect("nested family folder exists");
+        std::fs::write(
+            spaced_family_folder.join("family-trip.mp4"),
+            "valid family trip bytes",
+        )
+        .expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let video_id = video_id_for_title(&catalog.database, "family-trip");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &scan_root.path,
+                "Family",
+                "Family",
+                "tag",
+                None,
+                None,
+                &[video_id],
+            )
+            .expect("metadata suggestion accepts");
+
+        assert_eq!(
+            metadata_suggestion_sources(&catalog.database),
+            vec![(
+                "  Family  ".to_string(),
+                "Family".to_string(),
+                "tag".to_string()
+            )]
+        );
+        assert_eq!(
+            metadata_suggestion_mappings(&catalog.database),
+            vec![(
+                "Family".to_string(),
+                "family".to_string(),
+                "tag".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn accepting_metadata_suggestion_remembers_mapping_for_future_suggestions_from_the_same_source()
+    {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        std::fs::write(
+            family_folder.join("family-trip.mp4"),
+            "valid family trip bytes",
+        )
+        .expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let first_video_id = video_id_for_title(&catalog.database, "family-trip");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &scan_root.path,
+                "Family",
+                "Family",
+                "tag",
+                Some("performer"),
+                Some("The Family"),
+                &[first_video_id],
+            )
+            .expect("metadata suggestion accepts");
+        std::fs::write(family_folder.join("birthday.mp4"), "valid birthday bytes")
+            .expect("new family video exists");
+
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes again");
+
+        let new_video_id = video_id_for_title(&catalog.database, "birthday");
+        assert_eq!(
+            catalog
+                .performers_for_video(new_video_id)
+                .expect("new video performers list"),
+            vec![super::CatalogPerformer {
+                id: 1,
+                name: "The Family".to_string()
+            }]
+        );
+        assert_eq!(
+            catalog
+                .tags_for_video(new_video_id)
+                .expect("new video tags list"),
+            Vec::<super::CatalogTag>::new()
+        );
+        assert_eq!(
+            catalog
+                .list_metadata_suggestion_groups()
+                .expect("metadata suggestions list"),
+            Vec::<super::MetadataSuggestionGroup>::new()
+        );
+        assert_eq!(
+            auto_accepted_metadata_suggestions(&catalog.database),
+            vec![
+                (
+                    "birthday".to_string(),
+                    "Family".to_string(),
+                    "Family".to_string(),
+                    "tag".to_string()
+                ),
+                (
+                    "family-trip".to_string(),
+                    "Family".to_string(),
+                    "Family".to_string(),
+                    "tag".to_string()
+                )
+            ]
+        );
+    }
+
+    #[test]
+    fn metadata_suggestion_mappings_are_scoped_to_scan_root_source_and_value() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let backup_root = temporary_folder.path().join("Backup");
+        let movies_family_folder = movies_root.join("Family");
+        let movies_travel_folder = movies_root.join("Travel");
+        let backup_family_folder = backup_root.join("Family");
+        std::fs::create_dir_all(&movies_family_folder).expect("movies family folder exists");
+        std::fs::create_dir_all(&movies_travel_folder).expect("movies travel folder exists");
+        std::fs::create_dir_all(&backup_family_folder).expect("backup family folder exists");
+        std::fs::write(
+            movies_family_folder.join("family-trip.mp4"),
+            "valid family trip bytes",
+        )
+        .expect("family video exists");
+        std::fs::write(
+            movies_travel_folder.join("travel-family.mp4"),
+            "valid travel family bytes",
+        )
+        .expect("travel video exists");
+        std::fs::write(
+            backup_family_folder.join("backup-family.mp4"),
+            "valid backup family bytes",
+        )
+        .expect("backup video exists");
+        let movies_scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("movies root adds");
+        let backup_scan_root = catalog
+            .add_scan_root(&backup_root)
+            .expect("backup root adds");
+        catalog
+            .refresh_scan_root(
+                &movies_scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("movies root refreshes");
+        catalog
+            .refresh_scan_root(
+                &backup_scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("backup root refreshes");
+        let first_video_id = video_id_for_title(&catalog.database, "family-trip");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &movies_scan_root.path,
+                "Family",
+                "Family",
+                "tag",
+                None,
+                Some("Home Movies"),
+                &[first_video_id],
+            )
+            .expect("metadata suggestion accepts");
+        std::fs::write(
+            movies_family_folder.join("birthday.mp4"),
+            "valid birthday bytes",
+        )
+        .expect("new family video exists");
+
+        catalog
+            .refresh_scan_root(
+                &movies_scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("movies root refreshes again");
+        catalog
+            .refresh_scan_root(
+                &backup_scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("backup root refreshes again");
+
+        let mapped_video_id = video_id_for_title(&catalog.database, "birthday");
+        let different_source_video_id = video_id_for_title(&catalog.database, "travel-family");
+        let different_scan_root_video_id = video_id_for_title(&catalog.database, "backup-family");
+        assert_eq!(
+            catalog
+                .tags_for_video(mapped_video_id)
+                .expect("mapped video tags list"),
+            vec![super::CatalogTag {
+                id: 1,
+                name: "Home Movies".to_string()
+            }]
+        );
+        assert_eq!(
+            catalog
+                .tags_for_video(different_source_video_id)
+                .expect("different source video tags list"),
+            Vec::<super::CatalogTag>::new()
+        );
+        assert_eq!(
+            catalog
+                .tags_for_video(different_scan_root_video_id)
+                .expect("different scan root video tags list"),
+            Vec::<super::CatalogTag>::new()
+        );
+        assert_eq!(
+            metadata_suggestion_sources(&catalog.database),
+            vec![
+                (
+                    "Family".to_string(),
+                    "Family".to_string(),
+                    "tag".to_string()
+                ),
+                (
+                    "Travel".to_string(),
+                    "Travel".to_string(),
+                    "tag".to_string()
+                )
+            ]
         );
     }
 
@@ -3571,6 +4118,7 @@ mod tests {
         catalog
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
+                "Family",
                 "Family",
                 "tag",
                 None,
@@ -3703,6 +4251,7 @@ mod tests {
         let accept_error = catalog
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
+                "Family",
                 "Family",
                 "tag",
                 None,
@@ -5210,6 +5759,7 @@ mod tests {
             vec![
                 "failed_preview_strips",
                 "file_locations",
+                "metadata_suggestion_mappings",
                 "metadata_suggestion_rejections",
                 "metadata_suggestions",
                 "performer_videos",
@@ -5240,6 +5790,7 @@ mod tests {
             vec![
                 "failed_preview_strips",
                 "file_locations",
+                "metadata_suggestion_mappings",
                 "metadata_suggestion_rejections",
                 "metadata_suggestions",
                 "performer_videos",
@@ -5408,6 +5959,28 @@ mod tests {
         assert_eq!(
             catalog_foreign_keys(&database, "metadata_suggestion_rejections"),
             vec!["scan_root_id -> scan_roots.id on delete CASCADE"]
+        );
+        assert_eq!(
+            catalog_columns(&database, "metadata_suggestion_mappings"),
+            vec![
+                "id INTEGER optional",
+                "scan_root_id INTEGER required",
+                "source_path_segment TEXT required",
+                "normalized_suggested_value TEXT required",
+                "suggestion_kind TEXT required",
+                "accepted_tag_id INTEGER optional",
+                "accepted_performer_id INTEGER optional",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_foreign_keys(&database, "metadata_suggestion_mappings"),
+            vec![
+                "accepted_performer_id -> performers.id on delete CASCADE",
+                "accepted_tag_id -> tags.id on delete CASCADE",
+                "scan_root_id -> scan_roots.id on delete CASCADE",
+            ]
         );
         assert_eq!(
             catalog_columns(&database, "preview_strips"),
@@ -5890,7 +6463,9 @@ mod tests {
             .prepare(
                 "SELECT source_path_segment, suggested_value, suggestion_kind
                  FROM metadata_suggestions
-                 ORDER BY source_path_segment",
+                 WHERE accepted_at IS NULL
+                   AND rejected_at IS NULL
+                 ORDER BY source_path_segment, suggested_value",
             )
             .expect("metadata suggestion sources query prepares");
 
@@ -5899,6 +6474,52 @@ mod tests {
             .expect("metadata suggestion sources query runs")
             .collect::<Result<Vec<_>, _>>()
             .expect("metadata suggestion sources load")
+    }
+
+    fn auto_accepted_metadata_suggestions(
+        database: &Connection,
+    ) -> Vec<(String, String, String, String)> {
+        let mut statement = database
+            .prepare(
+                "SELECT videos.title,
+                        metadata_suggestions.source_path_segment,
+                        metadata_suggestions.suggested_value,
+                        metadata_suggestions.suggestion_kind
+                 FROM metadata_suggestions
+                 JOIN videos ON videos.id = metadata_suggestions.video_id
+                 WHERE metadata_suggestions.accepted_at IS NOT NULL
+                 ORDER BY videos.title,
+                          metadata_suggestions.source_path_segment,
+                          metadata_suggestions.suggested_value",
+            )
+            .expect("accepted metadata suggestions query prepares");
+
+        statement
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
+            .expect("accepted metadata suggestions query runs")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("accepted metadata suggestions load")
+    }
+
+    fn metadata_suggestion_mappings(database: &Connection) -> Vec<(String, String, String)> {
+        let mut statement = database
+            .prepare(
+                "SELECT source_path_segment,
+                        normalized_suggested_value,
+                        suggestion_kind
+                 FROM metadata_suggestion_mappings
+                 ORDER BY source_path_segment,
+                          normalized_suggested_value",
+            )
+            .expect("metadata suggestion mappings query prepares");
+
+        statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .expect("metadata suggestion mappings query runs")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("metadata suggestion mappings load")
     }
 
     #[derive(Debug)]

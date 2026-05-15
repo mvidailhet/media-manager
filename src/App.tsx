@@ -268,6 +268,7 @@ export default function App() {
     acceptedValue,
     scanRootPath,
     suggestedValue,
+    sourcePathSegment,
     suggestionKind,
     videoIds,
   }: AcceptMetadataSuggestionForVideosRequest) {
@@ -277,6 +278,7 @@ export default function App() {
         acceptedValue,
         scanRootPath,
         suggestedValue,
+        sourcePathSegment,
         suggestionKind,
         videoIds,
       });
@@ -2812,6 +2814,7 @@ function MetadataSuggestionSource({
                 : { acceptedMetadataKind: acceptedSuggestionKind }),
               scanRootPath: sourceGroup.scanRootPath,
               suggestedValue,
+              sourcePathSegment: sourceGroup.sourcePathSegment,
               suggestionKind,
               videoIds: selectedVideoIds,
             })

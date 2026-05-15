@@ -876,6 +876,7 @@ fn accept_metadata_suggestion_for_videos(
     catalog_state: tauri::State<'_, CatalogState>,
     scan_root_path: String,
     suggested_value: String,
+    source_path_segment: String,
     suggestion_kind: String,
     accepted_metadata_kind: Option<String>,
     accepted_value: Option<String>,
@@ -889,6 +890,7 @@ fn accept_metadata_suggestion_for_videos(
     catalog.accept_metadata_suggestion_for_videos(
         &scan_root_path,
         &suggested_value,
+        &source_path_segment,
         &suggestion_kind,
         accepted_metadata_kind.as_deref(),
         accepted_value.as_deref(),

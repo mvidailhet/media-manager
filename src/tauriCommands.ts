@@ -149,6 +149,7 @@ export interface MetadataSuggestionVideo {
 export interface AcceptMetadataSuggestionForVideosRequest {
   scanRootPath: string;
   suggestedValue: string;
+  sourcePathSegment: string;
   suggestionKind: string;
   acceptedMetadataKind?: string;
   acceptedValue?: string;
