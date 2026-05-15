@@ -264,6 +264,7 @@ export default function App() {
   }
 
   async function acceptSelectedMetadataSuggestionVideos({
+    acceptedMetadataKind,
     acceptedValue,
     scanRootPath,
     suggestedValue,
@@ -272,6 +273,7 @@ export default function App() {
   }: AcceptMetadataSuggestionForVideosRequest) {
     try {
       await acceptMetadataSuggestionForVideos({
+        acceptedMetadataKind,
         acceptedValue,
         scanRootPath,
         suggestedValue,
@@ -285,6 +287,28 @@ export default function App() {
       ]);
       setAvailableTags(storedTags);
       setAvailablePerformers(storedPerformers);
+      const metadataEntries = await Promise.all(
+        videoIds.map(async (videoId) => {
+          const [videoTags, videoPerformers] = await Promise.all([
+            tagsForVideo(videoId),
+            performersForVideo(videoId),
+          ]);
+
+          return [videoId, { tags: videoTags, performers: videoPerformers }] as const;
+        }),
+      );
+      setCatalogVideoMetadataById((currentMetadataById) => ({
+        ...currentMetadataById,
+        ...Object.fromEntries(metadataEntries),
+      }));
+
+      if (selectedVideo && videoIds.includes(selectedVideo.id)) {
+        const selectedVideoMetadata = Object.fromEntries(metadataEntries)[
+          selectedVideo.id
+        ];
+        setSelectedVideoTags(selectedVideoMetadata.tags);
+        setSelectedVideoPerformers(selectedVideoMetadata.performers);
+      }
     } catch (error) {
       setReviewQueueStatusMessage(errorMessage(error));
     }
@@ -2703,8 +2727,7 @@ function MetadataSuggestionSource({
     exactAcceptedValue?.name ?? trimmedAcceptedValue;
   const isDefaultAcceptance =
     acceptedSuggestionKind === suggestionKind &&
-    normalizedMetadataName(acceptedMetadataName) ===
-      normalizedMetadataName(suggestedValue);
+    acceptedMetadataName === suggestedValue;
   const acceptButtonLabel = isDefaultAcceptance
     ? `Accept ${suggestedValue} for selected Videos`
     : `Accept ${acceptedMetadataName} as ${acceptedSuggestionKindLabel} for selected Videos`;
@@ -2784,9 +2807,12 @@ function MetadataSuggestionSource({
               ...(isDefaultAcceptance
                 ? {}
                 : { acceptedValue: acceptedMetadataName }),
+              ...(acceptedSuggestionKind === suggestionKind
+                ? {}
+                : { acceptedMetadataKind: acceptedSuggestionKind }),
               scanRootPath: sourceGroup.scanRootPath,
               suggestedValue,
-              suggestionKind: acceptedSuggestionKind,
+              suggestionKind,
               videoIds: selectedVideoIds,
             })
           }

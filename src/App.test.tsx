@@ -2432,9 +2432,70 @@ describe("Videos View shell", () => {
     expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
       scanRootPath: "/Volumes/Archive/Videos",
       suggestedValue: "Family",
-      suggestionKind: "performer",
+      suggestionKind: "tag",
+      acceptedMetadataKind: "performer",
       acceptedValue: "The Family",
       videoIds: [7],
+    });
+    await waitFor(() => {
+      expect(mockedTagsForVideo).toHaveBeenCalledWith(7);
+      expect(mockedPerformersForVideo).toHaveBeenCalledWith(7);
+    });
+    expect(
+      await within(metadataSuggestions).findByText("No Metadata Suggestions."),
+    ).toBeInTheDocument();
+  });
+
+  it("preserves user-entered display text when accepting a same-kind Metadata Suggestion", async () => {
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 7,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    renderApp();
+
+    const reviewQueue = await screen.findByRole("region", {
+      name: "Review Queue",
+    });
+    const metadataSuggestions = within(reviewQueue).getByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.change(
+      await within(metadataSuggestions).findByLabelText("Accepted metadata name"),
+      { target: { value: "family" } },
+    );
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept family as Tag for selected Videos",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
+        scanRootPath: "/Volumes/Archive/Videos",
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        acceptedValue: "family",
+        videoIds: [7],
+      });
     });
     expect(
       await within(metadataSuggestions).findByText("No Metadata Suggestions."),

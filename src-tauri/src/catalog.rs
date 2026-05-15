@@ -1102,6 +1102,7 @@ impl Catalog {
         scan_root_path: &str,
         suggested_value: &str,
         suggestion_kind: &str,
+        accepted_metadata_kind: Option<&str>,
         accepted_value: Option<&str>,
         video_ids: &[i64],
     ) -> Result<(), String> {
@@ -1110,10 +1111,13 @@ impl Catalog {
         }
 
         self.reject_unknown_suggestion_kind(suggestion_kind)?;
+        let metadata_kind = accepted_metadata_kind.unwrap_or(suggestion_kind);
+        self.reject_unknown_suggestion_kind(metadata_kind)?;
         let scan_root_id = self.scan_root_id(scan_root_path)?;
         self.reject_videos_without_pending_metadata_suggestions(
             scan_root_id,
             suggested_value,
+            suggestion_kind,
             video_ids,
         )?;
 
@@ -1123,12 +1127,12 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
         let metadata_value_name = accepted_value.unwrap_or(suggested_value);
         let metadata_value_id =
-            metadata_value_id_for_suggestion(&transaction, suggestion_kind, metadata_value_name)?;
+            metadata_value_id_for_suggestion(&transaction, metadata_kind, metadata_value_name)?;
 
         for video_id in video_ids {
             attach_metadata_suggestion_to_video(
                 &transaction,
-                suggestion_kind,
+                metadata_kind,
                 metadata_value_id,
                 *video_id,
             )?;
@@ -1140,9 +1144,10 @@ impl Catalog {
                      WHERE scan_root_id = ?1
                        AND video_id = ?2
                        AND lower(suggested_value) = lower(?3)
+                       AND suggestion_kind = ?4
                        AND accepted_at IS NULL
                        AND rejected_at IS NULL",
-                    params![scan_root_id, video_id, suggested_value],
+                    params![scan_root_id, video_id, suggested_value, suggestion_kind],
                 )
                 .map_err(|error| error.to_string())?;
         }
@@ -1684,6 +1689,7 @@ impl Catalog {
         &self,
         scan_root_id: i64,
         suggested_value: &str,
+        suggestion_kind: &str,
         video_ids: &[i64],
     ) -> Result<(), String> {
         let requested_video_ids = video_ids.iter().copied().collect::<HashSet<_>>();
@@ -1701,10 +1707,11 @@ impl Catalog {
                      WHERE scan_root_id = ?1
                        AND video_id = ?2
                        AND lower(suggested_value) = lower(?3)
+                       AND suggestion_kind = ?4
                        AND accepted_at IS NULL
                        AND rejected_at IS NULL
                      LIMIT 1",
-                    params![scan_root_id, video_id, suggested_value],
+                    params![scan_root_id, video_id, suggested_value, suggestion_kind],
                     |_| Ok(()),
                 )
                 .optional()
@@ -2972,7 +2979,7 @@ fn validated_inference_rules(
 #[cfg(test)]
 mod tests {
     use super::{Catalog, FailedPreviewStrip, PreviewStripRetryReason, VideoFileProbe, VideoProbe};
-    use rusqlite::Connection;
+    use rusqlite::{params, Connection};
     use std::path::Path;
 
     #[test]
@@ -3390,6 +3397,7 @@ mod tests {
                 "Family",
                 "tag",
                 None,
+                None,
                 &[accepted_video_id],
             )
             .expect("metadata suggestion accepts");
@@ -3448,7 +3456,8 @@ mod tests {
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
                 "Family",
-                "performer",
+                "tag",
+                Some("performer"),
                 Some("The Family"),
                 &[video_id],
             )
@@ -3501,6 +3510,7 @@ mod tests {
                 &scan_root.path,
                 "Family",
                 "tag",
+                None,
                 Some("home movies"),
                 &[video_id],
             )
@@ -3519,6 +3529,62 @@ mod tests {
                 .collect::<Vec<_>>(),
             vec!["Home Movies".to_string()]
         );
+    }
+
+    #[test]
+    fn accepting_one_metadata_suggestion_kind_keeps_other_pending_kinds_with_the_same_value() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
+            .expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let scan_root_id = catalog
+            .scan_root_id(&scan_root.path)
+            .expect("scan root id exists");
+        let video_id = video_id_for_title(&catalog.database, "family-trip");
+        catalog
+            .database
+            .execute(
+                "INSERT INTO metadata_suggestions (
+                    scan_root_id,
+                    video_id,
+                    source_path_segment,
+                    suggested_value,
+                    suggestion_kind
+                 )
+                 VALUES (?1, ?2, 'Family', 'Family', 'performer')",
+                params![scan_root_id, video_id],
+            )
+            .expect("performer suggestion inserts");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &scan_root.path,
+                "Family",
+                "tag",
+                None,
+                None,
+                &[video_id],
+            )
+            .expect("tag suggestion accepts");
+
+        let remaining_suggestion_groups = catalog
+            .list_metadata_suggestion_groups()
+            .expect("metadata suggestions list");
+        assert_eq!(remaining_suggestion_groups.len(), 1);
+        assert_eq!(remaining_suggestion_groups[0].suggestion_kind, "performer");
+        assert_eq!(remaining_suggestion_groups[0].suggested_value, "Family");
     }
 
     #[test]
@@ -3639,6 +3705,7 @@ mod tests {
                 &scan_root.path,
                 "Family",
                 "tag",
+                None,
                 None,
                 &[travel_video_id],
             )

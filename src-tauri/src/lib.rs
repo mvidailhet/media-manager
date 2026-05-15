@@ -877,6 +877,7 @@ fn accept_metadata_suggestion_for_videos(
     scan_root_path: String,
     suggested_value: String,
     suggestion_kind: String,
+    accepted_metadata_kind: Option<String>,
     accepted_value: Option<String>,
     video_ids: Vec<i64>,
 ) -> Result<(), String> {
@@ -889,6 +890,7 @@ fn accept_metadata_suggestion_for_videos(
         &scan_root_path,
         &suggested_value,
         &suggestion_kind,
+        accepted_metadata_kind.as_deref(),
         accepted_value.as_deref(),
         &video_ids,
     )
