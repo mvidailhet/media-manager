@@ -152,9 +152,9 @@ _Avoid_: Deleted metadata
 A remembered choice that maps a **Metadata Suggestion** source and value to an accepted **Tag** or **Performer**.
 _Avoid_: Alias
 
-**Review Queue**:
-A workspace for **Catalog** issues and suggestions that need user attention.
-_Avoid_: Search results, inbox
+**Scan Issue**:
+A scanning or reconciliation condition that needs user attention outside normal **Video** browsing.
+_Avoid_: Review queue, search result
 
 **Forget From Catalog**:
 An explicit action that removes an unavailable **Video** and its local metadata from the **Catalog** without touching the filesystem.
@@ -247,6 +247,8 @@ _Avoid_: Metadata suggestion
 - A **Failed Preview Strip** can be ignored until manually retried, or until the **Video** file or FFmpeg configuration changes.
 - A user-cancelled **Generating Preview Strip** returns to **Pending Preview Strip** instead of becoming a **Failed Preview Strip**.
 - **Preview Strip** generation is queued after cataloging but starts only through explicit user action and can be paused or resumed globally.
+- The **Preview Strip** generation queue is derived from **Preview Strip** state rather than managed as a separate user-curated list.
+- **Preview Strip** generation shows counts for pending and generated work, with detail for the currently generating and failed work.
 - Pausing **Preview Strip** generation cancels the active generation attempt immediately instead of waiting for the current **Preview Strip** to finish.
 - v1 runs one **Preview Strip** generation job at a time by default.
 - v1 **Background Jobs** run only while the **Local Desktop App** is open.
@@ -289,16 +291,26 @@ _Avoid_: Metadata suggestion
 - **Metadata Suggestion Mappings** and **Rejected Metadata Suggestions** should be editable from review or Scan Root settings after the first inference slice.
 - A **Metadata Suggestion** can normalize display text while preserving the original folder name as its source.
 - A **Metadata Suggestion** records the folder or path segment that produced it.
+- **Inference Rules** are configured with **Scan Roots**, while **Metadata Suggestions** are reviewed in the **Catalog**.
+- The **Catalog** owns **Metadata Suggestion** review state, while **Scan Roots** own the **Inference Rules** that produce suggestions.
 - v1 **Metadata Suggestions** do not use numeric confidence scores.
 - Accepting a **Metadata Suggestion** can create a new **Tag** or **Performer**, or map to an existing value with a different name.
 - Accepted **Metadata Suggestions** can keep lightweight provenance without changing their status as **Local Metadata**.
-- A **Review Queue** includes **Duplicate Locations**, **Metadata Suggestions**, **Unprocessable Video Candidates**, **Missing Videos**, **Unavailable Scan Roots**, and **Failed Preview Strips**.
-- The **Review Queue** groups **Metadata Suggestions** by suggested value first, with drill-down to affected **Videos**.
+- **Metadata Suggestions** are reviewed in the **Catalog** with access to affected **Videos** and their **Preview Strips**.
 - **Metadata Suggestion** review shows source path groups under each suggested value.
-- **Forget From Catalog** is available from the **Review Queue** for **Missing Videos**.
+- **Scan Issues** include **Missing Videos**, **Unavailable Scan Roots**, and **Unprocessable Video Candidates**.
+- **Failed Preview Strips** are handled with **Preview Strip** generation controls instead of **Scan Issues**.
+- **Preview Strip** generation controls belong with scanning work, while the **Catalog** shows each **Video**'s **Preview Strip** state in context.
+- The **Catalog** owns **Preview Strip** state because a **Preview Strip** belongs to a **Video**, while **Preview Strip** generation is operational background work.
+- **Forget From Catalog** is available for **Missing Videos** from **Scan Issues**.
 - **Forget From Catalog** requires confirmation and is final in v1.
-- v1 has **Videos View**, **Favorites View**, **Recently Opened View**, and **Review Queue** as top-level workspaces.
+- v1 has **Videos View**, **Favorites View**, **Recently Opened View**, **Scan Issues**, and **Preview Strip** generation as workspaces.
 - **Favorites View** and **Recently Opened View** reuse the same **Video** result model as **Videos View**.
+- **Videos View**, **Favorites View**, **Recently Opened View**, and **Metadata Suggestions** are **Catalog** views rather than separate catalogs.
+- The **Video Detail Panel** is reset when changing **Catalog** views.
+- **Metadata Suggestions** use the same **Video Detail Panel** as other **Catalog** views for affected **Videos**.
+- The primary app navigation is module-first: **Catalog**, scanning work, and configuration.
+- The **Catalog** is the default workspace when the app opens, even when setup is incomplete.
 - The **First Vertical Slice** proves **Scan Root** selection, scanning, SQLite storage, FFmpeg probing, and listing **Videos**.
 - The **Preview Slice** comes after the **First Vertical Slice** and before metadata inference work.
 - The **Metadata Editing Slice** comes after the **Preview Slice** and before **Inference Rules** or **Metadata Suggestions**.
@@ -410,14 +422,14 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Should failed files be probed on every scan forever?"
 > **Domain expert:** "No. Retry an **Unprocessable Video Candidate** when its file changes or when manually requested."
 >
-> **Dev:** "Where do cleanup tasks and scan issues appear?"
-> **Domain expert:** "In the **Review Queue**, not mixed into normal **Video** search results."
+> **Dev:** "Where do scan issues appear?"
+> **Domain expert:** "In **Scan Issues**, not mixed into normal **Video** search results."
 >
 > **Dev:** "Where do failed preview generations appear?"
-> **Domain expert:** "In the **Review Queue**, with retry or ignore-for-now actions."
+> **Domain expert:** "With **Preview Strip** generation controls, with retry or ignore-for-now actions."
 >
 > **Dev:** "What are the main v1 workspaces?"
-> **Domain expert:** "**Videos View**, **Favorites View**, **Recently Opened View**, and **Review Queue**."
+> **Domain expert:** "**Videos View**, **Favorites View**, **Recently Opened View**, **Scan Issues**, and **Preview Strip** generation."
 >
 > **Dev:** "Are **Favorites View** and **Recently Opened View** separate catalogs?"
 > **Domain expert:** "No. They are shortcut workspaces over the same **Video** results."

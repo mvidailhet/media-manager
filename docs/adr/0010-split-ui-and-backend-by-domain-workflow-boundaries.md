@@ -1,0 +1,13 @@
+# Split UI and backend by domain workflow boundaries
+
+We will split the frontend and backend around the app's core domain workflows instead of continuing to grow single large files. The frontend will use module-first boundaries for **Catalog**, scanning work, and Settings. The backend will keep Rust as the owner of **Catalog** access, but split the current catalog implementation into focused modules behind a stable `Catalog` facade.
+
+The **Catalog** remains the default workspace because searching, filtering, viewing, and curating **Videos** are the primary daily workflow. **Videos View**, **Favorites View**, **Recently Opened View**, and **Metadata Suggestions** are Catalog views over the same **Video** model. **Metadata Suggestions** belong in the Catalog UI because they are only useful when the user can inspect the affected **Videos** and their **Preview Strips**. The **Video Detail Panel** is reset when changing Catalog views so selection never appears to leak across workflows.
+
+Scanning work will hold **Scan Roots**, **Scan Issues**, and **Preview Strip** generation controls. **Scan Roots** and **Inference Rules** belong together because **Inference Rules** are settings on a **Scan Root**. **Scan Issues** include **Missing Videos**, **Unavailable Scan Roots**, and **Unprocessable Video Candidates**. **Preview Strip** generation is operational background work, so its controls live with scanning work even though persisted **Preview Strip** state belongs to the **Catalog** because a **Preview Strip** belongs to a **Video**.
+
+Settings will be exposed behind a gear icon and hold app/tooling status such as the Tauri bridge and FFmpeg/FFprobe configuration. The backend will move FFmpeg/FFprobe discovery and configuration into a separate tooling module rather than keeping it mixed with Catalog storage.
+
+The first implementation pass will be mechanical extraction before UI or API redesign. Frontend state can remain owned by `App` while JSX is split into modules. Backend commands can keep calling the public `Catalog` facade while migrations, videos, scan roots, metadata, metadata suggestions, preview strip records, and preview generation are extracted behind it. We will use local React state for module navigation for now, rather than introducing a router before deep links or session restore require one.
+
+This trades short-term duplication of some wiring for lower refactor risk. A flat page/component structure would be simpler to start, but it would keep domain concepts scattered by technical role. A deeper immediate service split would create more public API churn than the current app needs.
