@@ -1060,7 +1060,7 @@ export default function App() {
         catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
         catalogVideoFilters={activeCatalogVideoFilters}
         catalogVideoWorkspace={catalogVideoWorkspace}
-        catalogVideoSort={catalogVideoSort}
+        catalogVideoSort={workspaceCatalogVideoSort}
         catalogVideos={filteredCatalogVideos}
         catalogVideosStatusMessage={catalogVideosStatusMessage}
         onCatalogVideoFiltersChange={setCatalogVideoFilters}
@@ -1366,6 +1366,7 @@ function CatalogVideosPanel({
         <NativeSelect
           label="Sort Videos"
           value={catalogVideoSort}
+          disabled={catalogVideoWorkspace === "recentlyOpened"}
           data={[
             { value: "titleAscending", label: "Title" },
             { value: "fileSizeAscending", label: "File Size ascending" },
@@ -2634,7 +2635,11 @@ function sortedCatalogVideos(
       secondVideo,
     );
 
-    if (fileSizeNullSortResult !== 0 && catalogVideoSort !== "titleAscending") {
+    if (
+      fileSizeNullSortResult !== 0 &&
+      (catalogVideoSort === "fileSizeAscending" ||
+        catalogVideoSort === "fileSizeDescending")
+    ) {
       return fileSizeNullSortResult;
     }
 

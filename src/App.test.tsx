@@ -819,7 +819,7 @@ describe("Videos View shell", () => {
         id: 2,
         title: "Fresh Clip",
         durationMilliseconds: 120000,
-        fileSizeBytes: 12000000,
+        fileSizeBytes: null,
         fileLocationPath: "/Volumes/Archive/Videos/fresh-clip.mp4",
         isAvailable: true,
         fileLocations: [],
@@ -868,6 +868,55 @@ describe("Videos View shell", () => {
       "Fresh Clip",
       "Older Clip",
     ]);
+  });
+
+  it("shows the actual Recently Opened sort order when another sort was selected", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Older Popular Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/older-popular-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: "2026-05-14 18:00:00",
+        openCount: 5,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Fresh Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/fresh-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: "2026-05-15 18:00:00",
+        openCount: 1,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "openCountDescending" },
+    });
+    fireEvent.click(
+      within(catalogVideos).getByRole("button", {
+        name: "Recently Opened View",
+      }),
+    );
+
+    const sortVideos = within(catalogVideos).getByLabelText("Sort Videos");
+    expect(sortVideos).toHaveValue("lastOpenedDescending");
+    expect(sortVideos).toBeDisabled();
   });
 
   it("keeps unknown File Sizes last when sorting by File Size descending", async () => {

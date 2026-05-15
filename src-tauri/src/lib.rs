@@ -552,8 +552,9 @@ fn open_catalog_video(
 }
 
 fn open_file_location(file_location_path: &Path) -> Result<(), String> {
-    let output = Command::new("open")
-        .arg(file_location_path)
+    let open_command = file_location_open_command(file_location_path);
+    let output = Command::new(&open_command.program)
+        .args(&open_command.arguments)
         .output()
         .map_err(|error| error.to_string())?;
 
@@ -567,6 +568,42 @@ fn open_file_location(file_location_path: &Path) -> Result<(), String> {
     } else {
         stderr
     })
+}
+
+struct FileLocationOpenCommand {
+    program: String,
+    arguments: Vec<String>,
+}
+
+fn file_location_open_command(file_location_path: &Path) -> FileLocationOpenCommand {
+    file_location_open_command_for_platform(file_location_path, std::env::consts::OS)
+}
+
+fn file_location_open_command_for_platform(
+    file_location_path: &Path,
+    operating_system: &str,
+) -> FileLocationOpenCommand {
+    let file_location_path_text = file_location_path.to_string_lossy().into_owned();
+
+    match operating_system {
+        "macos" => FileLocationOpenCommand {
+            program: "open".to_string(),
+            arguments: vec![file_location_path_text],
+        },
+        "windows" => FileLocationOpenCommand {
+            program: "cmd".to_string(),
+            arguments: vec![
+                "/C".to_string(),
+                "start".to_string(),
+                "".to_string(),
+                file_location_path_text,
+            ],
+        },
+        _ => FileLocationOpenCommand {
+            program: "xdg-open".to_string(),
+            arguments: vec![file_location_path_text],
+        },
+    }
 }
 
 #[tauri::command]
@@ -1068,7 +1105,8 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     use super::{
-        discover_ffmpeg_tools_status, executable_binary_names, load_ffmpeg_configuration,
+        discover_ffmpeg_tools_status, executable_binary_names,
+        file_location_open_command_for_platform, load_ffmpeg_configuration,
         local_desktop_app_status, save_ffmpeg_configuration_to_path, FfmpegConfiguration,
         CATALOG_DATABASE_FILENAME, PREVIEW_STRIP_CACHE_FOLDER_NAME,
     };
@@ -1135,6 +1173,31 @@ mod tests {
 
         assert!(binary_names.contains(&"ffmpeg".to_string()));
         assert!(binary_names.contains(&"ffmpeg.exe".to_string()));
+    }
+
+    #[test]
+    fn file_location_open_command_uses_the_platform_launcher() {
+        let video_path = std::path::Path::new("/Volumes/Archive/Videos/family trip.mp4");
+
+        let macos_command = file_location_open_command_for_platform(video_path, "macos");
+        let linux_command = file_location_open_command_for_platform(video_path, "linux");
+        let windows_command = file_location_open_command_for_platform(video_path, "windows");
+
+        assert_eq!(macos_command.program, "open");
+        assert_eq!(
+            macos_command.arguments,
+            vec!["/Volumes/Archive/Videos/family trip.mp4"]
+        );
+        assert_eq!(linux_command.program, "xdg-open");
+        assert_eq!(
+            linux_command.arguments,
+            vec!["/Volumes/Archive/Videos/family trip.mp4"]
+        );
+        assert_eq!(windows_command.program, "cmd");
+        assert_eq!(
+            windows_command.arguments,
+            vec!["/C", "start", "", "/Volumes/Archive/Videos/family trip.mp4"]
+        );
     }
 
     #[test]
