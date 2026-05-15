@@ -29,6 +29,7 @@ const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
   "list_unprocessable_video_candidates";
 const listFailedPreviewStripsCommand = "list_failed_preview_strips";
+const listMetadataSuggestionGroupsCommand = "list_metadata_suggestion_groups";
 const retryFailedPreviewStripCommand = "retry_failed_preview_strip";
 const ignoreFailedPreviewStripCommand = "ignore_failed_preview_strip";
 const getPreviewStripQueueStatusCommand = "get_preview_strip_queue_status";
@@ -121,6 +122,24 @@ export interface FailedPreviewStrip {
   videoId: number;
   title: string;
   failureReason: string;
+}
+
+export interface MetadataSuggestionGroup {
+  suggestedValue: string;
+  suggestionKind: string;
+  sources: MetadataSuggestionSourceGroup[];
+}
+
+export interface MetadataSuggestionSourceGroup {
+  scanRootPath: string;
+  sourcePathSegment: string;
+  videos: MetadataSuggestionVideo[];
+}
+
+export interface MetadataSuggestionVideo {
+  videoId: number;
+  title: string;
+  fileLocationPath: string;
 }
 
 export interface CatalogTag {
@@ -324,6 +343,12 @@ export async function listUnprocessableVideoCandidates(): Promise<
 
 export async function listFailedPreviewStrips(): Promise<FailedPreviewStrip[]> {
   return invoke<FailedPreviewStrip[]>(listFailedPreviewStripsCommand);
+}
+
+export async function listMetadataSuggestionGroups(): Promise<
+  MetadataSuggestionGroup[]
+> {
+  return invoke<MetadataSuggestionGroup[]>(listMetadataSuggestionGroupsCommand);
 }
 
 export async function retryFailedPreviewStrip(

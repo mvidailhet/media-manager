@@ -323,6 +323,30 @@ pub struct FailedPreviewStrip {
     pub failure_reason: String,
 }
 
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataSuggestionGroup {
+    pub suggested_value: String,
+    pub suggestion_kind: String,
+    pub sources: Vec<MetadataSuggestionSourceGroup>,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataSuggestionSourceGroup {
+    pub scan_root_path: String,
+    pub source_path_segment: String,
+    pub videos: Vec<MetadataSuggestionVideo>,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataSuggestionVideo {
+    pub video_id: i64,
+    pub title: String,
+    pub file_location_path: String,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CatalogTag {
@@ -988,6 +1012,53 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
 
         Ok(failed_preview_strips)
+    }
+
+    pub fn list_metadata_suggestion_groups(&self) -> Result<Vec<MetadataSuggestionGroup>, String> {
+        let mut statement = self
+            .database
+            .prepare(
+                "SELECT metadata_suggestions.suggested_value,
+                        metadata_suggestions.suggestion_kind,
+                        scan_roots.path,
+                        metadata_suggestions.source_path_segment,
+                        metadata_suggestions.video_id,
+                        videos.title,
+                        file_locations.path
+                 FROM metadata_suggestions
+                 JOIN scan_roots ON scan_roots.id = metadata_suggestions.scan_root_id
+                 JOIN videos ON videos.id = metadata_suggestions.video_id
+                 JOIN file_locations
+                   ON file_locations.video_id = metadata_suggestions.video_id
+                  AND file_locations.scan_root_id = metadata_suggestions.scan_root_id
+                 WHERE metadata_suggestions.accepted_at IS NULL
+                   AND metadata_suggestions.rejected_at IS NULL
+                 ORDER BY metadata_suggestions.suggested_value,
+                          metadata_suggestions.suggestion_kind,
+                          scan_roots.path,
+                          metadata_suggestions.source_path_segment,
+                          videos.title,
+                          metadata_suggestions.video_id",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let suggestion_rows = statement
+            .query_map([], |row| {
+                Ok(MetadataSuggestionRow {
+                    suggested_value: row.get(0)?,
+                    suggestion_kind: row.get(1)?,
+                    scan_root_path: row.get(2)?,
+                    source_path_segment: row.get(3)?,
+                    video_id: row.get(4)?,
+                    title: row.get(5)?,
+                    file_location_path: row.get(6)?,
+                })
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(group_metadata_suggestions(suggestion_rows))
     }
 
     #[cfg(test)]
@@ -2426,6 +2497,74 @@ fn scan_root_inference_rules_from_row(row: &Row<'_>) -> rusqlite::Result<ScanRoo
     })
 }
 
+struct MetadataSuggestionRow {
+    suggested_value: String,
+    suggestion_kind: String,
+    scan_root_path: String,
+    source_path_segment: String,
+    video_id: i64,
+    title: String,
+    file_location_path: String,
+}
+
+fn group_metadata_suggestions(
+    suggestion_rows: Vec<MetadataSuggestionRow>,
+) -> Vec<MetadataSuggestionGroup> {
+    let mut suggestion_groups = Vec::new();
+
+    for suggestion_row in suggestion_rows {
+        let needs_new_group = suggestion_groups
+            .last()
+            .map(|suggestion_group: &MetadataSuggestionGroup| {
+                suggestion_group.suggested_value != suggestion_row.suggested_value
+                    || suggestion_group.suggestion_kind != suggestion_row.suggestion_kind
+            })
+            .unwrap_or(true);
+
+        if needs_new_group {
+            suggestion_groups.push(MetadataSuggestionGroup {
+                suggested_value: suggestion_row.suggested_value.clone(),
+                suggestion_kind: suggestion_row.suggestion_kind.clone(),
+                sources: Vec::new(),
+            });
+        }
+
+        let suggestion_group = suggestion_groups
+            .last_mut()
+            .expect("metadata suggestion group exists");
+        let needs_new_source = suggestion_group
+            .sources
+            .last()
+            .map(|source_group| {
+                source_group.scan_root_path != suggestion_row.scan_root_path
+                    || source_group.source_path_segment != suggestion_row.source_path_segment
+            })
+            .unwrap_or(true);
+
+        if needs_new_source {
+            suggestion_group
+                .sources
+                .push(MetadataSuggestionSourceGroup {
+                    scan_root_path: suggestion_row.scan_root_path.clone(),
+                    source_path_segment: suggestion_row.source_path_segment.clone(),
+                    videos: Vec::new(),
+                });
+        }
+
+        let source_group = suggestion_group
+            .sources
+            .last_mut()
+            .expect("metadata suggestion source group exists");
+        source_group.videos.push(MetadataSuggestionVideo {
+            video_id: suggestion_row.video_id,
+            title: suggestion_row.title,
+            file_location_path: suggestion_row.file_location_path,
+        });
+    }
+
+    suggestion_groups
+}
+
 fn metadata_suggestion_segments(
     scan_root_path: &str,
     video_path: &str,
@@ -2822,6 +2961,66 @@ mod tests {
         assert_eq!(
             metadata_suggestions(&catalog.database),
             vec![("Travel".to_string(), "tag".to_string())]
+        );
+    }
+
+    #[test]
+    fn pending_metadata_suggestions_are_grouped_by_value_source_and_affected_videos() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("  Family  ");
+        let travel_folder = movies_root.join("Travel");
+        std::fs::create_dir_all(&family_folder).expect("family folder exists");
+        std::fs::create_dir_all(&travel_folder).expect("travel folder exists");
+        std::fs::write(
+            family_folder.join("family-trip.mp4"),
+            "valid family trip bytes",
+        )
+        .expect("family trip video exists");
+        std::fs::write(family_folder.join("birthday.mp4"), "valid birthday bytes")
+            .expect("birthday video exists");
+        std::fs::write(travel_folder.join("travel.mp4"), "valid travel bytes")
+            .expect("travel video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        catalog
+            .database
+            .execute(
+                "UPDATE metadata_suggestions
+                 SET accepted_at = CURRENT_TIMESTAMP
+                 WHERE suggested_value = 'Travel'",
+                [],
+            )
+            .expect("travel suggestion accepts");
+
+        let suggestion_groups = catalog
+            .list_metadata_suggestion_groups()
+            .expect("metadata suggestion groups list");
+
+        assert_eq!(suggestion_groups.len(), 1);
+        assert_eq!(suggestion_groups[0].suggested_value, "Family");
+        assert_eq!(suggestion_groups[0].suggestion_kind, "tag");
+        assert_eq!(suggestion_groups[0].sources.len(), 1);
+        assert_eq!(
+            suggestion_groups[0].sources[0].source_path_segment,
+            "  Family  "
+        );
+        assert_eq!(suggestion_groups[0].sources[0].videos.len(), 2);
+        assert_eq!(
+            suggestion_groups[0].sources[0]
+                .videos
+                .iter()
+                .map(|video| video.title.as_str())
+                .collect::<Vec<_>>(),
+            vec!["birthday", "family-trip"]
         );
     }
 

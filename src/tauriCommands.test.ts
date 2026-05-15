@@ -18,6 +18,7 @@ import {
   detachTagFromVideo,
   performersForVideo,
   listFailedPreviewStrips,
+  listMetadataSuggestionGroups,
   listPerformers,
   listTags,
   listUnprocessableVideoCandidates,
@@ -154,18 +155,21 @@ describe("Tauri commands", () => {
       suggestTagsFromChildFolders: true,
     });
 
-    expect(mockedInvoke).toHaveBeenCalledWith("update_scan_root_inference_rules", {
-      inferenceRules: {
-        ignoredExactYearRange: {
-          endYear: 2099,
-          startYear: 1900,
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "update_scan_root_inference_rules",
+      {
+        inferenceRules: {
+          ignoredExactYearRange: {
+            endYear: 2099,
+            startYear: 1900,
+          },
+          ignoredFolderNames: ["Misc", "Temp"],
+          suggestPerformersFromChildFolders: false,
+          suggestTagsFromChildFolders: true,
         },
-        ignoredFolderNames: ["Misc", "Temp"],
-        suggestPerformersFromChildFolders: false,
-        suggestTagsFromChildFolders: true,
+        path: "/Volumes/Archive/Videos",
       },
-      path: "/Volumes/Archive/Videos",
-    });
+    );
   });
 
   it("removes a Scan Root through the Rust command with the selected catalog policy", async () => {
@@ -275,6 +279,55 @@ describe("Tauri commands", () => {
       },
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_failed_preview_strips");
+  });
+
+  it("calls the typed Rust command for Metadata Suggestion groups", async () => {
+    mockedInvoke.mockResolvedValue([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "  Family  ",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    const suggestionGroups = await listMetadataSuggestionGroups();
+
+    expect(suggestionGroups).toEqual([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "  Family  ",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "list_metadata_suggestion_groups",
+    );
   });
 
   it("retries and ignores Failed Preview Strips through Rust commands", async () => {

@@ -25,6 +25,7 @@ import {
   getLocalDesktopAppStatus,
   ignoreFailedPreviewStrip,
   listFailedPreviewStrips,
+  listMetadataSuggestionGroups,
   listPerformers,
   listTags,
   listUnprocessableVideoCandidates,
@@ -68,6 +69,7 @@ vi.mock("./tauriCommands", () => ({
   getLocalDesktopAppStatus: vi.fn(),
   ignoreFailedPreviewStrip: vi.fn(),
   listFailedPreviewStrips: vi.fn(),
+  listMetadataSuggestionGroups: vi.fn(),
   listPerformers: vi.fn(),
   listTags: vi.fn(),
   listUnprocessableVideoCandidates: vi.fn(),
@@ -95,6 +97,9 @@ const mockedGetLocalDesktopAppStatus = vi.mocked(getLocalDesktopAppStatus);
 const mockedGetFfmpegToolsStatus = vi.mocked(getFfmpegToolsStatus);
 const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
 const mockedListFailedPreviewStrips = vi.mocked(listFailedPreviewStrips);
+const mockedListMetadataSuggestionGroups = vi.mocked(
+  listMetadataSuggestionGroups,
+);
 const mockedListTags = vi.mocked(listTags);
 const mockedListPerformers = vi.mocked(listPerformers);
 const mockedTagsForVideo = vi.mocked(tagsForVideo);
@@ -208,6 +213,7 @@ describe("Videos View shell", () => {
     mockedGetFfmpegToolsStatus.mockResolvedValue(availableFfmpegToolsStatus);
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
     mockedListFailedPreviewStrips.mockResolvedValue([]);
+    mockedListMetadataSuggestionGroups.mockResolvedValue([]);
     mockedListTags.mockResolvedValue([]);
     mockedListPerformers.mockResolvedValue([]);
     mockedTagsForVideo.mockResolvedValue([]);
@@ -1130,9 +1136,12 @@ describe("Videos View shell", () => {
         name: "Create and append Tag to selected Videos",
       }),
     );
-    fireEvent.change(within(batchMetadataEdit).getByLabelText("New Performer"), {
-      target: { value: "Casey" },
-    });
+    fireEvent.change(
+      within(batchMetadataEdit).getByLabelText("New Performer"),
+      {
+        target: { value: "Casey" },
+      },
+    );
     fireEvent.click(
       within(batchMetadataEdit).getByRole("button", {
         name: "Create and append Performer to selected Videos",
@@ -1909,12 +1918,20 @@ describe("Videos View shell", () => {
 
     const scanRoots = await screen.findByLabelText("Scan Roots");
 
-    expect(within(scanRoots).getByText("Tags from child folders")).toBeInTheDocument();
-    expect(within(scanRoots).getByText("Performers not inferred")).toBeInTheDocument();
     expect(
-      within(scanRoots).getByText("Ignored names: Misc, Unsorted, To Sort, To Review, New, Temp, Archive, Archives, Downloads, Videos"),
+      within(scanRoots).getByText("Tags from child folders"),
     ).toBeInTheDocument();
-    expect(within(scanRoots).getByText("Ignored years: 1900-2099")).toBeInTheDocument();
+    expect(
+      within(scanRoots).getByText("Performers not inferred"),
+    ).toBeInTheDocument();
+    expect(
+      within(scanRoots).getByText(
+        "Ignored names: Misc, Unsorted, To Sort, To Review, New, Temp, Archive, Archives, Downloads, Videos",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(scanRoots).getByText("Ignored years: 1900-2099"),
+    ).toBeInTheDocument();
   });
 
   it("saves changed Scan Root Inference Rules", async () => {
@@ -1935,7 +1952,9 @@ describe("Videos View shell", () => {
       target: { value: "1980" },
     });
     fireEvent.click(screen.getByLabelText("Suggest Tags"));
-    fireEvent.click(screen.getByRole("button", { name: "Save Inference Rules" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Save Inference Rules" }),
+    );
 
     await waitFor(() => {
       expect(mockedUpdateScanRootInferenceRules).toHaveBeenCalledWith(
@@ -2161,6 +2180,10 @@ describe("Videos View shell", () => {
 
     renderApp();
 
+    await waitFor(() => {
+      expect(mockedListMetadataSuggestionGroups).toHaveBeenCalled();
+    });
+
     const reviewQueue = await screen.findByRole("region", {
       name: "Review Queue",
     });
@@ -2170,7 +2193,9 @@ describe("Videos View shell", () => {
     expect(
       within(reviewQueue).getByRole("heading", { name: "Missing Videos" }),
     ).toBeInTheDocument();
-    expect(await within(reviewQueue).findByText("Family Trip")).toBeInTheDocument();
+    expect(
+      await within(reviewQueue).findByText("Family Trip"),
+    ).toBeInTheDocument();
     expect(
       within(reviewQueue).queryByText("Available Trip"),
     ).not.toBeInTheDocument();
@@ -2183,6 +2208,87 @@ describe("Videos View shell", () => {
     expect(
       within(reviewQueue).getByText("missing moov atom"),
     ).toBeInTheDocument();
+  });
+
+  it("lists Metadata Suggestions grouped by value and source in the Review Queue", async () => {
+    const metadataSuggestionGroups = [
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "  Family  ",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+              {
+                videoId: 8,
+                title: "Birthday",
+                fileLocationPath: "/Volumes/Archive/Videos/Family/birthday.mp4",
+              },
+            ],
+          },
+          {
+            scanRootPath: "/Volumes/Camera/Videos",
+            sourcePathSegment: "family",
+            videos: [
+              {
+                videoId: 9,
+                title: "Picnic",
+                fileLocationPath: "/Volumes/Camera/Videos/family/picnic.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ];
+    mockedListMetadataSuggestionGroups.mockImplementation(
+      async () => metadataSuggestionGroups,
+    );
+
+    renderApp();
+
+    const reviewQueue = await screen.findByRole("region", {
+      name: "Review Queue",
+    });
+    let metadataSuggestions = within(reviewQueue).getByRole("region", {
+      name: "Metadata Suggestions",
+    });
+
+    expect(
+      within(metadataSuggestions).getByRole("heading", {
+        name: "Metadata Suggestions",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      await within(metadataSuggestions).findByRole("heading", {
+        name: "Family",
+      }),
+    ).toBeInTheDocument();
+    metadataSuggestions = within(reviewQueue).getByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    expect(within(metadataSuggestions).getByText("Tag")).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).getByText(
+        (_content, element) => element?.textContent === "  Family  ",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).getByText("/Volumes/Archive/Videos"),
+    ).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).getByText("Family Trip"),
+    ).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).getByText("Birthday"),
+    ).toBeInTheDocument();
+    expect(within(metadataSuggestions).getByText("Picnic")).toBeInTheDocument();
   });
 
   it("lists Failed Preview Strips in the Review Queue with retry and ignore actions", async () => {
