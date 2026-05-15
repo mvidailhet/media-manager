@@ -1128,6 +1128,7 @@ impl Catalog {
         &self,
         scan_root_path: &str,
         suggested_value: &str,
+        source_path_segment: &str,
         suggestion_kind: &str,
         accepted_metadata_kind: Option<&str>,
         accepted_value: Option<&str>,
@@ -1144,6 +1145,7 @@ impl Catalog {
         self.reject_videos_without_pending_metadata_suggestions(
             scan_root_id,
             suggested_value,
+            source_path_segment,
             suggestion_kind,
             video_ids,
         )?;
@@ -1175,6 +1177,7 @@ impl Catalog {
                 scan_root_id,
                 *video_id,
                 suggested_value,
+                source_path_segment,
                 suggestion_kind,
             )?;
             for source_path_segment in source_path_segments {
@@ -1192,10 +1195,17 @@ impl Catalog {
                      WHERE scan_root_id = ?1
                        AND video_id = ?2
                        AND lower(suggested_value) = lower(?3)
-                       AND suggestion_kind = ?4
+                       AND source_path_segment = ?4
+                       AND suggestion_kind = ?5
                        AND accepted_at IS NULL
                        AND rejected_at IS NULL",
-                    params![scan_root_id, video_id, suggested_value, suggestion_kind],
+                    params![
+                        scan_root_id,
+                        video_id,
+                        suggested_value,
+                        source_path_segment,
+                        suggestion_kind
+                    ],
                 )
                 .map_err(|error| error.to_string())?;
         }
@@ -1737,6 +1747,7 @@ impl Catalog {
         &self,
         scan_root_id: i64,
         suggested_value: &str,
+        source_path_segment: &str,
         suggestion_kind: &str,
         video_ids: &[i64],
     ) -> Result<(), String> {
@@ -1755,11 +1766,18 @@ impl Catalog {
                      WHERE scan_root_id = ?1
                        AND video_id = ?2
                        AND lower(suggested_value) = lower(?3)
-                       AND suggestion_kind = ?4
+                       AND source_path_segment = ?4
+                       AND suggestion_kind = ?5
                        AND accepted_at IS NULL
                        AND rejected_at IS NULL
                      LIMIT 1",
-                    params![scan_root_id, video_id, suggested_value, suggestion_kind],
+                    params![
+                        scan_root_id,
+                        video_id,
+                        suggested_value,
+                        source_path_segment,
+                        suggestion_kind
+                    ],
                     |_| Ok(()),
                 )
                 .optional()
@@ -2707,6 +2725,7 @@ fn pending_metadata_suggestion_source_path_segments(
     scan_root_id: i64,
     video_id: i64,
     suggested_value: &str,
+    source_path_segment: &str,
     suggestion_kind: &str,
 ) -> Result<Vec<String>, String> {
     let mut statement = transaction
@@ -2716,7 +2735,8 @@ fn pending_metadata_suggestion_source_path_segments(
              WHERE scan_root_id = ?1
                AND video_id = ?2
                AND lower(suggested_value) = lower(?3)
-               AND suggestion_kind = ?4
+               AND source_path_segment = ?4
+               AND suggestion_kind = ?5
                AND accepted_at IS NULL
                AND rejected_at IS NULL
              ORDER BY source_path_segment",
@@ -2725,7 +2745,13 @@ fn pending_metadata_suggestion_source_path_segments(
 
     let source_path_segments = statement
         .query_map(
-            params![scan_root_id, video_id, suggested_value, suggestion_kind],
+            params![
+                scan_root_id,
+                video_id,
+                suggested_value,
+                source_path_segment,
+                suggestion_kind
+            ],
             |row| row.get(0),
         )
         .map_err(|error| error.to_string())?
@@ -3649,6 +3675,7 @@ mod tests {
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
                 "Family",
+                "Family",
                 "tag",
                 None,
                 None,
@@ -3710,6 +3737,7 @@ mod tests {
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
                 "Family",
+                "Family",
                 "tag",
                 Some("performer"),
                 Some("The Family"),
@@ -3763,6 +3791,7 @@ mod tests {
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
                 "Family",
+                "Family",
                 "tag",
                 None,
                 Some("home movies"),
@@ -3782,6 +3811,60 @@ mod tests {
                 .map(|tag| tag.name)
                 .collect::<Vec<_>>(),
             vec!["Home Movies".to_string()]
+        );
+    }
+
+    #[test]
+    fn accepting_metadata_suggestion_only_maps_the_accepted_source_segment() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let family_folder = movies_root.join("Family");
+        let spaced_family_folder = family_folder.join("  Family  ");
+        std::fs::create_dir_all(&spaced_family_folder).expect("nested family folder exists");
+        std::fs::write(
+            spaced_family_folder.join("family-trip.mp4"),
+            "valid family trip bytes",
+        )
+        .expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        let video_id = video_id_for_title(&catalog.database, "family-trip");
+
+        catalog
+            .accept_metadata_suggestion_for_videos(
+                &scan_root.path,
+                "Family",
+                "Family",
+                "tag",
+                None,
+                None,
+                &[video_id],
+            )
+            .expect("metadata suggestion accepts");
+
+        assert_eq!(
+            metadata_suggestion_sources(&catalog.database),
+            vec![(
+                "  Family  ".to_string(),
+                "Family".to_string(),
+                "tag".to_string()
+            )]
+        );
+        assert_eq!(
+            metadata_suggestion_mappings(&catalog.database),
+            vec![(
+                "Family".to_string(),
+                "family".to_string(),
+                "tag".to_string()
+            )]
         );
     }
 
@@ -3812,6 +3895,7 @@ mod tests {
         catalog
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
+                "Family",
                 "Family",
                 "tag",
                 Some("performer"),
@@ -3856,11 +3940,13 @@ mod tests {
             auto_accepted_metadata_suggestions(&catalog.database),
             vec![
                 (
+                    "birthday".to_string(),
                     "Family".to_string(),
                     "Family".to_string(),
                     "tag".to_string()
                 ),
                 (
+                    "family-trip".to_string(),
                     "Family".to_string(),
                     "Family".to_string(),
                     "tag".to_string()
@@ -3922,6 +4008,7 @@ mod tests {
         catalog
             .accept_metadata_suggestion_for_videos(
                 &movies_scan_root.path,
+                "Family",
                 "Family",
                 "tag",
                 None,
@@ -4031,6 +4118,7 @@ mod tests {
         catalog
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
+                "Family",
                 "Family",
                 "tag",
                 None,
@@ -4163,6 +4251,7 @@ mod tests {
         let accept_error = catalog
             .accept_metadata_suggestion_for_videos(
                 &scan_root.path,
+                "Family",
                 "Family",
                 "tag",
                 None,
@@ -6387,21 +6476,50 @@ mod tests {
             .expect("metadata suggestion sources load")
     }
 
-    fn auto_accepted_metadata_suggestions(database: &Connection) -> Vec<(String, String, String)> {
+    fn auto_accepted_metadata_suggestions(
+        database: &Connection,
+    ) -> Vec<(String, String, String, String)> {
         let mut statement = database
             .prepare(
-                "SELECT source_path_segment, suggested_value, suggestion_kind
+                "SELECT videos.title,
+                        metadata_suggestions.source_path_segment,
+                        metadata_suggestions.suggested_value,
+                        metadata_suggestions.suggestion_kind
                  FROM metadata_suggestions
-                 WHERE accepted_at IS NOT NULL
-                 ORDER BY source_path_segment, suggested_value",
+                 JOIN videos ON videos.id = metadata_suggestions.video_id
+                 WHERE metadata_suggestions.accepted_at IS NOT NULL
+                 ORDER BY videos.title,
+                          metadata_suggestions.source_path_segment,
+                          metadata_suggestions.suggested_value",
             )
             .expect("accepted metadata suggestions query prepares");
 
         statement
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })
             .expect("accepted metadata suggestions query runs")
             .collect::<Result<Vec<_>, _>>()
             .expect("accepted metadata suggestions load")
+    }
+
+    fn metadata_suggestion_mappings(database: &Connection) -> Vec<(String, String, String)> {
+        let mut statement = database
+            .prepare(
+                "SELECT source_path_segment,
+                        normalized_suggested_value,
+                        suggestion_kind
+                 FROM metadata_suggestion_mappings
+                 ORDER BY source_path_segment,
+                          normalized_suggested_value",
+            )
+            .expect("metadata suggestion mappings query prepares");
+
+        statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))
+            .expect("metadata suggestion mappings query runs")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("metadata suggestion mappings load")
     }
 
     #[derive(Debug)]

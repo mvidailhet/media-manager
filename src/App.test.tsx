@@ -2374,6 +2374,7 @@ describe("Videos View shell", () => {
     expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
       scanRootPath: "/Volumes/Archive/Videos",
       suggestedValue: "Family",
+      sourcePathSegment: "Family",
       suggestionKind: "tag",
       videoIds: [7],
     });
@@ -2432,6 +2433,7 @@ describe("Videos View shell", () => {
     expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
       scanRootPath: "/Volumes/Archive/Videos",
       suggestedValue: "Family",
+      sourcePathSegment: "Family",
       suggestionKind: "tag",
       acceptedMetadataKind: "performer",
       acceptedValue: "The Family",
@@ -2492,6 +2494,7 @@ describe("Videos View shell", () => {
       expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
         scanRootPath: "/Volumes/Archive/Videos",
         suggestedValue: "Family",
+        sourcePathSegment: "Family",
         suggestionKind: "tag",
         acceptedValue: "family",
         videoIds: [7],
