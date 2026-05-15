@@ -42,6 +42,7 @@ import {
   setVideoFavorite,
   openCatalogVideo,
   tagsForVideo,
+  updateScanRootInferenceRules,
   updateVideoTitle,
 } from "./tauriCommands";
 
@@ -84,6 +85,7 @@ vi.mock("./tauriCommands", () => ({
   setVideoFavorite: vi.fn(),
   openCatalogVideo: vi.fn(),
   tagsForVideo: vi.fn(),
+  updateScanRootInferenceRules: vi.fn(),
   updateVideoTitle: vi.fn(),
 }));
 
@@ -124,6 +126,9 @@ const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
 const mockedResumePreviewStripQueue = vi.mocked(resumePreviewStripQueue);
 const mockedRefreshAllScanRoots = vi.mocked(refreshAllScanRoots);
 const mockedRefreshScanRoot = vi.mocked(refreshScanRoot);
+const mockedUpdateScanRootInferenceRules = vi.mocked(
+  updateScanRootInferenceRules,
+);
 
 const availableFfmpegToolsStatus = {
   ffmpeg: {
@@ -150,6 +155,27 @@ const availableFfmpegToolsStatus = {
 
 const pendingPreviewStrip = {
   status: "pending" as const,
+};
+
+const defaultInferenceRules = {
+  ignoredExactYearRange: {
+    endYear: 2099,
+    startYear: 1900,
+  },
+  ignoredFolderNames: [
+    "Misc",
+    "Unsorted",
+    "To Sort",
+    "To Review",
+    "New",
+    "Temp",
+    "Archive",
+    "Archives",
+    "Downloads",
+    "Videos",
+  ],
+  suggestPerformersFromChildFolders: false,
+  suggestTagsFromChildFolders: true,
 };
 
 function deferredPromise<T>() {
@@ -213,10 +239,9 @@ describe("Videos View shell", () => {
     mockedListUnprocessableVideoCandidates.mockResolvedValue([]);
     mockedListScanRoots.mockResolvedValue([]);
     mockedAddScanRoot.mockImplementation(async (path) => ({
-      path,
+      inferenceRules: defaultInferenceRules,
       isAvailable: true,
-      fileLocations: [],
-      isFavorite: false,
+      path,
     }));
     mockedForgetCatalogVideo.mockResolvedValue(undefined);
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
@@ -252,6 +277,13 @@ describe("Videos View shell", () => {
       scannedVideoCount: 0,
       unprocessableCandidateCount: 0,
     });
+    mockedUpdateScanRootInferenceRules.mockImplementation(
+      async (path, inferenceRules) => ({
+        inferenceRules,
+        isAvailable: true,
+        path,
+      }),
+    );
     mockedRefreshAllScanRoots.mockResolvedValue({
       scannedVideoCount: 0,
       unprocessableCandidateCount: 0,
@@ -1851,8 +1883,9 @@ describe("Videos View shell", () => {
   it("loads persisted Scan Roots into the app", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos",
+        inferenceRules: defaultInferenceRules,
         isAvailable: true,
+        path: "/Volumes/Archive/Videos",
       },
     ]);
 
@@ -1861,6 +1894,63 @@ describe("Videos View shell", () => {
     expect(
       await screen.findByText("/Volumes/Archive/Videos"),
     ).toBeInTheDocument();
+  });
+
+  it("shows Scan Root Inference Rules with their safe defaults", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+    ]);
+
+    renderApp();
+
+    const scanRoots = await screen.findByLabelText("Scan Roots");
+
+    expect(within(scanRoots).getByText("Tags from child folders")).toBeInTheDocument();
+    expect(within(scanRoots).getByText("Performers not inferred")).toBeInTheDocument();
+    expect(
+      within(scanRoots).getByText("Ignored names: Misc, Unsorted, To Sort, To Review, New, Temp, Archive, Archives, Downloads, Videos"),
+    ).toBeInTheDocument();
+    expect(within(scanRoots).getByText("Ignored years: 1900-2099")).toBeInTheDocument();
+  });
+
+  it("saves changed Scan Root Inference Rules", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.change(await screen.findByLabelText("Ignored folder names"), {
+      target: { value: "Misc, Extras" },
+    });
+    fireEvent.change(screen.getByLabelText("Ignored year start"), {
+      target: { value: "1980" },
+    });
+    fireEvent.click(screen.getByLabelText("Suggest Tags"));
+    fireEvent.click(screen.getByRole("button", { name: "Save Inference Rules" }));
+
+    await waitFor(() => {
+      expect(mockedUpdateScanRootInferenceRules).toHaveBeenCalledWith(
+        "/Volumes/Archive/Videos",
+        {
+          ignoredExactYearRange: {
+            endYear: 2099,
+            startYear: 1980,
+          },
+          ignoredFolderNames: ["Misc", "Extras"],
+          suggestPerformersFromChildFolders: false,
+          suggestTagsFromChildFolders: false,
+        },
+      );
+    });
   });
 
   it("adds a Scan Root through the folder picker and scans it", async () => {
@@ -1931,8 +2021,9 @@ describe("Videos View shell", () => {
   it("asks how to handle affected Videos before removing a Scan Root", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos",
+        inferenceRules: defaultInferenceRules,
         isAvailable: true,
+        path: "/Volumes/Archive/Videos",
       },
     ]);
 
@@ -1952,8 +2043,9 @@ describe("Videos View shell", () => {
   it("refreshes a selected Scan Root and shows the Catalog summary", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos",
+        inferenceRules: defaultInferenceRules,
         isAvailable: true,
+        path: "/Volumes/Archive/Videos",
       },
     ]);
     mockedRefreshScanRoot.mockResolvedValue({
@@ -1995,14 +2087,16 @@ describe("Videos View shell", () => {
     mockedListScanRoots
       .mockResolvedValueOnce([
         {
-          path: "/Volumes/Archive/Videos",
+          inferenceRules: defaultInferenceRules,
           isAvailable: true,
+          path: "/Volumes/Archive/Videos",
         },
       ])
       .mockResolvedValueOnce([
         {
-          path: "/Volumes/Archive/Videos",
+          inferenceRules: defaultInferenceRules,
           isAvailable: false,
+          path: "/Volumes/Archive/Videos",
         },
       ]);
 
@@ -2047,12 +2141,14 @@ describe("Videos View shell", () => {
     ]);
     mockedListScanRoots.mockResolvedValue([
       {
-        path: "/Volumes/Missing/Videos",
+        inferenceRules: defaultInferenceRules,
         isAvailable: false,
+        path: "/Volumes/Missing/Videos",
       },
       {
-        path: "/Volumes/Archive/Videos",
+        inferenceRules: defaultInferenceRules,
         isAvailable: true,
+        path: "/Volumes/Archive/Videos",
       },
     ]);
     mockedListUnprocessableVideoCandidates.mockResolvedValue([
@@ -2074,7 +2170,7 @@ describe("Videos View shell", () => {
     expect(
       within(reviewQueue).getByRole("heading", { name: "Missing Videos" }),
     ).toBeInTheDocument();
-    expect(within(reviewQueue).getByText("Family Trip")).toBeInTheDocument();
+    expect(await within(reviewQueue).findByText("Family Trip")).toBeInTheDocument();
     expect(
       within(reviewQueue).queryByText("Available Trip"),
     ).not.toBeInTheDocument();

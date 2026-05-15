@@ -33,6 +33,7 @@ import {
   setVideoFavorite,
   openCatalogVideo,
   updatePerformer,
+  updateScanRootInferenceRules,
   tagsForVideo,
   updateVideoTitle,
   updateTag,
@@ -100,8 +101,17 @@ describe("Tauri commands", () => {
   it("calls the typed Rust command for persisted Scan Roots", async () => {
     mockedInvoke.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos",
+        inferenceRules: {
+          ignoredExactYearRange: {
+            endYear: 2099,
+            startYear: 1900,
+          },
+          ignoredFolderNames: ["Misc", "Unsorted"],
+          suggestPerformersFromChildFolders: false,
+          suggestTagsFromChildFolders: true,
+        },
         isAvailable: true,
+        path: "/Volumes/Archive/Videos",
       },
     ]);
 
@@ -109,8 +119,17 @@ describe("Tauri commands", () => {
 
     expect(scanRoots).toEqual([
       {
-        path: "/Volumes/Archive/Videos",
+        inferenceRules: {
+          ignoredExactYearRange: {
+            endYear: 2099,
+            startYear: 1900,
+          },
+          ignoredFolderNames: ["Misc", "Unsorted"],
+          suggestPerformersFromChildFolders: false,
+          suggestTagsFromChildFolders: true,
+        },
         isAvailable: true,
+        path: "/Volumes/Archive/Videos",
       },
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith("list_scan_roots");
@@ -120,6 +139,31 @@ describe("Tauri commands", () => {
     await addScanRoot("/Volumes/Archive/Videos");
 
     expect(mockedInvoke).toHaveBeenCalledWith("add_scan_root", {
+      path: "/Volumes/Archive/Videos",
+    });
+  });
+
+  it("updates Scan Root Inference Rules through the Rust command", async () => {
+    await updateScanRootInferenceRules("/Volumes/Archive/Videos", {
+      ignoredExactYearRange: {
+        endYear: 2099,
+        startYear: 1900,
+      },
+      ignoredFolderNames: ["Misc", "Temp"],
+      suggestPerformersFromChildFolders: false,
+      suggestTagsFromChildFolders: true,
+    });
+
+    expect(mockedInvoke).toHaveBeenCalledWith("update_scan_root_inference_rules", {
+      inferenceRules: {
+        ignoredExactYearRange: {
+          endYear: 2099,
+          startYear: 1900,
+        },
+        ignoredFolderNames: ["Misc", "Temp"],
+        suggestPerformersFromChildFolders: false,
+        suggestTagsFromChildFolders: true,
+      },
       path: "/Volumes/Archive/Videos",
     });
   });

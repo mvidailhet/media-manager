@@ -20,17 +20,32 @@ const DEFAULT_VIDEO_EXTENSIONS: [&str; 7] = ["flv", "mp4", "mov", "mkv", "avi", 
 const FINGERPRINT_SAMPLE_SIZE_BYTES: usize = 64 * 1024;
 const FNV_OFFSET_BASIS: u64 = 14_695_981_039_346_656_037;
 const FNV_PRIME: u64 = 1_099_511_628_211;
+macro_rules! default_ignored_folder_names_json {
+    () => {
+        "[\"Misc\",\"Unsorted\",\"To Sort\",\"To Review\",\"New\",\"Temp\",\"Archive\",\"Archives\",\"Downloads\",\"Videos\"]"
+    };
+}
+const DEFAULT_IGNORED_FOLDER_NAMES_JSON: &str = default_ignored_folder_names_json!();
 
-const CREATE_SCAN_ROOTS_TABLE: &str = "
+const CREATE_SCAN_ROOTS_TABLE: &str = concat!(
+    "
     CREATE TABLE IF NOT EXISTS scan_roots (
         id INTEGER PRIMARY KEY,
         path TEXT NOT NULL UNIQUE,
         drive_identity TEXT,
         is_available INTEGER NOT NULL DEFAULT 1,
+        suggest_tags_from_child_folders INTEGER NOT NULL DEFAULT 1,
+        suggest_performers_from_child_folders INTEGER NOT NULL DEFAULT 0,
+        ignored_folder_names TEXT NOT NULL DEFAULT '",
+    default_ignored_folder_names_json!(),
+    "',
+        ignored_exact_year_start INTEGER NOT NULL DEFAULT 1900,
+        ignored_exact_year_end INTEGER NOT NULL DEFAULT 2099,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
-";
+"
+);
 
 const CREATE_VIDEOS_TABLE: &str = "
     CREATE TABLE IF NOT EXISTS videos (
@@ -73,6 +88,24 @@ const CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE: &str = "
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE
+    );
+";
+
+const CREATE_METADATA_SUGGESTIONS_TABLE: &str = "
+    CREATE TABLE IF NOT EXISTS metadata_suggestions (
+        id INTEGER PRIMARY KEY,
+        scan_root_id INTEGER NOT NULL,
+        video_id INTEGER NOT NULL,
+        source_path_segment TEXT NOT NULL,
+        suggested_value TEXT NOT NULL,
+        suggestion_kind TEXT NOT NULL,
+        accepted_at TEXT,
+        rejected_at TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (scan_root_id, video_id, source_path_segment, suggestion_kind),
+        FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE,
+        FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
     );
 ";
 
@@ -157,6 +190,20 @@ const CREATE_PERFORMER_VIDEOS_VIDEO_INDEX: &str = "
 const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 40;
 const PREVIEW_STRIP_COLUMNS: i64 = 5;
 const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 640;
+const DEFAULT_IGNORED_EXACT_YEAR_START: i64 = 1900;
+const DEFAULT_IGNORED_EXACT_YEAR_END: i64 = 2099;
+const DEFAULT_IGNORED_FOLDER_NAMES: [&str; 10] = [
+    "Misc",
+    "Unsorted",
+    "To Sort",
+    "To Review",
+    "New",
+    "Temp",
+    "Archive",
+    "Archives",
+    "Downloads",
+    "Videos",
+];
 pub const PREVIEW_STRIP_GENERATION_CANCELLED_REASON: &str =
     "Preview Strip generation cancelled by the user";
 
@@ -206,6 +253,37 @@ pub enum PreviewStripStatus {
 pub struct ScanRoot {
     pub path: String,
     pub is_available: bool,
+    pub inference_rules: ScanRootInferenceRules,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanRootInferenceRules {
+    pub suggest_tags_from_child_folders: bool,
+    pub suggest_performers_from_child_folders: bool,
+    pub ignored_folder_names: Vec<String>,
+    pub ignored_exact_year_range: ExactYearRange,
+}
+
+#[derive(Debug, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ExactYearRange {
+    pub start_year: i64,
+    pub end_year: i64,
+}
+
+impl Default for ScanRootInferenceRules {
+    fn default() -> Self {
+        ScanRootInferenceRules {
+            suggest_tags_from_child_folders: true,
+            suggest_performers_from_child_folders: false,
+            ignored_folder_names: default_ignored_folder_names(),
+            ignored_exact_year_range: ExactYearRange {
+                start_year: DEFAULT_IGNORED_EXACT_YEAR_START,
+                end_year: DEFAULT_IGNORED_EXACT_YEAR_END,
+            },
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Serialize)]
@@ -593,6 +671,7 @@ impl Catalog {
         let canonical_scan_root_path =
             canonical_scan_root_path(scan_root_path).map_err(|error| error.to_string())?;
         let scan_root = ScanRoot {
+            inference_rules: ScanRootInferenceRules::default(),
             is_available: true,
             path: canonical_scan_root_path.to_string_lossy().into_owned(),
         };
@@ -612,7 +691,13 @@ impl Catalog {
         let mut statement = self
             .database
             .prepare(
-                "SELECT path, is_available
+                "SELECT path,
+                        is_available,
+                        suggest_tags_from_child_folders,
+                        suggest_performers_from_child_folders,
+                        ignored_folder_names,
+                        ignored_exact_year_start,
+                        ignored_exact_year_end
                  FROM scan_roots
                  ORDER BY path",
             )
@@ -623,6 +708,7 @@ impl Catalog {
                 Ok(ScanRoot {
                     path: row.get(0)?,
                     is_available: row.get::<_, i64>(1)? == 1,
+                    inference_rules: scan_root_inference_rules_from_row(row)?,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -630,6 +716,46 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
 
         Ok(scan_roots)
+    }
+
+    pub fn update_scan_root_inference_rules(
+        &self,
+        scan_root_path: &str,
+        inference_rules: ScanRootInferenceRules,
+    ) -> Result<ScanRoot, String> {
+        let inference_rules = validated_inference_rules(inference_rules)?;
+        let ignored_folder_names = serde_json::to_string(&inference_rules.ignored_folder_names)
+            .map_err(|error| error.to_string())?;
+        let updated_scan_root_count = self
+            .database
+            .execute(
+                "UPDATE scan_roots
+                 SET suggest_tags_from_child_folders = ?1,
+                     suggest_performers_from_child_folders = ?2,
+                     ignored_folder_names = ?3,
+                     ignored_exact_year_start = ?4,
+                     ignored_exact_year_end = ?5,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE path = ?6",
+                params![
+                    i64::from(inference_rules.suggest_tags_from_child_folders),
+                    i64::from(inference_rules.suggest_performers_from_child_folders),
+                    ignored_folder_names,
+                    inference_rules.ignored_exact_year_range.start_year,
+                    inference_rules.ignored_exact_year_range.end_year,
+                    scan_root_path,
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+        if updated_scan_root_count == 0 {
+            return Err("Scan Root is not in the Catalog".to_string());
+        }
+        self.regenerate_unaccepted_metadata_suggestions(
+            self.scan_root_id(scan_root_path)?,
+            scan_root_path,
+        )?;
+
+        self.scan_root(scan_root_path)
     }
 
     pub fn remove_scan_root_preserving_missing_videos(
@@ -757,6 +883,7 @@ impl Catalog {
             }
         }
         self.remove_stale_scan_root_entries(scan_root_id, &seen_video_candidate_paths)?;
+        self.regenerate_unaccepted_metadata_suggestions(scan_root_id, scan_root_path)?;
 
         Ok(ScanRootRefreshSummary {
             scanned_video_count,
@@ -1478,6 +1605,7 @@ impl Catalog {
             CREATE_VIDEOS_TABLE,
             CREATE_FILE_LOCATIONS_TABLE,
             CREATE_UNPROCESSABLE_VIDEO_CANDIDATES_TABLE,
+            CREATE_METADATA_SUGGESTIONS_TABLE,
             CREATE_PREVIEW_STRIPS_TABLE,
             CREATE_FAILED_PREVIEW_STRIPS_TABLE,
             CREATE_TAGS_TABLE,
@@ -1493,6 +1621,7 @@ impl Catalog {
             .execute_batch(&migration_batch)
             .map_err(|error| error.to_string())?;
         self.add_scan_root_availability_column_if_missing()?;
+        self.add_scan_root_inference_rule_columns_if_missing()?;
         self.add_failed_preview_strip_ignored_at_column_if_missing()?;
         self.add_video_favorite_column_if_missing()?;
         self.add_video_open_history_columns_if_missing()
@@ -1510,6 +1639,46 @@ impl Catalog {
                 [],
             )
             .map_err(|error| error.to_string())?;
+
+        Ok(())
+    }
+
+    fn add_scan_root_inference_rule_columns_if_missing(&self) -> Result<(), String> {
+        let scan_root_inference_rule_columns = [
+            (
+                "suggest_tags_from_child_folders",
+                "INTEGER NOT NULL DEFAULT 1".to_string(),
+            ),
+            (
+                "suggest_performers_from_child_folders",
+                "INTEGER NOT NULL DEFAULT 0".to_string(),
+            ),
+            (
+                "ignored_folder_names",
+                format!("TEXT NOT NULL DEFAULT '{DEFAULT_IGNORED_FOLDER_NAMES_JSON}'"),
+            ),
+            (
+                "ignored_exact_year_start",
+                format!("INTEGER NOT NULL DEFAULT {DEFAULT_IGNORED_EXACT_YEAR_START}"),
+            ),
+            (
+                "ignored_exact_year_end",
+                format!("INTEGER NOT NULL DEFAULT {DEFAULT_IGNORED_EXACT_YEAR_END}"),
+            ),
+        ];
+
+        for (column_name, column_definition) in scan_root_inference_rule_columns {
+            if catalog_table_has_column(&self.database, "scan_roots", column_name)? {
+                continue;
+            }
+
+            self.database
+                .execute(
+                    &format!("ALTER TABLE scan_roots ADD COLUMN {column_name} {column_definition}"),
+                    [],
+                )
+                .map_err(|error| error.to_string())?;
+        }
 
         Ok(())
     }
@@ -1576,6 +1745,32 @@ impl Catalog {
                 "SELECT id FROM scan_roots WHERE path = ?1",
                 params![scan_root_path],
                 |row| row.get(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?
+            .ok_or_else(|| "Scan Root is not in the Catalog".to_string())
+    }
+
+    fn scan_root(&self, scan_root_path: &str) -> Result<ScanRoot, String> {
+        self.database
+            .query_row(
+                "SELECT path,
+                        is_available,
+                        suggest_tags_from_child_folders,
+                        suggest_performers_from_child_folders,
+                        ignored_folder_names,
+                        ignored_exact_year_start,
+                        ignored_exact_year_end
+                 FROM scan_roots
+                 WHERE path = ?1",
+                params![scan_root_path],
+                |row| {
+                    Ok(ScanRoot {
+                        path: row.get(0)?,
+                        is_available: row.get::<_, i64>(1)? == 1,
+                        inference_rules: scan_root_inference_rules_from_row(row)?,
+                    })
+                },
             )
             .optional()
             .map_err(|error| error.to_string())?
@@ -1893,6 +2088,80 @@ impl Catalog {
 
         Ok(())
     }
+
+    fn regenerate_unaccepted_metadata_suggestions(
+        &self,
+        scan_root_id: i64,
+        scan_root_path: &str,
+    ) -> Result<(), String> {
+        let scan_root = self.scan_root(scan_root_path)?;
+        let file_locations = self.file_locations_for_metadata_inference(scan_root_id)?;
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+
+        transaction
+            .execute(
+                "DELETE FROM metadata_suggestions
+                 WHERE scan_root_id = ?1
+                   AND accepted_at IS NULL
+                   AND rejected_at IS NULL",
+                params![scan_root_id],
+            )
+            .map_err(|error| error.to_string())?;
+
+        for (video_id, video_path) in file_locations {
+            for folder_segment in metadata_suggestion_segments(
+                scan_root_path,
+                &video_path,
+                &scan_root.inference_rules,
+            ) {
+                transaction
+                    .execute(
+                        "INSERT INTO metadata_suggestions (
+                            scan_root_id,
+                            video_id,
+                            source_path_segment,
+                            suggested_value,
+                            suggestion_kind
+                         )
+                         VALUES (?1, ?2, ?3, ?4, 'tag')
+                         ON CONFLICT(scan_root_id, video_id, source_path_segment, suggestion_kind)
+                         DO UPDATE SET
+                            suggested_value = excluded.suggested_value,
+                            updated_at = CURRENT_TIMESTAMP",
+                        params![scan_root_id, video_id, folder_segment, folder_segment],
+                    )
+                    .map_err(|error| error.to_string())?;
+            }
+        }
+
+        transaction.commit().map_err(|error| error.to_string())
+    }
+
+    fn file_locations_for_metadata_inference(
+        &self,
+        scan_root_id: i64,
+    ) -> Result<Vec<(i64, String)>, String> {
+        let mut statement = self
+            .database
+            .prepare(
+                "SELECT video_id, path
+                 FROM file_locations
+                 WHERE scan_root_id = ?1
+                 ORDER BY path",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let file_locations = statement
+            .query_map(params![scan_root_id], |row| Ok((row.get(0)?, row.get(1)?)))
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        Ok(file_locations)
+    }
 }
 
 struct PendingPreviewStrip {
@@ -2127,6 +2396,117 @@ fn fnv1a_hash(bytes: &[u8]) -> u64 {
     })
 }
 
+fn default_ignored_folder_names() -> Vec<String> {
+    DEFAULT_IGNORED_FOLDER_NAMES
+        .iter()
+        .map(|ignored_folder_name| ignored_folder_name.to_string())
+        .collect()
+}
+
+fn scan_root_inference_rules_from_row(row: &Row<'_>) -> rusqlite::Result<ScanRootInferenceRules> {
+    let ignored_folder_names_text: String = row.get(4)?;
+    let ignored_folder_names =
+        serde_json::from_str(&ignored_folder_names_text).map_err(|error| {
+            rusqlite::Error::FromSqlConversionFailure(
+                ignored_folder_names_text.len(),
+                rusqlite::types::Type::Text,
+                Box::new(error),
+            )
+        })?;
+
+    Ok(ScanRootInferenceRules {
+        suggest_tags_from_child_folders: row.get::<_, i64>(2)? == 1,
+        suggest_performers_from_child_folders: row.get::<_, i64>(3)? == 1,
+        ignored_folder_names,
+        ignored_exact_year_range: ExactYearRange {
+            start_year: row.get(5)?,
+            end_year: row.get(6)?,
+        },
+    })
+}
+
+fn metadata_suggestion_segments(
+    scan_root_path: &str,
+    video_path: &str,
+    inference_rules: &ScanRootInferenceRules,
+) -> Vec<String> {
+    if !inference_rules.suggest_tags_from_child_folders {
+        return Vec::new();
+    }
+
+    let scan_root = Path::new(scan_root_path);
+    let video_path = Path::new(video_path);
+    let video_folder = video_path.parent().unwrap_or(video_path);
+    let child_folder_path = match video_folder.strip_prefix(scan_root) {
+        Ok(child_folder_path) => child_folder_path,
+        Err(_) => return Vec::new(),
+    };
+    let ignored_folder_names = inference_rules
+        .ignored_folder_names
+        .iter()
+        .map(|folder_name| folder_name.to_lowercase())
+        .collect::<HashSet<_>>();
+
+    child_folder_path
+        .components()
+        .filter_map(|component| component.as_os_str().to_str())
+        .filter(|folder_name| !folder_name.is_empty())
+        .filter(|folder_name| {
+            let normalized_folder_name = folder_name.to_lowercase();
+
+            !ignored_folder_names.contains(&normalized_folder_name)
+                && !is_ignored_exact_year(folder_name, &inference_rules.ignored_exact_year_range)
+        })
+        .map(|folder_name| folder_name.to_string())
+        .collect()
+}
+
+fn is_ignored_exact_year(folder_name: &str, ignored_exact_year_range: &ExactYearRange) -> bool {
+    if folder_name.len() != 4
+        || !folder_name
+            .chars()
+            .all(|character| character.is_ascii_digit())
+    {
+        return false;
+    }
+
+    folder_name
+        .parse::<i64>()
+        .map(|year| {
+            year >= ignored_exact_year_range.start_year && year <= ignored_exact_year_range.end_year
+        })
+        .unwrap_or(false)
+}
+
+fn validated_inference_rules(
+    inference_rules: ScanRootInferenceRules,
+) -> Result<ScanRootInferenceRules, String> {
+    if inference_rules.ignored_exact_year_range.start_year
+        > inference_rules.ignored_exact_year_range.end_year
+    {
+        return Err("Ignored exact year range start must be before or equal to end".to_string());
+    }
+
+    let mut seen_ignored_folder_names = HashSet::new();
+    let mut ignored_folder_names = Vec::new();
+    for ignored_folder_name in inference_rules.ignored_folder_names {
+        let trimmed_ignored_folder_name = ignored_folder_name.trim();
+        if trimmed_ignored_folder_name.is_empty() {
+            return Err("Ignored folder names cannot be empty".to_string());
+        }
+
+        let normalized_ignored_folder_name = trimmed_ignored_folder_name.to_lowercase();
+        if seen_ignored_folder_names.insert(normalized_ignored_folder_name) {
+            ignored_folder_names.push(trimmed_ignored_folder_name.to_string());
+        }
+    }
+
+    Ok(ScanRootInferenceRules {
+        ignored_folder_names,
+        ..inference_rules
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::{Catalog, FailedPreviewStrip, PreviewStripRetryReason, VideoFileProbe, VideoProbe};
@@ -2155,6 +2535,7 @@ mod tests {
             catalog.list_scan_roots().expect("scan roots list"),
             vec![
                 super::ScanRoot {
+                    inference_rules: super::ScanRootInferenceRules::default(),
                     is_available: true,
                     path: documentaries_root
                         .canonicalize()
@@ -2163,6 +2544,7 @@ mod tests {
                         .into_owned(),
                 },
                 super::ScanRoot {
+                    inference_rules: super::ScanRootInferenceRules::default(),
                     is_available: true,
                     path: movies_root
                         .canonicalize()
@@ -2182,6 +2564,202 @@ mod tests {
         assert_eq!(
             add_nested_root_error,
             "Scan Root overlaps with an existing Scan Root"
+        );
+    }
+
+    #[test]
+    fn new_scan_roots_store_default_inference_rules_for_child_folder_tags_only() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("scan root adds with inference rules");
+
+        assert_eq!(
+            scan_root.inference_rules,
+            super::ScanRootInferenceRules {
+                suggest_tags_from_child_folders: true,
+                suggest_performers_from_child_folders: false,
+                ignored_folder_names: vec![
+                    "Misc".to_string(),
+                    "Unsorted".to_string(),
+                    "To Sort".to_string(),
+                    "To Review".to_string(),
+                    "New".to_string(),
+                    "Temp".to_string(),
+                    "Archive".to_string(),
+                    "Archives".to_string(),
+                    "Downloads".to_string(),
+                    "Videos".to_string(),
+                ],
+                ignored_exact_year_range: super::ExactYearRange {
+                    start_year: 1900,
+                    end_year: 2099,
+                },
+            }
+        );
+
+        assert_eq!(
+            catalog.list_scan_roots().expect("scan roots list"),
+            vec![scan_root]
+        );
+    }
+
+    #[test]
+    fn scan_root_inference_rules_can_be_changed_without_changing_accepted_local_metadata() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog
+            .add_scan_root(&movies_root)
+            .expect("scan root adds with inference rules");
+        store_test_video(&catalog.database, "family-trip-fingerprint", "Family Trip");
+        let video_id = catalog
+            .database
+            .query_row(
+                "SELECT id FROM videos WHERE fingerprint = ?1",
+                ["family-trip-fingerprint"],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("video id loads");
+        let tag = catalog.create_tag("Family").expect("tag creates");
+        catalog
+            .attach_tag_to_video(tag.id, video_id)
+            .expect("tag attaches");
+        let changed_inference_rules = super::ScanRootInferenceRules {
+            suggest_tags_from_child_folders: true,
+            suggest_performers_from_child_folders: false,
+            ignored_folder_names: vec!["Extras".to_string(), "Temp".to_string()],
+            ignored_exact_year_range: super::ExactYearRange {
+                start_year: 1900,
+                end_year: 2099,
+            },
+        };
+
+        let changed_scan_root = catalog
+            .update_scan_root_inference_rules(&scan_root.path, changed_inference_rules)
+            .expect("scan root inference rules update");
+
+        assert_eq!(
+            changed_scan_root.inference_rules.ignored_folder_names,
+            vec!["Extras".to_string(), "Temp".to_string()]
+        );
+        assert_eq!(
+            catalog.tags_for_video(video_id).expect("video tags list"),
+            vec![tag]
+        );
+    }
+
+    #[test]
+    fn scan_root_refresh_generates_tag_suggestions_from_allowed_child_folder_segments_only() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let video_folder = movies_root.join("Videos").join("2024").join("Family");
+        std::fs::create_dir_all(&video_folder).expect("video folder exists");
+        let family_trip_path = video_folder.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+
+        assert_eq!(
+            metadata_suggestions(&catalog.database),
+            vec![("Family".to_string(), "tag".to_string())]
+        );
+    }
+
+    #[test]
+    fn changing_scan_root_inference_rules_regenerates_unaccepted_suggestions_only() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        let video_folder = movies_root.join("Travel").join("Family");
+        std::fs::create_dir_all(&video_folder).expect("video folder exists");
+        let family_trip_path = video_folder.join("family-trip.mp4");
+        std::fs::write(&family_trip_path, "valid video bytes").expect("family video exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+        catalog
+            .refresh_scan_root(
+                &scan_root.path,
+                &FakeVideoFileProbe::with_duration(1_000),
+                &super::VideoExtensionAllowlist::default(),
+            )
+            .expect("scan root refreshes");
+        catalog
+            .database
+            .execute(
+                "UPDATE metadata_suggestions
+                 SET accepted_at = CURRENT_TIMESTAMP
+                 WHERE suggested_value = 'Travel'",
+                [],
+            )
+            .expect("suggestion accepts");
+
+        catalog
+            .update_scan_root_inference_rules(
+                &scan_root.path,
+                super::ScanRootInferenceRules {
+                    suggest_tags_from_child_folders: true,
+                    suggest_performers_from_child_folders: false,
+                    ignored_folder_names: vec![" Family ".to_string(), "family".to_string()],
+                    ignored_exact_year_range: super::ExactYearRange {
+                        start_year: 1900,
+                        end_year: 2099,
+                    },
+                },
+            )
+            .expect("inference rules update");
+
+        assert_eq!(
+            metadata_suggestions(&catalog.database),
+            vec![("Travel".to_string(), "tag".to_string())]
+        );
+    }
+
+    #[test]
+    fn invalid_scan_root_inference_rules_are_rejected() {
+        let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+        let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+        let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+        let movies_root = temporary_folder.path().join("Movies");
+        std::fs::create_dir_all(&movies_root).expect("movies root exists");
+        let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+        let update_error = catalog
+            .update_scan_root_inference_rules(
+                &scan_root.path,
+                super::ScanRootInferenceRules {
+                    suggest_tags_from_child_folders: true,
+                    suggest_performers_from_child_folders: false,
+                    ignored_folder_names: vec![" ".to_string()],
+                    ignored_exact_year_range: super::ExactYearRange {
+                        start_year: 2100,
+                        end_year: 1900,
+                    },
+                },
+            )
+            .expect_err("invalid rules are rejected");
+
+        assert_eq!(
+            update_error,
+            "Ignored exact year range start must be before or equal to end"
         );
     }
 
@@ -2226,6 +2804,7 @@ mod tests {
         assert_eq!(
             catalog.list_scan_roots().expect("scan roots list"),
             vec![super::ScanRoot {
+                inference_rules: super::ScanRootInferenceRules::default(),
                 is_available: false,
                 path: scan_root.path,
             }]
@@ -2505,6 +3084,7 @@ mod tests {
         assert_eq!(
             catalog.list_scan_roots().expect("scan roots list"),
             vec![super::ScanRoot {
+                inference_rules: super::ScanRootInferenceRules::default(),
                 is_available: false,
                 path: scan_root.path,
             }]
@@ -2557,10 +3137,12 @@ mod tests {
             catalog.list_scan_roots().expect("scan roots list"),
             vec![
                 super::ScanRoot {
+                    inference_rules: super::ScanRootInferenceRules::default(),
                     is_available: true,
                     path: available_scan_root.path,
                 },
                 super::ScanRoot {
+                    inference_rules: super::ScanRootInferenceRules::default(),
                     is_available: false,
                     path: unavailable_scan_root.path,
                 },
@@ -3638,6 +4220,7 @@ mod tests {
             vec![
                 "failed_preview_strips",
                 "file_locations",
+                "metadata_suggestions",
                 "performer_videos",
                 "performers",
                 "preview_strips",
@@ -3666,6 +4249,7 @@ mod tests {
             vec![
                 "failed_preview_strips",
                 "file_locations",
+                "metadata_suggestions",
                 "performer_videos",
                 "performers",
                 "preview_strips",
@@ -3711,6 +4295,7 @@ mod tests {
         assert_eq!(
             catalog.list_scan_roots().expect("scan roots list"),
             vec![super::ScanRoot {
+                inference_rules: super::ScanRootInferenceRules::default(),
                 is_available: true,
                 path: "/Volumes/Archive/Videos".to_string(),
             }]
@@ -3733,6 +4318,11 @@ mod tests {
                 "path TEXT required",
                 "drive_identity TEXT optional",
                 "is_available INTEGER required",
+                "suggest_tags_from_child_folders INTEGER required",
+                "suggest_performers_from_child_folders INTEGER required",
+                "ignored_folder_names TEXT required",
+                "ignored_exact_year_start INTEGER required",
+                "ignored_exact_year_end INTEGER required",
                 "created_at TEXT required",
                 "updated_at TEXT required",
             ]
@@ -3788,6 +4378,28 @@ mod tests {
         assert_eq!(
             catalog_foreign_keys(&database, "unprocessable_video_candidates"),
             vec!["scan_root_id -> scan_roots.id on delete CASCADE"]
+        );
+        assert_eq!(
+            catalog_columns(&database, "metadata_suggestions"),
+            vec![
+                "id INTEGER optional",
+                "scan_root_id INTEGER required",
+                "video_id INTEGER required",
+                "source_path_segment TEXT required",
+                "suggested_value TEXT required",
+                "suggestion_kind TEXT required",
+                "accepted_at TEXT optional",
+                "rejected_at TEXT optional",
+                "created_at TEXT required",
+                "updated_at TEXT required",
+            ]
+        );
+        assert_eq!(
+            catalog_foreign_keys(&database, "metadata_suggestions"),
+            vec![
+                "scan_root_id -> scan_roots.id on delete CASCADE",
+                "video_id -> videos.id on delete CASCADE",
+            ]
         );
         assert_eq!(
             catalog_columns(&database, "preview_strips"),
@@ -4239,6 +4851,22 @@ mod tests {
                 (fingerprint, 1_i64, title, 1_000_i64),
             )
             .expect("video persists");
+    }
+
+    fn metadata_suggestions(database: &Connection) -> Vec<(String, String)> {
+        let mut statement = database
+            .prepare(
+                "SELECT suggested_value, suggestion_kind
+                 FROM metadata_suggestions
+                 ORDER BY suggested_value",
+            )
+            .expect("metadata suggestions query prepares");
+
+        statement
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+            .expect("metadata suggestions query runs")
+            .collect::<Result<Vec<_>, _>>()
+            .expect("metadata suggestions load")
     }
 
     #[derive(Debug)]
