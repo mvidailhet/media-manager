@@ -103,6 +103,7 @@ interface CatalogVideoFilters {
 }
 
 type CatalogVideoSort = "titleAscending" | "fileSizeAscending" | "fileSizeDescending";
+type CatalogVideoWorkspace = "videos" | "favorites";
 
 const defaultCatalogVideoFilters: CatalogVideoFilters = {
   searchText: "",
@@ -130,6 +131,8 @@ export default function App() {
   const [catalogVideosStatusMessage, setCatalogVideosStatusMessage] = useState(
     catalogVideosLoadingMessage,
   );
+  const [catalogVideoActionStatusMessage, setCatalogVideoActionStatusMessage] =
+    useState("");
   const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
     scanRootsLoadingMessage,
@@ -169,6 +172,8 @@ export default function App() {
     useState<CatalogVideoFilters>(defaultCatalogVideoFilters);
   const [catalogVideoSort, setCatalogVideoSort] =
     useState<CatalogVideoSort>("titleAscending");
+  const [catalogVideoWorkspace, setCatalogVideoWorkspace] =
+    useState<CatalogVideoWorkspace>("videos");
   const [detailStatusMessage, setDetailStatusMessage] = useState("");
   const selectedVideoRequestId = useRef(0);
 
@@ -178,6 +183,7 @@ export default function App() {
 
       setCatalogVideos(storedCatalogVideos);
       setCatalogVideosStatusMessage("");
+      setCatalogVideoActionStatusMessage("");
     } catch {
       setCatalogVideosStatusMessage(catalogVideosErrorMessage);
     }
@@ -744,18 +750,32 @@ export default function App() {
       return;
     }
 
+    await setCatalogVideoFavorite(selectedVideo, isFavorite);
+  }
+
+  async function setCatalogVideoFavorite(
+    video: CatalogVideo,
+    isFavorite: boolean,
+  ) {
     try {
-      await setVideoFavorite(selectedVideo.id, isFavorite);
-      const updatedVideo = { ...selectedVideo, isFavorite };
-      setSelectedVideo(updatedVideo);
+      await setVideoFavorite(video.id, isFavorite);
+      setSelectedVideo((currentSelectedVideo) =>
+        currentSelectedVideo?.id === video.id
+          ? { ...currentSelectedVideo, isFavorite }
+          : currentSelectedVideo,
+      );
       setCatalogVideos((currentVideos) =>
         currentVideos.map((catalogVideo) =>
-          catalogVideo.id === updatedVideo.id ? updatedVideo : catalogVideo,
+          catalogVideo.id === video.id
+            ? { ...catalogVideo, isFavorite }
+            : catalogVideo,
         ),
       );
       setDetailStatusMessage("");
+      setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
+      setCatalogVideoActionStatusMessage(errorMessage(error));
     }
   }
 
@@ -988,12 +1008,16 @@ export default function App() {
   const missingVideos = catalogVideos.filter(
     (catalogVideo) => !catalogVideo.isAvailable,
   );
+  const activeCatalogVideoFilters =
+    catalogVideoWorkspace === "favorites"
+      ? { ...catalogVideoFilters, favoritesOnly: true }
+      : catalogVideoFilters;
   const filteredCatalogVideos = sortedCatalogVideos(
     catalogVideos.filter((catalogVideo) =>
       catalogVideoMatchesFilters(
         catalogVideo,
         catalogVideoMetadataById[catalogVideo.id],
-        catalogVideoFilters,
+        activeCatalogVideoFilters,
       ),
     ),
     catalogVideoSort,
@@ -1004,20 +1028,24 @@ export default function App() {
 
   return (
     <Box component="main" className="app-shell">
-      <WorkspaceHeader />
+      <WorkspaceHeader catalogVideoWorkspace={catalogVideoWorkspace} />
       <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
       <CatalogVideosPanel
         availablePerformers={availablePerformers}
         availableTags={availableTags}
-        catalogVideoFilters={catalogVideoFilters}
+        catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
+        catalogVideoFilters={activeCatalogVideoFilters}
+        catalogVideoWorkspace={catalogVideoWorkspace}
         catalogVideoSort={catalogVideoSort}
         catalogVideos={filteredCatalogVideos}
         catalogVideosStatusMessage={catalogVideosStatusMessage}
         onCatalogVideoFiltersChange={setCatalogVideoFilters}
         onCatalogVideoSortChange={setCatalogVideoSort}
+        onCatalogVideoWorkspaceChange={setCatalogVideoWorkspace}
         onPausePreviewQueue={pausePreviewQueue}
         onResumePreviewQueue={resumePreviewQueue}
         onSelectVideo={selectVideoForDetail}
+        onSetFavorite={setCatalogVideoFavorite}
         previewStripQueueStatus={previewStripQueueStatus}
         previewStripStatusMessage={previewStripStatusMessage}
       />
@@ -1160,14 +1188,21 @@ function SectionHeader({ label, title }: { label: string; title: string }) {
   );
 }
 
-function WorkspaceHeader() {
+function WorkspaceHeader({
+  catalogVideoWorkspace,
+}: {
+  catalogVideoWorkspace: CatalogVideoWorkspace;
+}) {
+  const workspaceTitle =
+    catalogVideoWorkspace === "favorites" ? "Favorites View" : "Videos View";
+
   return (
     <Box component="section" maw={720} aria-labelledby="videos-view-title">
       <Text c="dimmed" fw={700} size="sm" tt="uppercase">
         Local Desktop App
       </Text>
       <Title id="videos-view-title" order={1} mt={8} mb={12}>
-        Videos View
+        {workspaceTitle}
       </Title>
       <Text c="dimmed" lh={1.6}>
         A local catalog workspace for organizing videos without a network
@@ -1204,37 +1239,68 @@ function TauriStatusPanel({
 function CatalogVideosPanel({
   availablePerformers,
   availableTags,
+  catalogVideoActionStatusMessage,
   catalogVideoFilters,
+  catalogVideoWorkspace,
   catalogVideoSort,
   catalogVideos,
   catalogVideosStatusMessage,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
+  onCatalogVideoWorkspaceChange,
   onPausePreviewQueue,
   onResumePreviewQueue,
   onSelectVideo,
+  onSetFavorite,
   previewStripQueueStatus,
   previewStripStatusMessage,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
+  catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
+  catalogVideoWorkspace: CatalogVideoWorkspace;
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
+  onCatalogVideoWorkspaceChange: (workspace: CatalogVideoWorkspace) => void;
   onPausePreviewQueue: () => void;
   onResumePreviewQueue: () => void;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
+  onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
   previewStripStatusMessage: string;
 }) {
+  const panelTitle =
+    catalogVideoWorkspace === "favorites" ? "Favorite Videos" : "Videos";
+
   return (
     <Paper component="section" aria-label="Catalog Videos" p="md" maw={760}>
       <Stack gap="md">
         <Group justify="space-between" align="start">
-          <SectionHeader label="Catalog results" title="Videos" />
+          <SectionHeader label="Catalog results" title={panelTitle} />
+          <Group gap="xs">
+            <Button
+              type="button"
+              variant={
+                catalogVideoWorkspace === "videos" ? "filled" : "default"
+              }
+              onClick={() => onCatalogVideoWorkspaceChange("videos")}
+            >
+              Videos View
+            </Button>
+            <Button
+              type="button"
+              variant={
+                catalogVideoWorkspace === "favorites" ? "filled" : "default"
+              }
+              onClick={() => onCatalogVideoWorkspaceChange("favorites")}
+            >
+              Favorites View
+            </Button>
+          </Group>
         </Group>
 
         <PreviewStripQueuePanel
@@ -1246,6 +1312,7 @@ function CatalogVideosPanel({
         <CatalogVideoFiltersPanel
           availablePerformers={availablePerformers}
           availableTags={availableTags}
+          favoriteFilterLocked={catalogVideoWorkspace === "favorites"}
           filters={catalogVideoFilters}
           onFiltersChange={onCatalogVideoFiltersChange}
         />
@@ -1266,6 +1333,9 @@ function CatalogVideosPanel({
         {catalogVideosStatusMessage ? (
           <Text>{catalogVideosStatusMessage}</Text>
         ) : null}
+        {catalogVideoActionStatusMessage ? (
+          <Text>{catalogVideoActionStatusMessage}</Text>
+        ) : null}
         {previewStripStatusMessage ? (
           <Text>{previewStripStatusMessage}</Text>
         ) : null}
@@ -1281,6 +1351,7 @@ function CatalogVideosPanel({
                 catalogVideo={catalogVideo}
                 key={catalogVideo.id}
                 onSelectVideo={onSelectVideo}
+                onSetFavorite={onSetFavorite}
                 runningPreviewStripVideoId={
                   previewStripQueueStatus?.runningVideoId ?? null
                 }
@@ -1296,11 +1367,13 @@ function CatalogVideosPanel({
 function CatalogVideoFiltersPanel({
   availablePerformers,
   availableTags,
+  favoriteFilterLocked,
   filters,
   onFiltersChange,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
+  favoriteFilterLocked: boolean;
   filters: CatalogVideoFilters;
   onFiltersChange: (filters: CatalogVideoFilters) => void;
 }) {
@@ -1343,6 +1416,7 @@ function CatalogVideoFiltersPanel({
         <Checkbox
           label="Favorites only"
           checked={filters.favoritesOnly}
+          disabled={favoriteFilterLocked}
           onChange={(event) =>
             updateFilters({ favoritesOnly: event.currentTarget.checked })
           }
@@ -1459,13 +1533,18 @@ function previewStripQueueActivityLabel(
 function CatalogVideoCard({
   catalogVideo,
   onSelectVideo,
+  onSetFavorite,
   runningPreviewStripVideoId,
 }: {
   catalogVideo: CatalogVideo;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
+  onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   runningPreviewStripVideoId: number | null;
 }) {
   const isGeneratingPreviewStrip = catalogVideo.id === runningPreviewStripVideoId;
+  const favoriteButtonLabel = catalogVideo.isFavorite
+    ? `Unmark ${catalogVideo.title} as Favorite`
+    : `Mark ${catalogVideo.title} as Favorite`;
 
   return (
     <Stack component="article" gap="sm">
@@ -1488,6 +1567,16 @@ function CatalogVideoCard({
             <Badge color="yellow">Favorite</Badge>
           ) : null}
           <AvailabilityBadge isAvailable={catalogVideo.isAvailable} />
+          <Button
+            type="button"
+            size="xs"
+            variant={catalogVideo.isFavorite ? "light" : "default"}
+            onClick={() =>
+              void onSetFavorite(catalogVideo, !catalogVideo.isFavorite)
+            }
+          >
+            {favoriteButtonLabel}
+          </Button>
         </Group>
         <Text c="dimmed">
           {formatDuration(catalogVideo.durationMilliseconds)}
