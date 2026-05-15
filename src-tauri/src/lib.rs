@@ -15,10 +15,11 @@ use std::{
 
 use catalog::{
     Catalog, CatalogPerformer, CatalogTag, CatalogVideo, FailedPreviewStrip,
-    FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, PreviewStripGenerationSummary,
-    PreviewStripGenerator, PreviewStripQueueCounts, PreviewStripRetryReason, ScanRoot,
-    ScanRootInferenceRules, ScanRootRefreshSummary, UnprocessableVideoCandidate,
-    VideoExtensionAllowlist, PREVIEW_STRIP_GENERATION_CANCELLED_REASON,
+    FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, MetadataSuggestionGroup,
+    PreviewStripGenerationSummary, PreviewStripGenerator, PreviewStripQueueCounts,
+    PreviewStripRetryReason, ScanRoot, ScanRootInferenceRules, ScanRootRefreshSummary,
+    UnprocessableVideoCandidate, VideoExtensionAllowlist,
+    PREVIEW_STRIP_GENERATION_CANCELLED_REASON,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WindowEvent};
@@ -859,6 +860,18 @@ fn list_failed_preview_strips(
 }
 
 #[tauri::command]
+fn list_metadata_suggestion_groups(
+    catalog_state: tauri::State<'_, CatalogState>,
+) -> Result<Vec<MetadataSuggestionGroup>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.list_metadata_suggestion_groups()
+}
+
+#[tauri::command]
 fn retry_failed_preview_strip(
     catalog_state: tauri::State<'_, CatalogState>,
     preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
@@ -1102,6 +1115,7 @@ pub fn run() {
             refresh_all_scan_roots,
             list_unprocessable_video_candidates,
             list_failed_preview_strips,
+            list_metadata_suggestion_groups,
             retry_failed_preview_strip,
             ignore_failed_preview_strip,
             get_preview_strip_queue_status,

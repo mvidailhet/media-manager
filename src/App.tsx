@@ -26,6 +26,7 @@ import {
   CatalogTag,
   FailedPreviewStrip,
   FfmpegToolsStatus,
+  MetadataSuggestionGroup,
   PreviewStripQueueStatus,
   ScanRoot,
   ScanRootRemovalPolicy,
@@ -37,6 +38,7 @@ import {
   getPreviewStripQueueStatus,
   ignoreFailedPreviewStrip,
   listCatalogVideos,
+  listMetadataSuggestionGroups,
   listPerformers,
   listFailedPreviewStrips,
   listScanRoots,
@@ -149,6 +151,9 @@ export default function App() {
   const [failedPreviewStrips, setFailedPreviewStrips] = useState<
     FailedPreviewStrip[]
   >([]);
+  const [metadataSuggestionGroups, setMetadataSuggestionGroups] = useState<
+    MetadataSuggestionGroup[]
+  >([]);
   const [reviewQueueStatusMessage, setReviewQueueStatusMessage] = useState(
     reviewQueueLoadingMessage,
   );
@@ -224,14 +229,19 @@ export default function App() {
 
   async function loadReviewQueue(shouldClearStatusMessage = true) {
     try {
-      const [storedUnprocessableVideoCandidates, storedFailedPreviewStrips] =
-        await Promise.all([
-          listUnprocessableVideoCandidates(),
-          listFailedPreviewStrips(),
-        ]);
+      const [
+        storedUnprocessableVideoCandidates,
+        storedFailedPreviewStrips,
+        storedMetadataSuggestionGroups,
+      ] = await Promise.all([
+        listUnprocessableVideoCandidates(),
+        listFailedPreviewStrips(),
+        listMetadataSuggestionGroups(),
+      ]);
 
       setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
       setFailedPreviewStrips(storedFailedPreviewStrips);
+      setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
       if (shouldClearStatusMessage) {
         setReviewQueueStatusMessage("");
       }
@@ -361,15 +371,20 @@ export default function App() {
 
     async function loadInitialReviewQueue() {
       try {
-        const [storedUnprocessableVideoCandidates, storedFailedPreviewStrips] =
-          await Promise.all([
-            listUnprocessableVideoCandidates(),
-            listFailedPreviewStrips(),
-          ]);
+        const [
+          storedUnprocessableVideoCandidates,
+          storedFailedPreviewStrips,
+          storedMetadataSuggestionGroups,
+        ] = await Promise.all([
+          listUnprocessableVideoCandidates(),
+          listFailedPreviewStrips(),
+          listMetadataSuggestionGroups(),
+        ]);
 
         if (canUpdateReviewQueue) {
           setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
           setFailedPreviewStrips(storedFailedPreviewStrips);
+          setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
           setReviewQueueStatusMessage("");
         }
       } catch {
@@ -840,7 +855,9 @@ export default function App() {
   async function appendTagToBatchSelectedVideos(tag: CatalogTag) {
     try {
       await Promise.all(
-        batchSelectedVideoIds.map((videoId) => attachTagToVideo(tag.id, videoId)),
+        batchSelectedVideoIds.map((videoId) =>
+          attachTagToVideo(tag.id, videoId),
+        ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
         addTagToCatalogVideoMetadata(videoId, tag),
@@ -869,7 +886,9 @@ export default function App() {
       const tag = existingTag ?? (await createTag(trimmedTagName));
 
       await Promise.all(
-        batchSelectedVideoIds.map((videoId) => attachTagToVideo(tag.id, videoId)),
+        batchSelectedVideoIds.map((videoId) =>
+          attachTagToVideo(tag.id, videoId),
+        ),
       );
       setAvailableTags((currentTags) => appendUniqueMetadata(currentTags, tag));
       batchSelectedVideoIds.forEach((videoId) =>
@@ -1355,6 +1374,7 @@ export default function App() {
       ) : null}
       <ReviewQueuePanel
         failedPreviewStrips={failedPreviewStrips}
+        metadataSuggestionGroups={metadataSuggestionGroups}
         missingVideos={missingVideos}
         onIgnoreFailedPreview={ignoreFailedPreview}
         reviewQueueStatusMessage={reviewQueueStatusMessage}
@@ -2051,7 +2071,12 @@ function BatchMetadataEditPanel({
   selectedVideoCount: number;
 }) {
   return (
-    <Paper component="section" aria-label="Batch Metadata Edit" p="md" maw={760}>
+    <Paper
+      component="section"
+      aria-label="Batch Metadata Edit"
+      p="md"
+      maw={760}
+    >
       <Stack gap="md">
         <SectionHeader
           label={`${selectedVideoCount} selected`}
@@ -2439,6 +2464,7 @@ function singularMetadataLabel(label: string) {
 
 function ReviewQueuePanel({
   failedPreviewStrips,
+  metadataSuggestionGroups,
   missingVideos,
   onIgnoreFailedPreview,
   onRequestMissingVideoForget,
@@ -2448,6 +2474,7 @@ function ReviewQueuePanel({
   unprocessableVideoCandidates,
 }: {
   failedPreviewStrips: FailedPreviewStrip[];
+  metadataSuggestionGroups: MetadataSuggestionGroup[];
   missingVideos: CatalogVideo[];
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
@@ -2481,9 +2508,79 @@ function ReviewQueuePanel({
             onIgnoreFailedPreview={onIgnoreFailedPreview}
             onRetryFailedPreview={onRetryFailedPreview}
           />
+          <MetadataSuggestionsPanel
+            metadataSuggestionGroups={metadataSuggestionGroups}
+          />
         </SimpleGrid>
       </Stack>
     </Paper>
+  );
+}
+
+function MetadataSuggestionsPanel({
+  metadataSuggestionGroups,
+}: {
+  metadataSuggestionGroups: MetadataSuggestionGroup[];
+}) {
+  return (
+    <Stack
+      component="section"
+      gap="xs"
+      aria-labelledby="metadata-suggestions-title"
+    >
+      <Title order={3} id="metadata-suggestions-title" size="h4">
+        Metadata Suggestions
+      </Title>
+      {metadataSuggestionGroups.length > 0 ? (
+        <Stack gap="sm">
+          {metadataSuggestionGroups.map((suggestionGroup) => (
+            <Stack
+              component="article"
+              gap="xs"
+              key={`${suggestionGroup.suggestionKind}:${suggestionGroup.suggestedValue}`}
+            >
+              <Divider />
+              <Group gap="xs" align="center">
+                <Title order={4} size="h5">
+                  {suggestionGroup.suggestedValue}
+                </Title>
+                <Badge variant="light">
+                  {formatSuggestionKind(suggestionGroup.suggestionKind)}
+                </Badge>
+              </Group>
+              <Stack gap="xs">
+                {suggestionGroup.sources.map((sourceGroup) => (
+                  <Box
+                    key={`${sourceGroup.scanRootPath}:${sourceGroup.sourcePathSegment}`}
+                  >
+                    <Box component="dl" className="definition-list">
+                      <DefinitionTerm label="Source Segment">
+                        {sourceGroup.sourcePathSegment}
+                      </DefinitionTerm>
+                      <DefinitionTerm label="Scan Root">
+                        {sourceGroup.scanRootPath}
+                      </DefinitionTerm>
+                    </Box>
+                    <Stack gap={4}>
+                      {sourceGroup.videos.map((video) => (
+                        <Box key={video.videoId}>
+                          <Text>{video.title}</Text>
+                          <Code className="wrapping-code">
+                            {video.fileLocationPath}
+                          </Code>
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            </Stack>
+          ))}
+        </Stack>
+      ) : (
+        <Text c="dimmed">No Metadata Suggestions.</Text>
+      )}
+    </Stack>
   );
 }
 
@@ -3294,6 +3391,14 @@ function formatDuration(durationMilliseconds: number) {
   }
 
   return `${minutes}m`;
+}
+
+function formatSuggestionKind(suggestionKind: string) {
+  return suggestionKind
+    .split("_")
+    .filter((word) => word.length > 0)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
 }
 
 function formatFileSize(fileSizeBytes: number | null) {
