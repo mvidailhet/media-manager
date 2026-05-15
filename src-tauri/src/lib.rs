@@ -9,6 +9,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc, Mutex,
     },
+    thread,
 };
 
 use catalog::{
@@ -16,6 +17,7 @@ use catalog::{
     FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, PreviewStripGenerationSummary,
     PreviewStripGenerator, PreviewStripQueueCounts, PreviewStripRetryReason, ScanRoot,
     ScanRootRefreshSummary, UnprocessableVideoCandidate, VideoExtensionAllowlist,
+    PREVIEW_STRIP_GENERATION_CANCELLED_REASON,
 };
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WindowEvent};
@@ -34,6 +36,7 @@ struct CatalogState {
 struct PreviewStripQueueState {
     is_paused: Mutex<bool>,
     running_count: Mutex<i64>,
+    running_video_id: Mutex<Option<i64>>,
     stop_requested: Arc<AtomicBool>,
 }
 
@@ -42,6 +45,7 @@ struct PreviewStripQueueState {
 struct PreviewStripQueueStatus {
     pending_count: i64,
     running_count: i64,
+    running_video_id: Option<i64>,
     failed_count: i64,
     is_paused: bool,
 }
@@ -69,8 +73,9 @@ fn initialize_catalog(app: &tauri::App) -> Result<(), String> {
 
     app.manage(catalog_state);
     app.manage(PreviewStripQueueState {
-        is_paused: Mutex::new(false),
+        is_paused: Mutex::new(true),
         running_count: Mutex::new(0),
+        running_video_id: Mutex::new(None),
         stop_requested: Arc::new(AtomicBool::new(false)),
     });
 
@@ -591,13 +596,32 @@ fn preview_strip_queue_status_from_counts(
         .running_count
         .lock()
         .map_err(|error| error.to_string())?;
+    let running_video_id = *preview_strip_queue_state
+        .running_video_id
+        .lock()
+        .map_err(|error| error.to_string())?;
 
     Ok(PreviewStripQueueStatus {
         pending_count: queue_counts.pending_count,
         running_count,
+        running_video_id,
         failed_count: queue_counts.failed_count,
         is_paused,
     })
+}
+
+fn pause_preview_strip_queue_state(
+    preview_strip_queue_state: &PreviewStripQueueState,
+) -> Result<(), String> {
+    *preview_strip_queue_state
+        .is_paused
+        .lock()
+        .map_err(|error| error.to_string())? = true;
+    preview_strip_queue_state
+        .stop_requested
+        .store(true, Ordering::SeqCst);
+
+    Ok(())
 }
 
 fn preview_strip_queue_status(
@@ -644,9 +668,12 @@ fn save_ffmpeg_configuration(
 fn refresh_scan_root(
     app: tauri::AppHandle,
     catalog_state: tauri::State<'_, CatalogState>,
+    preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
     path: String,
     video_extension_allowlist: Option<VideoExtensionAllowlist>,
 ) -> Result<ScanRootRefreshSummary, String> {
+    pause_preview_strip_queue_state(&preview_strip_queue_state)?;
+
     {
         let catalog = catalog_state
             .catalog
@@ -672,8 +699,11 @@ fn refresh_scan_root(
 fn refresh_all_scan_roots(
     app: tauri::AppHandle,
     catalog_state: tauri::State<'_, CatalogState>,
+    preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
     video_extension_allowlist: Option<VideoExtensionAllowlist>,
 ) -> Result<ScanRootRefreshSummary, String> {
+    pause_preview_strip_queue_state(&preview_strip_queue_state)?;
+
     let scan_roots = {
         let catalog = catalog_state
             .catalog
@@ -778,52 +808,6 @@ fn ignore_failed_preview_strip(
 }
 
 #[tauri::command]
-fn generate_missing_preview_strips(
-    app: tauri::AppHandle,
-    catalog_state: tauri::State<'_, CatalogState>,
-) -> Result<PreviewStripGenerationSummary, String> {
-    let ffmpeg_path = configured_or_discovered_ffmpeg_path(&app)?;
-    let preview_cache_path = preview_strip_cache_path(&app)?;
-    let preview_strip_generator =
-        FfmpegPreviewStripGenerator::new(ffmpeg_path, Arc::new(AtomicBool::new(false)));
-    let pending_preview_strip_requests = {
-        let catalog = catalog_state
-            .catalog
-            .lock()
-            .map_err(|error| error.to_string())?;
-        catalog.pending_preview_strip_requests(&preview_cache_path)?
-    };
-    let mut generation_summary = PreviewStripGenerationSummary {
-        generated_preview_strip_count: 0,
-        failed_preview_strip_count: 0,
-    };
-
-    for request in pending_preview_strip_requests {
-        match preview_strip_generator.generate_preview_strip(&request) {
-            Ok(generated_preview_strip) => {
-                let catalog = catalog_state
-                    .catalog
-                    .lock()
-                    .map_err(|error| error.to_string())?;
-                catalog
-                    .store_generated_preview_strip(request.video_id, &generated_preview_strip)?;
-                generation_summary.generated_preview_strip_count += 1;
-            }
-            Err(reason) => {
-                let catalog = catalog_state
-                    .catalog
-                    .lock()
-                    .map_err(|error| error.to_string())?;
-                catalog.store_failed_preview_strip(request.video_id, &reason)?;
-                generation_summary.failed_preview_strip_count += 1;
-            }
-        }
-    }
-
-    Ok(generation_summary)
-}
-
-#[tauri::command]
 fn get_preview_strip_queue_status(
     catalog_state: tauri::State<'_, CatalogState>,
     preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
@@ -836,10 +820,7 @@ fn pause_preview_strip_queue(
     catalog_state: tauri::State<'_, CatalogState>,
     preview_strip_queue_state: tauri::State<'_, PreviewStripQueueState>,
 ) -> Result<PreviewStripQueueStatus, String> {
-    *preview_strip_queue_state
-        .is_paused
-        .lock()
-        .map_err(|error| error.to_string())? = true;
+    pause_preview_strip_queue_state(&preview_strip_queue_state)?;
 
     preview_strip_queue_status(&catalog_state, &preview_strip_queue_state)
 }
@@ -887,16 +868,9 @@ fn process_next_preview_strip_queue_item(
         return preview_strip_queue_status(&catalog_state, &preview_strip_queue_state);
     }
 
-    let generation_result: Result<PreviewStripGenerationSummary, String> = (|| {
+    let preparation_result = (|| {
         let ffmpeg_path = configured_or_discovered_ffmpeg_path(&app)?;
         let preview_cache_path = preview_strip_cache_path(&app)?;
-        preview_strip_queue_state
-            .stop_requested
-            .store(false, Ordering::SeqCst);
-        let preview_strip_generator = FfmpegPreviewStripGenerator::new(
-            ffmpeg_path,
-            Arc::clone(&preview_strip_queue_state.stop_requested),
-        );
         let request = {
             let catalog = catalog_state
                 .catalog
@@ -904,45 +878,91 @@ fn process_next_preview_strip_queue_item(
                 .map_err(|error| error.to_string())?;
             catalog.next_preview_strip_request(&preview_cache_path)?
         };
-        let Some(request) = request else {
-            return Ok(PreviewStripGenerationSummary {
-                generated_preview_strip_count: 0,
-                failed_preview_strip_count: 0,
-            });
-        };
 
-        match preview_strip_generator.generate_preview_strip(&request) {
-            Ok(generated_preview_strip) => {
-                let catalog = catalog_state
-                    .catalog
-                    .lock()
-                    .map_err(|error| error.to_string())?;
-                catalog
-                    .store_generated_preview_strip(request.video_id, &generated_preview_strip)?;
-                Ok(PreviewStripGenerationSummary {
-                    generated_preview_strip_count: 1,
-                    failed_preview_strip_count: 0,
-                })
-            }
-            Err(reason) => {
-                let catalog = catalog_state
-                    .catalog
-                    .lock()
-                    .map_err(|error| error.to_string())?;
-                catalog.store_failed_preview_strip(request.video_id, &reason)?;
-                Ok(PreviewStripGenerationSummary {
-                    generated_preview_strip_count: 0,
-                    failed_preview_strip_count: 1,
-                })
-            }
-        }
+        Ok((ffmpeg_path, request))
     })();
+    let (ffmpeg_path, request) = match preparation_result {
+        Ok(prepared_generation) => prepared_generation,
+        Err(reason) => {
+            *preview_strip_queue_state
+                .running_count
+                .lock()
+                .map_err(|error| error.to_string())? = 0;
+            return Err(reason);
+        }
+    };
+    let Some(request) = request else {
+        *preview_strip_queue_state
+            .running_count
+            .lock()
+            .map_err(|error| error.to_string())? = 0;
+        return preview_strip_queue_status(&catalog_state, &preview_strip_queue_state);
+    };
 
+    preview_strip_queue_state
+        .stop_requested
+        .store(false, Ordering::SeqCst);
     *preview_strip_queue_state
-        .running_count
+        .running_video_id
         .lock()
-        .map_err(|error| error.to_string())? = 0;
-    generation_result?;
+        .map_err(|error| error.to_string())? = Some(request.video_id);
+
+    let worker_app = app.clone();
+    let worker_stop_requested = Arc::clone(&preview_strip_queue_state.stop_requested);
+    thread::spawn(move || {
+        let generation_result: Result<PreviewStripGenerationSummary, String> = (|| {
+            let preview_strip_generator =
+                FfmpegPreviewStripGenerator::new(ffmpeg_path, Arc::clone(&worker_stop_requested));
+
+            match preview_strip_generator.generate_preview_strip(&request) {
+                Ok(generated_preview_strip) => {
+                    let catalog_state = worker_app.state::<CatalogState>();
+                    let catalog = catalog_state
+                        .catalog
+                        .lock()
+                        .map_err(|error| error.to_string())?;
+                    catalog.store_generated_preview_strip(
+                        request.video_id,
+                        &generated_preview_strip,
+                    )?;
+                    Ok(PreviewStripGenerationSummary {
+                        generated_preview_strip_count: 1,
+                        failed_preview_strip_count: 0,
+                    })
+                }
+                Err(reason) => {
+                    if reason == PREVIEW_STRIP_GENERATION_CANCELLED_REASON {
+                        Ok(PreviewStripGenerationSummary {
+                            generated_preview_strip_count: 0,
+                            failed_preview_strip_count: 0,
+                        })
+                    } else {
+                        let catalog_state = worker_app.state::<CatalogState>();
+                        let catalog = catalog_state
+                            .catalog
+                            .lock()
+                            .map_err(|error| error.to_string())?;
+                        catalog.store_failed_preview_strip(request.video_id, &reason)?;
+                        Ok(PreviewStripGenerationSummary {
+                            generated_preview_strip_count: 0,
+                            failed_preview_strip_count: 1,
+                        })
+                    }
+                }
+            }
+        })();
+
+        let preview_strip_queue_state = worker_app.state::<PreviewStripQueueState>();
+        if let Ok(mut running_count) = preview_strip_queue_state.running_count.lock() {
+            *running_count = 0;
+        }
+        if let Ok(mut running_video_id) = preview_strip_queue_state.running_video_id.lock() {
+            *running_video_id = None;
+        }
+        if let Err(reason) = generation_result {
+            eprintln!("Preview Strip generation worker failed: {reason}");
+        }
+    });
 
     preview_strip_queue_status(&catalog_state, &preview_strip_queue_state)
 }
@@ -997,7 +1017,6 @@ pub fn run() {
             list_failed_preview_strips,
             retry_failed_preview_strip,
             ignore_failed_preview_strip,
-            generate_missing_preview_strips,
             get_preview_strip_queue_status,
             pause_preview_strip_queue,
             resume_preview_strip_queue,

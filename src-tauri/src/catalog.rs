@@ -154,7 +154,9 @@ const CREATE_PERFORMER_VIDEOS_VIDEO_INDEX: &str = "
 
 const DEFAULT_PREVIEW_STRIP_FRAME_COUNT: i64 = 20;
 const PREVIEW_STRIP_COLUMNS: i64 = 5;
-const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 160;
+const PREVIEW_STRIP_FRAME_WIDTH_PIXELS: i64 = 640;
+pub const PREVIEW_STRIP_GENERATION_CANCELLED_REASON: &str =
+    "Preview Strip generation cancelled by the user";
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -401,9 +403,7 @@ impl PreviewStripGenerator for FfmpegPreviewStripGenerator {
             if self.stop_requested.load(Ordering::SeqCst) {
                 let _ = child.kill();
                 let _ = child.wait();
-                return Err(
-                    "Preview Strip generation stopped because the app is quitting".to_string(),
-                );
+                return Err(PREVIEW_STRIP_GENERATION_CANCELLED_REASON.to_string());
             }
 
             if child
@@ -2646,6 +2646,11 @@ mod tests {
         assert_eq!(stored_preview_strips[0].column_count, 5);
         assert_eq!(stored_preview_strips[0].row_count, 4);
         assert!(Path::new(&stored_preview_strips[0].path).exists());
+    }
+
+    #[test]
+    fn preview_strip_frames_are_generated_for_high_density_display() {
+        assert_eq!(super::PREVIEW_STRIP_FRAME_WIDTH_PIXELS, 640);
     }
 
     #[test]

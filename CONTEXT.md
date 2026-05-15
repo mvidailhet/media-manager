@@ -88,6 +88,10 @@ _Avoid_: Thumbnail, trailer
 A **Preview Strip** that has not been generated yet.
 _Avoid_: Missing video
 
+**Generating Preview Strip**:
+A **Preview Strip** whose generation attempt is currently running.
+_Avoid_: Pending preview strip
+
 **Failed Preview Strip**:
 A **Preview Strip** that could not be generated for an otherwise valid **Video**.
 _Avoid_: Unprocessable video candidate
@@ -233,13 +237,17 @@ _Avoid_: Metadata suggestion
 - A **Video** can have one **Preview Strip**.
 - A **Preview Strip** belongs to a **Video**, not to a specific **File Location**.
 - A **Preview Strip** defaults to 20 evenly sampled frames across the **Video**.
+- A **Preview Strip** frame is generated at 640 pixels wide for clearer display on high-density screens.
 - A **Preview Strip** samples from inside the **Video** timeline rather than exact first and last frames.
 - Hovering a **Video** preview scrubs across **Preview Strip** frames by horizontal pointer position.
 - A **Pending Preview Strip** belongs to a **Video** that has been cataloged before its preview is ready.
 - A **Pending Preview Strip** shows a neutral placeholder and generation state without blocking the **Video** from appearing.
+- A **Generating Preview Strip** shows progress on the specific **Video** being processed without blocking other **Videos** from appearing.
 - A **Failed Preview Strip** does not stop its **Video** from appearing in search.
 - A **Failed Preview Strip** can be ignored until manually retried, or until the **Video** file or FFmpeg configuration changes.
-- **Preview Strip** generation is queued automatically after cataloging and can be paused or resumed globally.
+- A user-cancelled **Generating Preview Strip** returns to **Pending Preview Strip** instead of becoming a **Failed Preview Strip**.
+- **Preview Strip** generation is queued after cataloging but starts only through explicit user action and can be paused or resumed globally.
+- Pausing **Preview Strip** generation cancels the active generation attempt immediately instead of waiting for the current **Preview Strip** to finish.
 - v1 runs one **Preview Strip** generation job at a time by default.
 - v1 **Background Jobs** run only while the **Local Desktop App** is open.
 - Active **Search Filters** combine to narrow the set of matching **Videos**.

@@ -4,7 +4,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   addScanRoot,
   forgetCatalogVideo,
-  generateMissingPreviewStrips,
   getPreviewStripQueueStatus,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
@@ -257,27 +256,11 @@ describe("Tauri commands", () => {
     });
   });
 
-  it("generates missing Preview Strips through the Rust command", async () => {
-    mockedInvoke.mockResolvedValue({
-      generatedPreviewStripCount: 2,
-      failedPreviewStripCount: 1,
-    });
-
-    const generationSummary = await generateMissingPreviewStrips();
-
-    expect(generationSummary).toEqual({
-      generatedPreviewStripCount: 2,
-      failedPreviewStripCount: 1,
-    });
-    expect(mockedInvoke).toHaveBeenCalledWith(
-      "generate_missing_preview_strips",
-    );
-  });
-
   it("calls the typed Rust command for Preview Strip queue status", async () => {
     mockedInvoke.mockResolvedValue({
       pendingCount: 2,
       runningCount: 1,
+      runningVideoId: 7,
       failedCount: 0,
       isPaused: false,
     });
@@ -287,6 +270,7 @@ describe("Tauri commands", () => {
     expect(queueStatus).toEqual({
       pendingCount: 2,
       runningCount: 1,
+      runningVideoId: 7,
       failedCount: 0,
       isPaused: false,
     });

@@ -29,7 +29,6 @@ const listUnprocessableVideoCandidatesCommand =
 const listFailedPreviewStripsCommand = "list_failed_preview_strips";
 const retryFailedPreviewStripCommand = "retry_failed_preview_strip";
 const ignoreFailedPreviewStripCommand = "ignore_failed_preview_strip";
-const generateMissingPreviewStripsCommand = "generate_missing_preview_strips";
 const getPreviewStripQueueStatusCommand = "get_preview_strip_queue_status";
 const pausePreviewStripQueueCommand = "pause_preview_strip_queue";
 const resumePreviewStripQueueCommand = "resume_preview_strip_queue";
@@ -90,6 +89,7 @@ export interface PreviewStripGenerationSummary {
 export interface PreviewStripQueueStatus {
   pendingCount: number;
   runningCount: number;
+  runningVideoId: number | null;
   failedCount: number;
   isPaused: boolean;
 }
@@ -309,12 +309,6 @@ export async function ignoreFailedPreviewStrip(
   return invoke<PreviewStripQueueStatus>(ignoreFailedPreviewStripCommand, {
     videoId,
   });
-}
-
-export async function generateMissingPreviewStrips(): Promise<PreviewStripGenerationSummary> {
-  return invoke<PreviewStripGenerationSummary>(
-    generateMissingPreviewStripsCommand,
-  );
 }
 
 export async function getPreviewStripQueueStatus(): Promise<PreviewStripQueueStatus> {

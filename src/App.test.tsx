@@ -20,7 +20,6 @@ import {
   detachPerformerFromVideo,
   detachTagFromVideo,
   forgetCatalogVideo,
-  generateMissingPreviewStrips,
   getPreviewStripQueueStatus,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
@@ -62,7 +61,6 @@ vi.mock("./tauriCommands", () => ({
   detachPerformerFromVideo: vi.fn(),
   detachTagFromVideo: vi.fn(),
   forgetCatalogVideo: vi.fn(),
-  generateMissingPreviewStrips: vi.fn(),
   getPreviewStripQueueStatus: vi.fn(),
   getFfmpegToolsStatus: vi.fn(),
   getLocalDesktopAppStatus: vi.fn(),
@@ -114,9 +112,6 @@ const mockedListUnprocessableVideoCandidates = vi.mocked(
 const mockedListScanRoots = vi.mocked(listScanRoots);
 const mockedAddScanRoot = vi.mocked(addScanRoot);
 const mockedForgetCatalogVideo = vi.mocked(forgetCatalogVideo);
-const mockedGenerateMissingPreviewStrips = vi.mocked(
-  generateMissingPreviewStrips,
-);
 const mockedGetPreviewStripQueueStatus = vi.mocked(getPreviewStripQueueStatus);
 const mockedPausePreviewStripQueue = vi.mocked(pausePreviewStripQueue);
 const mockedProcessNextPreviewStripQueueItem = vi.mocked(
@@ -184,12 +179,14 @@ describe("Videos View shell", () => {
     mockedRetryFailedPreviewStrip.mockResolvedValue({
       pendingCount: 1,
       runningCount: 0,
+      runningVideoId: null,
       failedCount: 0,
       isPaused: false,
     });
     mockedIgnoreFailedPreviewStrip.mockResolvedValue({
       pendingCount: 0,
       runningCount: 0,
+      runningVideoId: null,
       failedCount: 0,
       isPaused: false,
     });
@@ -203,31 +200,31 @@ describe("Videos View shell", () => {
       isFavorite: false,
     }));
     mockedForgetCatalogVideo.mockResolvedValue(undefined);
-    mockedGenerateMissingPreviewStrips.mockResolvedValue({
-      generatedPreviewStripCount: 0,
-      failedPreviewStripCount: 0,
-    });
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
       pendingCount: 0,
       runningCount: 0,
+      runningVideoId: null,
       failedCount: 0,
       isPaused: false,
     });
     mockedPausePreviewStripQueue.mockResolvedValue({
       pendingCount: 3,
       runningCount: 0,
+      runningVideoId: null,
       failedCount: 1,
       isPaused: true,
     });
     mockedResumePreviewStripQueue.mockResolvedValue({
       pendingCount: 3,
       runningCount: 1,
+      runningVideoId: 1,
       failedCount: 1,
       isPaused: false,
     });
     mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
       pendingCount: 0,
       runningCount: 0,
+      runningVideoId: null,
       failedCount: 0,
       isPaused: false,
     });
@@ -919,93 +916,56 @@ describe("Videos View shell", () => {
     expect(await screen.findByText("Videos unavailable")).toBeInTheDocument();
   });
 
-  it("queues cataloged Videos missing Preview Strips for generation", async () => {
+  it("leaves queued Preview Strips paused until the user resumes the queue", async () => {
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
       pendingCount: 1,
       runningCount: 0,
+      runningVideoId: null,
       failedCount: 0,
       isPaused: true,
     });
-    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
-      pendingCount: 1,
-      runningCount: 0,
-      failedCount: 0,
-      isPaused: false,
-    });
-    mockedGenerateMissingPreviewStrips.mockResolvedValue({
-      generatedPreviewStripCount: 3,
-      failedPreviewStripCount: 1,
-    });
-    mockedListCatalogVideos
-      .mockResolvedValueOnce([
-        {
-          id: 1,
-          title: "Family Trip",
-          durationMilliseconds: 3723000,
-          fileSizeBytes: 80740352,
-          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-          isAvailable: true,
-          fileLocations: [],
-          isFavorite: false,
-          previewStrip: pendingPreviewStrip,
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          id: 1,
-          title: "Family Trip",
-          durationMilliseconds: 3723000,
-          fileSizeBytes: 80740352,
-          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-          isAvailable: true,
-          fileLocations: [],
-          isFavorite: false,
-          previewStrip: {
-            status: "generated",
-            path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
-            frameCount: 20,
-            columnCount: 5,
-            rowCount: 4,
-          },
-        },
-      ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
 
     renderApp();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Generate Preview Strips" }),
-    );
-
-    expect(mockedGenerateMissingPreviewStrips).toHaveBeenCalled();
-    expect(
-      await screen.findByText(
-        "3 Preview Strips generated, 1 Preview Strips failed",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      await screen.findByRole("img", { name: "Preview Strip for Family Trip" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("1 pending")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Resume Preview Queue" }))
+      .toBeInTheDocument();
+    expect(mockedProcessNextPreviewStripQueueItem).not.toHaveBeenCalled();
   });
 
-  it("does not offer Preview Strip generation when no Videos are pending", async () => {
+  it("does not show a separate batch generation command", async () => {
     renderApp();
 
     expect(
-      await screen.findByRole("button", { name: "Generate Preview Strips" }),
-    ).toBeDisabled();
-    expect(mockedGenerateMissingPreviewStrips).not.toHaveBeenCalled();
+      screen.queryByRole("button", { name: "Generate Preview Strips" }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows Preview Strip queue status and supports global pause and resume", async () => {
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
       pendingCount: 3,
       runningCount: 1,
+      runningVideoId: 1,
       failedCount: 1,
       isPaused: false,
     });
     mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
       pendingCount: 3,
       runningCount: 1,
+      runningVideoId: 1,
       failedCount: 1,
       isPaused: false,
     });
@@ -1029,6 +989,54 @@ describe("Videos View shell", () => {
 
     expect(mockedResumePreviewStripQueue).toHaveBeenCalled();
     expect(await screen.findByText("Running")).toBeInTheDocument();
+  });
+
+  it("shows the Video whose Preview Strip is generating", async () => {
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 2,
+      runningCount: 1,
+      runningVideoId: 1,
+      failedCount: 0,
+      isPaused: false,
+    });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      runningVideoId: null,
+      failedCount: 0,
+      isPaused: false,
+    });
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 50740352,
+        fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    expect(
+      await screen.findByText("Generating Preview Strip"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Pending Preview Strip")).toBeInTheDocument();
   });
 
   it("shows generated Preview Strips and scrubs frames by horizontal pointer position", async () => {
@@ -1208,8 +1216,12 @@ describe("Videos View shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("adds a Scan Root through the folder picker", async () => {
+  it("adds a Scan Root through the folder picker and scans it", async () => {
     mockedOpen.mockResolvedValue("/Volumes/Archive/Videos");
+    mockedRefreshScanRoot.mockResolvedValue({
+      scannedVideoCount: 2,
+      unprocessableCandidateCount: 1,
+    });
 
     renderApp();
 
@@ -1224,8 +1236,16 @@ describe("Videos View shell", () => {
     await waitFor(() => {
       expect(mockedAddScanRoot).toHaveBeenCalledWith("/Volumes/Archive/Videos");
     });
+    expect(mockedRefreshScanRoot).toHaveBeenCalledWith(
+      "/Volumes/Archive/Videos",
+    );
     expect(
       await screen.findByText("/Volumes/Archive/Videos"),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        "2 Videos scanned, 1 Unprocessable Video Candidates",
+      ),
     ).toBeInTheDocument();
   });
 
@@ -1471,21 +1491,27 @@ describe("Videos View shell", () => {
   });
 
   it("refreshes Failed Preview Strips after Preview Strip generation fails", async () => {
-    mockedGetPreviewStripQueueStatus.mockResolvedValue({
-      pendingCount: 1,
-      runningCount: 0,
-      failedCount: 0,
-      isPaused: true,
-    });
+    mockedGetPreviewStripQueueStatus
+      .mockResolvedValueOnce({
+        pendingCount: 1,
+        runningCount: 0,
+        runningVideoId: null,
+        failedCount: 0,
+        isPaused: false,
+      })
+      .mockResolvedValue({
+        pendingCount: 0,
+        runningCount: 0,
+        runningVideoId: null,
+        failedCount: 1,
+        isPaused: false,
+      });
     mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
       pendingCount: 1,
-      runningCount: 0,
+      runningCount: 1,
+      runningVideoId: 7,
       failedCount: 0,
       isPaused: false,
-    });
-    mockedGenerateMissingPreviewStrips.mockResolvedValue({
-      generatedPreviewStripCount: 0,
-      failedPreviewStripCount: 1,
     });
     mockedListFailedPreviewStrips.mockResolvedValueOnce([]).mockResolvedValue([
       {
@@ -1496,10 +1522,6 @@ describe("Videos View shell", () => {
     ]);
 
     renderApp();
-
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Generate Preview Strips" }),
-    );
 
     const reviewQueue = await screen.findByRole("region", {
       name: "Review Queue",

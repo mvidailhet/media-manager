@@ -8,6 +8,7 @@ import {
   Code,
   Divider,
   Group,
+  Loader,
   NativeSelect,
   NumberInput,
   Paper,
@@ -31,7 +32,6 @@ import {
   UnprocessableVideoCandidate,
   addScanRoot,
   forgetCatalogVideo,
-  generateMissingPreviewStrips,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   getPreviewStripQueueStatus,
@@ -74,9 +74,6 @@ const scanRootsErrorMessage = "Scan Roots unavailable";
 const reviewQueueLoadingMessage = "Loading Review Queue...";
 const reviewQueueErrorMessage = "Review Queue unavailable";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
-const previewStripGenerationStartedMessage = "Generating Preview Strips...";
-const noPreviewStripsNeedGenerationMessage =
-  "No Preview Strips need generation.";
 const previewStripQueueErrorMessage = "Preview Strip queue unavailable";
 const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
@@ -86,6 +83,7 @@ const firstPreviewStripFrameIndex = 0;
 const previewStripPointerMinimum = 0;
 const previewStripPointerMaximum = 1;
 const percentageMultiplier = 100;
+const previewStripQueuePollingIntervalMilliseconds = 250;
 const emptyMetadataInputMessage = "Enter a name first.";
 const minimumDurationMinutes = 0;
 const maximumDurationMinutes = 24 * 60;
@@ -153,8 +151,6 @@ export default function App() {
   const [ffprobePath, setFfprobePath] = useState("");
   const [previewStripStatusMessage, setPreviewStripStatusMessage] =
     useState("");
-  const [isGeneratingPreviewStrips, setIsGeneratingPreviewStrips] =
-    useState(false);
   const [previewStripQueueStatus, setPreviewStripQueueStatus] =
     useState<PreviewStripQueueStatus | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<CatalogVideo | null>(null);
@@ -294,8 +290,6 @@ export default function App() {
 
         if (canProcessQueue) {
           setPreviewStripQueueStatus(queueStatus);
-          await loadCatalogVideos();
-          await loadReviewQueue(false);
         }
       } catch (error) {
         if (canProcessQueue) {
@@ -308,6 +302,38 @@ export default function App() {
 
     return () => {
       canProcessQueue = false;
+    };
+  }, [previewStripQueueStatus]);
+
+  useEffect(() => {
+    if (!previewStripQueueStatus || previewStripQueueStatus.runningCount === 0) {
+      return;
+    }
+
+    let canUpdatePreviewStripQueue = true;
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const queueStatus = await getPreviewStripQueueStatus();
+
+        if (!canUpdatePreviewStripQueue) {
+          return;
+        }
+
+        setPreviewStripQueueStatus(queueStatus);
+        if (queueStatus.runningCount === 0) {
+          await loadCatalogVideos();
+          await loadReviewQueue(false);
+        }
+      } catch (error) {
+        if (canUpdatePreviewStripQueue) {
+          setPreviewStripStatusMessage(errorMessage(error));
+        }
+      }
+    }, previewStripQueuePollingIntervalMilliseconds);
+
+    return () => {
+      canUpdatePreviewStripQueue = false;
+      window.clearTimeout(timeoutId);
     };
   }, [previewStripQueueStatus]);
 
@@ -532,13 +558,18 @@ export default function App() {
 
     try {
       const scanRoot = await addScanRoot(scanRootPath);
+      const refreshSummary = await refreshScanRoot(scanRoot.path);
+
       setScanRoots((currentScanRoots) =>
         [...currentScanRoots, scanRoot].sort((left, right) =>
           left.path.localeCompare(right.path),
         ),
       );
       setManualScanRootPath("");
-      setScanRootsStatusMessage("");
+      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
+      await loadCatalogVideos();
+      await loadReviewQueue(false);
+      await loadPreviewStripQueueStatus();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
     }
@@ -617,9 +648,7 @@ export default function App() {
       setScanRootsStatusMessage(scanRootRefreshStartedMessage);
       const refreshSummary = await refreshScanRoot(scanRoot.path);
 
-      setScanRootsStatusMessage(
-        `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`,
-      );
+      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
       await loadScanRoots(false);
       await loadCatalogVideos();
       await loadReviewQueue(false);
@@ -634,41 +663,13 @@ export default function App() {
       setScanRootsStatusMessage(scanRootRefreshStartedMessage);
       const refreshSummary = await refreshAllScanRoots();
 
-      setScanRootsStatusMessage(
-        `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`,
-      );
+      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
       await loadScanRoots(false);
       await loadCatalogVideos();
       await loadReviewQueue(false);
       await loadPreviewStripQueueStatus();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
-    }
-  }
-
-  async function generatePendingPreviewStrips() {
-    try {
-      setIsGeneratingPreviewStrips(true);
-      setPreviewStripStatusMessage(previewStripGenerationStartedMessage);
-      const generationSummary = await generateMissingPreviewStrips();
-      const generatedPreviewStripCount =
-        generationSummary.generatedPreviewStripCount;
-      const failedPreviewStripCount = generationSummary.failedPreviewStripCount;
-
-      if (generatedPreviewStripCount === 0 && failedPreviewStripCount === 0) {
-        setPreviewStripStatusMessage(noPreviewStripsNeedGenerationMessage);
-      } else {
-        setPreviewStripStatusMessage(
-          `${generatedPreviewStripCount} Preview Strips generated, ${failedPreviewStripCount} Preview Strips failed`,
-        );
-      }
-      await loadCatalogVideos();
-      await loadReviewQueue(false);
-      await loadPreviewStripQueueStatus();
-    } catch (error) {
-      setPreviewStripStatusMessage(errorMessage(error));
-    } finally {
-      setIsGeneratingPreviewStrips(false);
     }
   }
 
@@ -1012,10 +1013,8 @@ export default function App() {
         catalogVideoSort={catalogVideoSort}
         catalogVideos={filteredCatalogVideos}
         catalogVideosStatusMessage={catalogVideosStatusMessage}
-        isGeneratingPreviewStrips={isGeneratingPreviewStrips}
         onCatalogVideoFiltersChange={setCatalogVideoFilters}
         onCatalogVideoSortChange={setCatalogVideoSort}
-        onGeneratePendingPreviewStrips={generatePendingPreviewStrips}
         onPausePreviewQueue={pausePreviewQueue}
         onResumePreviewQueue={resumePreviewQueue}
         onSelectVideo={selectVideoForDetail}
@@ -1209,10 +1208,8 @@ function CatalogVideosPanel({
   catalogVideoSort,
   catalogVideos,
   catalogVideosStatusMessage,
-  isGeneratingPreviewStrips,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
-  onGeneratePendingPreviewStrips,
   onPausePreviewQueue,
   onResumePreviewQueue,
   onSelectVideo,
@@ -1225,10 +1222,8 @@ function CatalogVideosPanel({
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
-  isGeneratingPreviewStrips: boolean;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
-  onGeneratePendingPreviewStrips: () => void;
   onPausePreviewQueue: () => void;
   onResumePreviewQueue: () => void;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
@@ -1240,18 +1235,6 @@ function CatalogVideosPanel({
       <Stack gap="md">
         <Group justify="space-between" align="start">
           <SectionHeader label="Catalog results" title="Videos" />
-          <Button
-            type="button"
-            disabled={
-              isGeneratingPreviewStrips ||
-              !previewStripQueueStatus ||
-              previewStripQueueStatus.pendingCount === 0
-            }
-            variant="default"
-            onClick={() => void onGeneratePendingPreviewStrips()}
-          >
-            Generate Preview Strips
-          </Button>
         </Group>
 
         <PreviewStripQueuePanel
@@ -1298,6 +1281,9 @@ function CatalogVideosPanel({
                 catalogVideo={catalogVideo}
                 key={catalogVideo.id}
                 onSelectVideo={onSelectVideo}
+                runningPreviewStripVideoId={
+                  previewStripQueueStatus?.runningVideoId ?? null
+                }
               />
             ))}
           </Stack>
@@ -1473,14 +1459,21 @@ function previewStripQueueActivityLabel(
 function CatalogVideoCard({
   catalogVideo,
   onSelectVideo,
+  runningPreviewStripVideoId,
 }: {
   catalogVideo: CatalogVideo;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
+  runningPreviewStripVideoId: number | null;
 }) {
+  const isGeneratingPreviewStrip = catalogVideo.id === runningPreviewStripVideoId;
+
   return (
     <Stack component="article" gap="sm">
       <Divider />
-      <PreviewStripSurface catalogVideo={catalogVideo} />
+      <PreviewStripSurface
+        catalogVideo={catalogVideo}
+        isGeneratingPreviewStrip={isGeneratingPreviewStrip}
+      />
       <Box>
         <Group gap="xs" align="center">
           <Button
@@ -1518,7 +1511,13 @@ function CatalogVideoCard({
   );
 }
 
-function PreviewStripSurface({ catalogVideo }: { catalogVideo: CatalogVideo }) {
+function PreviewStripSurface({
+  catalogVideo,
+  isGeneratingPreviewStrip,
+}: {
+  catalogVideo: CatalogVideo;
+  isGeneratingPreviewStrip: boolean;
+}) {
   const [selectedFrameIndex, setSelectedFrameIndex] = useState(
     firstPreviewStripFrameIndex,
   );
@@ -1560,6 +1559,19 @@ function PreviewStripSurface({ catalogVideo }: { catalogVideo: CatalogVideo }) {
         <Badge color="red" variant="light">
           Failed Preview Strip
         </Badge>
+      </Box>
+    );
+  }
+
+  if (isGeneratingPreviewStrip) {
+    return (
+      <Box className="preview-strip preview-strip-placeholder">
+        <Group gap="xs">
+          <Loader size="xs" />
+          <Badge color="teal" variant="light">
+            Generating Preview Strip
+          </Badge>
+        </Group>
       </Box>
     );
   }
@@ -2335,6 +2347,13 @@ function errorMessage(error: unknown) {
   }
 
   return String(error);
+}
+
+function scanRootRefreshSummaryMessage(refreshSummary: {
+  scannedVideoCount: number;
+  unprocessableCandidateCount: number;
+}) {
+  return `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`;
 }
 
 function numberFilterValue(value: string | number) {
