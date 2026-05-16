@@ -406,8 +406,7 @@ describe("Scan module", () => {
     expect(
       await screen.findByRole("tab", { name: "Scan Roots" }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Scan")).toBeInTheDocument();
-    expect(screen.getByText("4")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Scan 4" })).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: "Scan Issues 3" }),
     ).toBeInTheDocument();
@@ -693,7 +692,7 @@ describe("Scan module", () => {
         "2 Videos scanned, 1 Unprocessable Video Candidates",
       ),
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Catalog" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
     expect(await screen.findByText("Family Trip")).toBeInTheDocument();
   });
 

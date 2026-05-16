@@ -1,16 +1,23 @@
 import { useRef, useState } from "react";
 import {
+  ActionIcon,
   Badge,
   Box,
   Button,
   Code,
   Group,
+  Indicator,
   Paper,
   Stack,
   Tabs,
   Text,
   Title,
 } from "@mantine/core";
+import {
+  IconArrowLeft,
+  IconFolderSearch,
+  IconSettings,
+} from "@tabler/icons-react";
 import type {
   AcceptMetadataSuggestionForVideosRequest,
   CatalogPerformer,
@@ -64,6 +71,7 @@ import { errorMessage } from "./shared/errors/errorMessage";
 const scanRootsTab = "scanRoots";
 const scanIssuesTab = "scanIssues";
 const previewGenerationTab = "previewGeneration";
+const navigationIconSize = 20;
 
 const emptyMetadataInputMessage = "Enter a name first.";
 type AppModule = "catalog" | "scan" | "settings";
@@ -911,42 +919,64 @@ export default function App() {
 
   return (
     <Box component="main" className="app-shell">
-      <Group component="nav" aria-label="Module navigation" gap="xs">
-        <Button
-          type="button"
-          variant={activeAppModule === "catalog" ? "filled" : "default"}
-          onClick={() => setActiveAppModule("catalog")}
-        >
-          Catalog
-        </Button>
-        <Button
-          type="button"
-          variant={activeAppModule === "scan" ? "filled" : "default"}
-          onClick={() => setActiveAppModule("scan")}
-        >
-          <Group gap={6}>
-            <span>Scan</span>
-            {scanAttentionCount > 0 ? (
-              <Badge size="sm" color="red">
-                {scanAttentionCount}
-              </Badge>
-            ) : null}
-          </Group>
-        </Button>
-        <Button
-          type="button"
-          variant={activeAppModule === "settings" ? "filled" : "default"}
-          onClick={() => setActiveAppModule("settings")}
-        >
-          <Group gap={6}>
-            <span>Settings</span>
-            {settingsAttentionCount > 0 ? (
-              <Badge size="sm" color="red">
-                {settingsAttentionCount}
-              </Badge>
-            ) : null}
-          </Group>
-        </Button>
+      <Group
+        component="nav"
+        aria-label="Module navigation"
+        className="module-navigation"
+        gap="xs"
+      >
+        <Box className="module-navigation-start">
+          {activeAppModule !== "catalog" ? (
+            <Button
+              type="button"
+              variant="subtle"
+              leftSection={<IconArrowLeft size={navigationIconSize} />}
+              onClick={() => setActiveAppModule("catalog")}
+            >
+              Back to Catalog
+            </Button>
+          ) : null}
+        </Box>
+        <Group gap="xs">
+          <Indicator
+            disabled={scanAttentionCount === 0}
+            label={scanAttentionCount}
+            size={16}
+            color="red"
+          >
+            <ActionIcon
+              type="button"
+              size="lg"
+              variant={activeAppModule === "scan" ? "filled" : "default"}
+              aria-label={
+                scanAttentionCount > 0 ? `Scan ${scanAttentionCount}` : "Scan"
+              }
+              onClick={() => setActiveAppModule("scan")}
+            >
+              <IconFolderSearch size={navigationIconSize} />
+            </ActionIcon>
+          </Indicator>
+          <Indicator
+            disabled={settingsAttentionCount === 0}
+            label={settingsAttentionCount}
+            size={16}
+            color="red"
+          >
+            <ActionIcon
+              type="button"
+              size="lg"
+              variant={activeAppModule === "settings" ? "filled" : "default"}
+              aria-label={
+                settingsAttentionCount > 0
+                  ? `Settings ${settingsAttentionCount}`
+                  : "Settings"
+              }
+              onClick={() => setActiveAppModule("settings")}
+            >
+              <IconSettings size={navigationIconSize} />
+            </ActionIcon>
+          </Indicator>
+        </Group>
       </Group>
       {activeAppModule === "catalog" ? <WorkspaceHeader /> : null}
       <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
