@@ -92,7 +92,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Metadata Suggestions" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Metadata Suggestions" }));
 
     const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
@@ -385,10 +385,10 @@ describe("Catalog module", () => {
       await within(catalogVideos).findByText("Studio Clip"),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Favorites" }));
 
     expect(
-      screen.getByRole("heading", { name: "Favorite Videos" }),
+      screen.getByRole("tab", { name: "Favorites", selected: true }),
     ).toBeInTheDocument();
     expect(
       within(catalogVideos).getByLabelText("Favorites only"),
@@ -689,10 +689,10 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    fireEvent.click(screen.getByRole("button", { name: "Recently Opened" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Recently Opened" }));
 
     expect(
-      await screen.findByRole("heading", { name: "Recently Opened Videos" }),
+      screen.getByRole("tab", { name: "Recently Opened", selected: true }),
     ).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByText("Never Opened"),
@@ -745,7 +745,7 @@ describe("Catalog module", () => {
     fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
       target: { value: "openCountDescending" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Recently Opened" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Recently Opened" }));
 
     const sortVideos = within(catalogVideos).getByLabelText("Sort Videos");
     expect(sortVideos).toHaveValue("lastOpenedDescending");

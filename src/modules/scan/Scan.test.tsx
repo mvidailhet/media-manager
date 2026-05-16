@@ -79,6 +79,7 @@ describe("Scan module", () => {
     ]);
 
     renderApp();
+    await openPreviewGenerationTab();
 
     expect(await screen.findByText("1 pending")).toBeInTheDocument();
     expect(
@@ -112,6 +113,7 @@ describe("Scan module", () => {
     });
 
     renderApp();
+    await openPreviewGenerationTab();
 
     expect(await screen.findByText("3 pending")).toBeInTheDocument();
     expect(screen.getByText("1 running")).toBeInTheDocument();
@@ -177,11 +179,11 @@ describe("Scan module", () => {
     ]);
 
     renderApp();
+    await openPreviewGenerationTab();
 
     expect(
-      await screen.findByText("Generating Preview Strip"),
+      await screen.findByText("Generating Preview Strip: Family Trip"),
     ).toBeInTheDocument();
-    expect(screen.getByText("Pending Preview Strip")).toBeInTheDocument();
   });
 
   it("shows generated Preview Strips and scrubs frames by horizontal pointer position", async () => {

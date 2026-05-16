@@ -1,12 +1,10 @@
 import { useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { Badge, Box, Button, Checkbox, Code, Divider, Group, Loader, NativeSelect, NumberInput, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Badge, Box, Button, Checkbox, Code, Divider, Group, NativeSelect, NumberInput, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
 
-import type { CatalogPerformer, CatalogTag, CatalogVideo, PreviewStripQueueStatus } from "../../tauriCommands";
-import { PreviewStripQueuePanel } from "../scan/PreviewGenerationView";
+import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../tauriCommands";
 import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
 import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
-import { SectionHeader } from "../../shared/components/SectionHeader";
 import { formatDuration, formatFileSize, formatOpenHistory } from "../../shared/formatting/videoFormatting";
 import type { CatalogVideoFilters, CatalogVideoSort, CatalogVideoWorkspace } from "./catalogTypes";
 
@@ -29,14 +27,10 @@ export function CatalogVideosPanel({
   catalogVideosStatusMessage,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
-  onPausePreviewStripQueue,
-  onResumePreviewStripQueue,
   onOpenVideo,
   onSetBatchVideoSelected,
   onSelectVideo,
   onSetFavorite,
-  previewStripQueueStatus,
-  previewStripStatusMessage,
   selectedVideoIds,
 }: {
   availablePerformers: CatalogPerformer[];
@@ -49,36 +43,15 @@ export function CatalogVideosPanel({
   catalogVideosStatusMessage: string;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
-  onPausePreviewStripQueue: () => void;
-  onResumePreviewStripQueue: () => void;
   onOpenVideo: (catalogVideo: CatalogVideo) => void;
   onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
-  previewStripQueueStatus: PreviewStripQueueStatus | null;
-  previewStripStatusMessage: string;
   selectedVideoIds: number[];
 }) {
-  const panelTitle =
-    catalogVideoWorkspace === "favorites"
-      ? "Favorite Videos"
-      : catalogVideoWorkspace === "recentlyOpened"
-        ? "Recently Opened Videos"
-        : "Videos";
-
   return (
     <Paper component="section" aria-label="Catalog Videos" p="md" maw={760}>
       <Stack gap="md">
-        <Group justify="space-between" align="start">
-          <SectionHeader label="Catalog results" title={panelTitle} />
-        </Group>
-
-        <PreviewStripQueuePanel
-          onPausePreviewStripQueue={onPausePreviewStripQueue}
-          onResumePreviewStripQueue={onResumePreviewStripQueue}
-          previewStripQueueStatus={previewStripQueueStatus}
-        />
-
         <CatalogVideoFiltersPanel
           availablePerformers={availablePerformers}
           availableTags={availableTags}
@@ -111,9 +84,6 @@ export function CatalogVideosPanel({
         {catalogVideoActionStatusMessage ? (
           <Text>{catalogVideoActionStatusMessage}</Text>
         ) : null}
-        {previewStripStatusMessage ? (
-          <Text>{previewStripStatusMessage}</Text>
-        ) : null}
 
         {!catalogVideosStatusMessage && catalogVideos.length === 0 ? (
           <Text c="dimmed">{catalogVideosEmptyMessage}</Text>
@@ -129,9 +99,6 @@ export function CatalogVideosPanel({
                 onOpenVideo={onOpenVideo}
                 onSetBatchVideoSelected={onSetBatchVideoSelected}
                 onSetFavorite={onSetFavorite}
-                runningPreviewStripVideoId={
-                  previewStripQueueStatus?.runningVideoId ?? null
-                }
                 isSelectedForBatch={selectedVideoIds.includes(catalogVideo.id)}
               />
             ))}
@@ -245,7 +212,6 @@ export function CatalogVideoCard({
   onOpenVideo,
   onSetBatchVideoSelected,
   onSetFavorite,
-  runningPreviewStripVideoId,
 }: {
   catalogVideo: CatalogVideo;
   isSelectedForBatch: boolean;
@@ -253,10 +219,7 @@ export function CatalogVideoCard({
   onOpenVideo: (catalogVideo: CatalogVideo) => void;
   onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
-  runningPreviewStripVideoId: number | null;
 }) {
-  const isGeneratingPreviewStrip =
-    catalogVideo.id === runningPreviewStripVideoId;
   const favoriteButtonLabel = catalogVideo.isFavorite
     ? `Unmark ${catalogVideo.title} as Favorite`
     : `Mark ${catalogVideo.title} as Favorite`;
@@ -264,10 +227,7 @@ export function CatalogVideoCard({
   return (
     <Stack component="article" gap="sm">
       <Divider />
-      <PreviewStripSurface
-        catalogVideo={catalogVideo}
-        isGeneratingPreviewStrip={isGeneratingPreviewStrip}
-      />
+      <PreviewStripSurface catalogVideo={catalogVideo} />
       <Box>
         <Group gap="xs" align="center">
           <Checkbox
@@ -339,10 +299,8 @@ export function CatalogVideoCard({
 
 export function PreviewStripSurface({
   catalogVideo,
-  isGeneratingPreviewStrip,
 }: {
   catalogVideo: CatalogVideo;
-  isGeneratingPreviewStrip: boolean;
 }) {
   const [selectedFrameIndex, setSelectedFrameIndex] = useState(
     firstPreviewStripFrameIndex,
@@ -385,19 +343,6 @@ export function PreviewStripSurface({
         <Badge color="red" variant="light">
           Failed Preview Strip
         </Badge>
-      </Box>
-    );
-  }
-
-  if (isGeneratingPreviewStrip) {
-    return (
-      <Box className="preview-strip preview-strip-placeholder">
-        <Group gap="xs">
-          <Loader size="xs" />
-          <Badge color="teal" variant="light">
-            Generating Preview Strip
-          </Badge>
-        </Group>
       </Box>
     );
   }

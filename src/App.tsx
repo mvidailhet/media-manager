@@ -15,8 +15,11 @@ import {
 } from "@mantine/core";
 import {
   IconArrowLeft,
+  IconBulb,
   IconFolderSearch,
+  IconHistory,
   IconSettings,
+  IconStar,
 } from "@tabler/icons-react";
 import type {
   AcceptMetadataSuggestionForVideosRequest,
@@ -27,7 +30,6 @@ import type {
 } from "./modules/catalog/useCatalogMetadata";
 import { useCatalogMetadata } from "./modules/catalog/useCatalogMetadata";
 import { useCatalogVideos } from "./modules/catalog/useCatalogVideos";
-import { WorkspaceHeader } from "./modules/catalog/WorkspaceHeader";
 import { BatchMetadataEditPanel } from "./modules/catalog/BatchMetadataEditPanel";
 import { CatalogVideosPanel } from "./modules/catalog/CatalogVideosPanel";
 import { VideoDetailPanel } from "./modules/catalog/VideoDetailPanel";
@@ -154,7 +156,6 @@ export default function App() {
   const {
     pausePreviewStripQueueAction,
     previewStripQueueStatus,
-    previewStripStatusMessage,
     resumePreviewStripQueueAction,
   } = previewGeneration;
   const {
@@ -978,42 +979,35 @@ export default function App() {
           </Indicator>
         </Group>
       </Group>
-      {activeAppModule === "catalog" ? <WorkspaceHeader /> : null}
-      <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
       {activeAppModule === "catalog" ? (
         <>
-          <Group component="nav" aria-label="Catalog navigation" gap="xs">
-            <Button
-              type="button"
-              variant={catalogView === "allVideos" ? "filled" : "default"}
-              onClick={() => selectCatalogView("allVideos")}
-            >
-              All Videos
-            </Button>
-            <Button
-              type="button"
-              variant={catalogView === "favorites" ? "filled" : "default"}
-              onClick={() => selectCatalogView("favorites")}
-            >
-              Favorites
-            </Button>
-            <Button
-              type="button"
-              variant={catalogView === "recentlyOpened" ? "filled" : "default"}
-              onClick={() => selectCatalogView("recentlyOpened")}
-            >
-              Recently Opened
-            </Button>
-            <Button
-              type="button"
-              variant={
-                catalogView === "metadataSuggestions" ? "filled" : "default"
-              }
-              onClick={() => selectCatalogView("metadataSuggestions")}
-            >
-              Metadata Suggestions
-            </Button>
-          </Group>
+          <Tabs
+            value={catalogView}
+            onChange={(value) => selectCatalogView(value as CatalogView)}
+            keepMounted={false}
+          >
+            <Tabs.List aria-label="Catalog navigation">
+              <Tabs.Tab value="allVideos">All Videos</Tabs.Tab>
+              <Tabs.Tab
+                value="favorites"
+                leftSection={<IconStar size={navigationIconSize} />}
+              >
+                Favorites
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="recentlyOpened"
+                leftSection={<IconHistory size={navigationIconSize} />}
+              >
+                Recently Opened
+              </Tabs.Tab>
+              <Tabs.Tab
+                value="metadataSuggestions"
+                leftSection={<IconBulb size={navigationIconSize} />}
+              >
+                Metadata Suggestions
+              </Tabs.Tab>
+            </Tabs.List>
+          </Tabs>
           {isCatalogVideoListView ? (
             <CatalogVideosPanel
               availablePerformers={availablePerformers}
@@ -1026,14 +1020,10 @@ export default function App() {
               catalogVideosStatusMessage={catalogVideosStatusMessage}
               onCatalogVideoFiltersChange={setCatalogVideoFilters}
               onCatalogVideoSortChange={setCatalogVideoSort}
-              onPausePreviewStripQueue={pausePreviewStripQueueAction}
-              onResumePreviewStripQueue={resumePreviewStripQueueAction}
               onOpenVideo={openVideoFromCatalog}
               onSetBatchVideoSelected={setBatchVideoSelected}
               onSelectVideo={selectVideoForDetail}
               onSetFavorite={setCatalogVideoFavorite}
-              previewStripQueueStatus={previewStripQueueStatus}
-              previewStripStatusMessage={previewStripStatusMessage}
               selectedVideoIds={batchSelectedVideoIds}
             />
           ) : (
@@ -1230,15 +1220,18 @@ export default function App() {
       ) : null}
 
       {activeAppModule === "settings" ? (
-        <FfmpegStatusPanel
-          ffmpegPath={ffmpegPath}
-          ffmpegStatusMessage={ffmpegStatusMessage}
-          ffmpegToolsStatus={ffmpegToolsStatus}
-          ffprobePath={ffprobePath}
-          onFfmpegPathChange={setFfmpegPath}
-          onFfprobePathChange={setFfprobePath}
-          onSaveConfiguredFfmpegPaths={saveConfiguredFfmpegPaths}
-        />
+        <>
+          <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
+          <FfmpegStatusPanel
+            ffmpegPath={ffmpegPath}
+            ffmpegStatusMessage={ffmpegStatusMessage}
+            ffmpegToolsStatus={ffmpegToolsStatus}
+            ffprobePath={ffprobePath}
+            onFfmpegPathChange={setFfmpegPath}
+            onFfprobePathChange={setFfprobePath}
+            onSaveConfiguredFfmpegPaths={saveConfiguredFfmpegPaths}
+          />
+        </>
       ) : null}
     </Box>
   );

@@ -224,7 +224,7 @@ export async function openSettingsModule() {
 
 export async function openMetadataSuggestionsView() {
   fireEvent.click(
-    await screen.findByRole("button", { name: "Metadata Suggestions" }),
+    await screen.findByRole("tab", { name: "Metadata Suggestions" }),
   );
 }
 

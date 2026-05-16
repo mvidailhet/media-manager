@@ -58,7 +58,7 @@ describe("App shell", () => {
     renderApp();
 
     expect(
-      screen.getByRole("heading", { name: "Catalog" }),
+      screen.getByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Scan" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
@@ -68,8 +68,9 @@ describe("App shell", () => {
     expect(
       screen.queryByRole("heading", { name: "FFmpeg status" }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText("Local Desktop App")).toBeInTheDocument();
-    expect(await screen.findByText("Rust command online")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Tauri command status" }),
+    ).not.toBeInTheDocument();
   });
 
   it("returns from secondary modules to Catalog with the back button", async () => {
@@ -83,7 +84,7 @@ describe("App shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
 
     expect(
-      screen.getByRole("heading", { name: "Catalog" }),
+      screen.getByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Back to Catalog" }),
@@ -97,7 +98,7 @@ describe("App shell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
 
     expect(
-      screen.getByRole("heading", { name: "Catalog" }),
+      screen.getByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
   });
 
@@ -146,7 +147,7 @@ describe("App shell", () => {
       await screen.findByRole("region", { name: "Batch Metadata Edit" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Favorites" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Favorites" }));
 
     expect(
       screen.queryByRole("region", { name: "Video Detail Panel" }),
@@ -192,7 +193,7 @@ describe("App shell", () => {
       await screen.findByRole("region", { name: "Batch Metadata Edit" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "All Videos" }));
+    fireEvent.click(screen.getByRole("tab", { name: "All Videos" }));
 
     expect(
       screen.getByRole("region", { name: "Video Detail Panel" }),
