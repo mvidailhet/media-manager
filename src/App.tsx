@@ -1,16 +1,23 @@
 import { useRef, useState } from "react";
 import {
+  ActionIcon,
   Badge,
   Box,
   Button,
   Code,
   Group,
+  Indicator,
   Paper,
   Stack,
   Tabs,
   Text,
   Title,
 } from "@mantine/core";
+import {
+  IconArrowLeft,
+  IconFolderSearch,
+  IconSettings,
+} from "@tabler/icons-react";
 import type {
   AcceptMetadataSuggestionForVideosRequest,
   CatalogPerformer,
@@ -38,7 +45,7 @@ import {
   workspaceCatalogVideos,
 } from "./modules/catalog/catalogVideoFiltering";
 import { MetadataSuggestionsPanel } from "./modules/catalog/MetadataSuggestionsPanel";
-import { ReviewQueuePanel } from "./modules/scan/ScanIssuesPanel";
+import { ScanIssuesPanel } from "./modules/scan/ScanIssuesPanel";
 import { ScanRootsPanel } from "./modules/scan/ScanRootsPanel";
 import { PreviewGenerationView } from "./modules/scan/PreviewGenerationView";
 import {
@@ -51,7 +58,7 @@ import {
   useSettingsStatus,
 } from "./modules/settings/useSettingsStatus";
 import { usePreviewGeneration } from "./modules/scan/usePreviewGeneration";
-import { useReviewQueue } from "./modules/scan/useReviewQueue";
+import { useScanIssues } from "./modules/scan/useScanIssues";
 import type { ScanRoot, ScanRootRemovalPolicy } from "./modules/scan/useScanRoots";
 import { useScanRoots } from "./modules/scan/useScanRoots";
 import {
@@ -64,6 +71,7 @@ import { errorMessage } from "./shared/errors/errorMessage";
 const scanRootsTab = "scanRoots";
 const scanIssuesTab = "scanIssues";
 const previewGenerationTab = "previewGeneration";
+const navigationIconSize = 20;
 
 const emptyMetadataInputMessage = "Enter a name first.";
 type AppModule = "catalog" | "scan" | "settings";
@@ -126,9 +134,9 @@ export default function App() {
   } = useCatalogMetadata({ catalogVideos });
   const previewGeneration = usePreviewGeneration({
     refreshCatalogVideos,
-    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
-  const reviewQueue = useReviewQueue({
+  const scanIssues = useScanIssues({
     refreshCatalogVideos,
     refreshPreviewStripQueueStatus:
       previewGeneration.refreshPreviewStripQueueStatus,
@@ -138,27 +146,27 @@ export default function App() {
     refreshCatalogVideos,
     refreshPreviewStripQueueStatus:
       previewGeneration.refreshPreviewStripQueueStatus,
-    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
   const settingsStatus = useSettingsStatus({
-    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
   const {
-    pausePreviewQueue,
+    pausePreviewStripQueueAction,
     previewStripQueueStatus,
     previewStripStatusMessage,
-    resumePreviewQueue,
+    resumePreviewStripQueueAction,
   } = previewGeneration;
   const {
     failedPreviewStrips,
     ignoreFailedPreview,
     metadataSuggestionGroups,
-    refreshReviewQueue,
+    refreshScanIssues,
     retryFailedPreview,
-    reviewQueueStatusMessage,
-    setReviewQueueStatusMessage,
+    scanIssuesStatusMessage,
+    setScanIssuesStatusMessage,
     unprocessableVideoCandidates,
-  } = reviewQueue;
+  } = scanIssues;
   const {
     addManualScanRoot,
     chooseScanRootFolder,
@@ -201,7 +209,7 @@ export default function App() {
         suggestionKind,
         videoIds,
       });
-      await refreshReviewQueue(false);
+      await refreshScanIssues(false);
       const [storedTags, storedPerformers] = await Promise.all([
         loadAvailableTags(),
         loadAvailablePerformers(),
@@ -231,7 +239,7 @@ export default function App() {
         setSelectedVideoPerformers(selectedVideoMetadata.performers);
       }
     } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
+      setScanIssuesStatusMessage(errorMessage(error));
     }
   }
 
@@ -253,9 +261,9 @@ export default function App() {
         suggestedValue,
         suggestionKind,
       });
-      await refreshReviewQueue(false);
+      await refreshScanIssues(false);
     } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
+      setScanIssuesStatusMessage(errorMessage(error));
     }
   }
 
@@ -284,10 +292,10 @@ export default function App() {
     try {
       await forgetMissingVideo(missingVideoPendingForget.id);
       setMissingVideoPendingForget(null);
-      setReviewQueueStatusMessage("");
+      setScanIssuesStatusMessage("");
       await refreshCatalogVideos();
     } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
+      setScanIssuesStatusMessage(errorMessage(error));
     }
   }
 
@@ -911,42 +919,64 @@ export default function App() {
 
   return (
     <Box component="main" className="app-shell">
-      <Group component="nav" aria-label="Module navigation" gap="xs">
-        <Button
-          type="button"
-          variant={activeAppModule === "catalog" ? "filled" : "default"}
-          onClick={() => setActiveAppModule("catalog")}
-        >
-          Catalog
-        </Button>
-        <Button
-          type="button"
-          variant={activeAppModule === "scan" ? "filled" : "default"}
-          onClick={() => setActiveAppModule("scan")}
-        >
-          <Group gap={6}>
-            <span>Scan</span>
-            {scanAttentionCount > 0 ? (
-              <Badge size="sm" color="red">
-                {scanAttentionCount}
-              </Badge>
-            ) : null}
-          </Group>
-        </Button>
-        <Button
-          type="button"
-          variant={activeAppModule === "settings" ? "filled" : "default"}
-          onClick={() => setActiveAppModule("settings")}
-        >
-          <Group gap={6}>
-            <span>Settings</span>
-            {settingsAttentionCount > 0 ? (
-              <Badge size="sm" color="red">
-                {settingsAttentionCount}
-              </Badge>
-            ) : null}
-          </Group>
-        </Button>
+      <Group
+        component="nav"
+        aria-label="Module navigation"
+        className="module-navigation"
+        gap="xs"
+      >
+        <Box className="module-navigation-start">
+          {activeAppModule !== "catalog" ? (
+            <Button
+              type="button"
+              variant="subtle"
+              leftSection={<IconArrowLeft size={navigationIconSize} />}
+              onClick={() => setActiveAppModule("catalog")}
+            >
+              Back to Catalog
+            </Button>
+          ) : null}
+        </Box>
+        <Group gap="xs">
+          <Indicator
+            disabled={scanAttentionCount === 0}
+            label={scanAttentionCount}
+            size={16}
+            color="red"
+          >
+            <ActionIcon
+              type="button"
+              size="lg"
+              variant={activeAppModule === "scan" ? "filled" : "default"}
+              aria-label={
+                scanAttentionCount > 0 ? `Scan ${scanAttentionCount}` : "Scan"
+              }
+              onClick={() => setActiveAppModule("scan")}
+            >
+              <IconFolderSearch size={navigationIconSize} />
+            </ActionIcon>
+          </Indicator>
+          <Indicator
+            disabled={settingsAttentionCount === 0}
+            label={settingsAttentionCount}
+            size={16}
+            color="red"
+          >
+            <ActionIcon
+              type="button"
+              size="lg"
+              variant={activeAppModule === "settings" ? "filled" : "default"}
+              aria-label={
+                settingsAttentionCount > 0
+                  ? `Settings ${settingsAttentionCount}`
+                  : "Settings"
+              }
+              onClick={() => setActiveAppModule("settings")}
+            >
+              <IconSettings size={navigationIconSize} />
+            </ActionIcon>
+          </Indicator>
+        </Group>
       </Group>
       {activeAppModule === "catalog" ? <WorkspaceHeader /> : null}
       <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
@@ -996,8 +1026,8 @@ export default function App() {
               catalogVideosStatusMessage={catalogVideosStatusMessage}
               onCatalogVideoFiltersChange={setCatalogVideoFilters}
               onCatalogVideoSortChange={setCatalogVideoSort}
-              onPausePreviewQueue={pausePreviewQueue}
-              onResumePreviewQueue={resumePreviewQueue}
+              onPausePreviewStripQueue={pausePreviewStripQueueAction}
+              onResumePreviewStripQueue={resumePreviewStripQueueAction}
               onOpenVideo={openVideoFromCatalog}
               onSetBatchVideoSelected={setBatchVideoSelected}
               onSelectVideo={selectVideoForDetail}
@@ -1102,10 +1132,9 @@ export default function App() {
           </Tabs.Panel>
 
           <Tabs.Panel value={scanIssuesTab}>
-            <ReviewQueuePanel
-              metadataSuggestionsPanel={null}
+            <ScanIssuesPanel
               missingVideos={missingVideos}
-              reviewQueueStatusMessage={reviewQueueStatusMessage}
+              scanIssuesStatusMessage={scanIssuesStatusMessage}
               unavailableScanRoots={unavailableScanRoots}
               unprocessableVideoCandidates={unprocessableVideoCandidates}
               onRequestMissingVideoForget={setMissingVideoPendingForget}
@@ -1118,8 +1147,8 @@ export default function App() {
               generatedPreviewStripCount={generatedPreviewStripCount}
               generatingPreviewStripTitle={generatingPreviewStripVideo?.title}
               onIgnoreFailedPreview={ignoreFailedPreview}
-              onPausePreviewQueue={pausePreviewQueue}
-              onResumePreviewQueue={resumePreviewQueue}
+              onPausePreviewStripQueue={pausePreviewStripQueueAction}
+              onResumePreviewStripQueue={resumePreviewStripQueueAction}
               onRetryFailedPreview={retryFailedPreview}
               previewStripQueueStatus={previewStripQueueStatus}
             />

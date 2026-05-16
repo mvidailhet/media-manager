@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Box, Button, Code, Divider, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 
 import type { CatalogVideo, FailedPreviewStrip, ScanRoot, UnprocessableVideoCandidate } from "../../tauriCommands";
@@ -6,28 +5,26 @@ import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { formatDuration, formatFileSize } from "../../shared/formatting/videoFormatting";
 
-export function ReviewQueuePanel({
-  metadataSuggestionsPanel,
+export function ScanIssuesPanel({
   missingVideos,
   onRequestMissingVideoForget,
-  reviewQueueStatusMessage,
+  scanIssuesStatusMessage,
   unavailableScanRoots,
   unprocessableVideoCandidates,
 }: {
-  metadataSuggestionsPanel: ReactNode;
   missingVideos: CatalogVideo[];
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
-  reviewQueueStatusMessage: string;
+  scanIssuesStatusMessage: string;
   unavailableScanRoots: ScanRoot[];
   unprocessableVideoCandidates: UnprocessableVideoCandidate[];
 }) {
   return (
-    <Paper component="section" aria-label="Review Queue" p="md" maw={760}>
+    <Paper component="section" aria-label="Scan Issues" p="md" maw={760}>
       <Stack gap="md">
-        <SectionHeader label="Scan issues" title="Review Queue" />
+        <SectionHeader label="Scan issues" title="Scan Issues" />
 
-        {reviewQueueStatusMessage ? (
-          <Text>{reviewQueueStatusMessage}</Text>
+        {scanIssuesStatusMessage ? (
+          <Text>{scanIssuesStatusMessage}</Text>
         ) : null}
 
         <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing="md">
@@ -41,7 +38,6 @@ export function ReviewQueuePanel({
           <UnprocessableCandidatesPanel
             unprocessableVideoCandidates={unprocessableVideoCandidates}
           />
-          {metadataSuggestionsPanel}
         </SimpleGrid>
       </Stack>
     </Paper>

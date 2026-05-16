@@ -12,8 +12,8 @@ export function PreviewGenerationView({
   generatedPreviewStripCount,
   generatingPreviewStripTitle,
   onIgnoreFailedPreview,
-  onPausePreviewQueue,
-  onResumePreviewQueue,
+  onPausePreviewStripQueue,
+  onResumePreviewStripQueue,
   onRetryFailedPreview,
   previewStripQueueStatus,
 }: {
@@ -21,8 +21,8 @@ export function PreviewGenerationView({
   generatedPreviewStripCount: number;
   generatingPreviewStripTitle?: string;
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
-  onPausePreviewQueue: () => void;
-  onResumePreviewQueue: () => void;
+  onPausePreviewStripQueue: () => void;
+  onResumePreviewStripQueue: () => void;
   onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
 }) {
@@ -33,8 +33,8 @@ export function PreviewGenerationView({
         <PreviewStripQueuePanel
           generatedPreviewStripCount={generatedPreviewStripCount}
           generatingPreviewStripTitle={generatingPreviewStripTitle}
-          onPausePreviewQueue={onPausePreviewQueue}
-          onResumePreviewQueue={onResumePreviewQueue}
+          onPausePreviewStripQueue={onPausePreviewStripQueue}
+          onResumePreviewStripQueue={onResumePreviewStripQueue}
           previewStripQueueStatus={previewStripQueueStatus}
         />
         <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
@@ -52,14 +52,14 @@ export function PreviewGenerationView({
 export function PreviewStripQueuePanel({
   generatedPreviewStripCount,
   generatingPreviewStripTitle,
-  onPausePreviewQueue,
-  onResumePreviewQueue,
+  onPausePreviewStripQueue,
+  onResumePreviewStripQueue,
   previewStripQueueStatus,
 }: {
   generatedPreviewStripCount?: number;
   generatingPreviewStripTitle?: string;
-  onPausePreviewQueue: () => void;
-  onResumePreviewQueue: () => void;
+  onPausePreviewStripQueue: () => void;
+  onResumePreviewStripQueue: () => void;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
 }) {
   if (!previewStripQueueStatus) {
@@ -96,7 +96,7 @@ export function PreviewStripQueuePanel({
           type="button"
           size="xs"
           variant="default"
-          onClick={() => void onResumePreviewQueue()}
+          onClick={() => void onResumePreviewStripQueue()}
         >
           Resume Preview Queue
         </Button>
@@ -105,7 +105,7 @@ export function PreviewStripQueuePanel({
           type="button"
           size="xs"
           variant="default"
-          onClick={() => void onPausePreviewQueue()}
+          onClick={() => void onPausePreviewStripQueue()}
         >
           Pause Preview Queue
         </Button>

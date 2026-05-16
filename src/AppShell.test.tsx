@@ -60,14 +60,45 @@ describe("App shell", () => {
     expect(
       screen.getByRole("heading", { name: "Catalog" }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Catalog" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Scan" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Back to Catalog" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "FFmpeg status" }),
     ).not.toBeInTheDocument();
     expect(screen.getByText("Local Desktop App")).toBeInTheDocument();
     expect(await screen.findByText("Rust command online")).toBeInTheDocument();
+  });
+
+  it("returns from secondary modules to Catalog with the back button", async () => {
+    renderApp();
+
+    await openScanModule();
+    expect(
+      await screen.findByRole("heading", { name: "Scan Roots" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Catalog" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Back to Catalog" }),
+    ).not.toBeInTheDocument();
+
+    await openSettingsModule();
+    expect(
+      await screen.findByRole("heading", { name: "FFmpeg status" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
+
+    expect(
+      screen.getByRole("heading", { name: "Catalog" }),
+    ).toBeInTheDocument();
   });
 
   it("resets Video Detail and Batch Metadata Edit when changing Catalog views", async () => {

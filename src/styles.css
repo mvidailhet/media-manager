@@ -25,6 +25,15 @@ body {
   padding: 48px;
 }
 
+.module-navigation {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.module-navigation-start {
+  min-height: 36px;
+}
+
 .definition-list {
   display: grid;
   gap: 10px;
