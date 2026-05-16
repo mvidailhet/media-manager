@@ -670,6 +670,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    await within(catalogVideos).findByText("Family Trip");
     fireEvent.click(
       within(catalogVideos).getByRole("button", {
         name: "Open Family Trip",
@@ -684,7 +685,7 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows Recently Opened View ordered by recent Open History activity", async () => {
+  it("does not show a Recently Opened tab because Last Opened is a sort option", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -732,67 +733,26 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    fireEvent.click(screen.getByRole("tab", { name: "Recently Opened" }));
-
     expect(
-      screen.getByRole("tab", { name: "Recently Opened", selected: true }),
-    ).toBeInTheDocument();
-    expect(
-      within(catalogVideos).queryByText("Never Opened"),
+      screen.queryByRole("tab", { name: "Recently Opened" }),
     ).not.toBeInTheDocument();
+    expect(
+      await within(catalogVideos).findByText("Never Opened"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "lastOpenedDescending" },
+    });
+
     const videoTitles = within(catalogVideos).getAllByRole("button", {
-      name: /^(Older Clip|Fresh Clip)$/,
+      name: /^(Older Clip|Fresh Clip|Never Opened)$/,
     });
 
     expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
       "Fresh Clip",
       "Older Clip",
+      "Never Opened",
     ]);
-  });
-
-  it("shows the actual Recently Opened sort order when another sort was selected", async () => {
-    mockedListCatalogVideos.mockResolvedValue([
-      {
-        id: 1,
-        title: "Older Popular Clip",
-        durationMilliseconds: 120000,
-        fileSizeBytes: 12000000,
-        fileLocationPath: "/Volumes/Archive/Videos/older-popular-clip.mp4",
-        isAvailable: true,
-        fileLocations: [],
-        isFavorite: false,
-        lastOpenedAt: "2026-05-14 18:00:00",
-        openCount: 5,
-        previewStrip: pendingPreviewStrip,
-      },
-      {
-        id: 2,
-        title: "Fresh Clip",
-        durationMilliseconds: 120000,
-        fileSizeBytes: 12000000,
-        fileLocationPath: "/Volumes/Archive/Videos/fresh-clip.mp4",
-        isAvailable: true,
-        fileLocations: [],
-        isFavorite: false,
-        lastOpenedAt: "2026-05-15 18:00:00",
-        openCount: 1,
-        previewStrip: pendingPreviewStrip,
-      },
-    ]);
-
-    renderApp();
-
-    const catalogVideos = await screen.findByRole("region", {
-      name: "Catalog Videos",
-    });
-    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
-      target: { value: "openCountDescending" },
-    });
-    fireEvent.click(screen.getByRole("tab", { name: "Recently Opened" }));
-
-    const sortVideos = within(catalogVideos).getByLabelText("Sort Videos");
-    expect(sortVideos).toHaveValue("lastOpenedDescending");
-    expect(sortVideos).toBeDisabled();
   });
 
   it("keeps unknown File Sizes last when sorting by File Size descending", async () => {

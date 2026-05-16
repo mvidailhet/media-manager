@@ -26,7 +26,6 @@ import { defaultCatalogVideoFilters } from "./catalogTypes";
 import {
   catalogVideoMatchesFilters,
   sortedCatalogVideos,
-  workspaceCatalogVideos,
 } from "./catalogVideoFiltering";
 import type { CatalogModuleProps } from "./CatalogModule";
 
@@ -222,8 +221,6 @@ export function useCatalogModuleController({
     setCatalogView(nextCatalogView);
     if (nextCatalogView === "favorites") {
       setCatalogVideoWorkspace("favorites");
-    } else if (nextCatalogView === "recentlyOpened") {
-      setCatalogVideoWorkspace("recentlyOpened");
     } else {
       setCatalogVideoWorkspace("videos");
     }
@@ -736,12 +733,8 @@ export function useCatalogModuleController({
     catalogVideoWorkspace === "favorites"
       ? { ...catalogVideoFilters, favoritesOnly: true }
       : catalogVideoFilters;
-  const workspaceCatalogVideoSort =
-    catalogVideoWorkspace === "recentlyOpened"
-      ? "lastOpenedDescending"
-      : catalogVideoSort;
   const filteredCatalogVideos = sortedCatalogVideos(
-    workspaceCatalogVideos(catalogVideos, catalogVideoWorkspace).filter(
+    catalogVideos.filter(
       (catalogVideo) =>
         catalogVideoMatchesFilters(
           catalogVideo,
@@ -749,7 +742,7 @@ export function useCatalogModuleController({
           activeCatalogVideoFilters,
         ),
     ),
-    workspaceCatalogVideoSort,
+    catalogVideoSort,
   );
   const batchSelectedVideos = catalogVideos.filter((catalogVideo) =>
     batchSelectedVideoIds.includes(catalogVideo.id),
@@ -778,8 +771,7 @@ export function useCatalogModuleController({
       batchSelectedVideoCount: batchSelectedVideos.length,
       catalogVideoActionStatusMessage,
       catalogVideoFilters: activeCatalogVideoFilters,
-      catalogVideoSort: workspaceCatalogVideoSort,
-      catalogVideoWorkspace,
+      catalogVideoSort,
       catalogVideos: filteredCatalogVideos,
       catalogVideosStatusMessage,
       catalogView,

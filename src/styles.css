@@ -19,10 +19,10 @@ body {
 .app-shell {
   box-sizing: border-box;
   display: grid;
-  gap: 24px;
+  gap: 12px;
   min-height: 100vh;
   align-content: start;
-  padding: 48px;
+  padding: 24px;
 }
 
 .module-navigation {

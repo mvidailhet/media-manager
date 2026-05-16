@@ -6,7 +6,7 @@ import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../tauriComm
 import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
 import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
 import { formatDuration, formatFileSize, formatOpenHistory } from "../../shared/formatting/videoFormatting";
-import type { CatalogVideoFilters, CatalogVideoSort, CatalogVideoWorkspace } from "./catalogTypes";
+import type { CatalogVideoFilters, CatalogVideoSort } from "./catalogTypes";
 
 const catalogVideosEmptyMessage = "No Videos in the Catalog.";
 const minimumDurationMinutes = 0;
@@ -22,7 +22,6 @@ export function CatalogVideosPanel({
   availableTags,
   catalogVideoActionStatusMessage,
   catalogVideoFilters,
-  catalogVideoWorkspace,
   catalogVideoSort,
   catalogVideos,
   catalogVideosStatusMessage,
@@ -38,7 +37,6 @@ export function CatalogVideosPanel({
   availableTags: CatalogTag[];
   catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
-  catalogVideoWorkspace: CatalogVideoWorkspace;
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
@@ -65,7 +63,6 @@ export function CatalogVideosPanel({
             aria-label="Sort Videos"
             size="xs"
             value={catalogVideoSort}
-            disabled={catalogVideoWorkspace === "recentlyOpened"}
             data={[
               { value: "titleAscending", label: "Title" },
               { value: "fileSizeAscending", label: "File Size ascending" },

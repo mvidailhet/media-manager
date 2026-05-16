@@ -1,6 +1,6 @@
 import type { CatalogVideo } from "../../tauriCommands";
 import { fileSizeNullSortOrder } from "../../shared/formatting/videoFormatting";
-import type { CatalogVideoFilters, CatalogVideoMetadata, CatalogVideoSort, CatalogVideoWorkspace } from "./catalogTypes";
+import type { CatalogVideoFilters, CatalogVideoMetadata, CatalogVideoSort } from "./catalogTypes";
 
 export function catalogVideoMatchesFilters(
   catalogVideo: CatalogVideo,
@@ -153,16 +153,6 @@ export function sortedCatalogVideos(
   });
 }
 
-export function workspaceCatalogVideos(
-  catalogVideos: CatalogVideo[],
-  catalogVideoWorkspace: CatalogVideoWorkspace,
-) {
-  if (catalogVideoWorkspace === "recentlyOpened") {
-    return catalogVideos.filter((catalogVideo) => catalogVideo.openCount > 0);
-  }
-
-  return catalogVideos;
-}
 
 export function compareNullableTextDescending(
   firstValue: string | null,

@@ -1,5 +1,5 @@
 import { Box, Tabs } from "@mantine/core";
-import { IconBulb, IconHistory, IconStar } from "@tabler/icons-react";
+import { IconBulb, IconStar } from "@tabler/icons-react";
 
 import type {
   AcceptMetadataSuggestionForVideosRequest,
@@ -14,7 +14,6 @@ import { CatalogVideosPanel } from "./CatalogVideosPanel";
 import type {
   CatalogVideoFilters,
   CatalogVideoSort,
-  CatalogVideoWorkspace,
   CatalogView,
 } from "./catalogTypes";
 import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel";
@@ -29,7 +28,6 @@ export type CatalogModuleProps = {
   catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
   catalogVideoSort: CatalogVideoSort;
-  catalogVideoWorkspace: CatalogVideoWorkspace;
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
   catalogView: CatalogView;
@@ -81,7 +79,6 @@ export function CatalogModule({
   catalogVideoActionStatusMessage,
   catalogVideoFilters,
   catalogVideoSort,
-  catalogVideoWorkspace,
   catalogVideos,
   catalogVideosStatusMessage,
   catalogView,
@@ -135,12 +132,6 @@ export function CatalogModule({
             Favorites
           </Tabs.Tab>
           <Tabs.Tab
-            value="recentlyOpened"
-            leftSection={<IconHistory size={navigationIconSize} />}
-          >
-            Recently Opened
-          </Tabs.Tab>
-          <Tabs.Tab
             value="metadataSuggestions"
             leftSection={<IconBulb size={navigationIconSize} />}
           >
@@ -154,7 +145,6 @@ export function CatalogModule({
           availableTags={availableTags}
           catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
           catalogVideoFilters={catalogVideoFilters}
-          catalogVideoWorkspace={catalogVideoWorkspace}
           catalogVideoSort={catalogVideoSort}
           catalogVideos={catalogVideos}
           catalogVideosStatusMessage={catalogVideosStatusMessage}
