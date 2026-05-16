@@ -2689,9 +2689,13 @@ mod tests {
             .expect("scan root refreshes");
         let preview_strip_generator = FakePreviewStripGenerator::default();
 
-        let generation_summary = catalog
-            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
-            .expect("preview strips generate");
+        let generation_summary = crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_missing_preview_strips()
+        .expect("preview strips generate");
 
         assert_eq!(
             generation_summary,
@@ -2759,9 +2763,13 @@ mod tests {
         }
         let preview_strip_generator = FakePreviewStripGenerator::default();
 
-        let first_generation_summary = catalog
-            .generate_next_preview_strip(&preview_cache_path, &preview_strip_generator)
-            .expect("first preview strip step completes");
+        let first_generation_summary = crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_next_preview_strip()
+        .expect("first preview strip step completes");
 
         assert_eq!(
             first_generation_summary,
@@ -2832,12 +2840,20 @@ mod tests {
             .expect("backup file location persists");
         let preview_strip_generator = FakePreviewStripGenerator::default();
 
-        catalog
-            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
-            .expect("preview strips generate");
-        catalog
-            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
-            .expect("second preview strip pass is idempotent");
+        crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_missing_preview_strips()
+        .expect("preview strips generate");
+        crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_missing_preview_strips()
+        .expect("second preview strip pass is idempotent");
 
         assert_eq!(count_rows(&database, "preview_strips"), 1);
     }
@@ -2864,15 +2880,23 @@ mod tests {
             )
             .expect("scan root refreshes");
         let preview_strip_generator = FakePreviewStripGenerator::default();
-        catalog
-            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
-            .expect("preview strips generate");
+        crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_missing_preview_strips()
+        .expect("preview strips generate");
         let first_preview_strip_path = stored_preview_strips(&catalog_path)[0].path.clone();
         std::fs::remove_file(&first_preview_strip_path).expect("preview cache file is removed");
 
-        let generation_summary = catalog
-            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
-            .expect("preview strips regenerate");
+        let generation_summary = crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_missing_preview_strips()
+        .expect("preview strips regenerate");
 
         assert_eq!(
             generation_summary,
@@ -2939,9 +2963,13 @@ mod tests {
         let preview_strip_generator =
             FakePreviewStripGenerator::failing_for_video(1, "ffmpeg failed");
 
-        let generation_summary = catalog
-            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
-            .expect("preview strip batch completes");
+        let generation_summary = crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_missing_preview_strips()
+        .expect("preview strip batch completes");
 
         assert_eq!(
             generation_summary,
@@ -3042,9 +3070,13 @@ mod tests {
         catalog
             .retry_failed_preview_strip(1, PreviewStripRetryReason::Manual)
             .expect("failed preview strip retries");
-        let generation_summary = catalog
-            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
-            .expect("retry generates preview strip");
+        let generation_summary = crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_missing_preview_strips()
+        .expect("retry generates preview strip");
 
         assert_eq!(
             generation_summary,
@@ -3103,9 +3135,13 @@ mod tests {
             )
             .expect("ignored failures retry");
         let preview_strip_generator = FakePreviewStripGenerator::default();
-        let generation_summary = catalog
-            .generate_missing_preview_strips(&preview_cache_path, &preview_strip_generator)
-            .expect("ignored failure regenerates");
+        let generation_summary = crate::preview_generation::PreviewGenerationWork::new(
+            &catalog,
+            &preview_cache_path,
+            &preview_strip_generator,
+        )
+        .process_missing_preview_strips()
+        .expect("ignored failure regenerates");
 
         assert_eq!(
             generation_summary,
