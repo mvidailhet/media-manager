@@ -20,7 +20,7 @@ import type {
 import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel";
 import { VideoDetailPanel } from "./VideoDetailPanel";
 
-type CatalogModuleProps = {
+export type CatalogModuleProps = {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
   batchRemovablePerformers: CatalogPerformer[];

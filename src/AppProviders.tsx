@@ -13,7 +13,7 @@ const notificationPosition = "top-right";
 export const appTheme = createTheme({
   fontFamily:
     "Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif",
-  primaryColor: "gray",
+  primaryColor: "blue",
   defaultRadius: "sm",
   headings: {
     fontWeight: "650"
