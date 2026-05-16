@@ -43,6 +43,8 @@ describe("App module boundaries", () => {
     expect(appSource).toMatch(/<SettingsModule/);
     expect(appSource).not.toMatch(/CatalogVideosPanel/);
     expect(appSource).not.toMatch(/ScanRootsPanel/);
+    expect(appSource).not.toMatch(/ScanIssuesPanel/);
+    expect(appSource).not.toMatch(/PreviewGenerationView/);
     expect(appSource).not.toMatch(/TauriStatusPanel/);
     expect(appSource).not.toMatch(/FfmpegStatusPanel/);
     expect(appSource).not.toMatch(/useCatalogVideos/);
