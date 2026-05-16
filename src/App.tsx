@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Badge,
   Box,
@@ -11,60 +11,15 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { open } from "@tauri-apps/plugin-dialog";
-
-import {
+import type {
+  AcceptMetadataSuggestionForVideosRequest,
   CatalogPerformer,
   CatalogTag,
   CatalogVideo,
-  FailedPreviewStrip,
-  FfmpegToolsStatus,
-  MetadataSuggestionGroup,
-  PreviewStripQueueStatus,
-  ScanRoot,
-  ScanRootRemovalPolicy,
-  ScanRootRefreshSummary,
-  UnprocessableVideoCandidate,
-  acceptMetadataSuggestionForVideos,
-  addScanRoot,
-  forgetCatalogVideo,
-  getFfmpegToolsStatus,
-  getLocalDesktopAppStatus,
-  getPreviewStripQueueStatus,
-  ignoreFailedPreviewStrip,
-  listCatalogVideos,
-  listMetadataSuggestionGroups,
-  listPerformers,
-  listFailedPreviewStrips,
-  listScanRoots,
-  listTags,
-  listUnprocessableVideoCandidates,
-  openCatalogVideo,
-  createPerformer,
-  createTag,
-  performersForVideo,
-  pausePreviewStripQueue,
-  processNextPreviewStripQueueItem,
-  removeScanRoot,
-  refreshAllScanRoots,
-  refreshScanRoot,
-  rejectMetadataSuggestionSource,
-  retryFailedPreviewStrip,
-  resumePreviewStripQueue,
-  saveFfmpegConfiguration,
-  setVideoFavorite,
-  tagsForVideo,
-  updateVideoTitle,
-  updateScanRootInferenceRules,
-  attachTagToVideo,
-  detachTagFromVideo,
-  attachPerformerToVideo,
-  detachPerformerFromVideo,
-} from "./tauriCommands";
-import type {
-  AcceptMetadataSuggestionForVideosRequest,
   RejectMetadataSuggestionSourceRequest,
-} from "./tauriCommands";
+} from "./modules/catalog/useCatalogMetadata";
+import { useCatalogMetadata } from "./modules/catalog/useCatalogMetadata";
+import { useCatalogVideos } from "./modules/catalog/useCatalogVideos";
 import { WorkspaceHeader } from "./modules/catalog/WorkspaceHeader";
 import { BatchMetadataEditPanel } from "./modules/catalog/BatchMetadataEditPanel";
 import { CatalogVideosPanel } from "./modules/catalog/CatalogVideosPanel";
@@ -91,24 +46,21 @@ import {
   TauriStatusPanel,
 } from "./modules/settings/SettingsStatusPanels";
 import {
+  commandErrorMessage,
+  ffmpegErrorMessage,
+  useSettingsStatus,
+} from "./modules/settings/useSettingsStatus";
+import { usePreviewGeneration } from "./modules/scan/usePreviewGeneration";
+import { useReviewQueue } from "./modules/scan/useReviewQueue";
+import type { ScanRoot, ScanRootRemovalPolicy } from "./modules/scan/useScanRoots";
+import { useScanRoots } from "./modules/scan/useScanRoots";
+import {
   appendUniqueMetadata,
   findMetadataByName,
   uniqueMetadataValues,
 } from "./shared/metadata/metadataHelpers";
+import { errorMessage } from "./shared/errors/errorMessage";
 
-const loadingStatusMessage = "Checking Rust command...";
-const commandErrorMessage = "Rust command unavailable";
-const ffmpegLoadingMessage = "Checking FFmpeg tools...";
-const ffmpegErrorMessage = "FFmpeg status unavailable";
-const catalogVideosLoadingMessage = "Loading Videos...";
-const catalogVideosErrorMessage = "Videos unavailable";
-const scanRootsLoadingMessage = "Loading Scan Roots...";
-const scanRootsErrorMessage = "Scan Roots unavailable";
-const reviewQueueLoadingMessage = "Loading Review Queue...";
-const reviewQueueErrorMessage = "Review Queue unavailable";
-const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
-const previewStripQueueErrorMessage = "Preview Strip queue unavailable";
-const previewStripQueuePollingIntervalMilliseconds = 250;
 const scanRootsTab = "scanRoots";
 const scanIssuesTab = "scanIssues";
 const previewGenerationTab = "previewGeneration";
@@ -116,57 +68,13 @@ const previewGenerationTab = "previewGeneration";
 const emptyMetadataInputMessage = "Enter a name first.";
 type AppModule = "catalog" | "scan" | "settings";
 
-function normalizeConfiguredPath(value: string) {
-  const trimmedValue = value.trim();
-
-  return trimmedValue.length > 0 ? trimmedValue : null;
-}
-
 export default function App() {
   const [activeAppModule, setActiveAppModule] = useState<AppModule>("catalog");
-  const [localDesktopAppStatus, setLocalDesktopAppStatus] =
-    useState(loadingStatusMessage);
-  const [ffmpegToolsStatus, setFfmpegToolsStatus] =
-    useState<FfmpegToolsStatus | null>(null);
-  const [ffmpegStatusMessage, setFfmpegStatusMessage] =
-    useState(ffmpegLoadingMessage);
-  const [catalogVideos, setCatalogVideos] = useState<CatalogVideo[]>([]);
-  const [catalogVideosStatusMessage, setCatalogVideosStatusMessage] = useState(
-    catalogVideosLoadingMessage,
-  );
-  const [catalogVideoActionStatusMessage, setCatalogVideoActionStatusMessage] =
-    useState("");
-  const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
-  const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
-    scanRootsLoadingMessage,
-  );
-  const [unprocessableVideoCandidates, setUnprocessableVideoCandidates] =
-    useState<UnprocessableVideoCandidate[]>([]);
-  const [failedPreviewStrips, setFailedPreviewStrips] = useState<
-    FailedPreviewStrip[]
-  >([]);
-  const [metadataSuggestionGroups, setMetadataSuggestionGroups] = useState<
-    MetadataSuggestionGroup[]
-  >([]);
-  const [reviewQueueStatusMessage, setReviewQueueStatusMessage] = useState(
-    reviewQueueLoadingMessage,
-  );
-  const [manualScanRootPath, setManualScanRootPath] = useState("");
   const [scanRootPendingRemoval, setScanRootPendingRemoval] =
     useState<ScanRoot | null>(null);
   const [missingVideoPendingForget, setMissingVideoPendingForget] =
     useState<CatalogVideo | null>(null);
-  const [ffmpegPath, setFfmpegPath] = useState("");
-  const [ffprobePath, setFfprobePath] = useState("");
-  const [previewStripStatusMessage, setPreviewStripStatusMessage] =
-    useState("");
-  const [previewStripQueueStatus, setPreviewStripQueueStatus] =
-    useState<PreviewStripQueueStatus | null>(null);
   const [selectedVideo, setSelectedVideo] = useState<CatalogVideo | null>(null);
-  const [availableTags, setAvailableTags] = useState<CatalogTag[]>([]);
-  const [availablePerformers, setAvailablePerformers] = useState<
-    CatalogPerformer[]
-  >([]);
   const [selectedVideoTags, setSelectedVideoTags] = useState<CatalogTag[]>([]);
   const [selectedVideoPerformers, setSelectedVideoPerformers] = useState<
     CatalogPerformer[]
@@ -174,9 +82,6 @@ export default function App() {
   const [batchSelectedVideoIds, setBatchSelectedVideoIds] = useState<number[]>(
     [],
   );
-  const [catalogVideoMetadataById, setCatalogVideoMetadataById] = useState<
-    Record<number, CatalogVideoMetadata>
-  >({});
   const [catalogVideoFilters, setCatalogVideoFilters] =
     useState<CatalogVideoFilters>(defaultCatalogVideoFilters);
   const [catalogVideoSort, setCatalogVideoSort] =
@@ -187,64 +92,95 @@ export default function App() {
   const [scanTab, setScanTab] = useState<string | null>(scanRootsTab);
   const [detailStatusMessage, setDetailStatusMessage] = useState("");
   const selectedVideoRequestId = useRef(0);
-
-  async function loadCatalogVideos() {
-    try {
-      const storedCatalogVideos = await listCatalogVideos();
-
-      setCatalogVideos(storedCatalogVideos);
-      setCatalogVideosStatusMessage("");
-      setCatalogVideoActionStatusMessage("");
-    } catch {
-      setCatalogVideosStatusMessage(catalogVideosErrorMessage);
-    }
-  }
-
-  async function loadPreviewStripQueueStatus() {
-    try {
-      const queueStatus = await getPreviewStripQueueStatus();
-
-      setPreviewStripQueueStatus(queueStatus);
-    } catch {
-      setPreviewStripStatusMessage(previewStripQueueErrorMessage);
-    }
-  }
-
-  async function loadScanRoots(shouldClearStatusMessage = true) {
-    try {
-      const storedScanRoots = await listScanRoots();
-
-      setScanRoots(storedScanRoots);
-      if (shouldClearStatusMessage) {
-        setScanRootsStatusMessage("");
-      }
-    } catch {
-      setScanRootsStatusMessage(scanRootsErrorMessage);
-    }
-  }
-
-  async function loadReviewQueue(shouldClearStatusMessage = true) {
-    try {
-      const [
-        storedUnprocessableVideoCandidates,
-        storedFailedPreviewStrips,
-        storedMetadataSuggestionGroups,
-      ] = await Promise.all([
-        listUnprocessableVideoCandidates(),
-        listFailedPreviewStrips(),
-        listMetadataSuggestionGroups(),
-      ]);
-
-      setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
-      setFailedPreviewStrips(storedFailedPreviewStrips);
-      setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
-      if (shouldClearStatusMessage) {
-        setReviewQueueStatusMessage("");
-      }
-    } catch {
-      setReviewQueueStatusMessage(reviewQueueErrorMessage);
-    }
-  }
+  const {
+    catalogVideoActionStatusMessage,
+    catalogVideos,
+    catalogVideosStatusMessage,
+    forgetMissingVideo,
+    openVideo,
+    refreshCatalogVideos,
+    renameVideo,
+    setCatalogVideoActionStatusMessage,
+    setCatalogVideos,
+    setVideoFavorited,
+  } = useCatalogVideos();
+  const {
+    acceptSuggestedMetadata,
+    attachPerformerToCatalogVideo,
+    attachTagToCatalogVideo,
+    availablePerformers,
+    availableTags,
+    catalogVideoMetadataById,
+    createNamedPerformer,
+    createNamedTag,
+    detachPerformerFromCatalogVideo,
+    detachTagFromCatalogVideo,
+    loadAvailablePerformers,
+    loadAvailableTags,
+    loadVideoPerformers,
+    rejectSuggestedMetadataSource,
+    setAvailablePerformers,
+    setAvailableTags,
+    setCatalogVideoMetadataById,
+    loadVideoTags,
+  } = useCatalogMetadata({ catalogVideos });
+  const previewGeneration = usePreviewGeneration({
+    refreshCatalogVideos,
+    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+  });
+  const reviewQueue = useReviewQueue({
+    refreshCatalogVideos,
+    refreshPreviewStripQueueStatus:
+      previewGeneration.refreshPreviewStripQueueStatus,
+    setPreviewStripQueueStatus: previewGeneration.setPreviewStripQueueStatus,
+  });
+  const scanRootsState = useScanRoots({
+    refreshCatalogVideos,
+    refreshPreviewStripQueueStatus:
+      previewGeneration.refreshPreviewStripQueueStatus,
+    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+  });
+  const settingsStatus = useSettingsStatus({
+    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+  });
+  const {
+    pausePreviewQueue,
+    previewStripQueueStatus,
+    previewStripStatusMessage,
+    resumePreviewQueue,
+  } = previewGeneration;
+  const {
+    failedPreviewStrips,
+    ignoreFailedPreview,
+    metadataSuggestionGroups,
+    refreshReviewQueue,
+    retryFailedPreview,
+    reviewQueueStatusMessage,
+    setReviewQueueStatusMessage,
+    unprocessableVideoCandidates,
+  } = reviewQueue;
+  const {
+    addManualScanRoot,
+    chooseScanRootFolder,
+    manualScanRootPath,
+    refreshEveryScanRoot,
+    refreshSelectedScanRoot,
+    removeSelectedScanRoot,
+    saveScanRootInferenceRules,
+    scanRoots,
+    scanRootsStatusMessage,
+    setManualScanRootPath,
+  } = scanRootsState;
+  const {
+    ffmpegPath,
+    ffmpegStatusMessage,
+    ffmpegToolsStatus,
+    ffprobePath,
+    localDesktopAppStatus,
+    saveConfiguredFfmpegPaths,
+    setFfmpegPath,
+    setFfprobePath,
+  } = settingsStatus;
 
   async function acceptSelectedMetadataSuggestionVideos({
     acceptedMetadataKind,
@@ -256,7 +192,7 @@ export default function App() {
     videoIds,
   }: AcceptMetadataSuggestionForVideosRequest) {
     try {
-      await acceptMetadataSuggestionForVideos({
+      await acceptSuggestedMetadata({
         acceptedMetadataKind,
         acceptedValue,
         scanRootPath,
@@ -265,18 +201,18 @@ export default function App() {
         suggestionKind,
         videoIds,
       });
-      await loadReviewQueue(false);
+      await refreshReviewQueue(false);
       const [storedTags, storedPerformers] = await Promise.all([
-        listTags(),
-        listPerformers(),
+        loadAvailableTags(),
+        loadAvailablePerformers(),
       ]);
       setAvailableTags(storedTags);
       setAvailablePerformers(storedPerformers);
       const metadataEntries = await Promise.all(
         videoIds.map(async (videoId) => {
           const [videoTags, videoPerformers] = await Promise.all([
-            tagsForVideo(videoId),
-            performersForVideo(videoId),
+            loadVideoTags(videoId),
+            loadVideoPerformers(videoId),
           ]);
 
           return [videoId, { tags: videoTags, performers: videoPerformers }] as const;
@@ -311,374 +247,15 @@ export default function App() {
     suggestionKind: RejectMetadataSuggestionSourceRequest["suggestionKind"];
   }) {
     try {
-      await rejectMetadataSuggestionSource({
+      await rejectSuggestedMetadataSource({
         scanRootPath,
         sourcePathSegment,
         suggestedValue,
         suggestionKind,
       });
-      await loadReviewQueue(false);
+      await refreshReviewQueue(false);
     } catch (error) {
       setReviewQueueStatusMessage(errorMessage(error));
-    }
-  }
-
-  useEffect(() => {
-    let canUpdateStatus = true;
-
-    async function loadLocalDesktopAppStatus() {
-      try {
-        const status = await getLocalDesktopAppStatus();
-
-        if (canUpdateStatus) {
-          setLocalDesktopAppStatus(status);
-        }
-      } catch {
-        if (canUpdateStatus) {
-          setLocalDesktopAppStatus(commandErrorMessage);
-        }
-      }
-    }
-
-    void loadLocalDesktopAppStatus();
-
-    return () => {
-      canUpdateStatus = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let canUpdatePreviewStripQueue = true;
-
-    async function loadInitialPreviewStripQueueStatus() {
-      try {
-        const queueStatus = await getPreviewStripQueueStatus();
-
-        if (canUpdatePreviewStripQueue) {
-          setPreviewStripQueueStatus(queueStatus);
-        }
-      } catch {
-        if (canUpdatePreviewStripQueue) {
-          setPreviewStripStatusMessage(previewStripQueueErrorMessage);
-        }
-      }
-    }
-
-    void loadInitialPreviewStripQueueStatus();
-
-    return () => {
-      canUpdatePreviewStripQueue = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let canProcessQueue = true;
-
-    async function processPreviewStripQueue() {
-      if (
-        !previewStripQueueStatus ||
-        previewStripQueueStatus.isPaused ||
-        previewStripQueueStatus.runningCount > 0 ||
-        previewStripQueueStatus.pendingCount === 0
-      ) {
-        return;
-      }
-
-      try {
-        const queueStatus = await processNextPreviewStripQueueItem();
-
-        if (canProcessQueue) {
-          setPreviewStripQueueStatus(queueStatus);
-        }
-      } catch (error) {
-        if (canProcessQueue) {
-          setPreviewStripStatusMessage(errorMessage(error));
-        }
-      }
-    }
-
-    void processPreviewStripQueue();
-
-    return () => {
-      canProcessQueue = false;
-    };
-  }, [previewStripQueueStatus]);
-
-  useEffect(() => {
-    if (
-      !previewStripQueueStatus ||
-      previewStripQueueStatus.runningCount === 0
-    ) {
-      return;
-    }
-
-    let canUpdatePreviewStripQueue = true;
-    const timeoutId = window.setTimeout(async () => {
-      try {
-        const queueStatus = await getPreviewStripQueueStatus();
-
-        if (!canUpdatePreviewStripQueue) {
-          return;
-        }
-
-        setPreviewStripQueueStatus(queueStatus);
-        if (queueStatus.runningCount === 0) {
-          await loadCatalogVideos();
-          await loadReviewQueue(false);
-        }
-      } catch (error) {
-        if (canUpdatePreviewStripQueue) {
-          setPreviewStripStatusMessage(errorMessage(error));
-        }
-      }
-    }, previewStripQueuePollingIntervalMilliseconds);
-
-    return () => {
-      canUpdatePreviewStripQueue = false;
-      window.clearTimeout(timeoutId);
-    };
-  }, [previewStripQueueStatus]);
-
-  useEffect(() => {
-    let canUpdateReviewQueue = true;
-
-    async function loadInitialReviewQueue() {
-      try {
-        const [
-          storedUnprocessableVideoCandidates,
-          storedFailedPreviewStrips,
-          storedMetadataSuggestionGroups,
-        ] = await Promise.all([
-          listUnprocessableVideoCandidates(),
-          listFailedPreviewStrips(),
-          listMetadataSuggestionGroups(),
-        ]);
-
-        if (canUpdateReviewQueue) {
-          setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
-          setFailedPreviewStrips(storedFailedPreviewStrips);
-          setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
-          setReviewQueueStatusMessage("");
-        }
-      } catch {
-        if (canUpdateReviewQueue) {
-          setReviewQueueStatusMessage(reviewQueueErrorMessage);
-        }
-      }
-    }
-
-    void loadInitialReviewQueue();
-
-    return () => {
-      canUpdateReviewQueue = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let canUpdateCatalogVideos = true;
-
-    async function loadInitialCatalogVideos() {
-      try {
-        const storedCatalogVideos = await listCatalogVideos();
-
-        if (canUpdateCatalogVideos) {
-          setCatalogVideos(storedCatalogVideos);
-          setCatalogVideosStatusMessage("");
-        }
-      } catch {
-        if (canUpdateCatalogVideos) {
-          setCatalogVideosStatusMessage(catalogVideosErrorMessage);
-        }
-      }
-    }
-
-    void loadInitialCatalogVideos();
-
-    return () => {
-      canUpdateCatalogVideos = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let canUpdateStatus = true;
-
-    async function loadFfmpegToolsStatus() {
-      try {
-        const status = await getFfmpegToolsStatus();
-
-        if (canUpdateStatus) {
-          setFfmpegToolsStatus(status);
-          setFfmpegPath(status.configuration.ffmpegPath ?? "");
-          setFfprobePath(status.configuration.ffprobePath ?? "");
-          setFfmpegStatusMessage("");
-        }
-      } catch {
-        if (canUpdateStatus) {
-          setFfmpegStatusMessage(ffmpegErrorMessage);
-        }
-      }
-    }
-
-    void loadFfmpegToolsStatus();
-
-    return () => {
-      canUpdateStatus = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let canUpdateScanRoots = true;
-
-    async function loadScanRoots() {
-      try {
-        const storedScanRoots = await listScanRoots();
-
-        if (canUpdateScanRoots) {
-          setScanRoots(storedScanRoots);
-          setScanRootsStatusMessage("");
-        }
-      } catch {
-        if (canUpdateScanRoots) {
-          setScanRootsStatusMessage(scanRootsErrorMessage);
-        }
-      }
-    }
-
-    void loadScanRoots();
-
-    return () => {
-      canUpdateScanRoots = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let canUpdateMetadata = true;
-
-    async function loadMetadata() {
-      try {
-        const [storedTags, storedPerformers] = await Promise.all([
-          listTags(),
-          listPerformers(),
-        ]);
-
-        if (canUpdateMetadata) {
-          setAvailableTags(storedTags);
-          setAvailablePerformers(storedPerformers);
-        }
-      } catch {
-        if (canUpdateMetadata) {
-          setAvailableTags([]);
-          setAvailablePerformers([]);
-        }
-      }
-    }
-
-    void loadMetadata();
-
-    return () => {
-      canUpdateMetadata = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    let canUpdateCatalogVideoMetadata = true;
-
-    async function loadCatalogVideoMetadata() {
-      const metadataEntries = await Promise.all(
-        catalogVideos.map(async (catalogVideo) => {
-          const [videoTags, videoPerformers] = await Promise.all([
-            tagsForVideo(catalogVideo.id),
-            performersForVideo(catalogVideo.id),
-          ]);
-
-          return [
-            catalogVideo.id,
-            { tags: videoTags, performers: videoPerformers },
-          ] as const;
-        }),
-      );
-
-      if (canUpdateCatalogVideoMetadata) {
-        setCatalogVideoMetadataById(Object.fromEntries(metadataEntries));
-      }
-    }
-
-    if (catalogVideos.length === 0) {
-      setCatalogVideoMetadataById({});
-      return () => {
-        canUpdateCatalogVideoMetadata = false;
-      };
-    }
-
-    void loadCatalogVideoMetadata();
-
-    return () => {
-      canUpdateCatalogVideoMetadata = false;
-    };
-  }, [catalogVideos]);
-
-  async function saveConfiguredFfmpegPaths(event: React.FormEvent) {
-    event.preventDefault();
-
-    try {
-      const status = await saveFfmpegConfiguration({
-        ffmpegPath: normalizeConfiguredPath(ffmpegPath),
-        ffprobePath: normalizeConfiguredPath(ffprobePath),
-      });
-
-      setFfmpegToolsStatus(status);
-      setFfmpegPath(status.configuration.ffmpegPath ?? "");
-      setFfprobePath(status.configuration.ffprobePath ?? "");
-      setFfmpegStatusMessage("");
-      await loadReviewQueue(false);
-    } catch {
-      setFfmpegStatusMessage(ffmpegErrorMessage);
-    }
-  }
-
-  async function chooseScanRootFolder() {
-    try {
-      const selectedFolder = await open({
-        directory: true,
-        multiple: false,
-      });
-
-      if (typeof selectedFolder === "string") {
-        await persistScanRoot(selectedFolder);
-      }
-    } catch (error) {
-      setScanRootsStatusMessage(errorMessage(error));
-    }
-  }
-
-  async function addManualScanRoot(event: React.FormEvent) {
-    event.preventDefault();
-    await persistScanRoot(manualScanRootPath);
-  }
-
-  async function persistScanRoot(path: string) {
-    const scanRootPath = path.trim();
-
-    if (!scanRootPath) {
-      return;
-    }
-
-    try {
-      const scanRoot = await addScanRoot(scanRootPath);
-      const refreshSummary = await refreshScanRoot(scanRoot.path);
-
-      setScanRoots((currentScanRoots) =>
-        [...currentScanRoots, scanRoot].sort((left, right) =>
-          left.path.localeCompare(right.path),
-        ),
-      );
-      setManualScanRootPath("");
-      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
-      await loadCatalogVideos();
-      await loadReviewQueue(false);
-      await loadPreviewStripQueueStatus();
-    } catch (error) {
-      setScanRootsStatusMessage(errorMessage(error));
     }
   }
 
@@ -689,19 +266,13 @@ export default function App() {
 
     const removedScanRoot = scanRootPendingRemoval;
 
-    try {
-      await removeScanRoot(removedScanRoot.path, removalPolicy);
-      setScanRoots((currentScanRoots) =>
-        currentScanRoots.filter(
-          (scanRoot) => scanRoot.path !== removedScanRoot.path,
-        ),
-      );
+    const wasRemoved = await removeSelectedScanRoot(
+      removedScanRoot,
+      removalPolicy,
+    );
+
+    if (wasRemoved) {
       setScanRootPendingRemoval(null);
-      setScanRootsStatusMessage("");
-      await loadCatalogVideos();
-      await loadReviewQueue(false);
-    } catch (error) {
-      setScanRootsStatusMessage(errorMessage(error));
     }
   }
 
@@ -711,104 +282,12 @@ export default function App() {
     }
 
     try {
-      await forgetCatalogVideo(missingVideoPendingForget.id);
+      await forgetMissingVideo(missingVideoPendingForget.id);
       setMissingVideoPendingForget(null);
       setReviewQueueStatusMessage("");
-      await loadCatalogVideos();
+      await refreshCatalogVideos();
     } catch (error) {
       setReviewQueueStatusMessage(errorMessage(error));
-    }
-  }
-
-  async function retryFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
-    try {
-      const queueStatus = await retryFailedPreviewStrip(
-        failedPreviewStrip.videoId,
-      );
-
-      setPreviewStripQueueStatus(queueStatus);
-      setReviewQueueStatusMessage("");
-      await loadCatalogVideos();
-      await loadReviewQueue(false);
-      await loadPreviewStripQueueStatus();
-    } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
-    }
-  }
-
-  async function ignoreFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
-    try {
-      const queueStatus = await ignoreFailedPreviewStrip(
-        failedPreviewStrip.videoId,
-      );
-
-      setPreviewStripQueueStatus(queueStatus);
-      setReviewQueueStatusMessage("");
-      await loadReviewQueue(false);
-    } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
-    }
-  }
-
-  async function refreshSelectedScanRoot(scanRoot: ScanRoot) {
-    try {
-      setScanRootsStatusMessage(scanRootRefreshStartedMessage);
-      const refreshSummary = await refreshScanRoot(scanRoot.path);
-
-      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
-      await loadScanRoots(false);
-      await loadCatalogVideos();
-      await loadReviewQueue(false);
-      await loadPreviewStripQueueStatus();
-    } catch (error) {
-      setScanRootsStatusMessage(errorMessage(error));
-    }
-  }
-
-  async function saveScanRootInferenceRules(
-    scanRoot: ScanRoot,
-    inferenceRules: ScanRoot["inferenceRules"],
-  ) {
-    try {
-      const updatedScanRoot = await updateScanRootInferenceRules(
-        scanRoot.path,
-        inferenceRules,
-      );
-      setScanRoots((currentScanRoots) =>
-        currentScanRoots.map((currentScanRoot) =>
-          currentScanRoot.path === updatedScanRoot.path
-            ? updatedScanRoot
-            : currentScanRoot,
-        ),
-      );
-    } catch {
-      setScanRootsStatusMessage(scanRootsErrorMessage);
-    }
-  }
-
-  async function refreshEveryScanRoot() {
-    try {
-      setScanRootsStatusMessage(scanRootRefreshStartedMessage);
-      const refreshSummary = await refreshAllScanRoots();
-
-      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
-      await loadScanRoots(false);
-      await loadCatalogVideos();
-      await loadReviewQueue(false);
-      await loadPreviewStripQueueStatus();
-    } catch (error) {
-      setScanRootsStatusMessage(errorMessage(error));
-    }
-  }
-
-  async function pausePreviewQueue() {
-    try {
-      const queueStatus = await pausePreviewStripQueue();
-
-      setPreviewStripQueueStatus(queueStatus);
-      setPreviewStripStatusMessage("");
-    } catch (error) {
-      setPreviewStripStatusMessage(errorMessage(error));
     }
   }
 
@@ -821,10 +300,10 @@ export default function App() {
     try {
       const [storedTags, storedPerformers, videoTags, videoPerformers] =
         await Promise.all([
-          listTags(),
-          listPerformers(),
-          tagsForVideo(catalogVideo.id),
-          performersForVideo(catalogVideo.id),
+          loadAvailableTags(),
+          loadAvailablePerformers(),
+          loadVideoTags(catalogVideo.id),
+          loadVideoPerformers(catalogVideo.id),
         ]);
 
       if (selectedVideoRequestId.current === requestId) {
@@ -886,7 +365,7 @@ export default function App() {
     }
 
     try {
-      await updateVideoTitle(selectedVideo.id, title);
+      await renameVideo(selectedVideo.id, title);
       const updatedVideo = { ...selectedVideo, title };
       setSelectedVideo(updatedVideo);
       setCatalogVideos((currentVideos) =>
@@ -913,7 +392,7 @@ export default function App() {
     isFavorite: boolean,
   ) {
     try {
-      await setVideoFavorite(video.id, isFavorite);
+      await setVideoFavorited(video.id, isFavorite);
       setSelectedVideo((currentSelectedVideo) =>
         currentSelectedVideo?.id === video.id
           ? { ...currentSelectedVideo, isFavorite }
@@ -936,8 +415,8 @@ export default function App() {
 
   async function openVideoFromCatalog(video: CatalogVideo) {
     try {
-      await openCatalogVideo(video.id);
-      await loadCatalogVideos();
+      await openVideo(video.id);
+      await refreshCatalogVideos();
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -962,7 +441,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          attachTagToVideo(tag.id, videoId),
+          attachTagToCatalogVideo(tag.id, videoId),
         ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
@@ -989,11 +468,11 @@ export default function App() {
 
     try {
       const existingTag = findMetadataByName(availableTags, trimmedTagName);
-      const tag = existingTag ?? (await createTag(trimmedTagName));
+      const tag = existingTag ?? (await createNamedTag(trimmedTagName));
 
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          attachTagToVideo(tag.id, videoId),
+          attachTagToCatalogVideo(tag.id, videoId),
         ),
       );
       setAvailableTags((currentTags) => appendUniqueMetadata(currentTags, tag));
@@ -1015,7 +494,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          detachTagFromVideo(tag.id, videoId),
+          detachTagFromCatalogVideo(tag.id, videoId),
         ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
@@ -1026,7 +505,7 @@ export default function App() {
           currentTags.filter((currentTag) => currentTag.id !== tag.id),
         );
       }
-      setAvailableTags(await listTags());
+      setAvailableTags(await loadAvailableTags());
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -1039,7 +518,7 @@ export default function App() {
     }
 
     try {
-      await attachTagToVideo(tag.id, selectedVideo.id);
+      await attachTagToCatalogVideo(tag.id, selectedVideo.id);
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
       );
@@ -1064,9 +543,9 @@ export default function App() {
 
     try {
       const existingTag = findMetadataByName(availableTags, trimmedTagName);
-      const tag = existingTag ?? (await createTag(trimmedTagName));
+      const tag = existingTag ?? (await createNamedTag(trimmedTagName));
 
-      await attachTagToVideo(tag.id, selectedVideo.id);
+      await attachTagToCatalogVideo(tag.id, selectedVideo.id);
       setAvailableTags((currentTags) => appendUniqueMetadata(currentTags, tag));
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
@@ -1084,12 +563,12 @@ export default function App() {
     }
 
     try {
-      await detachTagFromVideo(tag.id, selectedVideo.id);
+      await detachTagFromCatalogVideo(tag.id, selectedVideo.id);
       setSelectedVideoTags((currentTags) =>
         currentTags.filter((currentTag) => currentTag.id !== tag.id),
       );
       removeTagFromCatalogVideoMetadata(selectedVideo.id, tag);
-      setAvailableTags(await listTags());
+      setAvailableTags(await loadAvailableTags());
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -1102,7 +581,7 @@ export default function App() {
     }
 
     try {
-      await attachPerformerToVideo(performer.id, selectedVideo.id);
+      await attachPerformerToCatalogVideo(performer.id, selectedVideo.id);
       setSelectedVideoPerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
@@ -1131,9 +610,9 @@ export default function App() {
         trimmedPerformerName,
       );
       const performer =
-        existingPerformer ?? (await createPerformer(trimmedPerformerName));
+        existingPerformer ?? (await createNamedPerformer(trimmedPerformerName));
 
-      await attachPerformerToVideo(performer.id, selectedVideo.id);
+      await attachPerformerToCatalogVideo(performer.id, selectedVideo.id);
       setAvailablePerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
@@ -1153,14 +632,14 @@ export default function App() {
     }
 
     try {
-      await detachPerformerFromVideo(performer.id, selectedVideo.id);
+      await detachPerformerFromCatalogVideo(performer.id, selectedVideo.id);
       setSelectedVideoPerformers((currentPerformers) =>
         currentPerformers.filter(
           (currentPerformer) => currentPerformer.id !== performer.id,
         ),
       );
       removePerformerFromCatalogVideoMetadata(selectedVideo.id, performer);
-      setAvailablePerformers(await listPerformers());
+      setAvailablePerformers(await loadAvailablePerformers());
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -1173,7 +652,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          attachPerformerToVideo(performer.id, videoId),
+          attachPerformerToCatalogVideo(performer.id, videoId),
         ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
@@ -1206,11 +685,11 @@ export default function App() {
         trimmedPerformerName,
       );
       const performer =
-        existingPerformer ?? (await createPerformer(trimmedPerformerName));
+        existingPerformer ?? (await createNamedPerformer(trimmedPerformerName));
 
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          attachPerformerToVideo(performer.id, videoId),
+          attachPerformerToCatalogVideo(performer.id, videoId),
         ),
       );
       setAvailablePerformers((currentPerformers) =>
@@ -1236,7 +715,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          detachPerformerFromVideo(performer.id, videoId),
+          detachPerformerFromCatalogVideo(performer.id, videoId),
         ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
@@ -1249,7 +728,7 @@ export default function App() {
           ),
         );
       }
-      setAvailablePerformers(await listPerformers());
+      setAvailablePerformers(await loadAvailablePerformers());
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -1260,7 +739,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          setVideoFavorite(videoId, isFavorite),
+          setVideoFavorited(videoId, isFavorite),
         ),
       );
       setCatalogVideos((currentVideos) =>
@@ -1281,17 +760,6 @@ export default function App() {
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
       setDetailStatusMessage(errorMessage(error));
-    }
-  }
-
-  async function resumePreviewQueue() {
-    try {
-      const queueStatus = await resumePreviewStripQueue();
-
-      setPreviewStripQueueStatus(queueStatus);
-      setPreviewStripStatusMessage("");
-    } catch (error) {
-      setPreviewStripStatusMessage(errorMessage(error));
     }
   }
 
@@ -1745,17 +1213,4 @@ export default function App() {
       ) : null}
     </Box>
   );
-}
-
-
-function errorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  return String(error);
-}
-
-function scanRootRefreshSummaryMessage(refreshSummary: ScanRootRefreshSummary) {
-  return `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`;
 }

@@ -2437,6 +2437,31 @@ describe("Videos View shell", () => {
     );
   });
 
+  it("keeps the Scan Root removal confirmation open when removal fails", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+    ]);
+    mockedRemoveScanRoot.mockRejectedValue(new Error("Cannot remove root"));
+
+    renderApp();
+
+    await openScanModule();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preserve as Missing Videos" }),
+    );
+
+    expect(await screen.findByText("Cannot remove root")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Remove Scan Root" }),
+    ).toBeInTheDocument();
+  });
+
   it("refreshes a selected Scan Root and shows the Catalog summary", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
