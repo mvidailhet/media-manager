@@ -4,6 +4,7 @@ import appSource from "./App.tsx?raw";
 import catalogModuleSource from "./modules/catalog/CatalogModule.tsx?raw";
 import catalogControllerSource from "./modules/catalog/useCatalogModuleController.ts?raw";
 import previewGenerationHookSource from "./modules/scan/usePreviewGeneration.ts?raw";
+import scanControllerSource from "./modules/scan/useScanModuleController.ts?raw";
 import scanModuleSource from "./modules/scan/ScanModule.tsx?raw";
 import settingsModuleSource from "./modules/settings/SettingsModule.tsx?raw";
 import settingsControllerSource from "./modules/settings/useSettingsModuleController.ts?raw";
@@ -15,8 +16,12 @@ describe("App module boundaries", () => {
     expect(appSource).not.toMatch(/useCatalogMetadata/);
     expect(catalogControllerSource).toMatch(/useCatalogVideos/);
     expect(catalogControllerSource).toMatch(/useCatalogMetadata/);
-    expect(appSource).toMatch(/useScanRoots/);
-    expect(appSource).toMatch(/usePreviewGeneration/);
+    expect(appSource).not.toMatch(/useScanRoots/);
+    expect(appSource).not.toMatch(/useScanIssues/);
+    expect(appSource).not.toMatch(/usePreviewGeneration/);
+    expect(scanControllerSource).toMatch(/useScanRoots/);
+    expect(scanControllerSource).toMatch(/useScanIssues/);
+    expect(scanControllerSource).toMatch(/usePreviewGeneration/);
     expect(appSource).not.toMatch(/useSettingsStatus/);
     expect(settingsControllerSource).toMatch(/useSettingsStatus/);
     expect(appSource).not.toMatch(/attachTagToVideo/);
@@ -44,6 +49,7 @@ describe("App module boundaries", () => {
     expect(appSource).not.toMatch(/useCatalogMetadata/);
     expect(appSource).not.toMatch(/from "\.\/modules\/settings\/useSettingsStatus"/);
     expect(appSource).toMatch(/useSettingsModuleController/);
+    expect(appSource).toMatch(/useScanModuleController/);
 
     expect(catalogModuleSource).toMatch(/CatalogVideosPanel/);
     expect(catalogControllerSource).toMatch(/useCatalogVideos/);

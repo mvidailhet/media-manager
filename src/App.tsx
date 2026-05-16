@@ -19,13 +19,14 @@ import {
 import { CatalogModule } from "./modules/catalog/CatalogModule";
 import type { CatalogVideo } from "./modules/catalog/useCatalogModuleController";
 import { useCatalogModuleController } from "./modules/catalog/useCatalogModuleController";
-import { ScanModule, scanRootsTab } from "./modules/scan/ScanModule";
+import { ScanModule } from "./modules/scan/ScanModule";
+import type {
+  ScanRoot,
+  ScanRootRemovalPolicy,
+} from "./modules/scan/useScanModuleController";
+import { useScanModuleController } from "./modules/scan/useScanModuleController";
 import { SettingsModule } from "./modules/settings/SettingsModule";
 import { useSettingsModuleController } from "./modules/settings/useSettingsModuleController";
-import { usePreviewGeneration } from "./modules/scan/usePreviewGeneration";
-import { useScanIssues } from "./modules/scan/useScanIssues";
-import type { ScanRoot, ScanRootRemovalPolicy } from "./modules/scan/useScanRoots";
-import { useScanRoots } from "./modules/scan/useScanRoots";
 import { errorMessage } from "./shared/errors/errorMessage";
 
 const navigationIconSize = 20;
@@ -38,12 +39,11 @@ export default function App() {
     useState<ScanRoot | null>(null);
   const [missingVideoPendingForget, setMissingVideoPendingForget] =
     useState<CatalogVideo | null>(null);
-  const [scanTab, setScanTab] = useState<string | null>(scanRootsTab);
   const catalog = useCatalogModuleController({
     refreshScanIssues: async (shouldClearStatusMessage) =>
-      scanIssues.refreshScanIssues(shouldClearStatusMessage),
+      scan.refreshScanIssues(shouldClearStatusMessage),
     setScanIssuesStatusMessage: (message) =>
-      scanIssues.setScanIssuesStatusMessage(message),
+      scan.setScanIssuesStatusMessage(message),
   });
   const {
     catalogModuleProps,
@@ -52,52 +52,18 @@ export default function App() {
     missingVideos,
     refreshCatalogVideos,
   } = catalog;
-  const previewGeneration = usePreviewGeneration({
+  const scan = useScanModuleController({
+    catalogVideos,
+    missingVideos,
+    onRequestMissingVideoForget: setMissingVideoPendingForget,
+    onRequestScanRootRemoval: setScanRootPendingRemoval,
     refreshCatalogVideos,
-    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
-  });
-  const scanIssues = useScanIssues({
-    refreshCatalogVideos,
-    refreshPreviewStripQueueStatus:
-      previewGeneration.refreshPreviewStripQueueStatus,
-    setPreviewStripQueueStatus: previewGeneration.setPreviewStripQueueStatus,
-  });
-  const scanRootsState = useScanRoots({
-    refreshCatalogVideos,
-    refreshPreviewStripQueueStatus:
-      previewGeneration.refreshPreviewStripQueueStatus,
-    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
   const settings = useSettingsModuleController({
-    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
+    refreshScanIssues: async () => scan.refreshScanIssues(false),
   });
-  const {
-    pausePreviewStripQueueAction,
-    previewStripQueueStatus,
-    resumePreviewStripQueueAction,
-  } = previewGeneration;
-  const {
-    failedPreviewStrips,
-    ignoreFailedPreview,
-    metadataSuggestionGroups,
-    refreshScanIssues,
-    retryFailedPreview,
-    scanIssuesStatusMessage,
-    setScanIssuesStatusMessage,
-    unprocessableVideoCandidates,
-  } = scanIssues;
-  const {
-    addManualScanRoot,
-    chooseScanRootFolder,
-    manualScanRootPath,
-    refreshEveryScanRoot,
-    refreshSelectedScanRoot,
-    removeSelectedScanRoot,
-    saveScanRootInferenceRules,
-    scanRoots,
-    scanRootsStatusMessage,
-    setManualScanRootPath,
-  } = scanRootsState;
+  const { metadataSuggestionGroups, scanAttentionCount, scanModuleProps } =
+    scan;
   const { settingsAttentionCount, settingsModuleProps } = settings;
 
   async function confirmScanRootRemoval(removalPolicy: ScanRootRemovalPolicy) {
@@ -107,7 +73,7 @@ export default function App() {
 
     const removedScanRoot = scanRootPendingRemoval;
 
-    const wasRemoved = await removeSelectedScanRoot(
+    const wasRemoved = await scan.removeSelectedScanRoot(
       removedScanRoot,
       removalPolicy,
     );
@@ -125,30 +91,12 @@ export default function App() {
     try {
       await forgetMissingVideo(missingVideoPendingForget.id);
       setMissingVideoPendingForget(null);
-      setScanIssuesStatusMessage("");
+      scan.setScanIssuesStatusMessage("");
       await refreshCatalogVideos();
     } catch (error) {
-      setScanIssuesStatusMessage(errorMessage(error));
+      scan.setScanIssuesStatusMessage(errorMessage(error));
     }
   }
-
-  const unavailableScanRoots = scanRoots.filter(
-    (scanRoot) => !scanRoot.isAvailable,
-  );
-  const scanIssuesAttentionCount =
-    missingVideos.length +
-    unavailableScanRoots.length +
-    unprocessableVideoCandidates.length;
-  const previewGenerationAttentionCount = failedPreviewStrips.length;
-  const scanAttentionCount =
-    scanIssuesAttentionCount + previewGenerationAttentionCount;
-  const generatedPreviewStripCount = catalogVideos.filter(
-    (catalogVideo) => catalogVideo.previewStrip.status === "generated",
-  ).length;
-  const generatingPreviewStripVideo = catalogVideos.find(
-    (catalogVideo) =>
-      catalogVideo.id === previewStripQueueStatus?.runningVideoId,
-  );
 
   return (
     <Box component="main" className="app-shell">
@@ -218,35 +166,7 @@ export default function App() {
         />
       ) : null}
       {activeAppModule === "scan" ? (
-        <ScanModule
-          failedPreviewStrips={failedPreviewStrips}
-          generatedPreviewStripCount={generatedPreviewStripCount}
-          generatingPreviewStripTitle={generatingPreviewStripVideo?.title}
-          manualScanRootPath={manualScanRootPath}
-          missingVideos={missingVideos}
-          onAddManualScanRoot={addManualScanRoot}
-          onChooseScanRootFolder={chooseScanRootFolder}
-          onIgnoreFailedPreview={ignoreFailedPreview}
-          onManualScanRootPathChange={setManualScanRootPath}
-          onPausePreviewStripQueue={pausePreviewStripQueueAction}
-          onRefreshEveryScanRoot={refreshEveryScanRoot}
-          onRefreshSelectedScanRoot={refreshSelectedScanRoot}
-          onRequestMissingVideoForget={setMissingVideoPendingForget}
-          onRequestScanRootRemoval={setScanRootPendingRemoval}
-          onResumePreviewStripQueue={resumePreviewStripQueueAction}
-          onRetryFailedPreview={retryFailedPreview}
-          onSaveScanRootInferenceRules={saveScanRootInferenceRules}
-          onScanTabChange={setScanTab}
-          previewGenerationAttentionCount={previewGenerationAttentionCount}
-          previewStripQueueStatus={previewStripQueueStatus}
-          scanIssuesAttentionCount={scanIssuesAttentionCount}
-          scanIssuesStatusMessage={scanIssuesStatusMessage}
-          scanRoots={scanRoots}
-          scanRootsStatusMessage={scanRootsStatusMessage}
-          scanTab={scanTab}
-          unavailableScanRoots={unavailableScanRoots}
-          unprocessableVideoCandidates={unprocessableVideoCandidates}
-        />
+        <ScanModule {...scanModuleProps} />
       ) : null}
 
       {scanRootPendingRemoval ? (

@@ -11,7 +11,7 @@ import { ScanIssuesPanel } from "./ScanIssuesPanel";
 import { ScanRootsPanel } from "./ScanRootsPanel";
 import type { ScanRoot } from "./useScanRoots";
 
-type ScanModuleProps = {
+export type ScanModuleProps = {
   failedPreviewStrips: FailedPreviewStrip[];
   generatedPreviewStripCount: number;
   generatingPreviewStripTitle?: string;
