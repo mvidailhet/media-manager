@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import { Box, Button, Code, Divider, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 
 import type { CatalogVideo, FailedPreviewStrip, ScanRoot, UnprocessableVideoCandidate } from "../../tauriCommands";
@@ -7,14 +6,12 @@ import { SectionHeader } from "../../shared/components/SectionHeader";
 import { formatDuration, formatFileSize } from "../../shared/formatting/videoFormatting";
 
 export function ScanIssuesPanel({
-  metadataSuggestionsPanel,
   missingVideos,
   onRequestMissingVideoForget,
   scanIssuesStatusMessage,
   unavailableScanRoots,
   unprocessableVideoCandidates,
 }: {
-  metadataSuggestionsPanel: ReactNode;
   missingVideos: CatalogVideo[];
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   scanIssuesStatusMessage: string;
@@ -41,7 +38,6 @@ export function ScanIssuesPanel({
           <UnprocessableCandidatesPanel
             unprocessableVideoCandidates={unprocessableVideoCandidates}
           />
-          {metadataSuggestionsPanel}
         </SimpleGrid>
       </Stack>
     </Paper>

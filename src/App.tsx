@@ -1133,7 +1133,6 @@ export default function App() {
 
           <Tabs.Panel value={scanIssuesTab}>
             <ScanIssuesPanel
-              metadataSuggestionsPanel={null}
               missingVideos={missingVideos}
               scanIssuesStatusMessage={scanIssuesStatusMessage}
               unavailableScanRoots={unavailableScanRoots}
