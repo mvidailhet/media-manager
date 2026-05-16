@@ -1,6 +1,7 @@
 import { useState } from "react";
 import {
   ActionIcon,
+  AppShell,
   Box,
   Button,
   Code,
@@ -17,6 +18,7 @@ import {
   IconSettings,
 } from "@tabler/icons-react";
 import { CatalogModule } from "./modules/catalog/CatalogModule";
+import { VideoDetailPanel } from "./modules/catalog/VideoDetailPanel";
 import type { CatalogVideo } from "./modules/catalog/useCatalogModuleController";
 import { useCatalogModuleController } from "./modules/catalog/useCatalogModuleController";
 import { ScanModule } from "./modules/scan/ScanModule";
@@ -30,6 +32,7 @@ import { useSettingsModuleController } from "./modules/settings/useSettingsModul
 import { errorMessage } from "./shared/errors/errorMessage";
 
 const navigationIconSize = 20;
+const videoDetailAsideWidth = 380;
 
 type AppModule = "catalog" | "scan" | "settings";
 
@@ -65,6 +68,8 @@ export default function App() {
   const { metadataSuggestionGroups, scanAttentionCount, scanModuleProps } =
     scan;
   const { settingsAttentionCount, settingsModuleProps } = settings;
+  const isVideoDetailAsideVisible =
+    activeAppModule === "catalog" && catalogModuleProps.selectedVideo !== null;
 
   async function confirmScanRootRemoval(removalPolicy: ScanRootRemovalPolicy) {
     if (!scanRootPendingRemoval) {
@@ -99,152 +104,190 @@ export default function App() {
   }
 
   return (
-    <Box component="main" className="app-shell">
-      <Group
-        component="nav"
-        aria-label="Module navigation"
-        className="module-navigation"
-        gap="xs"
-      >
-        <Box className="module-navigation-start">
-          {activeAppModule !== "catalog" ? (
-            <Button
-              type="button"
-              variant="subtle"
-              leftSection={<IconArrowLeft size={navigationIconSize} />}
-              onClick={() => setActiveAppModule("catalog")}
-            >
-              Back to Catalog
-            </Button>
-          ) : null}
-        </Box>
-        <Group gap="xs">
-          <Indicator
-            disabled={scanAttentionCount === 0}
-            label={scanAttentionCount}
-            size={16}
-            color="red"
-          >
-            <ActionIcon
-              type="button"
-              size="lg"
-              variant={activeAppModule === "scan" ? "filled" : "default"}
-              aria-label={
-                scanAttentionCount > 0 ? `Scan ${scanAttentionCount}` : "Scan"
-              }
-              onClick={() => setActiveAppModule("scan")}
-            >
-              <IconFolderSearch size={navigationIconSize} />
-            </ActionIcon>
-          </Indicator>
-          <Indicator
-            disabled={settingsAttentionCount === 0}
-            label={settingsAttentionCount}
-            size={16}
-            color="red"
-          >
-            <ActionIcon
-              type="button"
-              size="lg"
-              variant={activeAppModule === "settings" ? "filled" : "default"}
-              aria-label={
-                settingsAttentionCount > 0
-                  ? `Settings ${settingsAttentionCount}`
-                  : "Settings"
-              }
-              onClick={() => setActiveAppModule("settings")}
-            >
-              <IconSettings size={navigationIconSize} />
-            </ActionIcon>
-          </Indicator>
-        </Group>
-      </Group>
-      {activeAppModule === "catalog" ? (
-        <CatalogModule
-          {...catalogModuleProps}
-          metadataSuggestionGroups={metadataSuggestionGroups}
-        />
-      ) : null}
-      {activeAppModule === "scan" ? (
-        <ScanModule {...scanModuleProps} />
-      ) : null}
-
-      {scanRootPendingRemoval ? (
-        <Paper
-          component="section"
-          aria-label="Remove Scan Root confirmation"
-          p="md"
-          maw={760}
+    <AppShell
+      aside={{
+        width: videoDetailAsideWidth,
+        breakpoint: "md",
+        collapsed: {
+          mobile: !isVideoDetailAsideVisible,
+          desktop: !isVideoDetailAsideVisible,
+        },
+      }}
+      padding="md"
+    >
+      <AppShell.Main className="app-main-content">
+        <Group
+          component="nav"
+          aria-label="Module navigation"
+          className="module-navigation"
+          gap="xs"
         >
-          <Stack gap="sm">
-            <Title order={2} size="h3">
-              Remove Scan Root
-            </Title>
-            <Code className="wrapping-code">{scanRootPendingRemoval.path}</Code>
-            <Group gap="xs">
+          <Box className="module-navigation-start">
+            {activeAppModule !== "catalog" ? (
               <Button
                 type="button"
-                onClick={() =>
-                  void confirmScanRootRemoval("preserveMissingVideos")
+                variant="subtle"
+                leftSection={<IconArrowLeft size={navigationIconSize} />}
+                onClick={() => setActiveAppModule("catalog")}
+              >
+                Back to Catalog
+              </Button>
+            ) : null}
+          </Box>
+          <Group gap="xs">
+            <Indicator
+              disabled={scanAttentionCount === 0}
+              label={scanAttentionCount}
+              size={16}
+              color="red"
+            >
+              <ActionIcon
+                type="button"
+                size="lg"
+                variant={activeAppModule === "scan" ? "filled" : "default"}
+                aria-label={
+                  scanAttentionCount > 0
+                    ? `Scan ${scanAttentionCount}`
+                    : "Scan"
                 }
+                onClick={() => setActiveAppModule("scan")}
               >
-                Preserve as Missing Videos
-              </Button>
-              <Button
+                <IconFolderSearch size={navigationIconSize} />
+              </ActionIcon>
+            </Indicator>
+            <Indicator
+              disabled={settingsAttentionCount === 0}
+              label={settingsAttentionCount}
+              size={16}
+              color="red"
+            >
+              <ActionIcon
                 type="button"
-                variant="light"
-                color="red"
-                onClick={() => void confirmScanRootRemoval("forgetFromCatalog")}
+                size="lg"
+                variant={activeAppModule === "settings" ? "filled" : "default"}
+                aria-label={
+                  settingsAttentionCount > 0
+                    ? `Settings ${settingsAttentionCount}`
+                    : "Settings"
+                }
+                onClick={() => setActiveAppModule("settings")}
               >
-                Forget From Catalog
-              </Button>
-              <Button
-                type="button"
-                variant="default"
-                onClick={() => setScanRootPendingRemoval(null)}
-              >
-                Cancel
-              </Button>
-            </Group>
-          </Stack>
-        </Paper>
-      ) : null}
+                <IconSettings size={navigationIconSize} />
+              </ActionIcon>
+            </Indicator>
+          </Group>
+        </Group>
+        {activeAppModule === "catalog" ? (
+          <CatalogModule
+            {...catalogModuleProps}
+            metadataSuggestionGroups={metadataSuggestionGroups}
+          />
+        ) : null}
+        {activeAppModule === "scan" ? <ScanModule {...scanModuleProps} /> : null}
 
-      {missingVideoPendingForget ? (
-        <Paper
-          component="section"
-          aria-label="Forget Missing Video confirmation"
-          p="md"
-          maw={760}
-        >
-          <Stack gap="sm">
-            <Title order={2} size="h3">
-              Forget Missing Video
-            </Title>
-            <Text>{missingVideoPendingForget.title}</Text>
-            <Group gap="xs">
-              <Button
-                type="button"
-                color="red"
-                onClick={() => void confirmMissingVideoForget()}
-              >
-                Confirm Forget From Catalog
-              </Button>
-              <Button
-                type="button"
-                variant="default"
-                onClick={() => setMissingVideoPendingForget(null)}
-              >
-                Cancel
-              </Button>
-            </Group>
-          </Stack>
-        </Paper>
-      ) : null}
+        {scanRootPendingRemoval ? (
+          <Paper
+            component="section"
+            aria-label="Remove Scan Root confirmation"
+            p="md"
+            maw={760}
+          >
+            <Stack gap="sm">
+              <Title order={2} size="h3">
+                Remove Scan Root
+              </Title>
+              <Code className="wrapping-code">
+                {scanRootPendingRemoval.path}
+              </Code>
+              <Group gap="xs">
+                <Button
+                  type="button"
+                  onClick={() =>
+                    void confirmScanRootRemoval("preserveMissingVideos")
+                  }
+                >
+                  Preserve as Missing Videos
+                </Button>
+                <Button
+                  type="button"
+                  variant="light"
+                  color="red"
+                  onClick={() =>
+                    void confirmScanRootRemoval("forgetFromCatalog")
+                  }
+                >
+                  Forget From Catalog
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => setScanRootPendingRemoval(null)}
+                >
+                  Cancel
+                </Button>
+              </Group>
+            </Stack>
+          </Paper>
+        ) : null}
 
-      {activeAppModule === "settings" ? (
-        <SettingsModule {...settingsModuleProps} />
+        {missingVideoPendingForget ? (
+          <Paper
+            component="section"
+            aria-label="Forget Missing Video confirmation"
+            p="md"
+            maw={760}
+          >
+            <Stack gap="sm">
+              <Title order={2} size="h3">
+                Forget Missing Video
+              </Title>
+              <Text>{missingVideoPendingForget.title}</Text>
+              <Group gap="xs">
+                <Button
+                  type="button"
+                  color="red"
+                  onClick={() => void confirmMissingVideoForget()}
+                >
+                  Confirm Forget From Catalog
+                </Button>
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={() => setMissingVideoPendingForget(null)}
+                >
+                  Cancel
+                </Button>
+              </Group>
+            </Stack>
+          </Paper>
+        ) : null}
+
+        {activeAppModule === "settings" ? (
+          <SettingsModule {...settingsModuleProps} />
+        ) : null}
+      </AppShell.Main>
+      {catalogModuleProps.selectedVideo ? (
+        <AppShell.Aside p="md">
+          <VideoDetailPanel
+            availablePerformers={catalogModuleProps.availablePerformers}
+            availableTags={catalogModuleProps.availableTags}
+            detailStatusMessage={catalogModuleProps.detailStatusMessage}
+            onAttachPerformer={catalogModuleProps.onAttachPerformer}
+            onAttachTag={catalogModuleProps.onAttachTag}
+            onCreateOrAttachPerformer={
+              catalogModuleProps.onCreateOrAttachPerformer
+            }
+            onCreateOrAttachTag={catalogModuleProps.onCreateOrAttachTag}
+            onDetachPerformer={catalogModuleProps.onDetachPerformer}
+            onDetachTag={catalogModuleProps.onDetachTag}
+            onSaveTitle={catalogModuleProps.onSaveTitle}
+            onSetFavorite={catalogModuleProps.onSetSelectedFavorite}
+            selectedPerformers={catalogModuleProps.selectedPerformers}
+            selectedTags={catalogModuleProps.selectedTags}
+            video={catalogModuleProps.selectedVideo}
+          />
+        </AppShell.Aside>
       ) : null}
-    </Box>
+    </AppShell>
   );
 }

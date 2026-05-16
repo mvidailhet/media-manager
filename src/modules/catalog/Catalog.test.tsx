@@ -1777,8 +1777,10 @@ describe("Catalog module", () => {
     await waitFor(() => {
       expect(mockedForgetCatalogVideo).toHaveBeenCalledWith(1);
     });
-    expect(
-      screen.queryByRole("heading", { name: "Forget Missing Video" }),
-    ).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("heading", { name: "Forget Missing Video" }),
+      ).not.toBeInTheDocument();
+    });
   });
 });
