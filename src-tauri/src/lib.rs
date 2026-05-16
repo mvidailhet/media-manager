@@ -17,8 +17,8 @@ use catalog::{
     UnprocessableVideoCandidate, VideoExtensionAllowlist,
 };
 use preview_generation::{
-    process_preview_strip_request, PreviewGenerationRuntime, PreviewGenerationStart,
-    PreviewGenerationStatus,
+    generate_preview_strip_request, store_preview_strip_completion, PreviewGenerationRuntime,
+    PreviewGenerationStart, PreviewGenerationStatus,
 };
 use serde::Deserialize;
 use tauri::{Manager, WindowEvent};
@@ -766,12 +766,19 @@ fn process_next_preview_strip_queue_item(
         let generation_result: Result<(), String> = (|| {
             let preview_strip_generator =
                 FfmpegPreviewStripGenerator::new(ffmpeg_path, Arc::clone(&worker_stop_requested));
+            let preview_generation_completion =
+                generate_preview_strip_request(&preview_strip_generator, &request);
+
             let catalog_state = worker_app.state::<CatalogState>();
             let catalog = catalog_state
                 .catalog
                 .lock()
                 .map_err(|error| error.to_string())?;
-            process_preview_strip_request(&catalog, &preview_strip_generator, &request)?;
+            store_preview_strip_completion(
+                &catalog,
+                request.video_id,
+                preview_generation_completion,
+            )?;
 
             Ok(())
         })();

@@ -8,8 +8,8 @@ use std::sync::{
 use serde::Serialize;
 
 use crate::catalog::{
-    Catalog, PreviewStripGenerationSummary, PreviewStripGenerator, PreviewStripQueueCounts,
-    PreviewStripRequest, PREVIEW_STRIP_GENERATION_CANCELLED_REASON,
+    Catalog, GeneratedPreviewStrip, PreviewStripGenerationSummary, PreviewStripGenerator,
+    PreviewStripQueueCounts, PreviewStripRequest, PREVIEW_STRIP_GENERATION_CANCELLED_REASON,
 };
 
 #[derive(Debug, PartialEq, Eq, Serialize)]
@@ -122,34 +122,64 @@ pub enum PreviewGenerationStart {
     Started,
 }
 
-pub fn process_preview_strip_request<G: PreviewStripGenerator>(
-    catalog: &Catalog,
+pub enum PreviewGenerationCompletion {
+    Generated(GeneratedPreviewStrip),
+    Failed(String),
+    Cancelled,
+}
+
+pub fn generate_preview_strip_request<G: PreviewStripGenerator>(
     preview_strip_generator: &G,
     request: &PreviewStripRequest,
-) -> Result<PreviewStripGenerationSummary, String> {
+) -> PreviewGenerationCompletion {
     match preview_strip_generator.generate_preview_strip(request) {
         Ok(generated_preview_strip) => {
-            catalog.store_generated_preview_strip(request.video_id, &generated_preview_strip)?;
+            PreviewGenerationCompletion::Generated(generated_preview_strip)
+        }
+        Err(reason) if reason == PREVIEW_STRIP_GENERATION_CANCELLED_REASON => {
+            PreviewGenerationCompletion::Cancelled
+        }
+        Err(reason) => PreviewGenerationCompletion::Failed(reason),
+    }
+}
+
+pub fn store_preview_strip_completion(
+    catalog: &Catalog,
+    video_id: i64,
+    preview_generation_completion: PreviewGenerationCompletion,
+) -> Result<PreviewStripGenerationSummary, String> {
+    match preview_generation_completion {
+        PreviewGenerationCompletion::Generated(generated_preview_strip) => {
+            catalog.store_generated_preview_strip(video_id, &generated_preview_strip)?;
             Ok(PreviewStripGenerationSummary {
                 generated_preview_strip_count: 1,
                 failed_preview_strip_count: 0,
             })
         }
-        Err(reason) => {
-            if reason == PREVIEW_STRIP_GENERATION_CANCELLED_REASON {
-                Ok(PreviewStripGenerationSummary {
-                    generated_preview_strip_count: 0,
-                    failed_preview_strip_count: 0,
-                })
-            } else {
-                catalog.store_failed_preview_strip(request.video_id, &reason)?;
-                Ok(PreviewStripGenerationSummary {
-                    generated_preview_strip_count: 0,
-                    failed_preview_strip_count: 1,
-                })
-            }
+        PreviewGenerationCompletion::Failed(reason) => {
+            catalog.store_failed_preview_strip(video_id, &reason)?;
+            Ok(PreviewStripGenerationSummary {
+                generated_preview_strip_count: 0,
+                failed_preview_strip_count: 1,
+            })
         }
+        PreviewGenerationCompletion::Cancelled => Ok(PreviewStripGenerationSummary {
+            generated_preview_strip_count: 0,
+            failed_preview_strip_count: 0,
+        }),
     }
+}
+
+#[cfg(test)]
+pub fn process_preview_strip_request<G: PreviewStripGenerator>(
+    catalog: &Catalog,
+    preview_strip_generator: &G,
+    request: &PreviewStripRequest,
+) -> Result<PreviewStripGenerationSummary, String> {
+    let preview_generation_completion =
+        generate_preview_strip_request(preview_strip_generator, request);
+
+    store_preview_strip_completion(catalog, request.video_id, preview_generation_completion)
 }
 
 #[cfg(test)]
