@@ -30,35 +30,6 @@ impl Catalog {
         Ok(failed_preview_strips)
     }
 
-    #[cfg(test)]
-    pub fn generate_missing_preview_strips<G: PreviewStripGenerator>(
-        &self,
-        preview_cache_path: &Path,
-        preview_strip_generator: &G,
-    ) -> Result<PreviewStripGenerationSummary, String> {
-        let pending_preview_strip_requests =
-            self.pending_preview_strip_requests(preview_cache_path)?;
-        let mut generation_summary = PreviewStripGenerationSummary {
-            generated_preview_strip_count: 0,
-            failed_preview_strip_count: 0,
-        };
-
-        for request in pending_preview_strip_requests {
-            match preview_strip_generator.generate_preview_strip(&request) {
-                Ok(generated_preview_strip) => {
-                    self.store_generated_preview_strip(request.video_id, &generated_preview_strip)?;
-                    generation_summary.generated_preview_strip_count += 1;
-                }
-                Err(reason) => {
-                    self.store_failed_preview_strip(request.video_id, &reason)?;
-                    generation_summary.failed_preview_strip_count += 1;
-                }
-            }
-        }
-
-        Ok(generation_summary)
-    }
-
     pub fn pending_preview_strip_requests(
         &self,
         preview_cache_path: &Path,
@@ -100,41 +71,6 @@ impl Catalog {
             pending_count: self.pending_preview_strips()?.len() as i64,
             failed_count: self.failed_preview_strip_count()?,
         })
-    }
-
-    #[cfg(test)]
-    pub fn generate_next_preview_strip<G: PreviewStripGenerator>(
-        &self,
-        preview_cache_path: &Path,
-        preview_strip_generator: &G,
-    ) -> Result<PreviewStripGenerationSummary, String> {
-        let Some(request) = self
-            .pending_preview_strip_requests(preview_cache_path)?
-            .into_iter()
-            .next()
-        else {
-            return Ok(PreviewStripGenerationSummary {
-                generated_preview_strip_count: 0,
-                failed_preview_strip_count: 0,
-            });
-        };
-
-        match preview_strip_generator.generate_preview_strip(&request) {
-            Ok(generated_preview_strip) => {
-                self.store_generated_preview_strip(request.video_id, &generated_preview_strip)?;
-                Ok(PreviewStripGenerationSummary {
-                    generated_preview_strip_count: 1,
-                    failed_preview_strip_count: 0,
-                })
-            }
-            Err(reason) => {
-                self.store_failed_preview_strip(request.video_id, &reason)?;
-                Ok(PreviewStripGenerationSummary {
-                    generated_preview_strip_count: 0,
-                    failed_preview_strip_count: 1,
-                })
-            }
-        }
     }
 
     pub fn store_generated_preview_strip(
