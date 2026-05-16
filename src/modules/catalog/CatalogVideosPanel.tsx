@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { Badge, Box, Button, Checkbox, Code, Divider, Group, NativeSelect, RangeSlider, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Badge, Box, Button, Checkbox, Group, NativeSelect, Paper, RangeSlider, Stack, Text, TextInput } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../tauriCommands";
-import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
-import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
-import { formatDuration, formatFileSize, formatOpenHistory } from "../../shared/formatting/videoFormatting";
-import type { CatalogVideoFilters, CatalogVideoSort } from "./catalogTypes";
+import { formatCompactFileSize, formatDuration } from "../../shared/formatting/videoFormatting";
+import type {
+  CatalogVideoFilters,
+  CatalogVideoMetadata,
+  CatalogVideoSort,
+} from "./catalogTypes";
 
 const catalogVideosEmptyMessage = "No Videos in the Catalog.";
 const minimumDurationMinutes = 0;
@@ -22,6 +24,7 @@ export function CatalogVideosPanel({
   availableTags,
   catalogVideoActionStatusMessage,
   catalogVideoFilters,
+  catalogVideoMetadataById,
   catalogVideoSort,
   catalogVideos,
   catalogVideosStatusMessage,
@@ -37,6 +40,7 @@ export function CatalogVideosPanel({
   availableTags: CatalogTag[];
   catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
@@ -49,7 +53,7 @@ export function CatalogVideosPanel({
   selectedVideoIds: number[];
 }) {
   return (
-    <Box component="section" aria-label="Catalog Videos" p="md" maw={760}>
+    <Box component="section" aria-label="Catalog Videos" p="md">
       <Stack gap="md">
         <CatalogVideoFiltersPanel
           availablePerformers={availablePerformers}
@@ -90,10 +94,11 @@ export function CatalogVideosPanel({
         ) : null}
 
         {catalogVideos.length > 0 ? (
-          <Stack gap="sm">
+          <Box className="catalog-video-grid">
             {catalogVideos.map((catalogVideo) => (
               <CatalogVideoCard
                 catalogVideo={catalogVideo}
+                catalogVideoMetadata={catalogVideoMetadataById[catalogVideo.id]}
                 key={catalogVideo.id}
                 onSelectVideo={onSelectVideo}
                 onOpenVideo={onOpenVideo}
@@ -102,7 +107,7 @@ export function CatalogVideosPanel({
                 isSelectedForBatch={selectedVideoIds.includes(catalogVideo.id)}
               />
             ))}
-          </Stack>
+          </Box>
         ) : null}
       </Stack>
     </Box>
@@ -222,6 +227,7 @@ export function CatalogVideoFiltersPanel({
 
 export function CatalogVideoCard({
   catalogVideo,
+  catalogVideoMetadata,
   isSelectedForBatch,
   onSelectVideo,
   onOpenVideo,
@@ -229,6 +235,7 @@ export function CatalogVideoCard({
   onSetFavorite,
 }: {
   catalogVideo: CatalogVideo;
+  catalogVideoMetadata: CatalogVideoMetadata | undefined;
   isSelectedForBatch: boolean;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
   onOpenVideo: (catalogVideo: CatalogVideo) => void;
@@ -238,13 +245,39 @@ export function CatalogVideoCard({
   const favoriteButtonLabel = catalogVideo.isFavorite
     ? `Unmark ${catalogVideo.title} as Favorite`
     : `Mark ${catalogVideo.title} as Favorite`;
+  const tags = catalogVideoMetadata?.tags ?? [];
+  const performers = catalogVideoMetadata?.performers ?? [];
 
   return (
-    <Stack component="article" gap="sm">
-      <Divider />
-      <PreviewStripSurface catalogVideo={catalogVideo} />
-      <Box>
-        <Group gap="xs" align="center">
+    <Paper
+      component="article"
+      aria-label={catalogVideo.title}
+      className="catalog-video-card"
+      p="xs"
+      withBorder
+    >
+      <Stack gap="xs">
+        <Box className="catalog-video-preview">
+          <PreviewStripSurface catalogVideo={catalogVideo} />
+          {!catalogVideo.isAvailable ? (
+            <Badge
+              className="catalog-video-preview-badge catalog-video-unavailable-badge"
+              color="red"
+              variant="filled"
+            >
+              Unavailable
+            </Badge>
+          ) : null}
+          <Badge
+            className="catalog-video-preview-badge catalog-video-duration-badge"
+            color="dark"
+            variant="filled"
+          >
+            {formatDuration(catalogVideo.durationMilliseconds)}
+          </Badge>
+        </Box>
+
+        <Group gap="xs" align="start" wrap="nowrap">
           <Checkbox
             aria-label={`Select ${catalogVideo.title}`}
             checked={isSelectedForBatch}
@@ -259,10 +292,28 @@ export function CatalogVideoCard({
             type="button"
             variant="subtle"
             px={0}
+            className="catalog-video-title-button"
             onClick={() => void onSelectVideo(catalogVideo)}
           >
             {catalogVideo.title}
           </Button>
+        </Group>
+
+        <MetadataBadges label="Tags" items={tags} />
+        <MetadataBadges label="Performers" items={performers} />
+
+        <Group justify="space-between" gap="xs" wrap="nowrap">
+          <Text size="xs" c="dimmed">
+            {formatCompactFileSize(catalogVideo.fileSizeBytes)}
+          </Text>
+          {catalogVideo.isFavorite ? (
+            <Badge size="xs" color="yellow">
+              Favorite
+            </Badge>
+          ) : null}
+        </Group>
+
+        <Group gap="xs">
           <Button
             type="button"
             size="xs"
@@ -272,10 +323,6 @@ export function CatalogVideoCard({
           >
             {`Open ${catalogVideo.title}`}
           </Button>
-          {catalogVideo.isFavorite ? (
-            <Badge color="yellow">Favorite</Badge>
-          ) : null}
-          <AvailabilityBadge isAvailable={catalogVideo.isAvailable} />
           <Button
             type="button"
             size="xs"
@@ -287,28 +334,30 @@ export function CatalogVideoCard({
             {favoriteButtonLabel}
           </Button>
         </Group>
-        <Text c="dimmed">
-          {formatDuration(catalogVideo.durationMilliseconds)}
-        </Text>
-      </Box>
-      <Box component="dl" className="definition-list">
-        <DefinitionTerm label="File Location">
-          {catalogVideo.fileLocationPath ? (
-            <Code className="wrapping-code">
-              {catalogVideo.fileLocationPath}
-            </Code>
-          ) : (
-            "Missing"
-          )}
-        </DefinitionTerm>
-        <DefinitionTerm label="File Size">
-          {formatFileSize(catalogVideo.fileSizeBytes)}
-        </DefinitionTerm>
-        <DefinitionTerm label="Open History">
-          {formatOpenHistory(catalogVideo)}
-        </DefinitionTerm>
-      </Box>
-    </Stack>
+      </Stack>
+    </Paper>
+  );
+}
+
+function MetadataBadges<T extends { id: number; name: string }>({
+  items,
+  label,
+}: {
+  items: T[];
+  label: string;
+}) {
+  if (items.length === 0) {
+    return null;
+  }
+
+  return (
+    <Group aria-label={label} gap={4}>
+      {items.map((item) => (
+        <Badge key={item.id} size="xs" variant="light">
+          {item.name}
+        </Badge>
+      ))}
+    </Group>
   );
 }
 

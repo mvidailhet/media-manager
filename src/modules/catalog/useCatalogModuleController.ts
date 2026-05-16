@@ -771,6 +771,7 @@ export function useCatalogModuleController({
       batchSelectedVideoCount: batchSelectedVideos.length,
       catalogVideoActionStatusMessage,
       catalogVideoFilters: activeCatalogVideoFilters,
+      catalogVideoMetadataById,
       catalogVideoSort,
       catalogVideos: filteredCatalogVideos,
       catalogVideosStatusMessage,

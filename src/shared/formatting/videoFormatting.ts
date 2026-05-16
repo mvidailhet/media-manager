@@ -4,6 +4,7 @@ const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
 const minutesPerHour = 60;
 const bytesPerMegabyte = 1_000_000;
+const bytesPerGigabyte = 1_000_000_000;
 
 export function formatOpenHistory(catalogVideo: CatalogVideo) {
   if (catalogVideo.openCount === 0) {
@@ -60,4 +61,20 @@ export function formatFileSize(fileSizeBytes: number | null) {
   const megabytes = fileSizeBytes / bytesPerMegabyte;
 
   return `${megabytes.toFixed(1)} MB`;
+}
+
+export function formatCompactFileSize(fileSizeBytes: number | null) {
+  if (fileSizeBytes === null) {
+    return "Unknown";
+  }
+
+  if (fileSizeBytes >= bytesPerGigabyte) {
+    const gigabytes = Math.round(fileSizeBytes / bytesPerGigabyte);
+
+    return `${gigabytes}Go`;
+  }
+
+  const megabytes = Math.round(fileSizeBytes / bytesPerMegabyte);
+
+  return `${megabytes}Mo`;
 }

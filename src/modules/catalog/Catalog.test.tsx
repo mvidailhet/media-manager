@@ -111,12 +111,14 @@ describe("Catalog module", () => {
   });
 
   it("loads Catalog Videos into the Videos View", async () => {
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
         title: "Family Trip",
         durationMilliseconds: 3723000,
-        fileSizeBytes: 80740352,
+        fileSizeBytes: 150000000,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
         isAvailable: true,
         fileLocations: [],
@@ -129,12 +131,28 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    expect(await screen.findByText("Family Trip")).toBeInTheDocument();
-    expect(screen.getByText("1h 2m")).toBeInTheDocument();
-    expect(screen.getByText("80.7 MB")).toBeInTheDocument();
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const videoCard = within(catalogVideos).getByRole("article", {
+      name: "Family Trip",
+    });
+
     expect(
-      screen.getByText("/Volumes/Archive/Videos/family-trip.mp4"),
+      within(videoCard).getByRole("button", { name: "Family Trip" }),
     ).toBeInTheDocument();
+    expect(await within(videoCard).findByText("Travel")).toBeInTheDocument();
+    expect(await within(videoCard).findByText("Blair")).toBeInTheDocument();
+    expect(within(videoCard).getByText("1h 2m")).toBeInTheDocument();
+    expect(within(videoCard).getByText("150Mo")).toBeInTheDocument();
+    expect(
+      within(videoCard).queryByText("Unavailable"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText(
+        "/Volumes/Archive/Videos/family-trip.mp4",
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it("filters Catalog Videos by text and duration while keeping Missing Videos visible", async () => {
@@ -632,7 +650,7 @@ describe("Catalog module", () => {
     ]);
   });
 
-  it("opens a Video from the app and refreshes Open History fields", async () => {
+  it("opens a Video from the grid and refreshes Catalog Videos", async () => {
     mockedListCatalogVideos
       .mockResolvedValueOnce([
         {
@@ -680,9 +698,10 @@ describe("Catalog module", () => {
     await waitFor(() => {
       expect(mockedOpenCatalogVideo).toHaveBeenCalledWith(1);
     });
-    expect(
-      await within(catalogVideos).findByText(/Opened 1 time/),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockedListCatalogVideos).toHaveBeenCalledTimes(2);
+    });
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
   });
 
   it("does not show a Recently Opened tab because Last Opened is a sort option", async () => {
@@ -1369,7 +1388,7 @@ describe("Catalog module", () => {
       await within(catalogVideos).findByText("Family Trip"),
     ).toBeInTheDocument();
     expect(within(catalogVideos).getByText("Unavailable")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Missing")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Unknown")).toBeInTheDocument();
   });
 
   it("shows an empty state when the Catalog has no Videos", async () => {

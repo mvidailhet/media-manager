@@ -12,6 +12,7 @@ import type {
 import { BatchMetadataEditPanel } from "./BatchMetadataEditPanel";
 import { CatalogVideosPanel } from "./CatalogVideosPanel";
 import type {
+  CatalogVideoMetadata,
   CatalogVideoFilters,
   CatalogVideoSort,
   CatalogView,
@@ -26,6 +27,7 @@ export type CatalogModuleProps = {
   batchSelectedVideoCount: number;
   catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
@@ -77,6 +79,7 @@ export function CatalogModule({
   batchSelectedVideoCount,
   catalogVideoActionStatusMessage,
   catalogVideoFilters,
+  catalogVideoMetadataById,
   catalogVideoSort,
   catalogVideos,
   catalogVideosStatusMessage,
@@ -144,6 +147,7 @@ export function CatalogModule({
           availableTags={availableTags}
           catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
           catalogVideoFilters={catalogVideoFilters}
+          catalogVideoMetadataById={catalogVideoMetadataById}
           catalogVideoSort={catalogVideoSort}
           catalogVideos={catalogVideos}
           catalogVideosStatusMessage={catalogVideosStatusMessage}

@@ -50,6 +50,30 @@ body {
   flex: 1 1 320px;
 }
 
+.catalog-video-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
+.catalog-video-card {
+  min-width: 0;
+}
+
+.catalog-video-preview {
+  position: relative;
+}
+
+.catalog-video-title-button {
+  min-width: 0;
+}
+
+.catalog-video-title-button .mantine-Button-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .preview-strip {
   align-items: center;
   aspect-ratio: 16 / 9;
@@ -58,9 +82,23 @@ body {
   box-sizing: border-box;
   display: flex;
   justify-content: center;
-  max-width: 320px;
   overflow: hidden;
   width: 100%;
+}
+
+.catalog-video-preview-badge {
+  position: absolute;
+  z-index: 1;
+}
+
+.catalog-video-unavailable-badge {
+  right: 8px;
+  top: 8px;
+}
+
+.catalog-video-duration-badge {
+  bottom: 8px;
+  right: 8px;
 }
 
 .preview-strip-generated {
