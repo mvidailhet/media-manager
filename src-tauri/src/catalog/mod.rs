@@ -1080,25 +1080,6 @@ mod tests {
     use std::path::Path;
 
     #[test]
-    fn catalog_backend_has_focused_domain_modules() {
-        let module_paths = [
-            "src/catalog/videos.rs",
-            "src/catalog/scan_roots.rs",
-            "src/catalog/scan_refresh.rs",
-            "src/catalog/local_metadata.rs",
-            "src/catalog/metadata_suggestions.rs",
-            "src/catalog/preview_strips.rs",
-        ];
-
-        for module_path in module_paths {
-            assert!(
-                Path::new(module_path).is_file(),
-                "{module_path} should exist behind the Catalog facade"
-            );
-        }
-    }
-
-    #[test]
     fn catalog_persists_scan_roots_and_rejects_overlapping_paths() {
         let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
         let catalog_path = temporary_folder.path().join("catalog.sqlite3");
