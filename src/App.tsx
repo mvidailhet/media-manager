@@ -21,11 +21,7 @@ import type { CatalogVideo } from "./modules/catalog/useCatalogModuleController"
 import { useCatalogModuleController } from "./modules/catalog/useCatalogModuleController";
 import { ScanModule, scanRootsTab } from "./modules/scan/ScanModule";
 import { SettingsModule } from "./modules/settings/SettingsModule";
-import {
-  commandErrorMessage,
-  ffmpegErrorMessage,
-  useSettingsStatus,
-} from "./modules/settings/useSettingsStatus";
+import { useSettingsModuleController } from "./modules/settings/useSettingsModuleController";
 import { usePreviewGeneration } from "./modules/scan/usePreviewGeneration";
 import { useScanIssues } from "./modules/scan/useScanIssues";
 import type { ScanRoot, ScanRootRemovalPolicy } from "./modules/scan/useScanRoots";
@@ -72,7 +68,7 @@ export default function App() {
       previewGeneration.refreshPreviewStripQueueStatus,
     refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
-  const settingsStatus = useSettingsStatus({
+  const settings = useSettingsModuleController({
     refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
   const {
@@ -102,16 +98,7 @@ export default function App() {
     scanRootsStatusMessage,
     setManualScanRootPath,
   } = scanRootsState;
-  const {
-    ffmpegPath,
-    ffmpegStatusMessage,
-    ffmpegToolsStatus,
-    ffprobePath,
-    localDesktopAppStatus,
-    saveConfiguredFfmpegPaths,
-    setFfmpegPath,
-    setFfprobePath,
-  } = settingsStatus;
+  const { settingsAttentionCount, settingsModuleProps } = settings;
 
   async function confirmScanRootRemoval(removalPolicy: ScanRootRemovalPolicy) {
     if (!scanRootPendingRemoval) {
@@ -155,16 +142,6 @@ export default function App() {
   const previewGenerationAttentionCount = failedPreviewStrips.length;
   const scanAttentionCount =
     scanIssuesAttentionCount + previewGenerationAttentionCount;
-  const ffmpegToolAttentionCount = ffmpegToolsStatus
-    ? [ffmpegToolsStatus.ffmpeg, ffmpegToolsStatus.ffprobe].filter(
-        (toolStatus) => !toolStatus.isAvailable,
-      ).length
-    : ffmpegStatusMessage === ffmpegErrorMessage
-      ? 1
-      : 0;
-  const settingsAttentionCount =
-    (localDesktopAppStatus === commandErrorMessage ? 1 : 0) +
-    ffmpegToolAttentionCount;
   const generatedPreviewStripCount = catalogVideos.filter(
     (catalogVideo) => catalogVideo.previewStrip.status === "generated",
   ).length;
@@ -346,16 +323,7 @@ export default function App() {
       ) : null}
 
       {activeAppModule === "settings" ? (
-        <SettingsModule
-          ffmpegPath={ffmpegPath}
-          ffmpegStatusMessage={ffmpegStatusMessage}
-          ffmpegToolsStatus={ffmpegToolsStatus}
-          ffprobePath={ffprobePath}
-          localDesktopAppStatus={localDesktopAppStatus}
-          onFfmpegPathChange={setFfmpegPath}
-          onFfprobePathChange={setFfprobePath}
-          onSaveConfiguredFfmpegPaths={saveConfiguredFfmpegPaths}
-        />
+        <SettingsModule {...settingsModuleProps} />
       ) : null}
     </Box>
   );

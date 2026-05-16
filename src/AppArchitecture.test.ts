@@ -6,6 +6,7 @@ import catalogControllerSource from "./modules/catalog/useCatalogModuleControlle
 import previewGenerationHookSource from "./modules/scan/usePreviewGeneration.ts?raw";
 import scanModuleSource from "./modules/scan/ScanModule.tsx?raw";
 import settingsModuleSource from "./modules/settings/SettingsModule.tsx?raw";
+import settingsControllerSource from "./modules/settings/useSettingsModuleController.ts?raw";
 
 describe("App module boundaries", () => {
   it("delegates Tauri command ownership to module hooks", () => {
@@ -16,7 +17,8 @@ describe("App module boundaries", () => {
     expect(catalogControllerSource).toMatch(/useCatalogMetadata/);
     expect(appSource).toMatch(/useScanRoots/);
     expect(appSource).toMatch(/usePreviewGeneration/);
-    expect(appSource).toMatch(/useSettingsStatus/);
+    expect(appSource).not.toMatch(/useSettingsStatus/);
+    expect(settingsControllerSource).toMatch(/useSettingsStatus/);
     expect(appSource).not.toMatch(/attachTagToVideo/);
     expect(appSource).not.toMatch(/detachTagFromVideo/);
     expect(appSource).not.toMatch(/performersForVideo/);
@@ -37,8 +39,11 @@ describe("App module boundaries", () => {
     expect(appSource).not.toMatch(/CatalogVideosPanel/);
     expect(appSource).not.toMatch(/ScanRootsPanel/);
     expect(appSource).not.toMatch(/TauriStatusPanel/);
+    expect(appSource).not.toMatch(/FfmpegStatusPanel/);
     expect(appSource).not.toMatch(/useCatalogVideos/);
     expect(appSource).not.toMatch(/useCatalogMetadata/);
+    expect(appSource).not.toMatch(/from "\.\/modules\/settings\/useSettingsStatus"/);
+    expect(appSource).toMatch(/useSettingsModuleController/);
 
     expect(catalogModuleSource).toMatch(/CatalogVideosPanel/);
     expect(catalogControllerSource).toMatch(/useCatalogVideos/);

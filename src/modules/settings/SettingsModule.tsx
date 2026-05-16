@@ -4,7 +4,7 @@ import {
   TauriStatusPanel,
 } from "./SettingsStatusPanels";
 
-type SettingsModuleProps = {
+export type SettingsModuleProps = {
   ffmpegPath: string;
   ffmpegStatusMessage: string;
   ffmpegToolsStatus: FfmpegToolsStatus | null;
