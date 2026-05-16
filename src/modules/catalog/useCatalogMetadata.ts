@@ -113,25 +113,25 @@ export function useCatalogMetadata({
   }
 
   return {
-    acceptMetadataSuggestionForVideos,
-    attachPerformerToVideo,
-    attachTagToVideo,
+    acceptSuggestedMetadata: acceptMetadataSuggestionForVideos,
+    attachPerformerToCatalogVideo: attachPerformerToVideo,
+    attachTagToCatalogVideo: attachTagToVideo,
     availablePerformers,
     availableTags,
     catalogVideoMetadataById,
-    createPerformer,
-    createTag,
-    detachPerformerFromVideo,
-    detachTagFromVideo,
-    listPerformers,
-    listTags,
-    performersForVideo,
+    createNamedPerformer: createPerformer,
+    createNamedTag: createTag,
+    detachPerformerFromCatalogVideo: detachPerformerFromVideo,
+    detachTagFromCatalogVideo: detachTagFromVideo,
+    loadAvailablePerformers: listPerformers,
+    loadAvailableTags: listTags,
+    loadVideoPerformers: performersForVideo,
     refreshAvailableMetadata,
-    rejectMetadataSuggestionSource,
+    rejectSuggestedMetadataSource: rejectMetadataSuggestionSource,
     setAvailablePerformers,
     setAvailableTags,
     setCatalogVideoMetadataById,
-    tagsForVideo,
+    loadVideoTags: tagsForVideo,
   };
 }
 

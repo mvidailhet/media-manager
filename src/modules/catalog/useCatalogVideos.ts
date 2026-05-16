@@ -61,13 +61,13 @@ export function useCatalogVideos() {
     catalogVideoActionStatusMessage,
     catalogVideos,
     catalogVideosStatusMessage,
-    forgetCatalogVideo,
-    openCatalogVideo,
+    forgetMissingVideo: forgetCatalogVideo,
+    openVideo: openCatalogVideo,
     refreshCatalogVideos,
+    renameVideo: updateVideoTitle,
     setCatalogVideoActionStatusMessage,
     setCatalogVideos,
-    setVideoFavorite,
-    updateVideoTitle,
+    setVideoFavorited: setVideoFavorite,
   };
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import type { PreviewStripQueueStatus } from "../../tauriCommands";
 import {
@@ -23,6 +23,13 @@ export function usePreviewGeneration({
     useState("");
   const [previewStripQueueStatus, setPreviewStripQueueStatus] =
     useState<PreviewStripQueueStatus | null>(null);
+  const latestRefreshCatalogVideos = useRef(refreshCatalogVideos);
+  const latestRefreshReviewQueue = useRef(refreshReviewQueue);
+
+  useEffect(() => {
+    latestRefreshCatalogVideos.current = refreshCatalogVideos;
+    latestRefreshReviewQueue.current = refreshReviewQueue;
+  }, [refreshCatalogVideos, refreshReviewQueue]);
 
   async function refreshPreviewStripQueueStatus() {
     try {
@@ -110,8 +117,8 @@ export function usePreviewGeneration({
 
         setPreviewStripQueueStatus(queueStatus);
         if (queueStatus.runningCount === 0) {
-          await refreshCatalogVideos();
-          await refreshReviewQueue();
+          await latestRefreshCatalogVideos.current();
+          await latestRefreshReviewQueue.current();
         }
       } catch (error) {
         if (canUpdatePreviewStripQueue) {
@@ -124,7 +131,7 @@ export function usePreviewGeneration({
       canUpdatePreviewStripQueue = false;
       window.clearTimeout(timeoutId);
     };
-  }, [previewStripQueueStatus, refreshCatalogVideos, refreshReviewQueue]);
+  }, [previewStripQueueStatus]);
 
   async function pausePreviewQueue() {
     try {

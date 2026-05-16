@@ -96,33 +96,33 @@ export default function App() {
     catalogVideoActionStatusMessage,
     catalogVideos,
     catalogVideosStatusMessage,
-    forgetCatalogVideo,
-    openCatalogVideo,
+    forgetMissingVideo,
+    openVideo,
     refreshCatalogVideos,
+    renameVideo,
     setCatalogVideoActionStatusMessage,
     setCatalogVideos,
-    setVideoFavorite,
-    updateVideoTitle,
+    setVideoFavorited,
   } = useCatalogVideos();
   const {
-    acceptMetadataSuggestionForVideos,
-    attachPerformerToVideo,
-    attachTagToVideo,
+    acceptSuggestedMetadata,
+    attachPerformerToCatalogVideo,
+    attachTagToCatalogVideo,
     availablePerformers,
     availableTags,
     catalogVideoMetadataById,
-    createPerformer,
-    createTag,
-    detachPerformerFromVideo,
-    detachTagFromVideo,
-    listPerformers,
-    listTags,
-    performersForVideo,
-    rejectMetadataSuggestionSource,
+    createNamedPerformer,
+    createNamedTag,
+    detachPerformerFromCatalogVideo,
+    detachTagFromCatalogVideo,
+    loadAvailablePerformers,
+    loadAvailableTags,
+    loadVideoPerformers,
+    rejectSuggestedMetadataSource,
     setAvailablePerformers,
     setAvailableTags,
     setCatalogVideoMetadataById,
-    tagsForVideo,
+    loadVideoTags,
   } = useCatalogMetadata({ catalogVideos });
   const previewGeneration = usePreviewGeneration({
     refreshCatalogVideos,
@@ -192,7 +192,7 @@ export default function App() {
     videoIds,
   }: AcceptMetadataSuggestionForVideosRequest) {
     try {
-      await acceptMetadataSuggestionForVideos({
+      await acceptSuggestedMetadata({
         acceptedMetadataKind,
         acceptedValue,
         scanRootPath,
@@ -203,16 +203,16 @@ export default function App() {
       });
       await refreshReviewQueue(false);
       const [storedTags, storedPerformers] = await Promise.all([
-        listTags(),
-        listPerformers(),
+        loadAvailableTags(),
+        loadAvailablePerformers(),
       ]);
       setAvailableTags(storedTags);
       setAvailablePerformers(storedPerformers);
       const metadataEntries = await Promise.all(
         videoIds.map(async (videoId) => {
           const [videoTags, videoPerformers] = await Promise.all([
-            tagsForVideo(videoId),
-            performersForVideo(videoId),
+            loadVideoTags(videoId),
+            loadVideoPerformers(videoId),
           ]);
 
           return [videoId, { tags: videoTags, performers: videoPerformers }] as const;
@@ -247,7 +247,7 @@ export default function App() {
     suggestionKind: RejectMetadataSuggestionSourceRequest["suggestionKind"];
   }) {
     try {
-      await rejectMetadataSuggestionSource({
+      await rejectSuggestedMetadataSource({
         scanRootPath,
         sourcePathSegment,
         suggestedValue,
@@ -266,10 +266,12 @@ export default function App() {
 
     const removedScanRoot = scanRootPendingRemoval;
 
-    try {
-      await removeSelectedScanRoot(removedScanRoot, removalPolicy);
-      setScanRootPendingRemoval(null);
-    } catch {
+    const wasRemoved = await removeSelectedScanRoot(
+      removedScanRoot,
+      removalPolicy,
+    );
+
+    if (wasRemoved) {
       setScanRootPendingRemoval(null);
     }
   }
@@ -280,7 +282,7 @@ export default function App() {
     }
 
     try {
-      await forgetCatalogVideo(missingVideoPendingForget.id);
+      await forgetMissingVideo(missingVideoPendingForget.id);
       setMissingVideoPendingForget(null);
       setReviewQueueStatusMessage("");
       await refreshCatalogVideos();
@@ -298,10 +300,10 @@ export default function App() {
     try {
       const [storedTags, storedPerformers, videoTags, videoPerformers] =
         await Promise.all([
-          listTags(),
-          listPerformers(),
-          tagsForVideo(catalogVideo.id),
-          performersForVideo(catalogVideo.id),
+          loadAvailableTags(),
+          loadAvailablePerformers(),
+          loadVideoTags(catalogVideo.id),
+          loadVideoPerformers(catalogVideo.id),
         ]);
 
       if (selectedVideoRequestId.current === requestId) {
@@ -363,7 +365,7 @@ export default function App() {
     }
 
     try {
-      await updateVideoTitle(selectedVideo.id, title);
+      await renameVideo(selectedVideo.id, title);
       const updatedVideo = { ...selectedVideo, title };
       setSelectedVideo(updatedVideo);
       setCatalogVideos((currentVideos) =>
@@ -390,7 +392,7 @@ export default function App() {
     isFavorite: boolean,
   ) {
     try {
-      await setVideoFavorite(video.id, isFavorite);
+      await setVideoFavorited(video.id, isFavorite);
       setSelectedVideo((currentSelectedVideo) =>
         currentSelectedVideo?.id === video.id
           ? { ...currentSelectedVideo, isFavorite }
@@ -413,7 +415,7 @@ export default function App() {
 
   async function openVideoFromCatalog(video: CatalogVideo) {
     try {
-      await openCatalogVideo(video.id);
+      await openVideo(video.id);
       await refreshCatalogVideos();
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
@@ -439,7 +441,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          attachTagToVideo(tag.id, videoId),
+          attachTagToCatalogVideo(tag.id, videoId),
         ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
@@ -466,11 +468,11 @@ export default function App() {
 
     try {
       const existingTag = findMetadataByName(availableTags, trimmedTagName);
-      const tag = existingTag ?? (await createTag(trimmedTagName));
+      const tag = existingTag ?? (await createNamedTag(trimmedTagName));
 
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          attachTagToVideo(tag.id, videoId),
+          attachTagToCatalogVideo(tag.id, videoId),
         ),
       );
       setAvailableTags((currentTags) => appendUniqueMetadata(currentTags, tag));
@@ -492,7 +494,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          detachTagFromVideo(tag.id, videoId),
+          detachTagFromCatalogVideo(tag.id, videoId),
         ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
@@ -503,7 +505,7 @@ export default function App() {
           currentTags.filter((currentTag) => currentTag.id !== tag.id),
         );
       }
-      setAvailableTags(await listTags());
+      setAvailableTags(await loadAvailableTags());
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -516,7 +518,7 @@ export default function App() {
     }
 
     try {
-      await attachTagToVideo(tag.id, selectedVideo.id);
+      await attachTagToCatalogVideo(tag.id, selectedVideo.id);
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
       );
@@ -541,9 +543,9 @@ export default function App() {
 
     try {
       const existingTag = findMetadataByName(availableTags, trimmedTagName);
-      const tag = existingTag ?? (await createTag(trimmedTagName));
+      const tag = existingTag ?? (await createNamedTag(trimmedTagName));
 
-      await attachTagToVideo(tag.id, selectedVideo.id);
+      await attachTagToCatalogVideo(tag.id, selectedVideo.id);
       setAvailableTags((currentTags) => appendUniqueMetadata(currentTags, tag));
       setSelectedVideoTags((currentTags) =>
         appendUniqueMetadata(currentTags, tag),
@@ -561,12 +563,12 @@ export default function App() {
     }
 
     try {
-      await detachTagFromVideo(tag.id, selectedVideo.id);
+      await detachTagFromCatalogVideo(tag.id, selectedVideo.id);
       setSelectedVideoTags((currentTags) =>
         currentTags.filter((currentTag) => currentTag.id !== tag.id),
       );
       removeTagFromCatalogVideoMetadata(selectedVideo.id, tag);
-      setAvailableTags(await listTags());
+      setAvailableTags(await loadAvailableTags());
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -579,7 +581,7 @@ export default function App() {
     }
 
     try {
-      await attachPerformerToVideo(performer.id, selectedVideo.id);
+      await attachPerformerToCatalogVideo(performer.id, selectedVideo.id);
       setSelectedVideoPerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
@@ -608,9 +610,9 @@ export default function App() {
         trimmedPerformerName,
       );
       const performer =
-        existingPerformer ?? (await createPerformer(trimmedPerformerName));
+        existingPerformer ?? (await createNamedPerformer(trimmedPerformerName));
 
-      await attachPerformerToVideo(performer.id, selectedVideo.id);
+      await attachPerformerToCatalogVideo(performer.id, selectedVideo.id);
       setAvailablePerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
@@ -630,14 +632,14 @@ export default function App() {
     }
 
     try {
-      await detachPerformerFromVideo(performer.id, selectedVideo.id);
+      await detachPerformerFromCatalogVideo(performer.id, selectedVideo.id);
       setSelectedVideoPerformers((currentPerformers) =>
         currentPerformers.filter(
           (currentPerformer) => currentPerformer.id !== performer.id,
         ),
       );
       removePerformerFromCatalogVideoMetadata(selectedVideo.id, performer);
-      setAvailablePerformers(await listPerformers());
+      setAvailablePerformers(await loadAvailablePerformers());
       setDetailStatusMessage("");
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
@@ -650,7 +652,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          attachPerformerToVideo(performer.id, videoId),
+          attachPerformerToCatalogVideo(performer.id, videoId),
         ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
@@ -683,11 +685,11 @@ export default function App() {
         trimmedPerformerName,
       );
       const performer =
-        existingPerformer ?? (await createPerformer(trimmedPerformerName));
+        existingPerformer ?? (await createNamedPerformer(trimmedPerformerName));
 
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          attachPerformerToVideo(performer.id, videoId),
+          attachPerformerToCatalogVideo(performer.id, videoId),
         ),
       );
       setAvailablePerformers((currentPerformers) =>
@@ -713,7 +715,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          detachPerformerFromVideo(performer.id, videoId),
+          detachPerformerFromCatalogVideo(performer.id, videoId),
         ),
       );
       batchSelectedVideoIds.forEach((videoId) =>
@@ -726,7 +728,7 @@ export default function App() {
           ),
         );
       }
-      setAvailablePerformers(await listPerformers());
+      setAvailablePerformers(await loadAvailablePerformers());
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -737,7 +739,7 @@ export default function App() {
     try {
       await Promise.all(
         batchSelectedVideoIds.map((videoId) =>
-          setVideoFavorite(videoId, isFavorite),
+          setVideoFavorited(videoId, isFavorite),
         ),
       );
       setCatalogVideos((currentVideos) =>
@@ -1212,4 +1214,3 @@ export default function App() {
     </Box>
   );
 }
-

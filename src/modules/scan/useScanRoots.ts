@@ -133,8 +133,10 @@ export function useScanRoots({
       setScanRootsStatusMessage("");
       await refreshCatalogVideos();
       await refreshReviewQueue();
+      return true;
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
+      return false;
     }
   }
 
