@@ -331,5 +331,3 @@ export function resetAppTestHarness() {
     });
     mockedOpen.mockResolvedValue(null);
 }
-
-

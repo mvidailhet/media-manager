@@ -1688,6 +1688,54 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("rejects a Metadata Suggestion for one Scan Root source", async () => {
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 7,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      await within(metadataSuggestions).findByRole("button", {
+        name: "Reject Family from Family",
+      }),
+    );
+
+    expect(mockedRejectMetadataSuggestionSource).toHaveBeenCalledWith({
+      scanRootPath: "/Volumes/Archive/Videos",
+      sourcePathSegment: "Family",
+      suggestedValue: "Family",
+      suggestionKind: "tag",
+    });
+    expect(
+      await within(metadataSuggestions).findByText("No Metadata Suggestions."),
+    ).toBeInTheDocument();
+  });
+
+
   it("requires confirmation before forgetting a Missing Video from the Catalog", async () => {
     mockedListCatalogVideos
       .mockResolvedValueOnce([
