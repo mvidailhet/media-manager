@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import {
   ActionIcon,
-  Badge,
   Box,
   Button,
   Code,
@@ -9,17 +8,13 @@ import {
   Indicator,
   Paper,
   Stack,
-  Tabs,
   Text,
   Title,
 } from "@mantine/core";
 import {
   IconArrowLeft,
-  IconBulb,
   IconFolderSearch,
-  IconHistory,
   IconSettings,
-  IconStar,
 } from "@tabler/icons-react";
 import type {
   AcceptMetadataSuggestionForVideosRequest,
@@ -30,9 +25,7 @@ import type {
 } from "./modules/catalog/useCatalogMetadata";
 import { useCatalogMetadata } from "./modules/catalog/useCatalogMetadata";
 import { useCatalogVideos } from "./modules/catalog/useCatalogVideos";
-import { BatchMetadataEditPanel } from "./modules/catalog/BatchMetadataEditPanel";
-import { CatalogVideosPanel } from "./modules/catalog/CatalogVideosPanel";
-import { VideoDetailPanel } from "./modules/catalog/VideoDetailPanel";
+import { CatalogModule } from "./modules/catalog/CatalogModule";
 import type {
   CatalogVideoFilters,
   CatalogView,
@@ -46,14 +39,8 @@ import {
   sortedCatalogVideos,
   workspaceCatalogVideos,
 } from "./modules/catalog/catalogVideoFiltering";
-import { MetadataSuggestionsPanel } from "./modules/catalog/MetadataSuggestionsPanel";
-import { ScanIssuesPanel } from "./modules/scan/ScanIssuesPanel";
-import { ScanRootsPanel } from "./modules/scan/ScanRootsPanel";
-import { PreviewGenerationView } from "./modules/scan/PreviewGenerationView";
-import {
-  FfmpegStatusPanel,
-  TauriStatusPanel,
-} from "./modules/settings/SettingsStatusPanels";
+import { ScanModule, scanRootsTab } from "./modules/scan/ScanModule";
+import { SettingsModule } from "./modules/settings/SettingsModule";
 import {
   commandErrorMessage,
   ffmpegErrorMessage,
@@ -70,9 +57,6 @@ import {
 } from "./shared/metadata/metadataHelpers";
 import { errorMessage } from "./shared/errors/errorMessage";
 
-const scanRootsTab = "scanRoots";
-const scanIssuesTab = "scanIssues";
-const previewGenerationTab = "previewGeneration";
 const navigationIconSize = 20;
 
 const emptyMetadataInputMessage = "Enter a name first.";
@@ -892,7 +876,6 @@ export default function App() {
   const unavailableScanRoots = scanRoots.filter(
     (scanRoot) => !scanRoot.isAvailable,
   );
-  const isCatalogVideoListView = catalogView !== "metadataSuggestions";
   const scanIssuesAttentionCount =
     missingVideos.length +
     unavailableScanRoots.length +
@@ -980,170 +963,84 @@ export default function App() {
         </Group>
       </Group>
       {activeAppModule === "catalog" ? (
-        <>
-          <Tabs
-            value={catalogView}
-            onChange={(value) => selectCatalogView(value as CatalogView)}
-            keepMounted={false}
-          >
-            <Tabs.List aria-label="Catalog navigation">
-              <Tabs.Tab value="allVideos">All Videos</Tabs.Tab>
-              <Tabs.Tab
-                value="favorites"
-                leftSection={<IconStar size={navigationIconSize} />}
-              >
-                Favorites
-              </Tabs.Tab>
-              <Tabs.Tab
-                value="recentlyOpened"
-                leftSection={<IconHistory size={navigationIconSize} />}
-              >
-                Recently Opened
-              </Tabs.Tab>
-              <Tabs.Tab
-                value="metadataSuggestions"
-                leftSection={<IconBulb size={navigationIconSize} />}
-              >
-                Metadata Suggestions
-              </Tabs.Tab>
-            </Tabs.List>
-          </Tabs>
-          {isCatalogVideoListView ? (
-            <CatalogVideosPanel
-              availablePerformers={availablePerformers}
-              availableTags={availableTags}
-              catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
-              catalogVideoFilters={activeCatalogVideoFilters}
-              catalogVideoWorkspace={catalogVideoWorkspace}
-              catalogVideoSort={workspaceCatalogVideoSort}
-              catalogVideos={filteredCatalogVideos}
-              catalogVideosStatusMessage={catalogVideosStatusMessage}
-              onCatalogVideoFiltersChange={setCatalogVideoFilters}
-              onCatalogVideoSortChange={setCatalogVideoSort}
-              onOpenVideo={openVideoFromCatalog}
-              onSetBatchVideoSelected={setBatchVideoSelected}
-              onSelectVideo={selectVideoForDetail}
-              onSetFavorite={setCatalogVideoFavorite}
-              selectedVideoIds={batchSelectedVideoIds}
-            />
-          ) : (
-            <Paper component="section" aria-label="Catalog Metadata Suggestions" p="md" maw={760}>
-              <MetadataSuggestionsPanel
-                availablePerformers={availablePerformers}
-                availableTags={availableTags}
-                metadataSuggestionGroups={metadataSuggestionGroups}
-                onAcceptMetadataSuggestionVideos={
-                  acceptSelectedMetadataSuggestionVideos
-                }
-                onRejectMetadataSuggestionSource={
-                  rejectMetadataSuggestionForSource
-                }
-                onReviewVideo={reviewMetadataSuggestionVideo}
-              />
-            </Paper>
-          )}
-          {batchSelectedVideos.length > 0 ? (
-            <BatchMetadataEditPanel
-              availablePerformers={availablePerformers}
-              availableTags={availableTags}
-              onAppendPerformer={appendPerformerToBatchSelectedVideos}
-              onAppendTag={appendTagToBatchSelectedVideos}
-              onCreateOrAppendPerformer={
-                createOrAppendPerformerToBatchSelectedVideos
-              }
-              onCreateOrAppendTag={createOrAppendTagToBatchSelectedVideos}
-              onRemovePerformer={removePerformerFromBatchSelectedVideos}
-              onRemoveTag={removeTagFromBatchSelectedVideos}
-              onSetFavorite={setBatchSelectedVideosFavorite}
-              removablePerformers={batchRemovablePerformers}
-              removableTags={batchRemovableTags}
-              selectedVideoCount={batchSelectedVideos.length}
-            />
-          ) : null}
-          {selectedVideo ? (
-            <VideoDetailPanel
-              availablePerformers={availablePerformers}
-              availableTags={availableTags}
-              detailStatusMessage={detailStatusMessage}
-              onAttachPerformer={attachPerformerToSelectedVideo}
-              onAttachTag={attachTagToSelectedVideo}
-              onCreateOrAttachPerformer={createOrAttachPerformerToSelectedVideo}
-              onCreateOrAttachTag={createOrAttachTagToSelectedVideo}
-              onDetachPerformer={detachPerformerFromSelectedVideo}
-              onDetachTag={detachTagFromSelectedVideo}
-              onSaveTitle={saveSelectedVideoTitle}
-              onSetFavorite={setSelectedVideoFavorite}
-              selectedPerformers={selectedVideoPerformers}
-              selectedTags={selectedVideoTags}
-              video={selectedVideo}
-            />
-          ) : null}
-        </>
+        <CatalogModule
+          availablePerformers={availablePerformers}
+          availableTags={availableTags}
+          batchRemovablePerformers={batchRemovablePerformers}
+          batchRemovableTags={batchRemovableTags}
+          batchSelectedVideoCount={batchSelectedVideos.length}
+          catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
+          catalogVideoFilters={activeCatalogVideoFilters}
+          catalogVideoSort={workspaceCatalogVideoSort}
+          catalogVideoWorkspace={catalogVideoWorkspace}
+          catalogVideos={filteredCatalogVideos}
+          catalogVideosStatusMessage={catalogVideosStatusMessage}
+          catalogView={catalogView}
+          detailStatusMessage={detailStatusMessage}
+          metadataSuggestionGroups={metadataSuggestionGroups}
+          onAcceptMetadataSuggestionVideos={
+            acceptSelectedMetadataSuggestionVideos
+          }
+          onAppendPerformer={appendPerformerToBatchSelectedVideos}
+          onAppendTag={appendTagToBatchSelectedVideos}
+          onAttachPerformer={attachPerformerToSelectedVideo}
+          onAttachTag={attachTagToSelectedVideo}
+          onCatalogVideoFiltersChange={setCatalogVideoFilters}
+          onCatalogVideoSortChange={setCatalogVideoSort}
+          onCatalogViewChange={selectCatalogView}
+          onCreateOrAppendPerformer={createOrAppendPerformerToBatchSelectedVideos}
+          onCreateOrAppendTag={createOrAppendTagToBatchSelectedVideos}
+          onCreateOrAttachPerformer={createOrAttachPerformerToSelectedVideo}
+          onCreateOrAttachTag={createOrAttachTagToSelectedVideo}
+          onDetachPerformer={detachPerformerFromSelectedVideo}
+          onDetachTag={detachTagFromSelectedVideo}
+          onOpenVideo={openVideoFromCatalog}
+          onRejectMetadataSuggestionSource={rejectMetadataSuggestionForSource}
+          onRemovePerformer={removePerformerFromBatchSelectedVideos}
+          onRemoveTag={removeTagFromBatchSelectedVideos}
+          onReviewVideo={reviewMetadataSuggestionVideo}
+          onSaveTitle={saveSelectedVideoTitle}
+          onSelectVideo={selectVideoForDetail}
+          onSetBatchFavorite={setBatchSelectedVideosFavorite}
+          onSetBatchVideoSelected={setBatchVideoSelected}
+          onSetFavorite={setCatalogVideoFavorite}
+          onSetSelectedFavorite={setSelectedVideoFavorite}
+          selectedPerformers={selectedVideoPerformers}
+          selectedTags={selectedVideoTags}
+          selectedVideo={selectedVideo}
+          selectedVideoIds={batchSelectedVideoIds}
+        />
       ) : null}
       {activeAppModule === "scan" ? (
-        <Tabs value={scanTab} onChange={setScanTab} keepMounted={false}>
-          <Tabs.List aria-label="Scan module tabs">
-            <Tabs.Tab value={scanRootsTab}>Scan Roots</Tabs.Tab>
-            <Tabs.Tab value={scanIssuesTab}>
-              <Group gap={6}>
-                <span>Scan Issues</span>
-                {scanIssuesAttentionCount > 0 ? (
-                  <Badge size="sm" color="red">
-                    {scanIssuesAttentionCount}
-                  </Badge>
-                ) : null}
-              </Group>
-            </Tabs.Tab>
-            <Tabs.Tab value={previewGenerationTab}>
-              <Group gap={6}>
-                <span>Preview Generation</span>
-                {previewGenerationAttentionCount > 0 ? (
-                  <Badge size="sm" color="red">
-                    {previewGenerationAttentionCount}
-                  </Badge>
-                ) : null}
-              </Group>
-            </Tabs.Tab>
-          </Tabs.List>
-
-          <Tabs.Panel value={scanRootsTab}>
-            <ScanRootsPanel
-              manualScanRootPath={manualScanRootPath}
-              scanRoots={scanRoots}
-              scanRootsStatusMessage={scanRootsStatusMessage}
-              onAddManualScanRoot={addManualScanRoot}
-              onChooseScanRootFolder={chooseScanRootFolder}
-              onManualScanRootPathChange={setManualScanRootPath}
-              onRefreshEveryScanRoot={refreshEveryScanRoot}
-              onRefreshSelectedScanRoot={refreshSelectedScanRoot}
-              onRequestScanRootRemoval={setScanRootPendingRemoval}
-              onSaveScanRootInferenceRules={saveScanRootInferenceRules}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={scanIssuesTab}>
-            <ScanIssuesPanel
-              missingVideos={missingVideos}
-              scanIssuesStatusMessage={scanIssuesStatusMessage}
-              unavailableScanRoots={unavailableScanRoots}
-              unprocessableVideoCandidates={unprocessableVideoCandidates}
-              onRequestMissingVideoForget={setMissingVideoPendingForget}
-            />
-          </Tabs.Panel>
-
-          <Tabs.Panel value={previewGenerationTab}>
-            <PreviewGenerationView
-              failedPreviewStrips={failedPreviewStrips}
-              generatedPreviewStripCount={generatedPreviewStripCount}
-              generatingPreviewStripTitle={generatingPreviewStripVideo?.title}
-              onIgnoreFailedPreview={ignoreFailedPreview}
-              onPausePreviewStripQueue={pausePreviewStripQueueAction}
-              onResumePreviewStripQueue={resumePreviewStripQueueAction}
-              onRetryFailedPreview={retryFailedPreview}
-              previewStripQueueStatus={previewStripQueueStatus}
-            />
-          </Tabs.Panel>
-        </Tabs>
+        <ScanModule
+          failedPreviewStrips={failedPreviewStrips}
+          generatedPreviewStripCount={generatedPreviewStripCount}
+          generatingPreviewStripTitle={generatingPreviewStripVideo?.title}
+          manualScanRootPath={manualScanRootPath}
+          missingVideos={missingVideos}
+          onAddManualScanRoot={addManualScanRoot}
+          onChooseScanRootFolder={chooseScanRootFolder}
+          onIgnoreFailedPreview={ignoreFailedPreview}
+          onManualScanRootPathChange={setManualScanRootPath}
+          onPausePreviewStripQueue={pausePreviewStripQueueAction}
+          onRefreshEveryScanRoot={refreshEveryScanRoot}
+          onRefreshSelectedScanRoot={refreshSelectedScanRoot}
+          onRequestMissingVideoForget={setMissingVideoPendingForget}
+          onRequestScanRootRemoval={setScanRootPendingRemoval}
+          onResumePreviewStripQueue={resumePreviewStripQueueAction}
+          onRetryFailedPreview={retryFailedPreview}
+          onSaveScanRootInferenceRules={saveScanRootInferenceRules}
+          onScanTabChange={setScanTab}
+          previewGenerationAttentionCount={previewGenerationAttentionCount}
+          previewStripQueueStatus={previewStripQueueStatus}
+          scanIssuesAttentionCount={scanIssuesAttentionCount}
+          scanIssuesStatusMessage={scanIssuesStatusMessage}
+          scanRoots={scanRoots}
+          scanRootsStatusMessage={scanRootsStatusMessage}
+          scanTab={scanTab}
+          unavailableScanRoots={unavailableScanRoots}
+          unprocessableVideoCandidates={unprocessableVideoCandidates}
+        />
       ) : null}
 
       {scanRootPendingRemoval ? (
@@ -1220,18 +1117,16 @@ export default function App() {
       ) : null}
 
       {activeAppModule === "settings" ? (
-        <>
-          <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
-          <FfmpegStatusPanel
-            ffmpegPath={ffmpegPath}
-            ffmpegStatusMessage={ffmpegStatusMessage}
-            ffmpegToolsStatus={ffmpegToolsStatus}
-            ffprobePath={ffprobePath}
-            onFfmpegPathChange={setFfmpegPath}
-            onFfprobePathChange={setFfprobePath}
-            onSaveConfiguredFfmpegPaths={saveConfiguredFfmpegPaths}
-          />
-        </>
+        <SettingsModule
+          ffmpegPath={ffmpegPath}
+          ffmpegStatusMessage={ffmpegStatusMessage}
+          ffmpegToolsStatus={ffmpegToolsStatus}
+          ffprobePath={ffprobePath}
+          localDesktopAppStatus={localDesktopAppStatus}
+          onFfmpegPathChange={setFfmpegPath}
+          onFfprobePathChange={setFfprobePath}
+          onSaveConfiguredFfmpegPaths={saveConfiguredFfmpegPaths}
+        />
       ) : null}
     </Box>
   );
