@@ -17,7 +17,6 @@ import type {
   CatalogView,
 } from "./catalogTypes";
 import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel";
-import { VideoDetailPanel } from "./VideoDetailPanel";
 
 export type CatalogModuleProps = {
   availablePerformers: CatalogPerformer[];
@@ -187,24 +186,6 @@ export function CatalogModule({
           removablePerformers={batchRemovablePerformers}
           removableTags={batchRemovableTags}
           selectedVideoCount={batchSelectedVideoCount}
-        />
-      ) : null}
-      {selectedVideo ? (
-        <VideoDetailPanel
-          availablePerformers={availablePerformers}
-          availableTags={availableTags}
-          detailStatusMessage={detailStatusMessage}
-          onAttachPerformer={onAttachPerformer}
-          onAttachTag={onAttachTag}
-          onCreateOrAttachPerformer={onCreateOrAttachPerformer}
-          onCreateOrAttachTag={onCreateOrAttachTag}
-          onDetachPerformer={onDetachPerformer}
-          onDetachTag={onDetachTag}
-          onSaveTitle={onSaveTitle}
-          onSetFavorite={onSetSelectedFavorite}
-          selectedPerformers={selectedPerformers}
-          selectedTags={selectedTags}
-          video={selectedVideo}
         />
       ) : null}
     </>

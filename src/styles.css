@@ -16,13 +16,11 @@ body {
   min-height: 100vh;
 }
 
-.app-shell {
+.app-main-content {
   box-sizing: border-box;
   display: grid;
   gap: 12px;
-  min-height: 100vh;
   align-content: start;
-  padding: 24px;
 }
 
 .module-navigation {
@@ -75,7 +73,7 @@ body {
 }
 
 @media (max-width: 640px) {
-  .app-shell {
+  .app-main-content {
     padding: 28px 20px;
   }
 }
