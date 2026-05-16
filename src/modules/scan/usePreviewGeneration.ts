@@ -14,22 +14,22 @@ const previewStripQueuePollingIntervalMilliseconds = 250;
 
 export function usePreviewGeneration({
   refreshCatalogVideos,
-  refreshReviewQueue,
+  refreshScanIssues,
 }: {
   refreshCatalogVideos: () => Promise<void>;
-  refreshReviewQueue: () => Promise<void>;
+  refreshScanIssues: () => Promise<void>;
 }) {
   const [previewStripStatusMessage, setPreviewStripStatusMessage] =
     useState("");
   const [previewStripQueueStatus, setPreviewStripQueueStatus] =
     useState<PreviewStripQueueStatus | null>(null);
   const latestRefreshCatalogVideos = useRef(refreshCatalogVideos);
-  const latestRefreshReviewQueue = useRef(refreshReviewQueue);
+  const latestRefreshScanIssues = useRef(refreshScanIssues);
 
   useEffect(() => {
     latestRefreshCatalogVideos.current = refreshCatalogVideos;
-    latestRefreshReviewQueue.current = refreshReviewQueue;
-  }, [refreshCatalogVideos, refreshReviewQueue]);
+    latestRefreshScanIssues.current = refreshScanIssues;
+  }, [refreshCatalogVideos, refreshScanIssues]);
 
   async function refreshPreviewStripQueueStatus() {
     try {
@@ -118,7 +118,7 @@ export function usePreviewGeneration({
         setPreviewStripQueueStatus(queueStatus);
         if (queueStatus.runningCount === 0) {
           await latestRefreshCatalogVideos.current();
-          await latestRefreshReviewQueue.current();
+          await latestRefreshScanIssues.current();
         }
       } catch (error) {
         if (canUpdatePreviewStripQueue) {
@@ -133,7 +133,7 @@ export function usePreviewGeneration({
     };
   }, [previewStripQueueStatus]);
 
-  async function pausePreviewQueue() {
+  async function pausePreviewStripQueueAction() {
     try {
       const queueStatus = await pausePreviewStripQueue();
 
@@ -144,7 +144,7 @@ export function usePreviewGeneration({
     }
   }
 
-  async function resumePreviewQueue() {
+  async function resumePreviewStripQueueAction() {
     try {
       const queueStatus = await resumePreviewStripQueue();
 
@@ -156,11 +156,11 @@ export function usePreviewGeneration({
   }
 
   return {
-    pausePreviewQueue,
+    pausePreviewStripQueueAction,
     previewStripQueueStatus,
     previewStripStatusMessage,
     refreshPreviewStripQueueStatus,
-    resumePreviewQueue,
+    resumePreviewStripQueueAction,
     setPreviewStripQueueStatus,
   };
 }

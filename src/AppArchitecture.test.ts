@@ -20,7 +20,7 @@ describe("App module boundaries", () => {
   it("keeps Preview Generation polling independent from parent renders", () => {
     expect(previewGenerationHookSource).toMatch(/latestRefreshCatalogVideos/);
     expect(previewGenerationHookSource).not.toMatch(
-      /\}, \[previewStripQueueStatus, refreshCatalogVideos, refreshReviewQueue\]\)/,
+      /\}, \[previewStripQueueStatus, refreshCatalogVideos, refreshScanIssues\]\)/,
     );
   });
 });

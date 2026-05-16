@@ -15,10 +15,10 @@ import {
 } from "../../tauriCommands";
 import { errorMessage } from "../../shared/errors/errorMessage";
 
-const reviewQueueLoadingMessage = "Loading Review Queue...";
-const reviewQueueErrorMessage = "Review Queue unavailable";
+const scanIssuesLoadingMessage = "Loading Scan Issues...";
+const scanIssuesErrorMessage = "Scan Issues unavailable";
 
-export function useReviewQueue({
+export function useScanIssues({
   refreshCatalogVideos,
   refreshPreviewStripQueueStatus,
   setPreviewStripQueueStatus,
@@ -37,11 +37,11 @@ export function useReviewQueue({
   const [metadataSuggestionGroups, setMetadataSuggestionGroups] = useState<
     MetadataSuggestionGroup[]
   >([]);
-  const [reviewQueueStatusMessage, setReviewQueueStatusMessage] = useState(
-    reviewQueueLoadingMessage,
+  const [scanIssuesStatusMessage, setScanIssuesStatusMessage] = useState(
+    scanIssuesLoadingMessage,
   );
 
-  async function refreshReviewQueue(shouldClearStatusMessage = true) {
+  async function refreshScanIssues(shouldClearStatusMessage = true) {
     try {
       const [
         storedUnprocessableVideoCandidates,
@@ -57,17 +57,17 @@ export function useReviewQueue({
       setFailedPreviewStrips(storedFailedPreviewStrips);
       setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
       if (shouldClearStatusMessage) {
-        setReviewQueueStatusMessage("");
+        setScanIssuesStatusMessage("");
       }
     } catch {
-      setReviewQueueStatusMessage(reviewQueueErrorMessage);
+      setScanIssuesStatusMessage(scanIssuesErrorMessage);
     }
   }
 
   useEffect(() => {
-    let canUpdateReviewQueue = true;
+    let canUpdateScanIssues = true;
 
-    async function loadInitialReviewQueue() {
+    async function loadInitialScanIssues() {
       try {
         const [
           storedUnprocessableVideoCandidates,
@@ -79,23 +79,23 @@ export function useReviewQueue({
           listMetadataSuggestionGroups(),
         ]);
 
-        if (canUpdateReviewQueue) {
+        if (canUpdateScanIssues) {
           setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
           setFailedPreviewStrips(storedFailedPreviewStrips);
           setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
-          setReviewQueueStatusMessage("");
+          setScanIssuesStatusMessage("");
         }
       } catch {
-        if (canUpdateReviewQueue) {
-          setReviewQueueStatusMessage(reviewQueueErrorMessage);
+        if (canUpdateScanIssues) {
+          setScanIssuesStatusMessage(scanIssuesErrorMessage);
         }
       }
     }
 
-    void loadInitialReviewQueue();
+    void loadInitialScanIssues();
 
     return () => {
-      canUpdateReviewQueue = false;
+      canUpdateScanIssues = false;
     };
   }, []);
 
@@ -106,12 +106,12 @@ export function useReviewQueue({
       );
 
       setPreviewStripQueueStatus(queueStatus);
-      setReviewQueueStatusMessage("");
+      setScanIssuesStatusMessage("");
       await refreshCatalogVideos();
-      await refreshReviewQueue(false);
+      await refreshScanIssues(false);
       await refreshPreviewStripQueueStatus();
     } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
+      setScanIssuesStatusMessage(errorMessage(error));
     }
   }
 
@@ -122,10 +122,10 @@ export function useReviewQueue({
       );
 
       setPreviewStripQueueStatus(queueStatus);
-      setReviewQueueStatusMessage("");
-      await refreshReviewQueue(false);
+      setScanIssuesStatusMessage("");
+      await refreshScanIssues(false);
     } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
+      setScanIssuesStatusMessage(errorMessage(error));
     }
   }
 
@@ -133,10 +133,10 @@ export function useReviewQueue({
     failedPreviewStrips,
     ignoreFailedPreview,
     metadataSuggestionGroups,
-    refreshReviewQueue,
+    refreshScanIssues,
     retryFailedPreview,
-    reviewQueueStatusMessage,
-    setReviewQueueStatusMessage,
+    scanIssuesStatusMessage,
+    setScanIssuesStatusMessage,
     unprocessableVideoCandidates,
   };
 }

@@ -29,8 +29,8 @@ export function CatalogVideosPanel({
   catalogVideosStatusMessage,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
-  onPausePreviewQueue,
-  onResumePreviewQueue,
+  onPausePreviewStripQueue,
+  onResumePreviewStripQueue,
   onOpenVideo,
   onSetBatchVideoSelected,
   onSelectVideo,
@@ -49,8 +49,8 @@ export function CatalogVideosPanel({
   catalogVideosStatusMessage: string;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
-  onPausePreviewQueue: () => void;
-  onResumePreviewQueue: () => void;
+  onPausePreviewStripQueue: () => void;
+  onResumePreviewStripQueue: () => void;
   onOpenVideo: (catalogVideo: CatalogVideo) => void;
   onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
@@ -74,8 +74,8 @@ export function CatalogVideosPanel({
         </Group>
 
         <PreviewStripQueuePanel
-          onPausePreviewQueue={onPausePreviewQueue}
-          onResumePreviewQueue={onResumePreviewQueue}
+          onPausePreviewStripQueue={onPausePreviewStripQueue}
+          onResumePreviewStripQueue={onResumePreviewStripQueue}
           previewStripQueueStatus={previewStripQueueStatus}
         />
 

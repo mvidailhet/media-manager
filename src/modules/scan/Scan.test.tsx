@@ -725,7 +725,7 @@ describe("Scan module", () => {
     expect(await screen.findByText("Unavailable")).toBeInTheDocument();
   });
 
-  it("lists scan-related issues in the Review Queue", async () => {
+  it("lists scan-related issues in Scan Issues", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -781,29 +781,29 @@ describe("Scan module", () => {
       expect(mockedListMetadataSuggestionGroups).toHaveBeenCalled();
     });
 
-    const reviewQueue = await screen.findByRole("region", {
-      name: "Review Queue",
+    const scanIssues = await screen.findByRole("region", {
+      name: "Scan Issues",
     });
     expect(
-      within(reviewQueue).getByRole("heading", { name: "Review Queue" }),
+      within(scanIssues).getByRole("heading", { name: "Scan Issues" }),
     ).toBeInTheDocument();
     expect(
-      within(reviewQueue).getByRole("heading", { name: "Missing Videos" }),
+      within(scanIssues).getByRole("heading", { name: "Missing Videos" }),
     ).toBeInTheDocument();
     expect(
-      await within(reviewQueue).findByText("Family Trip"),
+      await within(scanIssues).findByText("Family Trip"),
     ).toBeInTheDocument();
     expect(
-      within(reviewQueue).queryByText("Available Trip"),
+      within(scanIssues).queryByText("Available Trip"),
     ).not.toBeInTheDocument();
     expect(
-      within(reviewQueue).getByText("/Volumes/Missing/Videos"),
+      within(scanIssues).getByText("/Volumes/Missing/Videos"),
     ).toBeInTheDocument();
     expect(
-      within(reviewQueue).getByText("/Volumes/Archive/Videos/broken.mkv"),
+      within(scanIssues).getByText("/Volumes/Archive/Videos/broken.mkv"),
     ).toBeInTheDocument();
     expect(
-      within(reviewQueue).getByText("missing moov atom"),
+      within(scanIssues).getByText("missing moov atom"),
     ).toBeInTheDocument();
   });
   it("lists Failed Preview Strips in Preview Generation with retry and ignore actions", async () => {

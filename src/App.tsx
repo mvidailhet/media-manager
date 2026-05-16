@@ -45,7 +45,7 @@ import {
   workspaceCatalogVideos,
 } from "./modules/catalog/catalogVideoFiltering";
 import { MetadataSuggestionsPanel } from "./modules/catalog/MetadataSuggestionsPanel";
-import { ReviewQueuePanel } from "./modules/scan/ScanIssuesPanel";
+import { ScanIssuesPanel } from "./modules/scan/ScanIssuesPanel";
 import { ScanRootsPanel } from "./modules/scan/ScanRootsPanel";
 import { PreviewGenerationView } from "./modules/scan/PreviewGenerationView";
 import {
@@ -58,7 +58,7 @@ import {
   useSettingsStatus,
 } from "./modules/settings/useSettingsStatus";
 import { usePreviewGeneration } from "./modules/scan/usePreviewGeneration";
-import { useReviewQueue } from "./modules/scan/useReviewQueue";
+import { useScanIssues } from "./modules/scan/useScanIssues";
 import type { ScanRoot, ScanRootRemovalPolicy } from "./modules/scan/useScanRoots";
 import { useScanRoots } from "./modules/scan/useScanRoots";
 import {
@@ -134,9 +134,9 @@ export default function App() {
   } = useCatalogMetadata({ catalogVideos });
   const previewGeneration = usePreviewGeneration({
     refreshCatalogVideos,
-    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
-  const reviewQueue = useReviewQueue({
+  const scanIssues = useScanIssues({
     refreshCatalogVideos,
     refreshPreviewStripQueueStatus:
       previewGeneration.refreshPreviewStripQueueStatus,
@@ -146,27 +146,27 @@ export default function App() {
     refreshCatalogVideos,
     refreshPreviewStripQueueStatus:
       previewGeneration.refreshPreviewStripQueueStatus,
-    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
   const settingsStatus = useSettingsStatus({
-    refreshReviewQueue: async () => reviewQueue.refreshReviewQueue(false),
+    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
   const {
-    pausePreviewQueue,
+    pausePreviewStripQueueAction,
     previewStripQueueStatus,
     previewStripStatusMessage,
-    resumePreviewQueue,
+    resumePreviewStripQueueAction,
   } = previewGeneration;
   const {
     failedPreviewStrips,
     ignoreFailedPreview,
     metadataSuggestionGroups,
-    refreshReviewQueue,
+    refreshScanIssues,
     retryFailedPreview,
-    reviewQueueStatusMessage,
-    setReviewQueueStatusMessage,
+    scanIssuesStatusMessage,
+    setScanIssuesStatusMessage,
     unprocessableVideoCandidates,
-  } = reviewQueue;
+  } = scanIssues;
   const {
     addManualScanRoot,
     chooseScanRootFolder,
@@ -209,7 +209,7 @@ export default function App() {
         suggestionKind,
         videoIds,
       });
-      await refreshReviewQueue(false);
+      await refreshScanIssues(false);
       const [storedTags, storedPerformers] = await Promise.all([
         loadAvailableTags(),
         loadAvailablePerformers(),
@@ -239,7 +239,7 @@ export default function App() {
         setSelectedVideoPerformers(selectedVideoMetadata.performers);
       }
     } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
+      setScanIssuesStatusMessage(errorMessage(error));
     }
   }
 
@@ -261,9 +261,9 @@ export default function App() {
         suggestedValue,
         suggestionKind,
       });
-      await refreshReviewQueue(false);
+      await refreshScanIssues(false);
     } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
+      setScanIssuesStatusMessage(errorMessage(error));
     }
   }
 
@@ -292,10 +292,10 @@ export default function App() {
     try {
       await forgetMissingVideo(missingVideoPendingForget.id);
       setMissingVideoPendingForget(null);
-      setReviewQueueStatusMessage("");
+      setScanIssuesStatusMessage("");
       await refreshCatalogVideos();
     } catch (error) {
-      setReviewQueueStatusMessage(errorMessage(error));
+      setScanIssuesStatusMessage(errorMessage(error));
     }
   }
 
@@ -1026,8 +1026,8 @@ export default function App() {
               catalogVideosStatusMessage={catalogVideosStatusMessage}
               onCatalogVideoFiltersChange={setCatalogVideoFilters}
               onCatalogVideoSortChange={setCatalogVideoSort}
-              onPausePreviewQueue={pausePreviewQueue}
-              onResumePreviewQueue={resumePreviewQueue}
+              onPausePreviewStripQueue={pausePreviewStripQueueAction}
+              onResumePreviewStripQueue={resumePreviewStripQueueAction}
               onOpenVideo={openVideoFromCatalog}
               onSetBatchVideoSelected={setBatchVideoSelected}
               onSelectVideo={selectVideoForDetail}
@@ -1132,10 +1132,10 @@ export default function App() {
           </Tabs.Panel>
 
           <Tabs.Panel value={scanIssuesTab}>
-            <ReviewQueuePanel
+            <ScanIssuesPanel
               metadataSuggestionsPanel={null}
               missingVideos={missingVideos}
-              reviewQueueStatusMessage={reviewQueueStatusMessage}
+              scanIssuesStatusMessage={scanIssuesStatusMessage}
               unavailableScanRoots={unavailableScanRoots}
               unprocessableVideoCandidates={unprocessableVideoCandidates}
               onRequestMissingVideoForget={setMissingVideoPendingForget}
@@ -1148,8 +1148,8 @@ export default function App() {
               generatedPreviewStripCount={generatedPreviewStripCount}
               generatingPreviewStripTitle={generatingPreviewStripVideo?.title}
               onIgnoreFailedPreview={ignoreFailedPreview}
-              onPausePreviewQueue={pausePreviewQueue}
-              onResumePreviewQueue={resumePreviewQueue}
+              onPausePreviewStripQueue={pausePreviewStripQueueAction}
+              onResumePreviewStripQueue={resumePreviewStripQueueAction}
               onRetryFailedPreview={retryFailedPreview}
               previewStripQueueStatus={previewStripQueueStatus}
             />

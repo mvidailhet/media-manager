@@ -23,11 +23,11 @@ const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
 export function useScanRoots({
   refreshCatalogVideos,
   refreshPreviewStripQueueStatus,
-  refreshReviewQueue,
+  refreshScanIssues,
 }: {
   refreshCatalogVideos: () => Promise<void>;
   refreshPreviewStripQueueStatus: () => Promise<void>;
-  refreshReviewQueue: () => Promise<void>;
+  refreshScanIssues: () => Promise<void>;
 }) {
   const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
@@ -112,7 +112,7 @@ export function useScanRoots({
       setManualScanRootPath("");
       setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
       await refreshCatalogVideos();
-      await refreshReviewQueue();
+      await refreshScanIssues();
       await refreshPreviewStripQueueStatus();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
@@ -132,7 +132,7 @@ export function useScanRoots({
       );
       setScanRootsStatusMessage("");
       await refreshCatalogVideos();
-      await refreshReviewQueue();
+      await refreshScanIssues();
       return true;
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
@@ -148,7 +148,7 @@ export function useScanRoots({
       setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
       await refreshScanRoots(false);
       await refreshCatalogVideos();
-      await refreshReviewQueue();
+      await refreshScanIssues();
       await refreshPreviewStripQueueStatus();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
@@ -184,7 +184,7 @@ export function useScanRoots({
       setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
       await refreshScanRoots(false);
       await refreshCatalogVideos();
-      await refreshReviewQueue();
+      await refreshScanIssues();
       await refreshPreviewStripQueueStatus();
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
