@@ -1,9 +1,8 @@
 mod catalog;
+mod tooling;
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
 use std::{
-    env, fs, io,
+    fs,
     path::{Path, PathBuf},
     process::Command,
     sync::{
@@ -23,12 +22,10 @@ use catalog::{
 };
 use serde::{Deserialize, Serialize};
 use tauri::{Manager, WindowEvent};
+use tooling::{FfmpegConfiguration, FfmpegToolsStatus};
 
 const LOCAL_DESKTOP_APP_STATUS: &str = "Rust command online";
 const CATALOG_DATABASE_FILENAME: &str = "catalog.sqlite3";
-const FFMPEG_BINARY_NAME: &str = "ffmpeg";
-const FFPROBE_BINARY_NAME: &str = "ffprobe";
-const FFMPEG_SETTINGS_FILE_NAME: &str = "ffmpeg-settings.json";
 const PREVIEW_STRIP_CACHE_FOLDER_NAME: &str = "preview-strips";
 
 struct CatalogState {
@@ -84,174 +81,11 @@ fn initialize_catalog(app: &tauri::App) -> Result<(), String> {
     Ok(())
 }
 
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FfmpegConfiguration {
-    ffmpeg_path: Option<String>,
-    ffprobe_path: Option<String>,
-}
-
-#[derive(Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FfmpegToolsStatus {
-    ffmpeg: FfmpegToolStatus,
-    ffprobe: FfmpegToolStatus,
-    configuration: FfmpegConfiguration,
-}
-
-#[derive(Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FfmpegToolStatus {
-    binary_name: &'static str,
-    is_available: bool,
-    resolved_path: Option<String>,
-    status_message: String,
-}
-
 #[derive(Clone, Copy, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum ScanRootRemovalPolicy {
     PreserveMissingVideos,
     ForgetFromCatalog,
-}
-
-fn discover_ffmpeg_tools_status(
-    path_value: &str,
-    configuration: FfmpegConfiguration,
-) -> FfmpegToolsStatus {
-    FfmpegToolsStatus {
-        ffmpeg: discover_ffmpeg_tool_status(
-            FFMPEG_BINARY_NAME,
-            configuration.ffmpeg_path.as_deref(),
-            path_value,
-        ),
-        ffprobe: discover_ffmpeg_tool_status(
-            FFPROBE_BINARY_NAME,
-            configuration.ffprobe_path.as_deref(),
-            path_value,
-        ),
-        configuration,
-    }
-}
-
-fn discover_ffmpeg_tool_status(
-    binary_name: &'static str,
-    configured_path: Option<&str>,
-    path_value: &str,
-) -> FfmpegToolStatus {
-    if let Some(configured_path) = configured_path.filter(|path| !path.trim().is_empty()) {
-        return status_for_candidate(binary_name, Path::new(configured_path), "configured path");
-    }
-
-    if let Some(discovered_path) = find_binary_on_path(binary_name, path_value) {
-        return available_tool_status(binary_name, discovered_path, "discovered from PATH");
-    }
-
-    FfmpegToolStatus {
-        binary_name,
-        is_available: false,
-        resolved_path: None,
-        status_message: format!("{binary_name} is not available from PATH or settings"),
-    }
-}
-
-fn status_for_candidate(
-    binary_name: &'static str,
-    candidate_path: &Path,
-    source_description: &str,
-) -> FfmpegToolStatus {
-    if is_executable_file(candidate_path) {
-        available_tool_status(
-            binary_name,
-            candidate_path.to_path_buf(),
-            source_description,
-        )
-    } else {
-        FfmpegToolStatus {
-            binary_name,
-            is_available: false,
-            resolved_path: Some(candidate_path.to_string_lossy().into_owned()),
-            status_message: format!("{binary_name} was not found at the {source_description}"),
-        }
-    }
-}
-
-fn available_tool_status(
-    binary_name: &'static str,
-    resolved_path: PathBuf,
-    source_description: &str,
-) -> FfmpegToolStatus {
-    FfmpegToolStatus {
-        binary_name,
-        is_available: true,
-        resolved_path: Some(resolved_path.to_string_lossy().into_owned()),
-        status_message: format!("{binary_name} is available ({source_description})"),
-    }
-}
-
-fn find_binary_on_path(binary_name: &str, path_value: &str) -> Option<PathBuf> {
-    env::split_paths(path_value)
-        .flat_map(|path_directory| {
-            executable_binary_names(binary_name)
-                .into_iter()
-                .map(move |candidate_name| path_directory.join(candidate_name))
-        })
-        .find(|candidate_path| is_executable_file(candidate_path))
-}
-
-fn executable_binary_names(binary_name: &str) -> Vec<String> {
-    let binary_file_name = binary_name.to_string();
-    let windows_binary_file_name = format!("{binary_name}.exe");
-
-    if binary_name.ends_with(".exe") {
-        vec![binary_file_name]
-    } else {
-        vec![binary_file_name, windows_binary_file_name]
-    }
-}
-
-#[cfg(unix)]
-fn is_executable_file(path: &Path) -> bool {
-    path.metadata()
-        .map(|metadata| metadata.is_file() && metadata.permissions().mode() & 0o111 != 0)
-        .unwrap_or(false)
-}
-
-#[cfg(not(unix))]
-fn is_executable_file(path: &Path) -> bool {
-    path.is_file()
-}
-
-fn load_ffmpeg_configuration(settings_path: &Path) -> Result<FfmpegConfiguration, String> {
-    match fs::read_to_string(settings_path) {
-        Ok(settings_json) => {
-            serde_json::from_str(&settings_json).map_err(|error| error.to_string())
-        }
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(FfmpegConfiguration::default()),
-        Err(error) => Err(error.to_string()),
-    }
-}
-
-fn save_ffmpeg_configuration_to_path(
-    settings_path: &Path,
-    configuration: &FfmpegConfiguration,
-) -> Result<(), String> {
-    if let Some(settings_directory) = settings_path.parent() {
-        fs::create_dir_all(settings_directory).map_err(|error| error.to_string())?;
-    }
-
-    let settings_json =
-        serde_json::to_string_pretty(configuration).map_err(|error| error.to_string())?;
-    fs::write(settings_path, settings_json).map_err(|error| error.to_string())
-}
-
-fn ffmpeg_settings_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let app_config_directory = app
-        .path()
-        .app_config_dir()
-        .map_err(|error| error.to_string())?;
-
-    Ok(app_config_directory.join(FFMPEG_SETTINGS_FILE_NAME))
 }
 
 #[tauri::command]
@@ -623,42 +457,7 @@ fn file_location_open_command_for_platform(
 
 #[tauri::command]
 fn get_ffmpeg_tools_status(app: tauri::AppHandle) -> Result<FfmpegToolsStatus, String> {
-    let settings_path = ffmpeg_settings_path(&app)?;
-    let configuration = load_ffmpeg_configuration(&settings_path)?;
-    let path_value = env::var_os("PATH").unwrap_or_default();
-    let path_value = path_value.to_string_lossy();
-
-    Ok(discover_ffmpeg_tools_status(&path_value, configuration))
-}
-
-fn configured_or_discovered_ffprobe_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let settings_path = ffmpeg_settings_path(app)?;
-    let configuration = load_ffmpeg_configuration(&settings_path)?;
-    let path_value = env::var_os("PATH").unwrap_or_default();
-    let path_value = path_value.to_string_lossy();
-    let ffmpeg_tools_status = discover_ffmpeg_tools_status(&path_value, configuration);
-
-    ffmpeg_tools_status
-        .ffprobe
-        .resolved_path
-        .filter(|_| ffmpeg_tools_status.ffprobe.is_available)
-        .map(PathBuf::from)
-        .ok_or(ffmpeg_tools_status.ffprobe.status_message)
-}
-
-fn configured_or_discovered_ffmpeg_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
-    let settings_path = ffmpeg_settings_path(app)?;
-    let configuration = load_ffmpeg_configuration(&settings_path)?;
-    let path_value = env::var_os("PATH").unwrap_or_default();
-    let path_value = path_value.to_string_lossy();
-    let ffmpeg_tools_status = discover_ffmpeg_tools_status(&path_value, configuration);
-
-    ffmpeg_tools_status
-        .ffmpeg
-        .resolved_path
-        .filter(|_| ffmpeg_tools_status.ffmpeg.is_available)
-        .map(PathBuf::from)
-        .ok_or(ffmpeg_tools_status.ffmpeg.status_message)
+    tooling::load_ffmpeg_tools_status(&app)
 }
 
 fn preview_strip_cache_path(app: &tauri::AppHandle) -> Result<PathBuf, String> {
@@ -729,11 +528,10 @@ fn save_ffmpeg_configuration(
     catalog_state: tauri::State<'_, CatalogState>,
     configuration: FfmpegConfiguration,
 ) -> Result<FfmpegToolsStatus, String> {
-    let settings_path = ffmpeg_settings_path(&app)?;
-    let previous_configuration = load_ffmpeg_configuration(&settings_path)?;
+    let previous_configuration = tooling::load_saved_ffmpeg_configuration(&app)?;
     let should_retry_ignored_failures = previous_configuration != configuration;
 
-    save_ffmpeg_configuration_to_path(&settings_path, &configuration)?;
+    let ffmpeg_tools_status = tooling::save_ffmpeg_configuration(&app, &configuration)?;
     if should_retry_ignored_failures {
         let catalog = catalog_state
             .catalog
@@ -744,10 +542,7 @@ fn save_ffmpeg_configuration(
         )?;
     }
 
-    let path_value = env::var_os("PATH").unwrap_or_default();
-    let path_value = path_value.to_string_lossy();
-
-    Ok(discover_ffmpeg_tools_status(&path_value, configuration))
+    Ok(ffmpeg_tools_status)
 }
 
 #[tauri::command]
@@ -770,7 +565,7 @@ fn refresh_scan_root(
         }
     }
 
-    let ffprobe_path = configured_or_discovered_ffprobe_path(&app)?;
+    let ffprobe_path = tooling::configured_or_discovered_ffprobe_path(&app)?;
     let video_file_probe = FfprobeVideoFileProbe::new(ffprobe_path);
     let video_extension_allowlist = video_extension_allowlist.unwrap_or_default();
     let catalog = catalog_state
@@ -825,7 +620,7 @@ fn refresh_all_scan_roots(
         return Ok(refresh_summary);
     }
 
-    let ffprobe_path = configured_or_discovered_ffprobe_path(&app)?;
+    let ffprobe_path = tooling::configured_or_discovered_ffprobe_path(&app)?;
     let video_file_probe = FfprobeVideoFileProbe::new(ffprobe_path);
     let video_extension_allowlist = video_extension_allowlist.unwrap_or_default();
     let catalog = catalog_state
@@ -1015,7 +810,7 @@ fn process_next_preview_strip_queue_item(
     }
 
     let preparation_result = (|| {
-        let ffmpeg_path = configured_or_discovered_ffmpeg_path(&app)?;
+        let ffmpeg_path = tooling::configured_or_discovered_ffmpeg_path(&app)?;
         let preview_cache_path = preview_strip_cache_path(&app)?;
         let request = {
             let catalog = catalog_state
@@ -1184,10 +979,12 @@ mod tests {
     use std::os::unix::fs::PermissionsExt;
 
     use super::{
-        discover_ffmpeg_tools_status, executable_binary_names,
-        file_location_open_command_for_platform, load_ffmpeg_configuration,
-        local_desktop_app_status, save_ffmpeg_configuration_to_path, FfmpegConfiguration,
+        file_location_open_command_for_platform, local_desktop_app_status, tooling,
         CATALOG_DATABASE_FILENAME, PREVIEW_STRIP_CACHE_FOLDER_NAME,
+    };
+    use tooling::{
+        discover_ffmpeg_tools_status, executable_binary_names, load_ffmpeg_configuration,
+        save_ffmpeg_configuration_to_path, FfmpegConfiguration,
     };
 
     #[test]
