@@ -90,6 +90,9 @@ describe("App shell", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+
+    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+
     fireEvent.click(
       await within(catalogVideos).findByRole("button", {
         name: "Family Trip",
@@ -113,7 +116,9 @@ describe("App shell", () => {
       }),
     );
 
-    expect(await within(appAside).findByDisplayValue("City Walk")).toBeInTheDocument();
+    expect(
+      await within(appAside).findByDisplayValue("City Walk"),
+    ).toBeInTheDocument();
   });
 
   it("renders Catalog as the initial module workspace", async () => {

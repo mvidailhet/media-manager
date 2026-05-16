@@ -108,7 +108,10 @@ export default function App() {
       aside={{
         width: videoDetailAsideWidth,
         breakpoint: "md",
-        collapsed: { mobile: true, desktop: !isVideoDetailAsideVisible },
+        collapsed: {
+          mobile: !isVideoDetailAsideVisible,
+          desktop: !isVideoDetailAsideVisible,
+        },
       }}
       padding="md"
     >
@@ -263,8 +266,8 @@ export default function App() {
           <SettingsModule {...settingsModuleProps} />
         ) : null}
       </AppShell.Main>
-      <AppShell.Aside p="md">
-        {catalogModuleProps.selectedVideo ? (
+      {catalogModuleProps.selectedVideo ? (
+        <AppShell.Aside p="md">
           <VideoDetailPanel
             availablePerformers={catalogModuleProps.availablePerformers}
             availableTags={catalogModuleProps.availableTags}
@@ -283,8 +286,8 @@ export default function App() {
             selectedTags={catalogModuleProps.selectedTags}
             video={catalogModuleProps.selectedVideo}
           />
-        ) : null}
-      </AppShell.Aside>
+        </AppShell.Aside>
+      ) : null}
     </AppShell>
   );
 }
