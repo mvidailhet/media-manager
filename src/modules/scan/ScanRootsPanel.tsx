@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Badge, Box, Button, Checkbox, Code, Group, NumberInput, Paper, SimpleGrid, Stack, Text, TextInput } from "@mantine/core";
+import { Badge, Box, Button, Checkbox, Code, Group, NumberInput, Stack, Text, TextInput } from "@mantine/core";
 
 import type { ScanRoot } from "../../tauriCommands";
 import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
@@ -32,7 +32,7 @@ export function ScanRootsPanel({
   scanRootsStatusMessage: string;
 }) {
   return (
-    <Paper
+    <Box
       component="section"
       aria-label="Scan Root management"
       p="md"
@@ -92,7 +92,7 @@ export function ScanRootsPanel({
           <Text c="dimmed">No Scan Roots added.</Text>
         )}
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 

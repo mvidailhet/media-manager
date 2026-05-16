@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { Badge, Box, Button, Checkbox, Code, Divider, Group, NativeSelect, NumberInput, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Badge, Box, Button, Checkbox, Code, Divider, Group, NativeSelect, RangeSlider, Stack, Text, TextInput, Title } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../tauriCommands";
 import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
@@ -10,7 +10,8 @@ import type { CatalogVideoFilters, CatalogVideoSort, CatalogVideoWorkspace } fro
 
 const catalogVideosEmptyMessage = "No Videos in the Catalog.";
 const minimumDurationMinutes = 0;
-const maximumDurationMinutes = 24 * 60;
+const maximumDurationMinutes = 3 * 60;
+const durationSliderStepMinutes = 5;
 const firstPreviewStripFrameIndex = 0;
 const previewStripPointerMinimum = 0;
 const previewStripPointerMaximum = 1;
@@ -50,33 +51,35 @@ export function CatalogVideosPanel({
   selectedVideoIds: number[];
 }) {
   return (
-    <Paper component="section" aria-label="Catalog Videos" p="md" maw={760}>
+    <Box component="section" aria-label="Catalog Videos" p="md" maw={760}>
       <Stack gap="md">
         <CatalogVideoFiltersPanel
           availablePerformers={availablePerformers}
           availableTags={availableTags}
-          favoriteFilterLocked={catalogVideoWorkspace === "favorites"}
           filters={catalogVideoFilters}
           onFiltersChange={onCatalogVideoFiltersChange}
         />
 
-        <NativeSelect
-          label="Sort Videos"
-          value={catalogVideoSort}
-          disabled={catalogVideoWorkspace === "recentlyOpened"}
-          data={[
-            { value: "titleAscending", label: "Title" },
-            { value: "fileSizeAscending", label: "File Size ascending" },
-            { value: "fileSizeDescending", label: "File Size descending" },
-            { value: "lastOpenedDescending", label: "Last Opened" },
-            { value: "openCountDescending", label: "Open Count" },
-          ]}
-          onChange={(event) =>
-            onCatalogVideoSortChange(
-              event.currentTarget.value as CatalogVideoSort,
-            )
-          }
-        />
+        <Box ml="auto" w={180}>
+          <NativeSelect
+            aria-label="Sort Videos"
+            size="xs"
+            value={catalogVideoSort}
+            disabled={catalogVideoWorkspace === "recentlyOpened"}
+            data={[
+              { value: "titleAscending", label: "Title" },
+              { value: "fileSizeAscending", label: "File Size ascending" },
+              { value: "fileSizeDescending", label: "File Size descending" },
+              { value: "lastOpenedDescending", label: "Last Opened" },
+              { value: "openCountDescending", label: "Open Count" },
+            ]}
+            onChange={(event) =>
+              onCatalogVideoSortChange(
+                event.currentTarget.value as CatalogVideoSort,
+              )
+            }
+          />
+        </Box>
 
         {catalogVideosStatusMessage ? (
           <Text>{catalogVideosStatusMessage}</Text>
@@ -105,23 +108,31 @@ export function CatalogVideosPanel({
           </Stack>
         ) : null}
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 
 export function CatalogVideoFiltersPanel({
   availablePerformers,
   availableTags,
-  favoriteFilterLocked,
   filters,
   onFiltersChange,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
-  favoriteFilterLocked: boolean;
   filters: CatalogVideoFilters;
   onFiltersChange: (filters: CatalogVideoFilters) => void;
 }) {
+  const [advancedSearchOpened, setAdvancedSearchOpened] = useState(false);
+  const durationRangeValue: [number, number] = [
+    filters.minimumDurationMinutes === ""
+      ? minimumDurationMinutes
+      : filters.minimumDurationMinutes,
+    filters.maximumDurationMinutes === ""
+      ? maximumDurationMinutes
+      : filters.maximumDurationMinutes,
+  ];
+
   function updateFilters(updatedFilters: Partial<CatalogVideoFilters>) {
     onFiltersChange({ ...filters, ...updatedFilters });
   }
@@ -129,44 +140,51 @@ export function CatalogVideoFiltersPanel({
   return (
     <Stack gap="sm" aria-label="Video Search Filters">
       <TextInput
-        label="Search Videos"
+        aria-label="Search Videos"
+        placeholder="Search Videos"
         value={filters.searchText}
         onChange={(event) =>
           updateFilters({ searchText: event.currentTarget.value })
         }
       />
-      <Group gap="md" align="end">
-        <NumberInput
-          label="Minimum duration minutes"
-          min={minimumDurationMinutes}
-          max={maximumDurationMinutes}
-          value={filters.minimumDurationMinutes}
-          onChange={(value) =>
-            updateFilters({
-              minimumDurationMinutes: numberFilterValue(value),
-            })
-          }
-        />
-        <NumberInput
-          label="Maximum duration minutes"
-          min={minimumDurationMinutes}
-          max={maximumDurationMinutes}
-          value={filters.maximumDurationMinutes}
-          onChange={(value) =>
-            updateFilters({
-              maximumDurationMinutes: numberFilterValue(value),
-            })
-          }
-        />
-        <Checkbox
-          label="Favorites only"
-          checked={filters.favoritesOnly}
-          disabled={favoriteFilterLocked}
-          onChange={(event) =>
-            updateFilters({ favoritesOnly: event.currentTarget.checked })
-          }
-        />
-      </Group>
+      <Button
+        type="button"
+        variant="subtle"
+        size="xs"
+        px={0}
+        w="fit-content"
+        aria-expanded={advancedSearchOpened}
+        onClick={() => setAdvancedSearchOpened((isOpened) => !isOpened)}
+      >
+        Advanced search
+      </Button>
+      {advancedSearchOpened ? (
+        <Box>
+          <Group justify="space-between" gap="sm" mb="xs">
+            <Text size="sm" fw={500}>
+              Duration
+            </Text>
+            <Text size="sm" c="dimmed">
+              {formatDurationRange(durationRangeValue)}
+            </Text>
+          </Group>
+          <RangeSlider
+            min={minimumDurationMinutes}
+            max={maximumDurationMinutes}
+            step={durationSliderStepMinutes}
+            value={durationRangeValue}
+            label={formatDurationFilterValue}
+            thumbFromLabel="Minimum duration"
+            thumbToLabel="Maximum duration"
+            onChange={([minimumDuration, maximumDuration]) =>
+              updateFilters({
+                minimumDurationMinutes: minimumDuration,
+                maximumDurationMinutes: maximumDuration,
+              })
+            }
+          />
+        </Box>
+      ) : null}
       {availableTags.length > 0 ? (
         <Checkbox.Group
           label="Tags"
@@ -388,6 +406,28 @@ export function previewStripFramePosition(
   };
 }
 
-export function numberFilterValue(value: string | number) {
-  return typeof value === "number" ? value : "";
+export function formatDurationRange([minimumMinutes, maximumMinutes]: [
+  number,
+  number,
+]) {
+  return `${formatDurationFilterValue(minimumMinutes)} - ${formatDurationFilterValue(maximumMinutes)}`;
+}
+
+export function formatDurationFilterValue(minutes: number) {
+  if (minutes === minimumDurationMinutes) {
+    return "0m";
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (hours === 0) {
+    return `${remainingMinutes}m`;
+  }
+
+  if (remainingMinutes === 0) {
+    return `${hours}h`;
+  }
+
+  return `${hours}h ${remainingMinutes}m`;
 }

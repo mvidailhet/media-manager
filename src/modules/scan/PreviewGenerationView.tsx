@@ -1,4 +1,4 @@
-import { Badge, Button, Group, Paper, SimpleGrid, Stack } from "@mantine/core";
+import { Badge, Box, Button, Group, SimpleGrid, Stack } from "@mantine/core";
 
 import type {
   FailedPreviewStrip,
@@ -27,7 +27,7 @@ export function PreviewGenerationView({
   previewStripQueueStatus: PreviewStripQueueStatus | null;
 }) {
   return (
-    <Paper component="section" aria-label="Preview Generation" p="md" maw={760}>
+    <Box component="section" aria-label="Preview Generation" p="md" maw={760}>
       <Stack gap="md">
         <SectionHeader label="Preview strips" title="Preview Generation" />
         <PreviewStripQueuePanel
@@ -45,7 +45,7 @@ export function PreviewGenerationView({
           />
         </SimpleGrid>
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 

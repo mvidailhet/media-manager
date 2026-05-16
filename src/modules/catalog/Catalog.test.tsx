@@ -137,7 +137,7 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
-  it("filters Catalog Videos by text favorite and duration while keeping Missing Videos visible", async () => {
+  it("filters Catalog Videos by text and duration while keeping Missing Videos visible", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -187,19 +187,59 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     expect(within(catalogVideos).getByText("Studio Clip")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByPlaceholderText("Search Videos"),
+    ).toHaveAccessibleName("Search Videos");
+    expect(
+      within(catalogVideos).queryByText("Search Videos"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("Favorites only"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("Minimum duration minutes"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("Maximum duration minutes"),
+    ).not.toBeInTheDocument();
+    const advancedSearchButton = within(catalogVideos).getByRole("button", {
+      name: "Advanced search",
+      expanded: false,
+    });
+    expect(
+      within(catalogVideos).queryByRole("slider", {
+        name: "Minimum duration",
+      }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByRole("slider", {
+        name: "Maximum duration",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(advancedSearchButton);
+
+    expect(
+      within(catalogVideos).getByRole("button", {
+        name: "Advanced search",
+        expanded: true,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByRole("slider", {
+        name: "Minimum duration",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByRole("slider", {
+        name: "Maximum duration",
+      }),
+    ).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("0m - 3h")).toBeInTheDocument();
 
     fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
       target: { value: "family" },
     });
-    fireEvent.click(within(catalogVideos).getByLabelText("Favorites only"));
-    fireEvent.change(
-      within(catalogVideos).getByLabelText("Minimum duration minutes"),
-      { target: { value: "20" } },
-    );
-    fireEvent.change(
-      within(catalogVideos).getByLabelText("Maximum duration minutes"),
-      { target: { value: "70" } },
-    );
 
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(
@@ -391,8 +431,8 @@ describe("Catalog module", () => {
       screen.getByRole("tab", { name: "Favorites", selected: true }),
     ).toBeInTheDocument();
     expect(
-      within(catalogVideos).getByLabelText("Favorites only"),
-    ).toBeChecked();
+      within(catalogVideos).queryByLabelText("Favorites only"),
+    ).not.toBeInTheDocument();
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("1h 2m")).toBeInTheDocument();
     expect(
@@ -571,6 +611,9 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    expect(
+      within(catalogVideos).queryByText("Sort Videos"),
+    ).not.toBeInTheDocument();
     expect(
       within(catalogVideos).queryByLabelText("File Size"),
     ).not.toBeInTheDocument();

@@ -1,4 +1,4 @@
-import { Box, Button, Code, Divider, Group, Paper, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Box, Button, Code, Divider, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 
 import type { CatalogVideo, FailedPreviewStrip, ScanRoot, UnprocessableVideoCandidate } from "../../tauriCommands";
 import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
@@ -19,7 +19,7 @@ export function ScanIssuesPanel({
   unprocessableVideoCandidates: UnprocessableVideoCandidate[];
 }) {
   return (
-    <Paper component="section" aria-label="Scan Issues" p="md" maw={760}>
+    <Box component="section" aria-label="Scan Issues" p="md" maw={760}>
       <Stack gap="md">
         <SectionHeader label="Scan issues" title="Scan Issues" />
 
@@ -40,7 +40,7 @@ export function ScanIssuesPanel({
           />
         </SimpleGrid>
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 

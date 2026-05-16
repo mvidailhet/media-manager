@@ -1,4 +1,4 @@
-import { Paper, Tabs } from "@mantine/core";
+import { Box, Tabs } from "@mantine/core";
 import { IconBulb, IconHistory, IconStar } from "@tabler/icons-react";
 
 import type {
@@ -167,7 +167,7 @@ export function CatalogModule({
           selectedVideoIds={selectedVideoIds}
         />
       ) : (
-        <Paper
+        <Box
           component="section"
           aria-label="Catalog Metadata Suggestions"
           p="md"
@@ -181,7 +181,7 @@ export function CatalogModule({
             onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
             onReviewVideo={onReviewVideo}
           />
-        </Paper>
+        </Box>
       )}
       {batchSelectedVideoCount > 0 ? (
         <BatchMetadataEditPanel
