@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { IconCaretDownFilled, IconCheck, IconX } from "@tabler/icons-react";
-import { Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Select, Stack, TagsInput, Text, Tree, useTree } from "@mantine/core";
+import { Autocomplete, Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Stack, TagsInput, Text, Tree, useTree } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, MetadataSuggestionGroup } from "../../tauriCommands";
 import type { RejectMetadataSuggestionSourceRequest } from "../../tauriCommands";
@@ -157,16 +157,13 @@ export function MetadataSuggestionSource({
           ]}
           onChange={(event) => setAcceptedSuggestionKind(event.currentTarget.value)}
         />
-        <Select
+        <Autocomplete
           aria-label="Accepted metadata name"
           flex={1}
           miw={240}
-          searchable
           data={availableMetadataNames}
-          searchValue={acceptedValue}
           value={acceptedValue}
-          onChange={(value) => setAcceptedValue(value ?? "")}
-          onSearchChange={setAcceptedValue}
+          onChange={setAcceptedValue}
         />
       </Group>
       {isAddingTags ? (

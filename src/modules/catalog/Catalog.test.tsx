@@ -2586,6 +2586,61 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps a typed accepted Metadata name when the field loses focus", async () => {
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 7,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    const acceptedMetadataNameInput = await within(
+      metadataSuggestions,
+    ).findByLabelText("Accepted metadata name");
+    fireEvent.change(acceptedMetadataNameInput, {
+      target: { value: "Home Movies" },
+    });
+    fireEvent.blur(acceptedMetadataNameInput);
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
+        scanRootPath: "/Volumes/Archive/Videos",
+        suggestedValue: "Family",
+        sourcePathSegment: "Family",
+        suggestionKind: "tag",
+        acceptedValue: "Home Movies",
+        videoIds: [7],
+      });
+    });
+  });
+
   it("rejects a Metadata Suggestion for one Scan Root source", async () => {
     mockedListMetadataSuggestionGroups
       .mockResolvedValueOnce([
