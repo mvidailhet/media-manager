@@ -1164,6 +1164,38 @@ describe("Catalog module", () => {
     );
   });
 
+  it("uses a wide borderless Video Detail Panel layout", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const titleInput = within(detailPanel).getByLabelText("Title");
+
+    expect(detailPanel).toHaveClass("video-detail-panel");
+    expect(detailPanel).not.toHaveClass("mantine-Paper-root");
+    expect(detailPanel).not.toHaveStyle({ maxWidth: "760px" });
+    expect(titleInput.closest(".video-detail-title-input")).not.toBeNull();
+  });
+
   it("creates new Tags and Performers inline while editing a Video", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },

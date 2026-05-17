@@ -50,6 +50,17 @@ body {
   flex: 1 1 320px;
 }
 
+.video-detail-panel {
+  box-sizing: border-box;
+  max-width: 1120px;
+  width: 100%;
+}
+
+.video-detail-title-input,
+.video-detail-metadata-checklist {
+  min-width: 0;
+}
+
 .catalog-video-grid {
   display: grid;
   gap: 12px;

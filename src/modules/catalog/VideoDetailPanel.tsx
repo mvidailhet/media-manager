@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Badge, Box, Button, Checkbox, Code, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Badge, Box, Button, Checkbox, Code, Group, Stack, Text, TextInput, Title } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../tauriCommands";
 import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
@@ -57,14 +57,20 @@ export function VideoDetailPanel({
   }, [video.id, video.title]);
 
   return (
-    <Paper component="section" aria-label="Video Detail Panel" p="md" maw={760}>
+    <Box
+      component="section"
+      aria-label="Video Detail Panel"
+      className="video-detail-panel"
+    >
       <Stack gap="md">
         <SectionHeader label="Selected Video" title="Video Detail Panel" />
         {detailStatusMessage ? <Text>{detailStatusMessage}</Text> : null}
-        <Group align="end">
+        <Group align="end" wrap="nowrap">
           <TextInput
+            className="video-detail-title-input"
             label="Title"
             value={title}
+            w="100%"
             onChange={(event) => setTitle(event.currentTarget.value)}
           />
           <Button type="button" onClick={() => void onSaveTitle(title)}>
@@ -77,7 +83,7 @@ export function VideoDetailPanel({
           onChange={(event) => void onSetFavorite(event.currentTarget.checked)}
         />
 
-        <Group gap="xl" align="start">
+        <Group gap="xl" align="start" grow>
           <MetadataChecklist
             attachableItems={attachableTags}
             availableItems={availableTags}
@@ -128,7 +134,7 @@ export function VideoDetailPanel({
           )}
         </Stack>
       </Stack>
-    </Paper>
+    </Box>
   );
 }
 
@@ -169,13 +175,19 @@ export function MetadataChecklist<T extends { id: number; name: string }>({
       : `Create and attach ${singularMetadataLabel(label)}`;
 
   return (
-    <Stack component="section" gap="xs" aria-label={label}>
+    <Stack
+      component="section"
+      className="video-detail-metadata-checklist"
+      gap="xs"
+      aria-label={label}
+    >
       <Title order={3} size="h4">
         {label}
       </Title>
       <TextInput
         label={`New ${singularMetadataLabel(label)}`}
         value={newItemName}
+        w="100%"
         onChange={(event) => setNewItemName(event.currentTarget.value)}
       />
       {nearMatch ? <Text size="sm">Near match: {nearMatch.name}</Text> : null}
