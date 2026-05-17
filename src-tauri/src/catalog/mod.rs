@@ -102,7 +102,6 @@ pub struct ScanRoot {
 #[serde(rename_all = "camelCase")]
 pub struct ScanRootInferenceRules {
     pub suggest_tags_from_child_folders: bool,
-    pub suggest_performers_from_child_folders: bool,
     pub ignored_folder_names: Vec<String>,
     pub ignored_exact_year_range: ExactYearRange,
 }
@@ -118,7 +117,6 @@ impl Default for ScanRootInferenceRules {
     fn default() -> Self {
         ScanRootInferenceRules {
             suggest_tags_from_child_folders: true,
-            suggest_performers_from_child_folders: false,
             ignored_folder_names: default_ignored_folder_names(),
             ignored_exact_year_range: ExactYearRange {
                 start_year: DEFAULT_IGNORED_EXACT_YEAR_START,
@@ -872,16 +870,15 @@ fn default_ignored_folder_names() -> Vec<String> {
 }
 
 fn scan_root_inference_rules_from_row(row: &Row<'_>) -> rusqlite::Result<ScanRootInferenceRules> {
-    let ignored_folder_names_text: String = row.get(4)?;
+    let ignored_folder_names_text: String = row.get(3)?;
     let ignored_folder_names = ignored_folder_names_from_json(ignored_folder_names_text)?;
 
     Ok(ScanRootInferenceRules {
         suggest_tags_from_child_folders: row.get::<_, i64>(2)? == 1,
-        suggest_performers_from_child_folders: row.get::<_, i64>(3)? == 1,
         ignored_folder_names,
         ignored_exact_year_range: ExactYearRange {
-            start_year: row.get(5)?,
-            end_year: row.get(6)?,
+            start_year: row.get(4)?,
+            end_year: row.get(5)?,
         },
     })
 }

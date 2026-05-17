@@ -122,7 +122,6 @@ describe("Tauri commands", () => {
             startYear: 1900,
           },
           ignoredFolderNames: ["Misc", "Unsorted"],
-          suggestPerformersFromChildFolders: false,
           suggestTagsFromChildFolders: true,
         },
         isAvailable: true,
@@ -140,7 +139,6 @@ describe("Tauri commands", () => {
             startYear: 1900,
           },
           ignoredFolderNames: ["Misc", "Unsorted"],
-          suggestPerformersFromChildFolders: false,
           suggestTagsFromChildFolders: true,
         },
         isAvailable: true,
@@ -165,7 +163,6 @@ describe("Tauri commands", () => {
         startYear: 1900,
       },
       ignoredFolderNames: ["Misc", "Temp"],
-      suggestPerformersFromChildFolders: false,
       suggestTagsFromChildFolders: true,
     });
 
@@ -178,7 +175,6 @@ describe("Tauri commands", () => {
             startYear: 1900,
           },
           ignoredFolderNames: ["Misc", "Temp"],
-          suggestPerformersFromChildFolders: false,
           suggestTagsFromChildFolders: true,
         },
         path: "/Volumes/Archive/Videos",

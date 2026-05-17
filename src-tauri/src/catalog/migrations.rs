@@ -18,7 +18,6 @@ const CREATE_SCAN_ROOTS_TABLE: &str = concat!(
         drive_identity TEXT,
         is_available INTEGER NOT NULL DEFAULT 1,
         suggest_tags_from_child_folders INTEGER NOT NULL DEFAULT 1,
-        suggest_performers_from_child_folders INTEGER NOT NULL DEFAULT 0,
         ignored_folder_names TEXT NOT NULL DEFAULT '",
     default_ignored_folder_names_json!(),
     "',
@@ -267,10 +266,6 @@ fn add_scan_root_inference_rule_columns_if_missing(database: &Connection) -> Res
         (
             "suggest_tags_from_child_folders",
             "INTEGER NOT NULL DEFAULT 1".to_string(),
-        ),
-        (
-            "suggest_performers_from_child_folders",
-            "INTEGER NOT NULL DEFAULT 0".to_string(),
         ),
         (
             "ignored_folder_names",

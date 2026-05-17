@@ -14,7 +14,6 @@ impl Catalog {
                         videos.title,
                         file_locations.path,
                         scan_roots.suggest_tags_from_child_folders,
-                        scan_roots.suggest_performers_from_child_folders,
                         scan_roots.ignored_folder_names,
                         scan_roots.ignored_exact_year_start,
                         scan_roots.ignored_exact_year_end
@@ -49,11 +48,10 @@ impl Catalog {
                     file_location_path: row.get(7)?,
                     inference_rules: ScanRootInferenceRules {
                         suggest_tags_from_child_folders: row.get::<_, i64>(8)? == 1,
-                        suggest_performers_from_child_folders: row.get::<_, i64>(9)? == 1,
-                        ignored_folder_names: ignored_folder_names_from_json(row.get(10)?)?,
+                        ignored_folder_names: ignored_folder_names_from_json(row.get(9)?)?,
                         ignored_exact_year_range: ExactYearRange {
-                            start_year: row.get(11)?,
-                            end_year: row.get(12)?,
+                            start_year: row.get(10)?,
+                            end_year: row.get(11)?,
                         },
                     },
                 })

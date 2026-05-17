@@ -120,7 +120,6 @@ fn catalog_schema_preserves_the_first_vertical_slice_contract() {
             "drive_identity TEXT optional",
             "is_available INTEGER required",
             "suggest_tags_from_child_folders INTEGER required",
-            "suggest_performers_from_child_folders INTEGER required",
             "ignored_folder_names TEXT required",
             "ignored_exact_year_start INTEGER required",
             "ignored_exact_year_end INTEGER required",

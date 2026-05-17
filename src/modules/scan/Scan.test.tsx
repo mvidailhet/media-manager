@@ -480,9 +480,6 @@ describe("Scan module", () => {
       within(scanRoots).getByText("Tags from child folders"),
     ).toBeInTheDocument();
     expect(
-      within(scanRoots).getByText("Performers not inferred"),
-    ).toBeInTheDocument();
-    expect(
       within(scanRoots).getByText(
         "Ignored names: Misc, Unsorted, To Sort, To Review, New, Temp, Archive, Archives, Downloads, Videos",
       ),
@@ -525,7 +522,6 @@ describe("Scan module", () => {
             startYear: 1980,
           },
           ignoredFolderNames: ["Misc", "Extras"],
-          suggestPerformersFromChildFolders: false,
           suggestTagsFromChildFolders: false,
         },
       );

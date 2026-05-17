@@ -28,7 +28,6 @@ impl Catalog {
                 "SELECT path,
                         is_available,
                         suggest_tags_from_child_folders,
-                        suggest_performers_from_child_folders,
                         ignored_folder_names,
                         ignored_exact_year_start,
                         ignored_exact_year_end
@@ -65,15 +64,13 @@ impl Catalog {
             .execute(
                 "UPDATE scan_roots
                  SET suggest_tags_from_child_folders = ?1,
-                     suggest_performers_from_child_folders = ?2,
-                     ignored_folder_names = ?3,
-                     ignored_exact_year_start = ?4,
-                     ignored_exact_year_end = ?5,
+                     ignored_folder_names = ?2,
+                     ignored_exact_year_start = ?3,
+                     ignored_exact_year_end = ?4,
                      updated_at = CURRENT_TIMESTAMP
-                 WHERE path = ?6",
+                 WHERE path = ?5",
                 params![
                     i64::from(inference_rules.suggest_tags_from_child_folders),
-                    i64::from(inference_rules.suggest_performers_from_child_folders),
                     ignored_folder_names,
                     inference_rules.ignored_exact_year_range.start_year,
                     inference_rules.ignored_exact_year_range.end_year,
@@ -180,7 +177,6 @@ impl Catalog {
                 "SELECT path,
                         is_available,
                         suggest_tags_from_child_folders,
-                        suggest_performers_from_child_folders,
                         ignored_folder_names,
                         ignored_exact_year_start,
                         ignored_exact_year_end
