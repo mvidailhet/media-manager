@@ -71,6 +71,7 @@ export function useCatalogModuleController({
     catalogVideosStatusMessage,
     forgetMissingVideo,
     openVideo,
+    openVideoContainingFolder,
     refreshCatalogVideos,
     renameVideo,
     setCatalogVideoActionStatusMessage,
@@ -302,6 +303,15 @@ export function useCatalogModuleController({
     try {
       await openVideo(video.id);
       await refreshCatalogVideos();
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function openVideoContainingFolderFromCatalog(video: CatalogVideo) {
+    try {
+      await openVideoContainingFolder(video.id);
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -793,6 +803,7 @@ export function useCatalogModuleController({
       onDetachPerformer: detachPerformerFromSelectedVideo,
       onDetachTag: detachTagFromSelectedVideo,
       onOpenVideo: openVideoFromCatalog,
+      onOpenVideoContainingFolder: openVideoContainingFolderFromCatalog,
       onRejectMetadataSuggestionSource: rejectMetadataSuggestionForSource,
       onRemovePerformer: removePerformerFromBatchSelectedVideos,
       onRemoveTag: removeTagFromBatchSelectedVideos,

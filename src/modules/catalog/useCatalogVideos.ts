@@ -5,6 +5,7 @@ import {
   forgetCatalogVideo,
   listCatalogVideos,
   openCatalogVideo,
+  openCatalogVideoContainingFolder,
   setVideoFavorite,
   updateVideoTitle,
 } from "../../tauriCommands";
@@ -63,6 +64,7 @@ export function useCatalogVideos() {
     catalogVideosStatusMessage,
     forgetMissingVideo: forgetCatalogVideo,
     openVideo: openCatalogVideo,
+    openVideoContainingFolder: openCatalogVideoContainingFolder,
     refreshCatalogVideos,
     renameVideo: updateVideoTitle,
     setCatalogVideoActionStatusMessage,

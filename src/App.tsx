@@ -270,17 +270,12 @@ export default function App() {
       {catalogModuleProps.selectedVideo ? (
         <AppShell.Aside p="md">
           <VideoDetailPanel
-            availablePerformers={catalogModuleProps.availablePerformers}
-            availableTags={catalogModuleProps.availableTags}
             detailStatusMessage={catalogModuleProps.detailStatusMessage}
-            onAttachPerformer={catalogModuleProps.onAttachPerformer}
-            onAttachTag={catalogModuleProps.onAttachTag}
-            onCreateOrAttachPerformer={
-              catalogModuleProps.onCreateOrAttachPerformer
+            onOpenContainingFolder={() =>
+              void catalogModuleProps.onOpenVideoContainingFolder(
+                catalogModuleProps.selectedVideo!,
+              )
             }
-            onCreateOrAttachTag={catalogModuleProps.onCreateOrAttachTag}
-            onDetachPerformer={catalogModuleProps.onDetachPerformer}
-            onDetachTag={catalogModuleProps.onDetachTag}
             onOpenVideo={() =>
               void catalogModuleProps.onOpenVideo(
                 catalogModuleProps.selectedVideo!,
@@ -288,8 +283,6 @@ export default function App() {
             }
             onSaveTitle={catalogModuleProps.onSaveTitle}
             onSetFavorite={catalogModuleProps.onSetSelectedFavorite}
-            selectedPerformers={catalogModuleProps.selectedPerformers}
-            selectedTags={catalogModuleProps.selectedTags}
             video={catalogModuleProps.selectedVideo}
           />
         </AppShell.Aside>

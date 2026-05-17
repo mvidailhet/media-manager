@@ -51,6 +51,7 @@ export type CatalogModuleProps = {
   onDetachPerformer: (performer: CatalogPerformer) => void;
   onDetachTag: (tag: CatalogTag) => void;
   onOpenVideo: (catalogVideo: CatalogVideo) => void;
+  onOpenVideoContainingFolder: (catalogVideo: CatalogVideo) => void;
   onRejectMetadataSuggestionSource: (
     request: RejectMetadataSuggestionSourceRequest,
   ) => void;

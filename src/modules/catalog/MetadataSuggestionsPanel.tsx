@@ -368,8 +368,25 @@ function toTreeNode(folderNode: SuggestionFolderNode): Tree.NodeData {
   return {
     label: folderNode.label,
     value: folderNode.value,
-    children: [...childFolderNodes, ...videoNodes],
+    children: [...childFolderNodes, ...videoNodes].map(
+      compressSingleChildTreeNode,
+    ),
   };
+}
+
+function compressSingleChildTreeNode(treeNode: Tree.NodeData): Tree.NodeData {
+  let compressedTreeNode = treeNode;
+
+  while (compressedTreeNode.children?.length === 1) {
+    const onlyChild = compressedTreeNode.children[0];
+
+    compressedTreeNode = {
+      ...onlyChild,
+      label: `${compressedTreeNode.label}/${onlyChild.label}`,
+    };
+  }
+
+  return compressedTreeNode;
 }
 
 function getSelectedVideoIds(

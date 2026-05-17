@@ -23,6 +23,7 @@ import {
   mockedCreatePerformer,
   mockedUpdateVideoTitle,
   mockedSetVideoFavorite,
+  mockedOpenCatalogVideoContainingFolder,
   mockedOpenCatalogVideo,
   mockedRetryFailedPreviewStrip,
   mockedIgnoreFailedPreviewStrip,
@@ -123,10 +124,8 @@ describe("Catalog module", () => {
       name: "Metadata Suggestions",
     });
     expect(within(metadataSuggestions).getByText("Travel")).toBeInTheDocument();
-    expandMetadataSuggestionBranch(
-      metadataSuggestions,
-      "/Volumes/Archive",
-      "/Trips",
+    fireEvent.click(
+      getMetadataSuggestionTreeLabel(metadataSuggestions, "/Volumes/Archive"),
     );
 
     expect(
@@ -135,7 +134,7 @@ describe("Catalog module", () => {
       }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(within(metadataSuggestions).getByText("Family Trip"));
+    fireEvent.click(within(metadataSuggestions).getByText("Trips/Family Trip"));
 
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
@@ -553,13 +552,16 @@ describe("Catalog module", () => {
       }),
     );
 
+    fireEvent.click(within(detailPanel).getByRole("button", { name: "Edit title" }));
     fireEvent.change(within(detailPanel).getByLabelText("Title"), {
       target: { value: "Family Archive" },
     });
     fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Save Title" }),
+      within(detailPanel).getByRole("button", { name: "Save title" }),
     );
-    await screen.findByText("Family Archive");
+    await within(detailPanel).findByRole("heading", {
+      name: "Family Archive",
+    });
 
     favoriteUpdate.resolve(undefined);
 
@@ -867,7 +869,7 @@ describe("Catalog module", () => {
       name: "Video Detail Panel",
     });
     fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Open Family Trip" }),
+      within(detailPanel).getByRole("button", { name: "Open" }),
     );
 
     await waitFor(() => {
@@ -994,52 +996,6 @@ describe("Catalog module", () => {
     expect(
       videoTitles.map((videoCard) => videoCard.getAttribute("aria-label")),
     ).toEqual(["Large Archive", "Missing Size"]);
-  });
-
-  it("updates metadata filters after Tag edits in the Video Detail Panel", async () => {
-    mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Archive" },
-    ]);
-    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedListCatalogVideos.mockResolvedValue([
-      {
-        id: 1,
-        title: "Family Trip",
-        durationMilliseconds: 3723000,
-        fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        isAvailable: true,
-        fileLocations: [],
-        isFavorite: false,
-        lastOpenedAt: null,
-        openCount: 0,
-        previewStrip: pendingPreviewStrip,
-      },
-    ]);
-
-    renderApp();
-
-    const catalogVideos = await screen.findByRole("region", {
-      name: "Catalog Videos",
-    });
-    await waitFor(() => {
-      expect(mockedTagsForVideo).toHaveBeenCalledWith(1);
-    });
-    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
-    const detailPanel = await screen.findByRole("region", {
-      name: "Video Detail Panel",
-    });
-
-    fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Attach Archive" }),
-    );
-    await waitFor(() => {
-      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
-    });
-    fireEvent.click(within(catalogVideos).getByLabelText("Archive"));
-
-    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
   });
 
   it("applies Batch Metadata Edit append and remove actions to selected Videos", async () => {
@@ -1227,18 +1183,14 @@ describe("Catalog module", () => {
         name: "Append Archive to selected Videos",
       }),
     );
-    await within(detailPanel).findByRole("button", {
-      name: "Remove Archive",
-    });
+    await within(detailPanel).findByRole("heading", { name: "Family Trip" });
 
     fireEvent.click(
       within(batchMetadataEdit).getByRole("button", {
         name: "Remove Travel from selected Videos",
       }),
     );
-    await within(detailPanel).findByRole("button", {
-      name: "Attach Travel",
-    });
+    await within(detailPanel).findByRole("heading", { name: "Family Trip" });
   });
 
   it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {
@@ -1287,7 +1239,7 @@ describe("Catalog module", () => {
       name: "Video Detail Panel",
     });
     expect(
-      within(detailPanel).getByDisplayValue("Family Trip"),
+      within(detailPanel).getByRole("heading", { name: "Family Trip" }),
     ).toBeInTheDocument();
     expect(within(detailPanel).getAllByText("1h 2m").length).toBeGreaterThan(0);
     expect(
@@ -1303,41 +1255,107 @@ describe("Catalog module", () => {
       within(detailPanel).getByText("Preferred File Location"),
     ).toBeInTheDocument();
 
+    fireEvent.click(within(detailPanel).getByRole("button", { name: "Edit title" }));
     fireEvent.change(within(detailPanel).getByLabelText("Title"), {
       target: { value: "Family Archive" },
     });
     fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Save Title" }),
+      within(detailPanel).getByRole("button", { name: "Save title" }),
     );
     fireEvent.click(
       within(detailPanel).getByRole("button", {
         name: "Mark Family Trip as Favorite",
       }),
     );
-    fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Attach Archive" }),
-    );
-    fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Remove Travel" }),
-    );
-    fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Attach Alex" }),
-    );
-    fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Remove Blair" }),
-    );
-
     await waitFor(() => {
       expect(mockedUpdateVideoTitle).toHaveBeenCalledWith(1, "Family Archive");
     });
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
-    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
-    expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 1);
-    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
-    expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 1);
+    expect(mockedAttachTagToVideo).not.toHaveBeenCalled();
+    expect(mockedDetachTagFromVideo).not.toHaveBeenCalled();
+    expect(mockedAttachPerformerToVideo).not.toHaveBeenCalled();
+    expect(mockedDetachPerformerFromVideo).not.toHaveBeenCalled();
     expect(mockedListCatalogVideos).not.toHaveBeenCalledWith(
       expect.stringContaining("Family Archive"),
     );
+  });
+
+  it("shows the selected Video title and uses explicit edit controls", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip With A Long Title That Needs Multiple Lines",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("article", {
+        name: "Family Trip With A Long Title That Needs Multiple Lines",
+      }),
+    );
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const previewStrip = within(detailPanel).getByText("Pending Preview Strip");
+    const openButton = within(detailPanel).getByRole("button", {
+      name: "Open",
+    });
+
+    expect(within(detailPanel).queryByText("Selected Video")).not.toBeInTheDocument();
+    expect(within(detailPanel).queryByText("Video Detial Panel")).not.toBeInTheDocument();
+    expect(within(detailPanel).queryByText("Video Detail Panel")).not.toBeInTheDocument();
+    expect(
+      within(detailPanel).getByRole("heading", {
+        name: "Family Trip With A Long Title That Needs Multiple Lines",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      previewStrip.compareDocumentPosition(openButton) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      within(detailPanel).getByRole("button", { name: "Open in finder" }),
+    ).toBeInTheDocument();
+    expect(within(detailPanel).queryByText("Duration")).not.toBeInTheDocument();
+    expect(within(detailPanel).queryByText("File Size")).not.toBeInTheDocument();
+    expect(within(detailPanel).queryByRole("region", { name: "Tags" })).not.toBeInTheDocument();
+    expect(within(detailPanel).queryByRole("region", { name: "Performers" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(detailPanel).getByRole("button", { name: "Edit title" }));
+    const titleInput = within(detailPanel).getByLabelText("Title");
+    fireEvent.change(titleInput, { target: { value: "Ignored Title" } });
+    fireEvent.click(within(detailPanel).getByRole("button", { name: "Cancel title edit" }));
+    expect(mockedUpdateVideoTitle).not.toHaveBeenCalled();
+    expect(
+      within(detailPanel).queryByRole("textbox", { name: "Title" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(detailPanel).getByRole("button", { name: "Edit title" }));
+    const titleInputAfterCancel = within(detailPanel).getByLabelText("Title");
+    fireEvent.change(titleInputAfterCancel, { target: { value: "Family Archive" } });
+    fireEvent.click(within(detailPanel).getByRole("button", { name: "Save title" }));
+
+    await waitFor(() => {
+      expect(mockedUpdateVideoTitle).toHaveBeenCalledWith(1, "Family Archive");
+    });
+    expect(
+      within(detailPanel).queryByRole("textbox", { name: "Title" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(detailPanel).getByRole("button", { name: "Open in finder" }));
+    expect(mockedOpenCatalogVideoContainingFolder).toHaveBeenCalledWith(1);
   });
 
   it("uses a wide borderless Video Detail Panel layout", async () => {
@@ -1364,208 +1382,13 @@ describe("Catalog module", () => {
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
-    const titleInput = within(detailPanel).getByLabelText("Title");
+    const titleHeading = within(detailPanel).getByRole("heading", {
+      name: "Family Trip",
+    });
 
     expect(detailPanel).not.toHaveClass("mantine-Paper-root");
     expect(detailPanel).not.toHaveStyle({ maxWidth: "760px" });
-    expect(titleInput.closest("section")).toBe(detailPanel);
-  });
-
-  it("creates new Tags and Performers inline while editing a Video", async () => {
-    mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 6, name: "Road Trip" },
-    ]);
-    mockedListPerformers.mockResolvedValue([
-      { id: 9, name: "Blair" },
-      { id: 11, name: "Casey Jones" },
-    ]);
-    mockedCreateTag.mockResolvedValue({ id: 5, name: "Trip" });
-    mockedCreatePerformer.mockResolvedValue({ id: 10, name: "Casey" });
-    mockedListCatalogVideos.mockResolvedValue([
-      {
-        id: 1,
-        title: "Family Trip",
-        durationMilliseconds: 3723000,
-        fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        fileLocations: [],
-        isAvailable: true,
-        isFavorite: false,
-        lastOpenedAt: null,
-        openCount: 0,
-        previewStrip: pendingPreviewStrip,
-      },
-    ]);
-
-    renderApp();
-
-    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
-    const detailPanel = await screen.findByRole("region", {
-      name: "Video Detail Panel",
-    });
-
-    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
-      target: { value: "Trip" },
-    });
-    expect(
-      within(detailPanel).getByText("Near match: Road Trip"),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      within(detailPanel).getByRole("button", {
-        name: "Create and attach Tag",
-      }),
-    );
-
-    fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
-      target: { value: "Casey" },
-    });
-    expect(
-      within(detailPanel).getByText("Near match: Casey Jones"),
-    ).toBeInTheDocument();
-    fireEvent.click(
-      within(detailPanel).getByRole("button", {
-        name: "Create and attach Performer",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockedCreateTag).toHaveBeenCalledWith("Trip");
-    });
-    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
-    expect(mockedCreatePerformer).toHaveBeenCalledWith("Casey");
-    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
-  });
-
-  it("does not surface unrelated metadata as a near match", async () => {
-    mockedListTags.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedListPerformers.mockResolvedValue([]);
-    mockedListCatalogVideos.mockResolvedValue([
-      {
-        id: 1,
-        title: "Family Trip",
-        durationMilliseconds: 3723000,
-        fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        fileLocations: [],
-        isAvailable: true,
-        isFavorite: false,
-        lastOpenedAt: null,
-        openCount: 0,
-        previewStrip: pendingPreviewStrip,
-      },
-    ]);
-
-    renderApp();
-
-    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
-    const detailPanel = await screen.findByRole("region", {
-      name: "Video Detail Panel",
-    });
-
-    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
-      target: { value: "Road Trip" },
-    });
-
-    expect(
-      within(detailPanel).queryByText(/Near match:/),
-    ).not.toBeInTheDocument();
-  });
-
-  it("reuses case-insensitive Tag and Performer matches instead of creating duplicates", async () => {
-    mockedListTags.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedListPerformers.mockResolvedValue([{ id: 9, name: "Blair" }]);
-    mockedListCatalogVideos.mockResolvedValue([
-      {
-        id: 1,
-        title: "Family Trip",
-        durationMilliseconds: 3723000,
-        fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        fileLocations: [],
-        isAvailable: true,
-        isFavorite: false,
-        lastOpenedAt: null,
-        openCount: 0,
-        previewStrip: pendingPreviewStrip,
-      },
-    ]);
-
-    renderApp();
-
-    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
-    const detailPanel = await screen.findByRole("region", {
-      name: "Video Detail Panel",
-    });
-
-    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
-      target: { value: " travel " },
-    });
-    fireEvent.click(
-      within(detailPanel).getByRole("button", { name: "Attach existing Tag" }),
-    );
-    fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
-      target: { value: "BLAIR" },
-    });
-    fireEvent.click(
-      within(detailPanel).getByRole("button", {
-        name: "Attach existing Performer",
-      }),
-    );
-
-    await waitFor(() => {
-      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 1);
-    });
-    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(9, 1);
-    expect(mockedCreateTag).not.toHaveBeenCalled();
-    expect(mockedCreatePerformer).not.toHaveBeenCalled();
-  });
-
-  it("shows already-attached metadata as unavailable for inline attachment", async () => {
-    mockedListTags.mockResolvedValue([{ id: 5, name: "Road Trip" }]);
-    mockedListPerformers.mockResolvedValue([{ id: 10, name: "Casey" }]);
-    mockedTagsForVideo.mockResolvedValue([{ id: 5, name: "Road Trip" }]);
-    mockedPerformersForVideo.mockResolvedValue([{ id: 10, name: "Casey" }]);
-    mockedListCatalogVideos.mockResolvedValue([
-      {
-        id: 1,
-        title: "Family Trip",
-        durationMilliseconds: 3723000,
-        fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        fileLocations: [],
-        isAvailable: true,
-        isFavorite: false,
-        lastOpenedAt: null,
-        openCount: 0,
-        previewStrip: pendingPreviewStrip,
-      },
-    ]);
-
-    renderApp();
-
-    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
-    const detailPanel = await screen.findByRole("region", {
-      name: "Video Detail Panel",
-    });
-
-    fireEvent.change(within(detailPanel).getByLabelText("New Tag"), {
-      target: { value: "Road Trip" },
-    });
-    expect(
-      within(detailPanel).getByRole("button", { name: "Tag already attached" }),
-    ).toBeDisabled();
-
-    fireEvent.change(within(detailPanel).getByLabelText("New Performer"), {
-      target: { value: "Casey" },
-    });
-    expect(
-      within(detailPanel).getByRole("button", {
-        name: "Performer already attached",
-      }),
-    ).toBeDisabled();
-    expect(mockedCreateTag).not.toHaveBeenCalled();
-    expect(mockedCreatePerformer).not.toHaveBeenCalled();
+    expect(titleHeading.closest("section")).toBe(detailPanel);
   });
 
   it("marks Missing Videos unavailable in the normal Videos list", async () => {
@@ -1745,11 +1568,12 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
     fireEvent.click(getMetadataSuggestionTreeLabel(metadataSuggestions, "Family"));
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "Trips" }),
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "Trips/Family Trip",
+      }),
     ).toBeInTheDocument();
-    fireEvent.click(getMetadataSuggestionTreeLabel(metadataSuggestions, "Trips"));
     expect(
-      within(metadataSuggestions).getByText("Family Trip"),
+      within(metadataSuggestions).getByText("Trips/Family Trip"),
     ).toBeInTheDocument();
     expect(
       within(metadataSuggestions).getByText("Birthday"),
@@ -1761,8 +1585,9 @@ describe("Catalog module", () => {
         "/Volumes/Camera/Videos",
       ),
     );
-    fireEvent.click(getMetadataSuggestionTreeLabel(metadataSuggestions, "family"));
-    expect(within(metadataSuggestions).getByText("Picnic")).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).getByText("family/Picnic"),
+    ).toBeInTheDocument();
     expect(
       within(metadataSuggestions).queryByText(
         "/Volumes/Archive/Videos/Family/family-trip.mp4",
@@ -1771,6 +1596,86 @@ describe("Catalog module", () => {
     expect(
       within(metadataSuggestions).queryByText("family-trip.mp4"),
     ).not.toBeInTheDocument();
+  });
+
+  it("merges Metadata Suggestion tree branches with only one child", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestedValue: "Best",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "Best",
+            videos: [
+              {
+                videoId: 7,
+                title: "File",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Best/Maniac Alisa/file.mp4",
+              },
+              {
+                videoId: 8,
+                title: "file 1",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Cum in throat/Slad/Best/file-1.mp4",
+              },
+              {
+                videoId: 9,
+                title: "file 2",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Cum in throat/Slad/Best/file-2.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      getMetadataSuggestionTreeLabel(
+        metadataSuggestions,
+        "/Volumes/Archive/Videos",
+      ),
+    );
+
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "Best/Maniac Alisa/File",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "Cum in throat/Slad/Best",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByRole("checkbox", { name: "Best" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByRole("checkbox", {
+        name: "Maniac Alisa",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      getMetadataSuggestionTreeLabel(
+        metadataSuggestions,
+        "Cum in throat/Slad/Best",
+      ),
+    );
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "file 1" }),
+    ).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "file 2" }),
+    ).toBeInTheDocument();
   });
 
   it("accepts Metadata Suggestions while allowing individual Videos to be excluded", async () => {
@@ -1851,7 +1756,18 @@ describe("Catalog module", () => {
       suggestionKind: "tag",
       videoIds: [7],
     });
-    expect(await within(metadataSuggestions).findByText("Birthday")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(mockedListMetadataSuggestionGroups).toHaveBeenCalledTimes(2);
+    });
+    fireEvent.click(
+      getMetadataSuggestionTreeLabel(
+        metadataSuggestions,
+        "/Volumes/Archive/Videos",
+      ),
+    );
+    expect(
+      within(metadataSuggestions).getByText("Family/Birthday"),
+    ).toBeInTheDocument();
   });
 
   it("cascades folder branch selection to child Videos", async () => {

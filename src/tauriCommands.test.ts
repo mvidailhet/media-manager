@@ -34,6 +34,7 @@ import {
   resumePreviewStripQueue,
   saveFfmpegConfiguration,
   setVideoFavorite,
+  openCatalogVideoContainingFolder,
   openCatalogVideo,
   updatePerformer,
   updateScanRootInferenceRules,
@@ -99,6 +100,17 @@ describe("Tauri commands", () => {
     expect(mockedInvoke).toHaveBeenCalledWith("open_catalog_video", {
       videoId: 7,
     });
+  });
+
+  it("calls the typed Rust command for opening a Catalog Video containing folder", async () => {
+    await openCatalogVideoContainingFolder(7);
+
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "open_catalog_video_containing_folder",
+      {
+        videoId: 7,
+      },
+    );
   });
 
   it("calls the typed Rust command for persisted Scan Roots", async () => {

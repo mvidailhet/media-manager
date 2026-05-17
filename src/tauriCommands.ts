@@ -24,6 +24,8 @@ const performersForVideoCommand = "performers_for_video";
 const updateVideoTitleCommand = "update_video_title";
 const setVideoFavoriteCommand = "set_video_favorite";
 const openCatalogVideoCommand = "open_catalog_video";
+const openCatalogVideoContainingFolderCommand =
+  "open_catalog_video_containing_folder";
 const refreshScanRootCommand = "refresh_scan_root";
 const refreshAllScanRootsCommand = "refresh_all_scan_roots";
 const listUnprocessableVideoCandidatesCommand =
@@ -334,6 +336,12 @@ export async function setVideoFavorite(
 
 export async function openCatalogVideo(videoId: number): Promise<void> {
   return invoke<void>(openCatalogVideoCommand, { videoId });
+}
+
+export async function openCatalogVideoContainingFolder(
+  videoId: number,
+): Promise<void> {
+  return invoke<void>(openCatalogVideoContainingFolderCommand, { videoId });
 }
 
 export async function refreshScanRoot(

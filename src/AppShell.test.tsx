@@ -77,7 +77,7 @@ describe("App shell", () => {
     );
 
     expect(
-      await within(appAside).findByDisplayValue("City Walk"),
+      await within(appAside).findByRole("heading", { name: "City Walk" }),
     ).toBeInTheDocument();
   });
 

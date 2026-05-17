@@ -41,6 +41,7 @@ import {
   retryFailedPreviewStrip,
   saveFfmpegConfiguration,
   setVideoFavorite,
+  openCatalogVideoContainingFolder,
   openCatalogVideo,
   tagsForVideo,
   updateScanRootInferenceRules,
@@ -87,6 +88,7 @@ vi.mock("../tauriCommands", () => ({
   retryFailedPreviewStrip: vi.fn(),
   saveFfmpegConfiguration: vi.fn(),
   setVideoFavorite: vi.fn(),
+  openCatalogVideoContainingFolder: vi.fn(),
   openCatalogVideo: vi.fn(),
   tagsForVideo: vi.fn(),
   updateScanRootInferenceRules: vi.fn(),
@@ -120,6 +122,9 @@ export const mockedCreateTag = vi.mocked(createTag);
 export const mockedCreatePerformer = vi.mocked(createPerformer);
 export const mockedUpdateVideoTitle = vi.mocked(updateVideoTitle);
 export const mockedSetVideoFavorite = vi.mocked(setVideoFavorite);
+export const mockedOpenCatalogVideoContainingFolder = vi.mocked(
+  openCatalogVideoContainingFolder,
+);
 export const mockedOpenCatalogVideo = vi.mocked(openCatalogVideo);
 export const mockedRetryFailedPreviewStrip = vi.mocked(retryFailedPreviewStrip);
 export const mockedIgnoreFailedPreviewStrip = vi.mocked(ignoreFailedPreviewStrip);
@@ -261,6 +266,7 @@ export function resetAppTestHarness() {
     mockedCreatePerformer.mockResolvedValue({ id: 200, name: "New Performer" });
     mockedUpdateVideoTitle.mockResolvedValue(undefined);
     mockedSetVideoFavorite.mockResolvedValue(undefined);
+    mockedOpenCatalogVideoContainingFolder.mockResolvedValue(undefined);
     mockedOpenCatalogVideo.mockResolvedValue(undefined);
     mockedRetryFailedPreviewStrip.mockResolvedValue({
       pendingCount: 1,

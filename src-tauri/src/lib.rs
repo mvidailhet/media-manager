@@ -378,6 +378,23 @@ fn open_catalog_video(
     catalog.record_video_opened(video_id)
 }
 
+#[tauri::command]
+fn open_catalog_video_containing_folder(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+    let file_location_path = catalog.preferred_file_location_path(video_id)?;
+    let containing_folder_path = file_location_path
+        .parent()
+        .ok_or_else(|| "Could not find containing folder".to_string())?;
+
+    open_file_location(containing_folder_path)
+}
+
 fn open_file_location(file_location_path: &Path) -> Result<(), String> {
     let open_command = file_location_open_command(file_location_path);
     let output = Command::new(&open_command.program)
@@ -835,6 +852,7 @@ pub fn run() {
             update_video_title,
             set_video_favorite,
             open_catalog_video,
+            open_catalog_video_containing_folder,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             refresh_scan_root,

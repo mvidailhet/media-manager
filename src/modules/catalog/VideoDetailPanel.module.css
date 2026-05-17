@@ -4,7 +4,12 @@
   width: 100%;
 }
 
-.titleInput,
-.metadataChecklist {
+.title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.titleInput {
   min-width: 0;
 }
