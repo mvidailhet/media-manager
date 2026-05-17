@@ -295,12 +295,22 @@ impl Catalog {
             )
             .map_err(|error| error.to_string())?;
 
+        let video_count_by_folder = video_count_by_folder(&file_locations);
+
         for (video_id, video_path) in file_locations {
             for folder_segment in metadata_suggestion_segments(
                 scan_root_path,
                 &video_path,
                 &scan_root.inference_rules,
             ) {
+                if is_single_video_leaf_folder_suggestion(
+                    &video_path,
+                    &folder_segment,
+                    &video_count_by_folder,
+                ) {
+                    continue;
+                }
+
                 let suggested_value = metadata_suggestion_display_value(&folder_segment);
                 let has_source_rejection = transaction
                     .query_row(
@@ -402,4 +412,41 @@ impl Catalog {
 
         Ok(file_locations)
     }
+}
+
+fn video_count_by_folder(file_locations: &[(i64, String)]) -> HashMap<PathBuf, usize> {
+    let mut video_count_by_folder = HashMap::new();
+
+    for (_, video_path) in file_locations {
+        if let Some(video_folder) = Path::new(video_path).parent() {
+            let video_count = video_count_by_folder
+                .entry(video_folder.to_path_buf())
+                .or_insert(0);
+            *video_count += 1;
+        }
+    }
+
+    video_count_by_folder
+}
+
+fn is_single_video_leaf_folder_suggestion(
+    video_path: &str,
+    source_path_segment: &str,
+    video_count_by_folder: &HashMap<PathBuf, usize>,
+) -> bool {
+    let video_folder = match Path::new(video_path).parent() {
+        Some(video_folder) => video_folder,
+        None => return false,
+    };
+    let folder_name = match video_folder.file_name().and_then(|name| name.to_str()) {
+        Some(folder_name) => folder_name,
+        None => return false,
+    };
+
+    folder_name == source_path_segment
+        && video_count_by_folder
+            .get(video_folder)
+            .copied()
+            .unwrap_or_default()
+            == 1
 }

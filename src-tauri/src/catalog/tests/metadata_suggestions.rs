@@ -101,6 +101,51 @@ fn scan_root_refresh_generates_tag_suggestions_from_allowed_child_folder_segment
     std::fs::create_dir_all(&video_folder).expect("video folder exists");
     let family_trip_path = video_folder.join("family-trip.mp4");
     std::fs::write(&family_trip_path, "valid video bytes").expect("family video exists");
+    std::fs::write(
+        video_folder.join("family-reunion.mp4"),
+        "valid reunion bytes",
+    )
+    .expect("second family video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert_eq!(
+        metadata_suggestions(&catalog.database),
+        vec![
+            ("Family".to_string(), "tag".to_string()),
+            ("Family".to_string(), "tag".to_string())
+        ]
+    );
+}
+
+#[test]
+fn scan_root_refresh_skips_single_video_leaf_folder_suggestions() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let collection_folder = movies_root.join("Family");
+    let first_video_folder = collection_folder.join("family-trip");
+    let second_video_folder = collection_folder.join("family-reunion");
+    std::fs::create_dir_all(&first_video_folder).expect("first video folder exists");
+    std::fs::create_dir_all(&second_video_folder).expect("second video folder exists");
+    std::fs::write(
+        first_video_folder.join("family-trip.mp4"),
+        "valid video bytes",
+    )
+    .expect("first video exists");
+    std::fs::write(
+        second_video_folder.join("family-reunion.mp4"),
+        "valid video bytes",
+    )
+    .expect("second video exists");
     let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
 
     catalog
@@ -127,6 +172,11 @@ fn metadata_suggestions_normalize_display_text_while_preserving_original_source_
     std::fs::create_dir_all(&video_folder).expect("video folder exists");
     let family_trip_path = video_folder.join("family-trip.mp4");
     std::fs::write(&family_trip_path, "valid video bytes").expect("family video exists");
+    std::fs::write(
+        video_folder.join("family-reunion.mp4"),
+        "valid reunion bytes",
+    )
+    .expect("second family video exists");
     let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
 
     catalog
@@ -139,11 +189,18 @@ fn metadata_suggestions_normalize_display_text_while_preserving_original_source_
 
     assert_eq!(
         metadata_suggestion_sources(&catalog.database),
-        vec![(
-            "  Family Trip  ".to_string(),
-            "Family Trip".to_string(),
-            "tag".to_string()
-        )]
+        vec![
+            (
+                "  Family Trip  ".to_string(),
+                "Family Trip".to_string(),
+                "tag".to_string()
+            ),
+            (
+                "  Family Trip  ".to_string(),
+                "Family Trip".to_string(),
+                "tag".to_string()
+            )
+        ]
     );
 }
 
@@ -163,6 +220,11 @@ fn metadata_suggestion_display_normalization_controls_ignored_segments() {
     std::fs::create_dir_all(&blank_folder).expect("blank folder exists");
     std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
         .expect("family video exists");
+    std::fs::write(
+        family_folder.join("family-reunion.mp4"),
+        "valid reunion bytes",
+    )
+    .expect("second family video exists");
     std::fs::write(ignored_folder.join("extras.mp4"), "valid video bytes")
         .expect("ignored video exists");
     std::fs::write(year_folder.join("year.mp4"), "valid video bytes").expect("year video exists");
@@ -194,7 +256,10 @@ fn metadata_suggestion_display_normalization_controls_ignored_segments() {
 
     assert_eq!(
         metadata_suggestions(&catalog.database),
-        vec![("Family".to_string(), "tag".to_string())]
+        vec![
+            ("Family".to_string(), "tag".to_string()),
+            ("Family".to_string(), "tag".to_string())
+        ]
     );
 }
 
@@ -403,6 +468,11 @@ fn accepting_metadata_suggestion_can_create_a_performer_instead_of_a_tag() {
     std::fs::create_dir_all(&family_folder).expect("family folder exists");
     std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
         .expect("family video exists");
+    std::fs::write(
+        family_folder.join("family-reunion.mp4"),
+        "valid reunion bytes",
+    )
+    .expect("second family video exists");
     let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
     catalog
         .refresh_scan_root(
@@ -412,6 +482,7 @@ fn accepting_metadata_suggestion_can_create_a_performer_instead_of_a_tag() {
         )
         .expect("scan root refreshes");
     let video_id = video_id_for_title(&catalog.database, "family-trip");
+    let second_video_id = video_id_for_title(&catalog.database, "family-reunion");
 
     catalog
         .accept_metadata_suggestion_for_videos(
@@ -421,7 +492,7 @@ fn accepting_metadata_suggestion_can_create_a_performer_instead_of_a_tag() {
             "tag",
             Some("performer"),
             Some("The Family"),
-            &[video_id],
+            &[video_id, second_video_id],
         )
         .expect("metadata suggestion accepts as performer");
 
@@ -457,6 +528,11 @@ fn accepting_metadata_suggestion_can_map_to_an_existing_tag_with_a_different_nam
     std::fs::create_dir_all(&family_folder).expect("family folder exists");
     std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
         .expect("family video exists");
+    std::fs::write(
+        family_folder.join("family-reunion.mp4"),
+        "valid reunion bytes",
+    )
+    .expect("second family video exists");
     let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
     catalog
         .refresh_scan_root(
@@ -508,6 +584,11 @@ fn accepting_metadata_suggestion_only_maps_the_accepted_source_segment() {
         "valid family trip bytes",
     )
     .expect("family video exists");
+    std::fs::write(
+        spaced_family_folder.join("family-reunion.mp4"),
+        "valid family reunion bytes",
+    )
+    .expect("second family video exists");
     let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
     catalog
         .refresh_scan_root(
@@ -517,6 +598,7 @@ fn accepting_metadata_suggestion_only_maps_the_accepted_source_segment() {
         )
         .expect("scan root refreshes");
     let video_id = video_id_for_title(&catalog.database, "family-trip");
+    let second_video_id = video_id_for_title(&catalog.database, "family-reunion");
 
     catalog
         .accept_metadata_suggestion_for_videos(
@@ -526,17 +608,24 @@ fn accepting_metadata_suggestion_only_maps_the_accepted_source_segment() {
             "tag",
             None,
             None,
-            &[video_id],
+            &[video_id, second_video_id],
         )
         .expect("metadata suggestion accepts");
 
     assert_eq!(
         metadata_suggestion_sources(&catalog.database),
-        vec![(
-            "  Family  ".to_string(),
-            "Family".to_string(),
-            "tag".to_string()
-        )]
+        vec![
+            (
+                "  Family  ".to_string(),
+                "Family".to_string(),
+                "tag".to_string()
+            ),
+            (
+                "  Family  ".to_string(),
+                "Family".to_string(),
+                "tag".to_string()
+            )
+        ]
     );
     assert_eq!(
         metadata_suggestion_mappings(&catalog.database),
@@ -561,6 +650,11 @@ fn accepting_metadata_suggestion_remembers_mapping_for_future_suggestions_from_t
         "valid family trip bytes",
     )
     .expect("family video exists");
+    std::fs::write(
+        family_folder.join("family-reunion.mp4"),
+        "valid family reunion bytes",
+    )
+    .expect("second family video exists");
     let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
     catalog
         .refresh_scan_root(
@@ -570,6 +664,7 @@ fn accepting_metadata_suggestion_remembers_mapping_for_future_suggestions_from_t
         )
         .expect("scan root refreshes");
     let first_video_id = video_id_for_title(&catalog.database, "family-trip");
+    let second_video_id = video_id_for_title(&catalog.database, "family-reunion");
 
     catalog
         .accept_metadata_suggestion_for_videos(
@@ -579,7 +674,7 @@ fn accepting_metadata_suggestion_remembers_mapping_for_future_suggestions_from_t
             "tag",
             Some("performer"),
             Some("The Family"),
-            &[first_video_id],
+            &[first_video_id, second_video_id],
         )
         .expect("metadata suggestion accepts");
     std::fs::write(family_folder.join("birthday.mp4"), "valid birthday bytes")
@@ -625,6 +720,12 @@ fn accepting_metadata_suggestion_remembers_mapping_for_future_suggestions_from_t
                 "tag".to_string()
             ),
             (
+                "family-reunion".to_string(),
+                "Family".to_string(),
+                "Family".to_string(),
+                "tag".to_string()
+            ),
+            (
                 "family-trip".to_string(),
                 "Family".to_string(),
                 "Family".to_string(),
@@ -653,15 +754,30 @@ fn metadata_suggestion_mappings_are_scoped_to_scan_root_source_and_value() {
     )
     .expect("family video exists");
     std::fs::write(
+        movies_family_folder.join("family-reunion.mp4"),
+        "valid family reunion bytes",
+    )
+    .expect("second family video exists");
+    std::fs::write(
         movies_travel_folder.join("travel-family.mp4"),
         "valid travel family bytes",
     )
     .expect("travel video exists");
     std::fs::write(
+        movies_travel_folder.join("travel-reunion.mp4"),
+        "valid travel reunion bytes",
+    )
+    .expect("second travel video exists");
+    std::fs::write(
         backup_family_folder.join("backup-family.mp4"),
         "valid backup family bytes",
     )
     .expect("backup video exists");
+    std::fs::write(
+        backup_family_folder.join("backup-reunion.mp4"),
+        "valid backup reunion bytes",
+    )
+    .expect("second backup video exists");
     let movies_scan_root = catalog
         .add_scan_root(&movies_root)
         .expect("movies root adds");
@@ -683,6 +799,7 @@ fn metadata_suggestion_mappings_are_scoped_to_scan_root_source_and_value() {
         )
         .expect("backup root refreshes");
     let first_video_id = video_id_for_title(&catalog.database, "family-trip");
+    let second_video_id = video_id_for_title(&catalog.database, "family-reunion");
 
     catalog
         .accept_metadata_suggestion_for_videos(
@@ -692,7 +809,7 @@ fn metadata_suggestion_mappings_are_scoped_to_scan_root_source_and_value() {
             "tag",
             None,
             Some("Home Movies"),
-            &[first_video_id],
+            &[first_video_id, second_video_id],
         )
         .expect("metadata suggestion accepts");
     std::fs::write(
@@ -749,6 +866,16 @@ fn metadata_suggestion_mappings_are_scoped_to_scan_root_source_and_value() {
                 "tag".to_string()
             ),
             (
+                "Family".to_string(),
+                "Family".to_string(),
+                "tag".to_string()
+            ),
+            (
+                "Travel".to_string(),
+                "Travel".to_string(),
+                "tag".to_string()
+            ),
+            (
                 "Travel".to_string(),
                 "Travel".to_string(),
                 "tag".to_string()
@@ -767,6 +894,11 @@ fn accepting_one_metadata_suggestion_kind_keeps_other_pending_kinds_with_the_sam
     std::fs::create_dir_all(&family_folder).expect("family folder exists");
     std::fs::write(family_folder.join("family-trip.mp4"), "valid video bytes")
         .expect("family video exists");
+    std::fs::write(
+        family_folder.join("family-reunion.mp4"),
+        "valid reunion bytes",
+    )
+    .expect("second family video exists");
     let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
     catalog
         .refresh_scan_root(
@@ -779,6 +911,7 @@ fn accepting_one_metadata_suggestion_kind_keeps_other_pending_kinds_with_the_sam
         .scan_root_id(&scan_root.path)
         .expect("scan root id exists");
     let video_id = video_id_for_title(&catalog.database, "family-trip");
+    let second_video_id = video_id_for_title(&catalog.database, "family-reunion");
     catalog
         .database
         .execute(
@@ -802,7 +935,7 @@ fn accepting_one_metadata_suggestion_kind_keeps_other_pending_kinds_with_the_sam
             "tag",
             None,
             None,
-            &[video_id],
+            &[video_id, second_video_id],
         )
         .expect("tag suggestion accepts");
 
