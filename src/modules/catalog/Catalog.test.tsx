@@ -1492,7 +1492,7 @@ describe("Catalog module", () => {
     );
   });
 
-  it("lists Metadata Suggestions grouped by value and source in Catalog", async () => {
+  it("lists Metadata Suggestions in checked trees grouped by Scan Root and relative folder", async () => {
     const metadataSuggestionGroups = [
       {
         suggestedValue: "Family",
@@ -1541,10 +1541,10 @@ describe("Catalog module", () => {
     });
 
     expect(
-      within(metadataSuggestions).getByRole("heading", {
+      within(metadataSuggestions).queryByRole("heading", {
         name: "Metadata Suggestions",
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
       await within(metadataSuggestions).findByRole("heading", {
         name: "Family",
@@ -1563,15 +1563,26 @@ describe("Catalog module", () => {
       within(metadataSuggestions).getByText("/Volumes/Archive/Videos"),
     ).toBeInTheDocument();
     expect(
+      within(metadataSuggestions).getByText("/Family"),
+    ).toBeInTheDocument();
+    expect(
       within(metadataSuggestions).getByText("Family Trip"),
     ).toBeInTheDocument();
     expect(
       within(metadataSuggestions).getByText("Birthday"),
     ).toBeInTheDocument();
     expect(within(metadataSuggestions).getByText("Picnic")).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByText(
+        "/Volumes/Archive/Videos/Family/family-trip.mp4",
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByText("family-trip.mp4"),
+    ).not.toBeInTheDocument();
   });
 
-  it("accepts Metadata Suggestions in bulk while allowing individual Videos to be excluded", async () => {
+  it("accepts Metadata Suggestions while allowing individual Videos to be excluded", async () => {
     mockedListMetadataSuggestionGroups
       .mockResolvedValueOnce([
         {
@@ -1628,12 +1639,12 @@ describe("Catalog module", () => {
     });
     fireEvent.click(
       await within(metadataSuggestions).findByRole("checkbox", {
-        name: "Include Birthday",
+        name: "Birthday",
       }),
     );
     fireEvent.click(
       within(metadataSuggestions).getByRole("button", {
-        name: "Accept Family for selected Videos",
+        name: "Accept",
       }),
     );
 
@@ -1645,6 +1656,104 @@ describe("Catalog module", () => {
       videoIds: [7],
     });
     expect(await within(metadataSuggestions).findByText("Birthday")).toBeInTheDocument();
+  });
+
+  it("cascades folder branch selection to child Videos", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "Family",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+              {
+                videoId: 8,
+                title: "Birthday",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/birthday.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      await within(metadataSuggestions).findByRole("checkbox", {
+        name: "/Family",
+      }),
+    );
+
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "Family Trip" }),
+    ).not.toBeChecked();
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+    ).not.toBeChecked();
+  });
+
+  it("shows partially selected Metadata Suggestion branches as mixed", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "Family",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+              {
+                videoId: 8,
+                title: "Birthday",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/birthday.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      await within(metadataSuggestions).findByRole("checkbox", {
+        name: "Birthday",
+      }),
+    );
+
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "/Family" }),
+    ).toBePartiallyChecked();
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "Root: /Volumes/Archive/Videos",
+      }),
+    ).toBePartiallyChecked();
   });
 
   it("accepts Metadata Suggestions as Performers mapped to a different existing name", async () => {
@@ -1690,7 +1799,7 @@ describe("Catalog module", () => {
     );
     fireEvent.click(
       within(metadataSuggestions).getByRole("button", {
-        name: "Accept The Family as Performer for selected Videos",
+        name: "Accept",
       }),
     );
 
@@ -1748,7 +1857,7 @@ describe("Catalog module", () => {
     );
     fireEvent.click(
       within(metadataSuggestions).getByRole("button", {
-        name: "Accept family as Tag for selected Videos",
+        name: "Accept",
       }),
     );
 
@@ -1799,7 +1908,7 @@ describe("Catalog module", () => {
     });
     fireEvent.click(
       await within(metadataSuggestions).findByRole("button", {
-        name: "Reject Family from Family",
+        name: "Reject",
       }),
     );
 

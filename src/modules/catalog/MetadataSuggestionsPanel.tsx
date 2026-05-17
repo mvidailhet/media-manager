@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Badge, Box, Button, Checkbox, Code, Divider, Group, NativeSelect, Stack, Text, TextInput, Title } from "@mantine/core";
+import { useEffect, useMemo, useState } from "react";
+import { IconCheck, IconX } from "@tabler/icons-react";
+import { Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Stack, Text, TextInput, Title, Tree, useTree } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, MetadataSuggestionGroup } from "../../tauriCommands";
 import type { AcceptMetadataSuggestionForVideosRequest, RejectMetadataSuggestionSourceRequest } from "../../tauriCommands";
@@ -9,6 +10,8 @@ import { findMetadataByName, findNearMetadataMatch } from "../../shared/metadata
 
 type AcceptMetadataSuggestionVideos = (request: AcceptMetadataSuggestionForVideosRequest) => void;
 type RejectMetadataSuggestionSource = (request: RejectMetadataSuggestionSourceRequest) => void;
+const metadataSuggestionTreeIconSize = 14;
+
 export function MetadataSuggestionsPanel({
   availablePerformers,
   availableTags,
@@ -28,11 +31,8 @@ export function MetadataSuggestionsPanel({
     <Stack
       component="section"
       gap="xs"
-      aria-labelledby="metadata-suggestions-title"
+      aria-label="Metadata Suggestions"
     >
-      <Title order={3} id="metadata-suggestions-title" size="h4">
-        Metadata Suggestions
-      </Title>
       {metadataSuggestionGroups.length > 0 ? (
         <Stack gap="sm">
           {metadataSuggestionGroups.map((suggestionGroup) => (
@@ -98,12 +98,21 @@ export function MetadataSuggestionSource({
   suggestionKind: string;
   suggestedValue: string;
 }) {
-  const allVideoIds = sourceGroup.videos.map((video) => video.videoId);
-  const [selectedVideoIds, setSelectedVideoIds] = useState(allVideoIds);
+  const suggestionVideoTree = useMemo(
+    () => buildSuggestionVideoTree(sourceGroup),
+    [sourceGroup],
+  );
+  const tree = useTree({
+    initialCheckedState: suggestionVideoTree.checkedNodeValues,
+    initialExpandedState: suggestionVideoTree.expandedState,
+  });
   const [acceptedSuggestionKind, setAcceptedSuggestionKind] =
     useState(suggestionKind);
   const [acceptedValue, setAcceptedValue] = useState(suggestedValue);
-  const selectedVideoIdSet = new Set(selectedVideoIds);
+  const selectedVideoIds = getSelectedVideoIds(
+    tree.checkedState,
+    suggestionVideoTree.videoValueToVideoId,
+  );
   const trimmedAcceptedValue = acceptedValue.trim();
   const availableMetadataValues =
     acceptedSuggestionKind === "performer" ? availablePerformers : availableTags;
@@ -115,34 +124,21 @@ export function MetadataSuggestionSource({
     availableMetadataValues,
     trimmedAcceptedValue,
   );
-  const acceptedSuggestionKindLabel = formatSuggestionKind(acceptedSuggestionKind);
   const acceptedMetadataName =
     exactAcceptedValue?.name ?? trimmedAcceptedValue;
   const isDefaultAcceptance =
     acceptedSuggestionKind === suggestionKind &&
     acceptedMetadataName === suggestedValue;
-  const acceptButtonLabel = isDefaultAcceptance
-    ? `Accept ${suggestedValue} for selected Videos`
-    : `Accept ${acceptedMetadataName} as ${acceptedSuggestionKindLabel} for selected Videos`;
 
   useEffect(() => {
-    setSelectedVideoIds(allVideoIds);
-  }, [sourceGroup]);
+    tree.setCheckedState(suggestionVideoTree.checkedNodeValues);
+    tree.setExpandedState(suggestionVideoTree.expandedState);
+  }, [suggestionVideoTree]);
 
   useEffect(() => {
     setAcceptedSuggestionKind(suggestionKind);
     setAcceptedValue(suggestedValue);
   }, [suggestedValue, suggestionKind]);
-
-  function toggleVideo(videoId: number, isSelected: boolean) {
-    setSelectedVideoIds((currentVideoIds) => {
-      if (isSelected) {
-        return [...currentVideoIds, videoId].sort();
-      }
-
-      return currentVideoIds.filter((currentVideoId) => currentVideoId !== videoId);
-    });
-  }
 
   return (
     <Box>
@@ -171,38 +167,54 @@ export function MetadataSuggestionSource({
       {nearAcceptedValue ? (
         <Text size="sm">Near match: {nearAcceptedValue.name}</Text>
       ) : null}
-      <Stack gap={4}>
-        {sourceGroup.videos.map((video) => (
-          <Group key={video.videoId} align="start" gap="xs">
-            <Checkbox
-              checked={selectedVideoIdSet.has(video.videoId)}
-              label={
-                <Box>
-                  <Text>{video.title}</Text>
-                  <Code className="wrapping-code">{video.fileLocationPath}</Code>
-                </Box>
-              }
-              onChange={(event) =>
-                toggleVideo(video.videoId, event.currentTarget.checked)
-              }
-              aria-label={`Include ${video.title}`}
-            />
-            {onReviewVideo ? (
-              <Button
-                type="button"
-                size="xs"
-                variant="subtle"
-                onClick={() => onReviewVideo(video.videoId)}
-              >
-                Review {video.title}
-              </Button>
-            ) : null}
-          </Group>
-        ))}
-      </Stack>
+      <Tree
+        data={suggestionVideoTree.data}
+        tree={tree}
+        expandOnClick={false}
+        checkOnSpace
+        renderNode={({ node, elementProps, tree: nodeTree }) => {
+          const videoId = suggestionVideoTree.videoValueToVideoId.get(node.value);
+
+          return (
+            <Group gap="xs" align="center" wrap="nowrap" {...elementProps}>
+              <Checkbox
+                checked={nodeTree.isNodeChecked(node.value)}
+                indeterminate={nodeTree.isNodeIndeterminate(node.value)}
+                readOnly
+                aria-label={String(node.label)}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  if (nodeTree.isNodeChecked(node.value)) {
+                    nodeTree.uncheckNode(node.value);
+                  } else {
+                    nodeTree.checkNode(node.value);
+                  }
+                }}
+              />
+              <Text>{node.label}</Text>
+              {videoId && onReviewVideo ? (
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="subtle"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onReviewVideo(videoId);
+                  }}
+                >
+                  Review {node.label}
+                </Button>
+              ) : null}
+            </Group>
+          );
+        }}
+      />
       <Group gap="xs" mt="xs">
         <Button
           size="xs"
+          color="green"
+          leftSection={<IconCheck size={metadataSuggestionTreeIconSize} />}
+          aria-label="Accept"
           disabled={
             selectedVideoIds.length === 0 || trimmedAcceptedValue.length === 0
           }
@@ -222,12 +234,14 @@ export function MetadataSuggestionSource({
             })
           }
         >
-          {acceptButtonLabel}
+          Accept
         </Button>
         <Button
           size="xs"
           variant="light"
           color="red"
+          leftSection={<IconX size={metadataSuggestionTreeIconSize} />}
+          aria-label="Reject"
           onClick={() =>
             onRejectMetadataSuggestionSource({
               scanRootPath: sourceGroup.scanRootPath,
@@ -237,9 +251,95 @@ export function MetadataSuggestionSource({
             })
           }
         >
-          Reject {suggestedValue} from {sourceGroup.sourcePathSegment}
+          Reject
         </Button>
       </Group>
     </Box>
   );
+}
+
+type SuggestionVideoTree = {
+  checkedNodeValues: string[];
+  data: Tree.NodeData[];
+  expandedState: Record<string, boolean>;
+  videoValueToVideoId: Map<string, number>;
+};
+
+function buildSuggestionVideoTree(
+  sourceGroup: MetadataSuggestionGroup["sources"][number],
+): SuggestionVideoTree {
+  const scanRootNodeValue = `scan-root:${sourceGroup.scanRootPath}`;
+  const folderNodesByPath = new Map<string, Tree.NodeData>();
+  const videoValueToVideoId = new Map<string, number>();
+  const checkedNodeValues = [scanRootNodeValue];
+  const expandedState: Record<string, boolean> = { [scanRootNodeValue]: true };
+
+  for (const video of sourceGroup.videos) {
+    const relativeFolderPath = getRelativeFolderPath(
+      sourceGroup.scanRootPath,
+      video.fileLocationPath,
+    );
+    const folderNodeValue = `folder:${sourceGroup.scanRootPath}:${relativeFolderPath}`;
+    const videoNodeValue = `video:${video.videoId}`;
+    let folderNode = folderNodesByPath.get(relativeFolderPath);
+
+    if (!folderNode) {
+      folderNode = {
+        label: relativeFolderPath,
+        value: folderNodeValue,
+        children: [],
+      };
+      folderNodesByPath.set(relativeFolderPath, folderNode);
+      checkedNodeValues.push(folderNodeValue);
+      expandedState[folderNodeValue] = true;
+    }
+
+    folderNode.children?.push({
+      label: video.title,
+      value: videoNodeValue,
+    });
+    videoValueToVideoId.set(videoNodeValue, video.videoId);
+    checkedNodeValues.push(videoNodeValue);
+  }
+
+  const folderNodes = Array.from(folderNodesByPath.entries())
+    .sort(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath))
+    .map(([_folderPath, folderNode]) => ({
+      ...folderNode,
+      children: folderNode.children?.sort((leftNode, rightNode) =>
+        String(leftNode.label).localeCompare(String(rightNode.label)),
+      ),
+    }));
+
+  return {
+    checkedNodeValues,
+    data: [
+      {
+        label: `Root: ${sourceGroup.scanRootPath}`,
+        value: scanRootNodeValue,
+        children: folderNodes,
+      },
+    ],
+    expandedState,
+    videoValueToVideoId,
+  };
+}
+
+function getSelectedVideoIds(
+  checkedNodeValues: string[],
+  videoValueToVideoId: Map<string, number>,
+) {
+  return checkedNodeValues
+    .map((nodeValue) => videoValueToVideoId.get(nodeValue))
+    .filter((videoId): videoId is number => videoId !== undefined)
+    .sort((leftVideoId, rightVideoId) => leftVideoId - rightVideoId);
+}
+
+function getRelativeFolderPath(scanRootPath: string, fileLocationPath: string) {
+  const relativeFilePath = fileLocationPath.startsWith(`${scanRootPath}/`)
+    ? fileLocationPath.slice(scanRootPath.length)
+    : fileLocationPath;
+  const folderPath = relativeFilePath.slice(0, relativeFilePath.lastIndexOf("/"));
+
+  return folderPath.length > 0 ? folderPath : "/";
 }
