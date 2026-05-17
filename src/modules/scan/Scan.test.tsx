@@ -461,7 +461,7 @@ describe("Scan module", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows Scan Root Inference Rules with their safe defaults", async () => {
+  it("opens editable Scan Root Inference Rules with their safe defaults", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
         inferenceRules: defaultInferenceRules,
@@ -476,17 +476,32 @@ describe("Scan module", () => {
 
     const scanRoots = await screen.findByLabelText("Scan Roots");
 
-    expect(
-      within(scanRoots).getByText("Tags from child folders"),
-    ).toBeInTheDocument();
-    expect(
-      within(scanRoots).getByText(
-        "Ignored names: Misc, Unsorted, To Sort, To Review, New, Temp, Archive, Archives, Downloads, Videos",
-      ),
-    ).toBeInTheDocument();
-    expect(
-      within(scanRoots).getByText("Ignored years: 1900-2099"),
-    ).toBeInTheDocument();
+    expect(within(scanRoots).queryByLabelText("Suggest Tags")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(scanRoots).getByRole("button", {
+        name: "Show Scan Root settings for /Volumes/Archive/Videos",
+      }),
+    );
+
+    expect(within(scanRoots).getByLabelText("Suggest Tags")).toBeChecked();
+    expect(within(scanRoots).getByLabelText("Ignored folder names")).toHaveValue(
+      "Misc, Unsorted, To Sort, To Review, New, Temp, Archive, Archives, Downloads, Videos",
+    );
+    expect(within(scanRoots).getByLabelText("Ignored year start")).toHaveValue(
+      "1900",
+    );
+    expect(within(scanRoots).getByLabelText("Ignored year end")).toHaveValue(
+      "2099",
+    );
+
+    fireEvent.click(
+      within(scanRoots).getByRole("button", {
+        name: "Hide Scan Root settings for /Volumes/Archive/Videos",
+      }),
+    );
+
+    expect(within(scanRoots).queryByLabelText("Suggest Tags")).not.toBeInTheDocument();
   });
 
   it("saves changed Scan Root Inference Rules", async () => {
@@ -501,6 +516,12 @@ describe("Scan module", () => {
     renderApp();
 
     await openScanModule();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Show Scan Root settings for /Volumes/Archive/Videos",
+      }),
+    );
 
     fireEvent.change(await screen.findByLabelText("Ignored folder names"), {
       target: { value: "Misc, Extras" },

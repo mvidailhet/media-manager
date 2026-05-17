@@ -1,11 +1,23 @@
-import { useState } from "react";
-import { Badge, Box, Button, Checkbox, Group, NumberInput, Stack, Text, TextInput } from "@mantine/core";
+import { useState } from 'react';
+import {
+  ActionIcon,
+  Box,
+  Button,
+  Checkbox,
+  Group,
+  NumberInput,
+  Paper,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core';
+import { IconSettings } from '@tabler/icons-react';
 
-import type { ScanRoot } from "../../tauriCommands";
-import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
-import { SectionHeader } from "../../shared/components/SectionHeader";
-import { WrappingCode } from "../../shared/components/WrappingCode";
-import styles from "./ScanRootsPanel.module.css";
+import type { ScanRoot } from '../../tauriCommands';
+import { AvailabilityBadge } from '../../shared/components/AvailabilityBadge';
+import { SectionHeader } from '../../shared/components/SectionHeader';
+import { WrappingCode } from '../../shared/components/WrappingCode';
+import styles from './ScanRootsPanel.module.css';
 
 export function ScanRootsPanel({
   manualScanRootPath,
@@ -28,21 +40,15 @@ export function ScanRootsPanel({
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
   onSaveScanRootInferenceRules: (
     scanRoot: ScanRoot,
-    inferenceRules: ScanRoot["inferenceRules"],
+    inferenceRules: ScanRoot['inferenceRules'],
   ) => void;
   scanRoots: ScanRoot[];
   scanRootsStatusMessage: string;
 }) {
   return (
-    <Box
-      component="section"
-      aria-label="Scan Root management"
-      p="md"
-      maw={760}
-    >
+    <Box component="section" aria-label="Scan Root management" p="md" maw={760}>
       <Stack gap="md">
         <Group justify="space-between" align="start">
-          <SectionHeader label="Catalog sources" title="Scan Roots" />
           <Group gap="xs">
             <Button
               type="button"
@@ -108,14 +114,15 @@ export function ScanRootCard({
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
   onSaveScanRootInferenceRules: (
     scanRoot: ScanRoot,
-    inferenceRules: ScanRoot["inferenceRules"],
+    inferenceRules: ScanRoot['inferenceRules'],
   ) => void;
   scanRoot: ScanRoot;
 }) {
+  const [areInferenceRulesOpen, setAreInferenceRulesOpen] = useState(false);
   const [suggestTagsFromChildFolders, setSuggestTagsFromChildFolders] =
     useState(scanRoot.inferenceRules.suggestTagsFromChildFolders);
   const [ignoredFolderNames, setIgnoredFolderNames] = useState(
-    scanRoot.inferenceRules.ignoredFolderNames.join(", "),
+    scanRoot.inferenceRules.ignoredFolderNames.join(', '),
   );
   const [ignoredExactYearStart, setIgnoredExactYearStart] = useState(
     scanRoot.inferenceRules.ignoredExactYearRange.startYear,
@@ -123,13 +130,9 @@ export function ScanRootCard({
   const [ignoredExactYearEnd, setIgnoredExactYearEnd] = useState(
     scanRoot.inferenceRules.ignoredExactYearRange.endYear,
   );
-  const tagInferenceLabel = scanRoot.inferenceRules.suggestTagsFromChildFolders
-    ? "Tags from child folders"
-    : "Tags not inferred";
-  const ignoredNamesLabel = `Ignored names: ${scanRoot.inferenceRules.ignoredFolderNames.join(
-    ", ",
-  )}`;
-  const ignoredYearsLabel = `Ignored years: ${scanRoot.inferenceRules.ignoredExactYearRange.startYear}-${scanRoot.inferenceRules.ignoredExactYearRange.endYear}`;
+  const inferenceRulesButtonLabel = areInferenceRulesOpen
+    ? `Hide Scan Root settings for ${scanRoot.path}`
+    : `Show Scan Root settings for ${scanRoot.path}`;
 
   function saveInferenceRules() {
     onSaveScanRootInferenceRules(scanRoot, {
@@ -138,7 +141,7 @@ export function ScanRootCard({
         startYear: ignoredExactYearStart,
       },
       ignoredFolderNames: ignoredFolderNames
-        .split(",")
+        .split(',')
         .map((ignoredFolderName) => ignoredFolderName.trim())
         .filter((ignoredFolderName) => ignoredFolderName.length > 0),
       suggestTagsFromChildFolders,
@@ -146,77 +149,95 @@ export function ScanRootCard({
   }
 
   return (
-    <Stack component="article" gap="xs">
-      <Group gap="sm" justify="space-between">
-        <Group gap="xs">
-          <WrappingCode>{scanRoot.path}</WrappingCode>
-          <AvailabilityBadge isAvailable={scanRoot.isAvailable} />
+    <Paper p="md">
+      <Stack component="article" gap="xs">
+        <Group gap="sm" justify="space-between">
+          <Group gap="xs">
+            <WrappingCode>{scanRoot.path}</WrappingCode>
+            <AvailabilityBadge isAvailable={scanRoot.isAvailable} />
+          </Group>
+          <Group gap="xs">
+            <ActionIcon
+              aria-label={inferenceRulesButtonLabel}
+              type="button"
+              size="sm"
+              variant="subtle"
+              onClick={() =>
+                setAreInferenceRulesOpen(
+                  (currentAreInferenceRulesOpen) =>
+                    !currentAreInferenceRulesOpen,
+                )
+              }
+            >
+              <IconSettings size={16} />
+            </ActionIcon>
+            <Button
+              type="button"
+              size="xs"
+              variant="default"
+              onClick={() => void onRefreshSelectedScanRoot(scanRoot)}
+            >
+              Refresh
+            </Button>
+            <Button
+              type="button"
+              size="xs"
+              variant="light"
+              color="red"
+              onClick={() => onRequestScanRootRemoval(scanRoot)}
+            >
+              Remove
+            </Button>
+          </Group>
         </Group>
-        <Group gap="xs">
-          <Button
-            type="button"
-            size="xs"
-            variant="default"
-            onClick={() => void onRefreshSelectedScanRoot(scanRoot)}
-          >
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            size="xs"
-            variant="light"
-            color="red"
-            onClick={() => onRequestScanRootRemoval(scanRoot)}
-          >
-            Remove
-          </Button>
-        </Group>
-      </Group>
-      <Stack gap={4}>
-        <Group gap="xs">
-          <Badge color="teal" variant="light">
-            {tagInferenceLabel}
-          </Badge>
-        </Group>
-        <Text size="sm">{ignoredNamesLabel}</Text>
-        <Text size="sm">{ignoredYearsLabel}</Text>
-        <Group align="end" gap="sm">
-          <Checkbox
-            checked={suggestTagsFromChildFolders}
-            label="Suggest Tags"
-            onChange={(event) =>
-              setSuggestTagsFromChildFolders(event.currentTarget.checked)
-            }
-          />
-        </Group>
-        <TextInput
-          label="Ignored folder names"
-          size="sm"
-          value={ignoredFolderNames}
-          onChange={(event) => setIgnoredFolderNames(event.currentTarget.value)}
-        />
-        <Group align="end" gap="sm">
-          <NumberInput
-            label="Ignored year start"
-            size="sm"
-            value={ignoredExactYearStart}
-            onChange={(value) =>
-              setIgnoredExactYearStart(typeof value === "number" ? value : 1900)
-            }
-          />
-          <NumberInput
-            label="Ignored year end"
-            size="sm"
-            value={ignoredExactYearEnd}
-            onChange={(value) =>
-              setIgnoredExactYearEnd(typeof value === "number" ? value : 2099)
-            }
-          />
-          <Button type="button" size="xs" onClick={saveInferenceRules}>
-            Save Inference Rules
-          </Button>
-        </Group>
+        {areInferenceRulesOpen ? (
+          <Stack gap={4}>
+            <Group align="end" gap="sm">
+              <Checkbox
+                checked={suggestTagsFromChildFolders}
+                label="Suggest Tags"
+                onChange={(event) =>
+                  setSuggestTagsFromChildFolders(event.currentTarget.checked)
+                }
+              />
+            </Group>
+            <TextInput
+              label="Ignored folder names"
+              size="sm"
+              value={ignoredFolderNames}
+              onChange={(event) =>
+                setIgnoredFolderNames(event.currentTarget.value)
+              }
+            />
+            <Group align="end" gap="sm">
+              <NumberInput
+                label="Ignored year start"
+                size="sm"
+                value={ignoredExactYearStart}
+                onChange={(value) =>
+                  setIgnoredExactYearStart(
+                    typeof value === 'number' ? value : 1900,
+                  )
+                }
+              />
+              <NumberInput
+                label="Ignored year end"
+                size="sm"
+                value={ignoredExactYearEnd}
+                onChange={(value) =>
+                  setIgnoredExactYearEnd(
+                    typeof value === 'number' ? value : 2099,
+                  )
+                }
+              />
+              <Button type="button" size="xs" onClick={saveInferenceRules}>
+                Save Inference Rules
+              </Button>
+            </Group>
+          </Stack>
+        ) : null}
       </Stack>
-    </Stack>
+    </Paper>
   );
 }
+
