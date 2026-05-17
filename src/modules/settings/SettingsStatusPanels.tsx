@@ -1,8 +1,9 @@
-import { Box, Button, Code, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Box, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
 
 import type { FfmpegToolsStatus } from "../../tauriCommands";
 import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
 import { SectionHeader } from "../../shared/components/SectionHeader";
+import { WrappingCode } from "../../shared/components/WrappingCode";
 
 export function TauriStatusPanel({
   localDesktopAppStatus,
@@ -109,9 +110,9 @@ export function FfmpegToolStatusCard({
           {toolStatus.statusMessage}
         </Text>
         {toolStatus.resolvedPath ? (
-          <Code className="wrapping-code" mt={8}>
+          <WrappingCode mt={8}>
             {toolStatus.resolvedPath}
-          </Code>
+          </WrappingCode>
         ) : null}
       </Box>
       <AvailabilityBadge

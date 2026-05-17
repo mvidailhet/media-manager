@@ -1,8 +1,10 @@
-import { Box, Button, Code, Divider, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Box, Button, Divider, Group, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 
 import type { CatalogVideo, FailedPreviewStrip, ScanRoot, UnprocessableVideoCandidate } from "../../tauriCommands";
+import { DefinitionList } from "../../shared/components/DefinitionList";
 import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
 import { SectionHeader } from "../../shared/components/SectionHeader";
+import { WrappingCode } from "../../shared/components/WrappingCode";
 import { formatDuration, formatFileSize } from "../../shared/formatting/videoFormatting";
 
 export function ScanIssuesPanel({
@@ -106,7 +108,7 @@ export function UnavailableScanRootsPanel({
           {unavailableScanRoots.map((scanRoot) => (
             <Stack component="article" gap="xs" key={scanRoot.path}>
               <Divider />
-              <Code className="wrapping-code">{scanRoot.path}</Code>
+              <WrappingCode>{scanRoot.path}</WrappingCode>
             </Stack>
           ))}
         </Stack>
@@ -136,15 +138,15 @@ export function UnprocessableCandidatesPanel({
           {unprocessableVideoCandidates.map((candidate) => (
             <Stack component="article" gap="xs" key={candidate.path}>
               <Divider />
-              <Code className="wrapping-code">{candidate.path}</Code>
-              <Box component="dl" className="definition-list">
+              <WrappingCode>{candidate.path}</WrappingCode>
+              <DefinitionList>
                 <DefinitionTerm label="Failure Reason">
                   {candidate.reason}
                 </DefinitionTerm>
                 <DefinitionTerm label="File Size">
                   {formatFileSize(candidate.fileSizeBytes)}
                 </DefinitionTerm>
-              </Box>
+              </DefinitionList>
             </Stack>
           ))}
         </Stack>
@@ -186,11 +188,11 @@ export function FailedPreviewStripsPanel({
                 <Title order={4} size="h5">
                   {failedPreviewStrip.title}
                 </Title>
-                <Box component="dl" className="definition-list">
+                <DefinitionList>
                   <DefinitionTerm label="Failure Reason">
                     {failedPreviewStrip.failureReason}
                   </DefinitionTerm>
-                </Box>
+                </DefinitionList>
               </Box>
               <Group gap="xs">
                 <Button

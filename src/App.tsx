@@ -4,7 +4,6 @@ import {
   AppShell,
   Box,
   Button,
-  Code,
   Group,
   Indicator,
   Paper,
@@ -29,6 +28,8 @@ import type {
 import { useScanModuleController } from "./modules/scan/useScanModuleController";
 import { SettingsModule } from "./modules/settings/SettingsModule";
 import { useSettingsModuleController } from "./modules/settings/useSettingsModuleController";
+import styles from "./App.module.css";
+import { WrappingCode } from "./shared/components/WrappingCode";
 import { errorMessage } from "./shared/errors/errorMessage";
 
 const navigationIconSize = 20;
@@ -115,14 +116,14 @@ export default function App() {
       }}
       padding="md"
     >
-      <AppShell.Main className="app-main-content">
+      <AppShell.Main className={styles.mainContent}>
         <Group
           component="nav"
           aria-label="Module navigation"
-          className="module-navigation"
+          className={styles.moduleNavigation}
           gap="xs"
         >
-          <Box className="module-navigation-start">
+          <Box className={styles.moduleNavigationStart}>
             {activeAppModule !== "catalog" ? (
               <Button
                 type="button"
@@ -196,9 +197,9 @@ export default function App() {
               <Title order={2} size="h3">
                 Remove Scan Root
               </Title>
-              <Code className="wrapping-code">
+              <WrappingCode>
                 {scanRootPendingRemoval.path}
-              </Code>
+              </WrappingCode>
               <Group gap="xs">
                 <Button
                   type="button"

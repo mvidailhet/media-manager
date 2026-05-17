@@ -1,0 +1,21 @@
+.mainContent {
+  box-sizing: border-box;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.moduleNavigation {
+  width: 100%;
+  justify-content: space-between;
+}
+
+.moduleNavigationStart {
+  min-height: 36px;
+}
+
+@media (max-width: 640px) {
+  .mainContent {
+    padding: 28px 20px;
+  }
+}

@@ -9,6 +9,7 @@ import type {
   CatalogVideoSort,
 } from "./catalogTypes";
 import { VideoPreview } from "./components/VideoPreview";
+import styles from "./CatalogVideosPanel.module.css";
 
 const catalogVideosEmptyMessage = "No Videos in the Catalog.";
 const minimumDurationMinutes = 0;
@@ -87,7 +88,7 @@ export function CatalogVideosPanel({
         ) : null}
 
         {catalogVideos.length > 0 ? (
-          <Box className="catalog-video-grid">
+          <Box className={styles.grid}>
             {catalogVideos.map((catalogVideo) => (
               <CatalogVideoCard
                 catalogVideo={catalogVideo}
@@ -252,7 +253,7 @@ export function CatalogVideoCard({
     <Paper
       component="article"
       aria-label={catalogVideo.title}
-      className="catalog-video-card"
+      className={styles.card}
       onClick={selectCatalogVideo}
       onKeyDown={selectCatalogVideoFromKeyboard}
       p="xs"
@@ -260,7 +261,7 @@ export function CatalogVideoCard({
       withBorder
     >
       <Stack gap="xs">
-        <Box className="catalog-video-card-preview">
+        <Box className={styles.cardPreview}>
           <VideoPreview
             catalogVideo={catalogVideo}
             onFavoriteChange={(isFavorite) =>
@@ -268,7 +269,7 @@ export function CatalogVideoCard({
             }
           />
           <Box
-            className="catalog-video-preview-badge catalog-video-batch-checkbox"
+            className={styles.batchCheckbox}
             onClick={(event) => event.stopPropagation()}
           >
             <Checkbox
@@ -284,7 +285,7 @@ export function CatalogVideoCard({
           </Box>
         </Box>
 
-        <Text className="catalog-video-title" fw={500}>
+        <Text className={styles.title} fw={500}>
           {catalogVideo.title}
         </Text>
 

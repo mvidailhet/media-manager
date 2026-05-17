@@ -1,5 +1,7 @@
 import { Box, Text } from "@mantine/core";
 
+import styles from "./DefinitionTerm.module.css";
+
 export function DefinitionTerm({
   children,
   label,
@@ -12,7 +14,7 @@ export function DefinitionTerm({
       <Text component="dt" c="dimmed" fw={700} size="xs" tt="uppercase">
         {label}
       </Text>
-      <Text component="dd" className="definition-value">
+      <Text component="dd" className={styles.value}>
         {children}
       </Text>
     </Box>

@@ -1,6 +1,6 @@
 import { useState, type MouseEvent, type PointerEvent } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
-import { ActionIcon, Badge, Box } from "@mantine/core";
+import { Badge, Box } from "@mantine/core";
 import { IconStar, IconStarFilled } from "@tabler/icons-react";
 
 import type { CatalogVideo } from "../../../tauriCommands";
@@ -8,6 +8,7 @@ import {
   formatCompactFileSize,
   formatDuration,
 } from "../../../shared/formatting/videoFormatting";
+import styles from "./VideoPreview.module.css";
 
 const firstPreviewStripFrameIndex = 0;
 const previewStripPointerMinimum = 0;
@@ -35,34 +36,24 @@ export function VideoPreview({
 
   return (
     <Box
-      className={
-        isLarge
-          ? "catalog-video-preview catalog-video-preview-large"
-          : "catalog-video-preview"
-      }
+      className={isLarge ? `${styles.preview} ${styles.large}` : styles.preview}
     >
       <PreviewStripSurface catalogVideo={catalogVideo} />
-      <Box
-        className="catalog-video-preview-badge catalog-video-favorite-button"
-        onClick={(event) => event.stopPropagation()}
+      <button
+        aria-label={favoriteButtonLabel}
+        className={`${styles.badge} ${styles.favoriteButton}`}
+        onClick={toggleFavorite}
         onKeyDown={(event) => event.stopPropagation()}
       >
-        <ActionIcon
-          aria-label={favoriteButtonLabel}
-          color={catalogVideo.isFavorite ? "yellow" : "gray"}
-          variant={catalogVideo.isFavorite ? "filled" : "white"}
-          onClick={toggleFavorite}
-        >
-          {catalogVideo.isFavorite ? (
-            <IconStarFilled size={favoriteIconSize} />
-          ) : (
-            <IconStar size={favoriteIconSize} />
-          )}
-        </ActionIcon>
-      </Box>
+        {catalogVideo.isFavorite ? (
+          <IconStarFilled className={`${styles.favoriteIcon} ${styles.favoriteIconFilled}`} size={favoriteIconSize} />
+        ) : (
+          <IconStar className={`${styles.favoriteIcon} ${styles.favoriteIconOutline}`} size={favoriteIconSize} />
+        )}
+      </button>
       {!catalogVideo.isAvailable ? (
         <Badge
-          className="catalog-video-preview-badge catalog-video-unavailable-badge"
+          className={`${styles.badge} ${styles.unavailableBadge}`}
           color="red"
           variant="filled"
         >
@@ -70,14 +61,14 @@ export function VideoPreview({
         </Badge>
       ) : null}
       <Badge
-        className="catalog-video-preview-badge catalog-video-preview-pill catalog-video-file-size-badge"
+        className={`${styles.badge} ${styles.pill} ${styles.fileSizeBadge}`}
         color="dark"
         variant="filled"
       >
         {formatCompactFileSize(catalogVideo.fileSizeBytes)}
       </Badge>
       <Badge
-        className="catalog-video-preview-badge catalog-video-preview-pill catalog-video-duration-badge"
+        className={`${styles.badge} ${styles.pill} ${styles.durationBadge}`}
         color="dark"
         variant="filled"
       >
@@ -108,7 +99,7 @@ function PreviewStripSurface({
     return (
       <Box
         aria-label={`Preview Strip for ${catalogVideo.title}`}
-        className="preview-strip preview-strip-generated"
+        className={`${styles.strip} ${styles.generatedStrip}`}
         role="img"
         style={{
           backgroundImage: `url(${previewStripUrl})`,
@@ -129,7 +120,7 @@ function PreviewStripSurface({
 
   if (previewStrip.status === "failed") {
     return (
-      <Box className="preview-strip preview-strip-placeholder">
+      <Box className={`${styles.strip} ${styles.placeholderStrip}`}>
         <Badge color="red" variant="light">
           Failed Preview Strip
         </Badge>
@@ -138,7 +129,7 @@ function PreviewStripSurface({
   }
 
   return (
-    <Box className="preview-strip preview-strip-placeholder">
+    <Box className={`${styles.strip} ${styles.placeholderStrip}`}>
       <Badge color="gray" variant="light">
         Pending Preview Strip
       </Badge>

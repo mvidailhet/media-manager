@@ -61,9 +61,22 @@ describe("Catalog module", () => {
     folderPath: string,
   ) {
     fireEvent.click(
-      within(metadataSuggestions).getByText(`Root: ${scanRootPath}`),
+      getMetadataSuggestionTreeLabel(metadataSuggestions, scanRootPath),
     );
-    fireEvent.click(within(metadataSuggestions).getByText(folderPath));
+    for (const folderName of folderPath.split("/").filter(Boolean)) {
+      fireEvent.click(
+        getMetadataSuggestionTreeLabel(metadataSuggestions, folderName),
+      );
+    }
+  }
+
+  function getMetadataSuggestionTreeLabel(
+    metadataSuggestions: HTMLElement,
+    label: string,
+  ) {
+    return within(metadataSuggestions).getByText((_content, element) => {
+      return element?.tagName === "P" && element.textContent === label;
+    });
   }
 
   it("reviews Metadata Suggestions inside Catalog with selectable affected Video context", async () => {
@@ -116,11 +129,13 @@ describe("Catalog module", () => {
       "/Trips",
     );
 
-    fireEvent.click(
-      within(metadataSuggestions).getByRole("button", {
+    expect(
+      within(metadataSuggestions).queryByRole("button", {
         name: "Review Family Trip",
       }),
-    );
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(metadataSuggestions).getByText("Family Trip"));
 
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
@@ -1351,10 +1366,9 @@ describe("Catalog module", () => {
     });
     const titleInput = within(detailPanel).getByLabelText("Title");
 
-    expect(detailPanel).toHaveClass("video-detail-panel");
     expect(detailPanel).not.toHaveClass("mantine-Paper-root");
     expect(detailPanel).not.toHaveStyle({ maxWidth: "760px" });
-    expect(titleInput.closest(".video-detail-title-input")).not.toBeNull();
+    expect(titleInput.closest("section")).toBe(detailPanel);
   });
 
   it("creates new Tags and Performers inline while editing a Video", async () => {
@@ -1642,7 +1656,7 @@ describe("Catalog module", () => {
                 videoId: 7,
                 title: "Family Trip",
                 fileLocationPath:
-                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                  "/Volumes/Archive/Videos/Family/Trips/family-trip.mp4",
               },
               {
                 videoId: 8,
@@ -1691,25 +1705,53 @@ describe("Catalog module", () => {
     });
     expect(within(metadataSuggestions).getAllByText("Tag")[0]).toBeInTheDocument();
     expect(
-      within(metadataSuggestions).getByText(
+      within(metadataSuggestions).queryByText(
         (_content, element) => element?.textContent === "  Family  ",
       ),
+    ).not.toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByText("Source Segment"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByText("Scan Root"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByText("Accepted metadata name"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByText("Accept Family as metadata kind"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "/Volumes/Archive/Videos",
+      }),
     ).toBeInTheDocument();
     expect(
-      within(metadataSuggestions).getByText("/Volumes/Archive/Videos"),
-    ).toBeInTheDocument();
-    expect(
-      within(metadataSuggestions).queryByText("/Family"),
+      within(metadataSuggestions).queryByRole("checkbox", { name: "Family" }),
     ).not.toBeInTheDocument();
     expect(
       within(metadataSuggestions).queryByText("Family Trip"),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(within(metadataSuggestions).getByText("Root: /Volumes/Archive/Videos"));
+    fireEvent.click(
+      within(metadataSuggestions).getAllByText((_content, element) => {
+        return (
+          element?.tagName === "P" &&
+          element.textContent === "/Volumes/Archive/Videos"
+        );
+      })[0],
+    );
     expect(
-      within(metadataSuggestions).getByText("/Family"),
+      within(metadataSuggestions).getByRole("checkbox", { name: "Family" }),
     ).toBeInTheDocument();
-    fireEvent.click(within(metadataSuggestions).getByText("/Family"));
+    expect(
+      within(metadataSuggestions).queryByRole("checkbox", { name: "Trips" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(getMetadataSuggestionTreeLabel(metadataSuggestions, "Family"));
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "Trips" }),
+    ).toBeInTheDocument();
+    fireEvent.click(getMetadataSuggestionTreeLabel(metadataSuggestions, "Trips"));
     expect(
       within(metadataSuggestions).getByText("Family Trip"),
     ).toBeInTheDocument();
@@ -1717,8 +1759,13 @@ describe("Catalog module", () => {
       within(metadataSuggestions).getByText("Birthday"),
     ).toBeInTheDocument();
     expect(within(metadataSuggestions).queryByText("Picnic")).not.toBeInTheDocument();
-    fireEvent.click(within(metadataSuggestions).getByText("Root: /Volumes/Camera/Videos"));
-    fireEvent.click(within(metadataSuggestions).getByText("/family"));
+    fireEvent.click(
+      getMetadataSuggestionTreeLabel(
+        metadataSuggestions,
+        "/Volumes/Camera/Videos",
+      ),
+    );
+    fireEvent.click(getMetadataSuggestionTreeLabel(metadataSuggestions, "family"));
     expect(within(metadataSuggestions).getByText("Picnic")).toBeInTheDocument();
     expect(
       within(metadataSuggestions).queryByText(
@@ -1852,7 +1899,7 @@ describe("Catalog module", () => {
     );
     fireEvent.click(
       await within(metadataSuggestions).findByRole("checkbox", {
-        name: "/Family",
+        name: "Family",
       }),
     );
 
@@ -1917,11 +1964,11 @@ describe("Catalog module", () => {
       ).not.toBeChecked();
     });
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "/Family" }),
+      within(metadataSuggestions).getByRole("checkbox", { name: "Family" }),
     ).toBePartiallyChecked();
     expect(
       within(metadataSuggestions).getByRole("checkbox", {
-        name: "Root: /Volumes/Archive/Videos",
+        name: "/Volumes/Archive/Videos",
       }),
     ).toBePartiallyChecked();
   });
@@ -1972,7 +2019,7 @@ describe("Catalog module", () => {
     );
     fireEvent.click(
       within(metadataSuggestions).getByRole("checkbox", {
-        name: "/Family",
+        name: "Family",
       }),
     );
 
@@ -2023,7 +2070,7 @@ describe("Catalog module", () => {
     });
     fireEvent.click(
       within(metadataSuggestions).getByRole("checkbox", {
-        name: "Root: /Volumes/Archive/Videos",
+        name: "/Volumes/Archive/Videos",
       }),
     );
     expandMetadataSuggestionBranch(

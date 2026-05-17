@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Badge, Box, Button, Checkbox, Code, Group, NumberInput, Stack, Text, TextInput } from "@mantine/core";
+import { Badge, Box, Button, Checkbox, Group, NumberInput, Stack, Text, TextInput } from "@mantine/core";
 
 import type { ScanRoot } from "../../tauriCommands";
 import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
 import { SectionHeader } from "../../shared/components/SectionHeader";
+import { WrappingCode } from "../../shared/components/WrappingCode";
+import styles from "./ScanRootsPanel.module.css";
 
 export function ScanRootsPanel({
   manualScanRootPath,
@@ -64,7 +66,7 @@ export function ScanRootsPanel({
         <Box component="form" onSubmit={onAddManualScanRoot}>
           <Group align="end">
             <TextInput
-              className="path-input"
+              className={styles.pathInput}
               label="Manual path"
               value={manualScanRootPath}
               onChange={(event) =>
@@ -156,7 +158,7 @@ export function ScanRootCard({
     <Stack component="article" gap="xs">
       <Group gap="sm" justify="space-between">
         <Group gap="xs">
-          <Code className="wrapping-code">{scanRoot.path}</Code>
+          <WrappingCode>{scanRoot.path}</WrappingCode>
           <AvailabilityBadge isAvailable={scanRoot.isAvailable} />
         </Group>
         <Group gap="xs">

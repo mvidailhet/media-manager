@@ -1,12 +1,15 @@
 import { useEffect, useState } from "react";
-import { Badge, Box, Button, Code, Group, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Badge, Box, Button, Group, Stack, Text, TextInput, Title } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../tauriCommands";
+import { DefinitionList } from "../../shared/components/DefinitionList";
 import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
 import { SectionHeader } from "../../shared/components/SectionHeader";
+import { WrappingCode } from "../../shared/components/WrappingCode";
 import { formatDuration, formatFileSize } from "../../shared/formatting/videoFormatting";
 import { findMetadataByName, findNearMetadataMatch, singularMetadataLabel } from "../../shared/metadata/metadataHelpers";
 import { VideoPreview } from "./components/VideoPreview";
+import styles from "./VideoDetailPanel.module.css";
 
 export function VideoDetailPanel({
   availablePerformers,
@@ -62,7 +65,7 @@ export function VideoDetailPanel({
     <Box
       component="section"
       aria-label="Video Detail Panel"
-      className="video-detail-panel"
+      className={styles.panel}
     >
       <Stack gap="md">
         <SectionHeader label="Selected Video" title="Video Detail Panel" />
@@ -82,7 +85,7 @@ export function VideoDetailPanel({
         />
         <Group align="end" wrap="nowrap">
           <TextInput
-            className="video-detail-title-input"
+            className={styles.titleInput}
             label="Title"
             value={title}
             w="100%"
@@ -114,14 +117,14 @@ export function VideoDetailPanel({
           />
         </Group>
 
-        <Box component="dl" className="definition-list">
+        <DefinitionList>
           <DefinitionTerm label="Duration">
             {formatDuration(video.durationMilliseconds)}
           </DefinitionTerm>
           <DefinitionTerm label="File Size">
             {formatFileSize(video.fileSizeBytes)}
           </DefinitionTerm>
-        </Box>
+        </DefinitionList>
 
         <Stack gap="xs">
           <Title order={3} size="h4">
@@ -130,7 +133,7 @@ export function VideoDetailPanel({
           {fileLocations.length > 0 ? (
             fileLocations.map((fileLocation) => (
               <Group key={fileLocation.path} gap="xs" align="center">
-                <Code className="wrapping-code">{fileLocation.path}</Code>
+                <WrappingCode>{fileLocation.path}</WrappingCode>
                 <Text c="dimmed">
                   {formatFileSize(fileLocation.fileSizeBytes)}
                 </Text>
@@ -187,7 +190,7 @@ export function MetadataChecklist<T extends { id: number; name: string }>({
   return (
     <Stack
       component="section"
-      className="video-detail-metadata-checklist"
+      className={styles.metadataChecklist}
       gap="xs"
       aria-label={label}
     >

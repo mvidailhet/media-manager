@@ -1,0 +1,10 @@
+.panel {
+  box-sizing: border-box;
+  max-width: 1120px;
+  width: 100%;
+}
+
+.titleInput,
+.metadataChecklist {
+  min-width: 0;
+}

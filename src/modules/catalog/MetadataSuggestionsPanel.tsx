@@ -4,7 +4,6 @@ import { Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Stack, Text
 
 import type { CatalogPerformer, CatalogTag, MetadataSuggestionGroup } from "../../tauriCommands";
 import type { AcceptMetadataSuggestionForVideosRequest, RejectMetadataSuggestionSourceRequest } from "../../tauriCommands";
-import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
 import { formatSuggestionKind } from "../../shared/formatting/suggestionFormatting";
 import { findMetadataByName, findNearMetadataMatch } from "../../shared/metadata/metadataHelpers";
 
@@ -12,6 +11,7 @@ type AcceptMetadataSuggestionVideos = (request: AcceptMetadataSuggestionForVideo
 type RejectMetadataSuggestionSource = (request: RejectMetadataSuggestionSourceRequest) => void;
 const metadataSuggestionTreeIconSize = 14;
 const metadataSuggestionTreeCaretSize = 12;
+const videoTitleActivationKeys = new Set(["Enter", " "]);
 
 export function MetadataSuggestionsPanel({
   availablePerformers,
@@ -142,16 +142,11 @@ export function MetadataSuggestionSource({
   }, [suggestedValue, suggestionKind]);
 
   return (
-    <Box>
-      <Box component="dl" className="definition-list">
-        <DefinitionTerm label="Source Segment">
-          {sourceGroup.sourcePathSegment}
-        </DefinitionTerm>
-        <DefinitionTerm label="Scan Root">{sourceGroup.scanRootPath}</DefinitionTerm>
-      </Box>
-      <Group gap="xs" align="end" mb="xs">
+    <Stack gap="md">
+      <Group gap="sm" align="center" wrap="nowrap">
         <NativeSelect
-          label={`Accept ${suggestedValue} as metadata kind`}
+          aria-label={`Accept ${suggestedValue} as metadata kind`}
+          w={128}
           value={acceptedSuggestionKind}
           data={[
             { value: "tag", label: "Tag" },
@@ -160,7 +155,9 @@ export function MetadataSuggestionSource({
           onChange={(event) => setAcceptedSuggestionKind(event.currentTarget.value)}
         />
         <TextInput
-          label="Accepted metadata name"
+          aria-label="Accepted metadata name"
+          flex={1}
+          miw={240}
           value={acceptedValue}
           onChange={(event) => setAcceptedValue(event.currentTarget.value)}
         />
@@ -207,25 +204,35 @@ export function MetadataSuggestionSource({
                   }
                 }}
               />
-              <Text>{node.label}</Text>
               {videoId && onReviewVideo ? (
-                <Button
-                  type="button"
-                  size="xs"
-                  variant="subtle"
+                <Text
+                  component="span"
+                  role="button"
+                  tabIndex={0}
                   onClick={(event) => {
                     event.stopPropagation();
                     onReviewVideo(videoId);
                   }}
+                  onKeyDown={(event) => {
+                    if (!videoTitleActivationKeys.has(event.key)) {
+                      return;
+                    }
+
+                    event.preventDefault();
+                    event.stopPropagation();
+                    onReviewVideo(videoId);
+                  }}
                 >
-                  Review {node.label}
-                </Button>
-              ) : null}
+                  {node.label}
+                </Text>
+              ) : (
+                <Text>{node.label}</Text>
+              )}
             </Group>
           );
         }}
       />
-      <Group gap="xs" mt="xs">
+      <Group gap="xs">
         <Button
           size="xs"
           color="green"
@@ -270,7 +277,7 @@ export function MetadataSuggestionSource({
           Reject
         </Button>
       </Group>
-    </Box>
+    </Stack>
   );
 }
 
@@ -280,33 +287,39 @@ type SuggestionVideoTree = {
   videoValueToVideoId: Map<string, number>;
 };
 
+type SuggestionFolderNode = {
+  label: string;
+  value: string;
+  childFoldersByName: Map<string, SuggestionFolderNode>;
+  videos: Tree.NodeData[];
+};
+
 function buildSuggestionVideoTree(
   sourceGroup: MetadataSuggestionGroup["sources"][number],
 ): SuggestionVideoTree {
   const scanRootNodeValue = `scan-root:${sourceGroup.scanRootPath}`;
-  const folderNodesByPath = new Map<string, Tree.NodeData>();
+  const rootFolderNode: SuggestionFolderNode = {
+    label: sourceGroup.scanRootPath,
+    value: scanRootNodeValue,
+    childFoldersByName: new Map(),
+    videos: [],
+  };
   const videoValueToVideoId = new Map<string, number>();
   const checkedNodeValues: string[] = [];
 
   for (const video of sourceGroup.videos) {
-    const relativeFolderPath = getRelativeFolderPath(
+    const relativeFolderSegments = getRelativeFolderSegments(
       sourceGroup.scanRootPath,
       video.fileLocationPath,
     );
-    const folderNodeValue = `folder:${sourceGroup.scanRootPath}:${relativeFolderPath}`;
     const videoNodeValue = `video:${video.videoId}`;
-    let folderNode = folderNodesByPath.get(relativeFolderPath);
+    const folderNode = findOrCreateFolderNode(
+      rootFolderNode,
+      sourceGroup.scanRootPath,
+      relativeFolderSegments,
+    );
 
-    if (!folderNode) {
-      folderNode = {
-        label: relativeFolderPath,
-        value: folderNodeValue,
-        children: [],
-      };
-      folderNodesByPath.set(relativeFolderPath, folderNode);
-    }
-
-    folderNode.children?.push({
+    folderNode.videos.push({
       label: video.title,
       value: videoNodeValue,
     });
@@ -314,25 +327,54 @@ function buildSuggestionVideoTree(
     checkedNodeValues.push(videoNodeValue);
   }
 
-  const folderNodes = Array.from(folderNodesByPath.entries())
-    .sort(([leftPath], [rightPath]) => leftPath.localeCompare(rightPath))
-    .map(([_folderPath, folderNode]) => ({
-      ...folderNode,
-      children: folderNode.children?.sort((leftNode, rightNode) =>
-        String(leftNode.label).localeCompare(String(rightNode.label)),
-      ),
-    }));
-
   return {
     checkedNodeValues,
-    data: [
-      {
-        label: `Root: ${sourceGroup.scanRootPath}`,
-        value: scanRootNodeValue,
-        children: folderNodes,
-      },
-    ],
+    data: [toTreeNode(rootFolderNode)],
     videoValueToVideoId,
+  };
+}
+
+function findOrCreateFolderNode(
+  rootFolderNode: SuggestionFolderNode,
+  scanRootPath: string,
+  folderSegments: string[],
+) {
+  let currentFolderNode = rootFolderNode;
+  let currentFolderPath = "";
+
+  for (const folderSegment of folderSegments) {
+    currentFolderPath = `${currentFolderPath}/${folderSegment}`;
+    let childFolderNode =
+      currentFolderNode.childFoldersByName.get(folderSegment);
+
+    if (!childFolderNode) {
+      childFolderNode = {
+        label: folderSegment,
+        value: `folder:${scanRootPath}:${currentFolderPath}`,
+        childFoldersByName: new Map(),
+        videos: [],
+      };
+      currentFolderNode.childFoldersByName.set(folderSegment, childFolderNode);
+    }
+
+    currentFolderNode = childFolderNode;
+  }
+
+  return currentFolderNode;
+}
+
+function toTreeNode(folderNode: SuggestionFolderNode): Tree.NodeData {
+  const childFolderNodes = Array.from(folderNode.childFoldersByName.values())
+    .sort((leftNode, rightNode) => leftNode.label.localeCompare(rightNode.label))
+    .map(toTreeNode);
+  const videoNodes = folderNode.videos.sort((leftNode, rightNode) =>
+    String(leftNode.label).localeCompare(String(rightNode.label)),
+  );
+
+  return {
+    label: folderNode.label,
+    value: folderNode.value,
+    children: [...childFolderNodes, ...videoNodes],
   };
 }
 
@@ -346,11 +388,11 @@ function getSelectedVideoIds(
     .sort((leftVideoId, rightVideoId) => leftVideoId - rightVideoId);
 }
 
-function getRelativeFolderPath(scanRootPath: string, fileLocationPath: string) {
+function getRelativeFolderSegments(scanRootPath: string, fileLocationPath: string) {
   const relativeFilePath = fileLocationPath.startsWith(`${scanRootPath}/`)
     ? fileLocationPath.slice(scanRootPath.length)
     : fileLocationPath;
   const folderPath = relativeFilePath.slice(0, relativeFilePath.lastIndexOf("/"));
 
-  return folderPath.length > 0 ? folderPath : "/";
+  return folderPath.split("/").filter(Boolean);
 }
