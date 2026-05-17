@@ -54,6 +54,18 @@ import {
 
 describe("Catalog module", () => {
   beforeEach(resetAppTestHarness);
+
+  function expandMetadataSuggestionBranch(
+    metadataSuggestions: HTMLElement,
+    scanRootPath: string,
+    folderPath: string,
+  ) {
+    fireEvent.click(
+      within(metadataSuggestions).getByText(`Root: ${scanRootPath}`),
+    );
+    fireEvent.click(within(metadataSuggestions).getByText(folderPath));
+  }
+
   it("reviews Metadata Suggestions inside Catalog with selectable affected Video context", async () => {
     mockedListMetadataSuggestionGroups.mockResolvedValue([
       {
@@ -98,6 +110,11 @@ describe("Catalog module", () => {
       name: "Metadata Suggestions",
     });
     expect(within(metadataSuggestions).getByText("Travel")).toBeInTheDocument();
+    expandMetadataSuggestionBranch(
+      metadataSuggestions,
+      "/Volumes/Archive",
+      "/Trips",
+    );
 
     fireEvent.click(
       within(metadataSuggestions).getByRole("button", {
@@ -1492,7 +1509,7 @@ describe("Catalog module", () => {
     );
   });
 
-  it("lists Metadata Suggestions in checked trees grouped by Scan Root and relative folder", async () => {
+  it("lists Metadata Suggestions in checked collapsible trees grouped by Scan Root and relative folder", async () => {
     const metadataSuggestionGroups = [
       {
         suggestedValue: "Family",
@@ -1563,14 +1580,26 @@ describe("Catalog module", () => {
       within(metadataSuggestions).getByText("/Volumes/Archive/Videos"),
     ).toBeInTheDocument();
     expect(
+      within(metadataSuggestions).queryByText("/Family"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByText("Family Trip"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(metadataSuggestions).getByText("Root: /Volumes/Archive/Videos"));
+    expect(
       within(metadataSuggestions).getByText("/Family"),
     ).toBeInTheDocument();
+    fireEvent.click(within(metadataSuggestions).getByText("/Family"));
     expect(
       within(metadataSuggestions).getByText("Family Trip"),
     ).toBeInTheDocument();
     expect(
       within(metadataSuggestions).getByText("Birthday"),
     ).toBeInTheDocument();
+    expect(within(metadataSuggestions).queryByText("Picnic")).not.toBeInTheDocument();
+    fireEvent.click(within(metadataSuggestions).getByText("Root: /Volumes/Camera/Videos"));
+    fireEvent.click(within(metadataSuggestions).getByText("/family"));
     expect(within(metadataSuggestions).getByText("Picnic")).toBeInTheDocument();
     expect(
       within(metadataSuggestions).queryByText(
@@ -1637,6 +1666,11 @@ describe("Catalog module", () => {
     const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
+    expandMetadataSuggestionBranch(
+      metadataSuggestions,
+      "/Volumes/Archive/Videos",
+      "/Family",
+    );
     fireEvent.click(
       await within(metadataSuggestions).findByRole("checkbox", {
         name: "Birthday",
@@ -1692,6 +1726,11 @@ describe("Catalog module", () => {
     const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
+    expandMetadataSuggestionBranch(
+      metadataSuggestions,
+      "/Volumes/Archive/Videos",
+      "/Family",
+    );
     fireEvent.click(
       await within(metadataSuggestions).findByRole("checkbox", {
         name: "/Family",
@@ -1701,9 +1740,11 @@ describe("Catalog module", () => {
     expect(
       within(metadataSuggestions).getByRole("checkbox", { name: "Family Trip" }),
     ).not.toBeChecked();
-    expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
-    ).not.toBeChecked();
+    await waitFor(() => {
+      expect(
+        within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+      ).not.toBeChecked();
+    });
   });
 
   it("shows partially selected Metadata Suggestion branches as mixed", async () => {
@@ -1740,12 +1781,22 @@ describe("Catalog module", () => {
     const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
+    expandMetadataSuggestionBranch(
+      metadataSuggestions,
+      "/Volumes/Archive/Videos",
+      "/Family",
+    );
     fireEvent.click(
       await within(metadataSuggestions).findByRole("checkbox", {
         name: "Birthday",
       }),
     );
 
+    await waitFor(() => {
+      expect(
+        within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+      ).not.toBeChecked();
+    });
     expect(
       within(metadataSuggestions).getByRole("checkbox", { name: "/Family" }),
     ).toBePartiallyChecked();
@@ -1754,6 +1805,123 @@ describe("Catalog module", () => {
         name: "Root: /Volumes/Archive/Videos",
       }),
     ).toBePartiallyChecked();
+  });
+
+  it("clears partially selected Metadata Suggestion branches when their checkbox is clicked", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "Family",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+              {
+                videoId: 8,
+                title: "Birthday",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/birthday.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    expandMetadataSuggestionBranch(
+      metadataSuggestions,
+      "/Volumes/Archive/Videos",
+      "/Family",
+    );
+    fireEvent.click(
+      await within(metadataSuggestions).findByRole("checkbox", {
+        name: "Birthday",
+      }),
+    );
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "/Family",
+      }),
+    );
+
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "Family Trip" }),
+    ).not.toBeChecked();
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+    ).not.toBeChecked();
+    expect(
+      within(metadataSuggestions).getByRole("button", { name: "Accept" }),
+    ).toBeDisabled();
+  });
+
+  it("clears collapsed Metadata Suggestion branches when their checkbox is clicked", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "Family",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+              {
+                videoId: 8,
+                title: "Birthday",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/birthday.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "Root: /Volumes/Archive/Videos",
+      }),
+    );
+    expandMetadataSuggestionBranch(
+      metadataSuggestions,
+      "/Volumes/Archive/Videos",
+      "/Family",
+    );
+
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "Family Trip" }),
+    ).not.toBeChecked();
+    expect(
+      within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+    ).not.toBeChecked();
+    expect(
+      within(metadataSuggestions).getByRole("button", { name: "Accept" }),
+    ).toBeDisabled();
   });
 
   it("accepts Metadata Suggestions as Performers mapped to a different existing name", async () => {

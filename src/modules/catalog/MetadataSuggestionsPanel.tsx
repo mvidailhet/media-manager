@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { IconCheck, IconX } from "@tabler/icons-react";
+import { IconCaretDownFilled, IconCheck, IconX } from "@tabler/icons-react";
 import { Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Stack, Text, TextInput, Title, Tree, useTree } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, MetadataSuggestionGroup } from "../../tauriCommands";
@@ -11,6 +11,7 @@ import { findMetadataByName, findNearMetadataMatch } from "../../shared/metadata
 type AcceptMetadataSuggestionVideos = (request: AcceptMetadataSuggestionForVideosRequest) => void;
 type RejectMetadataSuggestionSource = (request: RejectMetadataSuggestionSourceRequest) => void;
 const metadataSuggestionTreeIconSize = 14;
+const metadataSuggestionTreeCaretSize = 12;
 
 export function MetadataSuggestionsPanel({
   availablePerformers,
@@ -104,7 +105,7 @@ export function MetadataSuggestionSource({
   );
   const tree = useTree({
     initialCheckedState: suggestionVideoTree.checkedNodeValues,
-    initialExpandedState: suggestionVideoTree.expandedState,
+    initialExpandedState: {},
   });
   const [acceptedSuggestionKind, setAcceptedSuggestionKind] =
     useState(suggestionKind);
@@ -132,7 +133,7 @@ export function MetadataSuggestionSource({
 
   useEffect(() => {
     tree.setCheckedState(suggestionVideoTree.checkedNodeValues);
-    tree.setExpandedState(suggestionVideoTree.expandedState);
+    tree.setExpandedState({});
   }, [suggestionVideoTree]);
 
   useEffect(() => {
@@ -170,21 +171,36 @@ export function MetadataSuggestionSource({
       <Tree
         data={suggestionVideoTree.data}
         tree={tree}
-        expandOnClick={false}
+        expandOnClick
         checkOnSpace
-        renderNode={({ node, elementProps, tree: nodeTree }) => {
+        renderNode={({ node, elementProps, tree: nodeTree, expanded, hasChildren }) => {
           const videoId = suggestionVideoTree.videoValueToVideoId.get(node.value);
+          const isNodeChecked = nodeTree.isNodeChecked(node.value);
+          const isNodeIndeterminate = nodeTree.isNodeIndeterminate(node.value);
 
           return (
             <Group gap="xs" align="center" wrap="nowrap" {...elementProps}>
-              <Checkbox
-                checked={nodeTree.isNodeChecked(node.value)}
-                indeterminate={nodeTree.isNodeIndeterminate(node.value)}
-                readOnly
+              {hasChildren ? (
+                <IconCaretDownFilled
+                  aria-hidden
+                  size={metadataSuggestionTreeCaretSize}
+                  style={{
+                    transform: expanded ? "rotate(0deg)" : "rotate(-90deg)",
+                    transition: "transform 120ms ease",
+                  }}
+                />
+              ) : (
+                <Box w={metadataSuggestionTreeCaretSize} />
+              )}
+              <Checkbox.Indicator
+                role="checkbox"
+                aria-checked={isNodeIndeterminate ? "mixed" : isNodeChecked}
+                checked={isNodeChecked}
+                indeterminate={isNodeIndeterminate}
                 aria-label={String(node.label)}
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (nodeTree.isNodeChecked(node.value)) {
+                  if (isNodeChecked || isNodeIndeterminate) {
                     nodeTree.uncheckNode(node.value);
                   } else {
                     nodeTree.checkNode(node.value);
@@ -261,7 +277,6 @@ export function MetadataSuggestionSource({
 type SuggestionVideoTree = {
   checkedNodeValues: string[];
   data: Tree.NodeData[];
-  expandedState: Record<string, boolean>;
   videoValueToVideoId: Map<string, number>;
 };
 
@@ -271,8 +286,7 @@ function buildSuggestionVideoTree(
   const scanRootNodeValue = `scan-root:${sourceGroup.scanRootPath}`;
   const folderNodesByPath = new Map<string, Tree.NodeData>();
   const videoValueToVideoId = new Map<string, number>();
-  const checkedNodeValues = [scanRootNodeValue];
-  const expandedState: Record<string, boolean> = { [scanRootNodeValue]: true };
+  const checkedNodeValues: string[] = [];
 
   for (const video of sourceGroup.videos) {
     const relativeFolderPath = getRelativeFolderPath(
@@ -290,8 +304,6 @@ function buildSuggestionVideoTree(
         children: [],
       };
       folderNodesByPath.set(relativeFolderPath, folderNode);
-      checkedNodeValues.push(folderNodeValue);
-      expandedState[folderNodeValue] = true;
     }
 
     folderNode.children?.push({
@@ -320,7 +332,6 @@ function buildSuggestionVideoTree(
         children: folderNodes,
       },
     ],
-    expandedState,
     videoValueToVideoId,
   };
 }
