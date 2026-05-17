@@ -32,7 +32,7 @@ import { useSettingsModuleController } from "./modules/settings/useSettingsModul
 import { errorMessage } from "./shared/errors/errorMessage";
 
 const navigationIconSize = 20;
-const videoDetailAsideWidth = 380;
+export const videoDetailAsideWidth = 560;
 
 type AppModule = "catalog" | "scan" | "settings";
 

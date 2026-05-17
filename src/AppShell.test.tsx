@@ -51,6 +51,7 @@ import {
   openScanIssuesTab,
   openPreviewGenerationTab,
 } from "./test/AppTestHarness";
+import { videoDetailAsideWidth } from "./App";
 
 describe("App shell", () => {
   beforeEach(resetAppTestHarness);
@@ -105,6 +106,7 @@ describe("App shell", () => {
       name: "Video Detail Panel",
     });
 
+    expect(videoDetailAsideWidth).toBe(560);
     expect(detailPanel).toBeInTheDocument();
     expect(
       within(appMain).queryByRole("region", { name: "Video Detail Panel" }),
