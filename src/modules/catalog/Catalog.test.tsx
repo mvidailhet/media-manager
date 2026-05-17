@@ -1321,8 +1321,10 @@ describe("Catalog module", () => {
       name: "Performers",
     });
 
-    expect(within(tagsSection).getByText("Travel")).toBeInTheDocument();
-    expect(within(performersSection).getByText("Blair")).toBeInTheDocument();
+    expect(await within(tagsSection).findByText("Travel")).toBeInTheDocument();
+    expect(
+      await within(performersSection).findByText("Blair"),
+    ).toBeInTheDocument();
     expect(
       within(tagsSection).getByRole("button", { name: "Edit Tags" }),
     ).toBeInTheDocument();
@@ -1550,6 +1552,134 @@ describe("Catalog module", () => {
       within(secondTagsSection).queryByRole("button", { name: "Revert Tags" }),
     ).not.toBeInTheDocument();
     expect(within(secondTagsSection).getByText("Archive")).toBeInTheDocument();
+  });
+
+  it("recreates a detached baseline Tag by name when Revert restores it", async () => {
+    mockedListTags
+      .mockResolvedValueOnce([{ id: 4, name: "Travel" }])
+      .mockResolvedValueOnce([]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedCreateTag.mockResolvedValue({ id: 7, name: "Travel" });
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const tagsSection = within(detailPanel).getByRole("region", {
+      name: "Tags",
+    });
+    await within(tagsSection).findByText("Travel");
+
+    fireEvent.click(within(tagsSection).getByRole("button", { name: "Edit Tags" }));
+    const tagsInput = within(tagsSection).getByRole("combobox", { name: "Tags" });
+    fireEvent.keyDown(tagsInput, { key: "Backspace" });
+    await waitFor(() => {
+      expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 1);
+    });
+    await within(tagsSection).findByRole("button", { name: "Revert Tags" });
+
+    fireEvent.click(within(tagsSection).getByRole("button", { name: "Revert Tags" }));
+
+    await waitFor(() => {
+      expect(mockedCreateTag).toHaveBeenCalledWith("Travel");
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(7, 1);
+    });
+    expect(mockedAttachTagToVideo).not.toHaveBeenCalledWith(4, 1);
+  });
+
+  it("does not let a pending Tag detach mutate the next selected Video", async () => {
+    const tagDetach = deferredPromise<void>();
+    mockedDetachTagFromVideo.mockReturnValue(tagDetach.promise);
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Archive" },
+    ]);
+    mockedTagsForVideo.mockImplementation(async (videoId) =>
+      videoId === 1 ? [{ id: 4, name: "Travel" }] : [{ id: 5, name: "Archive" }],
+    );
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 40740352,
+        fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+    const firstDetailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const firstTagsSection = within(firstDetailPanel).getByRole("region", {
+      name: "Tags",
+    });
+    await within(firstTagsSection).findByText("Travel");
+    fireEvent.click(
+      within(firstTagsSection).getByRole("button", { name: "Edit Tags" }),
+    );
+    fireEvent.keyDown(
+      within(firstTagsSection).getByRole("combobox", { name: "Tags" }),
+      { key: "Backspace" },
+    );
+    await waitFor(() => {
+      expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 1);
+    });
+
+    fireEvent.click(await screen.findByRole("article", { name: "City Walk" }));
+    const secondDetailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const secondTagsSection = within(secondDetailPanel).getByRole("region", {
+      name: "Tags",
+    });
+    await within(secondTagsSection).findByText("Archive");
+
+    tagDetach.resolve(undefined);
+
+    await waitFor(() => {
+      expect(mockedListTags).toHaveBeenCalled();
+    });
+    expect(within(secondTagsSection).getByText("Archive")).toBeInTheDocument();
+    expect(within(secondTagsSection).queryByText("No tags")).not.toBeInTheDocument();
   });
 
   it("shows the selected Video title and uses explicit edit controls", async () => {

@@ -26,6 +26,10 @@ import type {
 } from "../../tauriCommands";
 import { WrappingCode } from "../../shared/components/WrappingCode";
 import { formatFileSize } from "../../shared/formatting/videoFormatting";
+import {
+  findMetadataByName,
+  normalizedMetadataName,
+} from "../../shared/metadata/metadataHelpers";
 import { VideoPreview } from "./components/VideoPreview";
 import type { SelectedVideoDetailActions } from "./useSelectedVideoDetailActions";
 import styles from "./VideoDetailPanel.module.css";
@@ -241,23 +245,23 @@ function VideoMetadataSection<TMetadata extends VideoMetadataValue>({
 
   function changeSelectedNames(nextNames: string[]) {
     const normalizedPreviousNames = new Set(
-      selectedValues.map((value) => normalizeMetadataName(value.name)),
+      selectedValues.map((value) => normalizedMetadataName(value.name)),
     );
-    const normalizedNextNames = new Set(nextNames.map(normalizeMetadataName));
+    const normalizedNextNames = new Set(nextNames.map(normalizedMetadataName));
 
     selectedValues
-      .filter((value) => !normalizedNextNames.has(normalizeMetadataName(value.name)))
+      .filter((value) => !normalizedNextNames.has(normalizedMetadataName(value.name)))
       .forEach(onDetach);
 
     nextNames
       .map((name) => name.trim())
       .filter((name) => name.length > 0)
-      .filter((name) => !normalizedPreviousNames.has(normalizeMetadataName(name)))
+      .filter((name) => !normalizedPreviousNames.has(normalizedMetadataName(name)))
       .forEach(attachOrCreateByName);
   }
 
   function attachOrCreateByName(name: string) {
-    const existingValue = findMetadataValueByName(availableValues, name);
+    const existingValue = findMetadataByName(availableValues, name);
 
     if (existingValue) {
       onAttach(existingValue);
@@ -273,7 +277,7 @@ function VideoMetadataSection<TMetadata extends VideoMetadataValue>({
 
     baselineValues
       .filter((value) => !selectedIds.has(value.id))
-      .forEach(onAttach);
+      .forEach((value) => onCreateOrAttach(value.name));
     selectedValues
       .filter((value) => !baselineIds.has(value.id))
       .forEach(onDetach);
@@ -347,29 +351,14 @@ function VideoMetadataSection<TMetadata extends VideoMetadataValue>({
   );
 }
 
-function findMetadataValueByName<TMetadata extends VideoMetadataValue>(
-  values: TMetadata[],
-  name: string,
-) {
-  const normalizedName = normalizeMetadataName(name);
-
-  return values.find(
-    (value) => normalizeMetadataName(value.name) === normalizedName,
-  );
-}
-
-function normalizeMetadataName(name: string) {
-  return name.trim().toLocaleLowerCase();
-}
-
 function areNameSetsEqual(firstNames: string[], secondNames: string[]) {
   if (firstNames.length !== secondNames.length) {
     return false;
   }
 
-  const normalizedSecondNames = new Set(secondNames.map(normalizeMetadataName));
+  const normalizedSecondNames = new Set(secondNames.map(normalizedMetadataName));
 
   return firstNames.every((name) =>
-    normalizedSecondNames.has(normalizeMetadataName(name)),
+    normalizedSecondNames.has(normalizedMetadataName(name)),
   );
 }
