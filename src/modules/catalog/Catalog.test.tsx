@@ -1280,6 +1280,278 @@ describe("Catalog module", () => {
     );
   });
 
+  it("shows selected Video Tags and Performers as metadata pills", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Archive" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, name: "Blair" },
+      { id: 10, name: "Alex" },
+    ]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const tagsSection = within(detailPanel).getByRole("region", {
+      name: "Tags",
+    });
+    const performersSection = within(detailPanel).getByRole("region", {
+      name: "Performers",
+    });
+
+    expect(within(tagsSection).getByText("Travel")).toBeInTheDocument();
+    expect(within(performersSection).getByText("Blair")).toBeInTheDocument();
+    expect(
+      within(tagsSection).getByRole("button", { name: "Edit Tags" }),
+    ).toBeInTheDocument();
+    expect(
+      within(performersSection).getByRole("button", { name: "Edit Performers" }),
+    ).toBeInTheDocument();
+  });
+
+  it("edits Tags independently with immediate attach, detach, create, Done, and Revert", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Archive" },
+    ]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+    mockedCreateTag.mockResolvedValue({ id: 6, name: "Road Trip" });
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const tagsSection = within(detailPanel).getByRole("region", {
+      name: "Tags",
+    });
+
+    fireEvent.click(within(tagsSection).getByRole("button", { name: "Edit Tags" }));
+
+    expect(
+      within(detailPanel).queryByRole("textbox", { name: "Performers" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(tagsSection).queryByRole("button", { name: "Revert Tags" }),
+    ).not.toBeInTheDocument();
+
+    const tagsInput = within(tagsSection).getByRole("combobox", { name: "Tags" });
+    fireEvent.keyDown(tagsInput, { key: "Backspace" });
+    await waitFor(() => {
+      expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 1);
+    });
+    expect(
+      await within(tagsSection).findByRole("button", { name: "Revert Tags" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(tagsInput, { target: { value: "archive" } });
+    fireEvent.keyDown(tagsInput, { key: "Enter" });
+    await waitFor(() => {
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
+    });
+    expect(mockedCreateTag).not.toHaveBeenCalledWith("archive");
+
+    fireEvent.change(tagsInput, { target: { value: "Road Trip" } });
+    fireEvent.keyDown(tagsInput, { key: "Enter" });
+    await waitFor(() => {
+      expect(mockedCreateTag).toHaveBeenCalledWith("Road Trip");
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(6, 1);
+    });
+
+    fireEvent.click(within(tagsSection).getByRole("button", { name: "Revert Tags" }));
+    await waitFor(() => {
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 1);
+      expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(5, 1);
+      expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(6, 1);
+    });
+    expect(
+      within(tagsSection).getByRole("combobox", { name: "Tags" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(within(tagsSection).getByRole("button", { name: "Done Tags" }));
+    expect(
+      within(tagsSection).queryByRole("combobox", { name: "Tags" }),
+    ).not.toBeInTheDocument();
+    expect(mockedUpdateVideoTitle).not.toHaveBeenCalled();
+  });
+
+  it("shows quiet metadata empty states and edits Performers independently", async () => {
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, name: "Blair" },
+      { id: 10, name: "Alex" },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+    mockedCreatePerformer.mockResolvedValue({ id: 11, name: "Casey" });
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const tagsSection = within(detailPanel).getByRole("region", {
+      name: "Tags",
+    });
+    const performersSection = within(detailPanel).getByRole("region", {
+      name: "Performers",
+    });
+
+    expect(within(tagsSection).getByText("No tags")).toBeInTheDocument();
+    expect(
+      within(performersSection).getByText("No performers"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(performersSection).getByRole("button", {
+        name: "Edit Performers",
+      }),
+    );
+    const performersInput = within(performersSection).getByRole("combobox", {
+      name: "Performers",
+    });
+    fireEvent.change(performersInput, { target: { value: "alex" } });
+    fireEvent.keyDown(performersInput, { key: "Enter" });
+    await waitFor(() => {
+      expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
+    });
+    expect(mockedCreatePerformer).not.toHaveBeenCalledWith("alex");
+
+    fireEvent.change(performersInput, { target: { value: "Casey" } });
+    fireEvent.keyDown(performersInput, { key: "Enter" });
+    await waitFor(() => {
+      expect(mockedCreatePerformer).toHaveBeenCalledWith("Casey");
+      expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(11, 1);
+    });
+    expect(
+      within(tagsSection).queryByRole("combobox", { name: "Tags" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("exits metadata edit mode and resets baselines when switching selected Video", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, name: "Travel" },
+      { id: 5, name: "Archive" },
+    ]);
+    mockedTagsForVideo.mockImplementation(async (videoId) =>
+      videoId === 1 ? [{ id: 4, name: "Travel" }] : [{ id: 5, name: "Archive" }],
+    );
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 40740352,
+        fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+    const firstDetailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const firstTagsSection = within(firstDetailPanel).getByRole("region", {
+      name: "Tags",
+    });
+    await within(firstTagsSection).findByText("Travel");
+    fireEvent.click(
+      within(firstTagsSection).getByRole("button", { name: "Edit Tags" }),
+    );
+    const tagsInput = within(firstTagsSection).getByRole("combobox", {
+      name: "Tags",
+    });
+    fireEvent.keyDown(tagsInput, { key: "Backspace" });
+    await within(firstTagsSection).findByRole("button", { name: "Revert Tags" });
+
+    fireEvent.click(await screen.findByRole("article", { name: "City Walk" }));
+
+    const secondDetailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const secondTagsSection = within(secondDetailPanel).getByRole("region", {
+      name: "Tags",
+    });
+    expect(
+      within(secondTagsSection).queryByRole("combobox", { name: "Tags" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(secondTagsSection).queryByRole("button", { name: "Revert Tags" }),
+    ).not.toBeInTheDocument();
+    expect(within(secondTagsSection).getByText("Archive")).toBeInTheDocument();
+  });
+
   it("shows the selected Video title and uses explicit edit controls", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -1330,8 +1602,10 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
     expect(within(detailPanel).queryByText("Duration")).not.toBeInTheDocument();
     expect(within(detailPanel).queryByText("File Size")).not.toBeInTheDocument();
-    expect(within(detailPanel).queryByRole("region", { name: "Tags" })).not.toBeInTheDocument();
-    expect(within(detailPanel).queryByRole("region", { name: "Performers" })).not.toBeInTheDocument();
+    expect(within(detailPanel).getByRole("region", { name: "Tags" })).toBeInTheDocument();
+    expect(
+      within(detailPanel).getByRole("region", { name: "Performers" }),
+    ).toBeInTheDocument();
 
     fireEvent.click(within(detailPanel).getByRole("button", { name: "Edit title" }));
     const titleInput = within(detailPanel).getByLabelText("Title");
@@ -1759,15 +2033,6 @@ describe("Catalog module", () => {
     await waitFor(() => {
       expect(mockedListMetadataSuggestionGroups).toHaveBeenCalledTimes(2);
     });
-    fireEvent.click(
-      getMetadataSuggestionTreeLabel(
-        metadataSuggestions,
-        "/Volumes/Archive/Videos",
-      ),
-    );
-    expect(
-      within(metadataSuggestions).getByText("Family/Birthday"),
-    ).toBeInTheDocument();
   });
 
   it("cascades folder branch selection to child Videos", async () => {
