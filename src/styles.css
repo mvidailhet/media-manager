@@ -81,6 +81,14 @@ body {
   position: relative;
 }
 
+.catalog-video-card-preview {
+  position: relative;
+}
+
+.catalog-video-preview-large {
+  max-width: 520px;
+}
+
 .catalog-video-title {
   overflow-wrap: anywhere;
   white-space: normal;
@@ -104,6 +112,11 @@ body {
 }
 
 .catalog-video-unavailable-badge {
+  right: 8px;
+  top: 48px;
+}
+
+.catalog-video-favorite-button {
   right: 8px;
   top: 8px;
 }
