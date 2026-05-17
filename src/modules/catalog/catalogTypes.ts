@@ -1,4 +1,8 @@
-import type { CatalogPerformer, CatalogTag } from "../../tauriCommands";
+import type {
+  AcceptMetadataSuggestionForVideosRequest,
+  CatalogPerformer,
+  CatalogTag,
+} from "../../tauriCommands";
 
 export interface CatalogVideoMetadata {
   tags: CatalogTag[];
@@ -22,6 +26,11 @@ export type CatalogVideoSort =
   | "openCountDescending";
 export type CatalogVideoWorkspace = "videos" | "favorites";
 export type CatalogView = "allVideos" | "favorites" | "metadataSuggestions";
+
+export type CatalogMetadataSuggestionAcceptanceRequest =
+  AcceptMetadataSuggestionForVideosRequest & {
+    additionalTagNames?: string[];
+  };
 
 export const defaultCatalogVideoFilters: CatalogVideoFilters = {
   searchText: "",

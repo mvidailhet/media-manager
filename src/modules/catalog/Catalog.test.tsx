@@ -2461,6 +2461,76 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("accepts Metadata Suggestions with additional new Tags for the selected Videos", async () => {
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 7,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                },
+                {
+                  videoId: 8,
+                  title: "Birthday",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/birthday.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    mockedListTags.mockResolvedValue([{ id: 4, name: "Archive" }]);
+    mockedCreateTag.mockResolvedValue({ id: 6, name: "Home Movies" });
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", { name: "Add Tags" }),
+    );
+    const additionalTagsInput = await within(metadataSuggestions).findByLabelText(
+      "Additional tags",
+    );
+    fireEvent.change(additionalTagsInput, { target: { value: "Archive" } });
+    fireEvent.keyDown(additionalTagsInput, { key: "Enter" });
+    fireEvent.change(additionalTagsInput, { target: { value: "Home Movies" } });
+    fireEvent.keyDown(additionalTagsInput, { key: "Enter" });
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
+        scanRootPath: "/Volumes/Archive/Videos",
+        suggestedValue: "Family",
+        sourcePathSegment: "Family",
+        suggestionKind: "tag",
+        videoIds: [7, 8],
+      });
+    });
+    expect(mockedCreateTag).toHaveBeenCalledWith("Home Movies");
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 7);
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 8);
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(6, 7);
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(6, 8);
+  });
+
   it("preserves user-entered display text when accepting a same-kind Metadata Suggestion", async () => {
     mockedListMetadataSuggestionGroups
       .mockResolvedValueOnce([

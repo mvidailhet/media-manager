@@ -7,7 +7,6 @@ import {
 } from "../../shared/metadata/metadataHelpers";
 import { errorMessage } from "../../shared/errors/errorMessage";
 import type {
-  AcceptMetadataSuggestionForVideosRequest,
   CatalogPerformer,
   CatalogTag,
   CatalogVideo,
@@ -16,6 +15,7 @@ import type {
 import { useCatalogMetadata } from "./useCatalogMetadata";
 import { useCatalogVideos } from "./useCatalogVideos";
 import type {
+  CatalogMetadataSuggestionAcceptanceRequest,
   CatalogVideoFilters,
   CatalogVideoMetadata,
   CatalogVideoSort,
@@ -40,6 +40,25 @@ type CatalogModuleController = {
   missingVideos: CatalogVideo[];
   refreshCatalogVideos: () => Promise<void>;
 };
+
+function uniqueMetadataNames(metadataNames: string[]) {
+  const normalizedNames = new Set<string>();
+  const uniqueNames: string[] = [];
+
+  for (const metadataName of metadataNames) {
+    const displayName = metadataName.trim();
+    const normalizedName = displayName.toLowerCase();
+
+    if (displayName.length === 0 || normalizedNames.has(normalizedName)) {
+      continue;
+    }
+
+    normalizedNames.add(normalizedName);
+    uniqueNames.push(displayName);
+  }
+
+  return uniqueNames;
+}
 
 export function useCatalogModuleController({
   refreshScanIssues,
@@ -103,12 +122,13 @@ export function useCatalogModuleController({
   async function acceptSelectedMetadataSuggestionVideos({
     acceptedMetadataKind,
     acceptedValue,
+    additionalTagNames = [],
     scanRootPath,
     suggestedValue,
     sourcePathSegment,
     suggestionKind,
     videoIds,
-  }: AcceptMetadataSuggestionForVideosRequest) {
+  }: CatalogMetadataSuggestionAcceptanceRequest) {
     try {
       await acceptSuggestedMetadata({
         acceptedMetadataKind,
@@ -119,6 +139,12 @@ export function useCatalogModuleController({
         suggestionKind,
         videoIds,
       });
+      const additionalTags = await metadataTagsForNames(additionalTagNames);
+      await Promise.all(
+        additionalTags.flatMap((tag) =>
+          videoIds.map((videoId) => attachTagToCatalogVideo(tag.id, videoId)),
+        ),
+      );
       await refreshScanIssues(false);
       const [storedTags, storedPerformers] = await Promise.all([
         loadAvailableTags(),
@@ -154,6 +180,20 @@ export function useCatalogModuleController({
     } catch (error) {
       setScanIssuesStatusMessage(errorMessage(error));
     }
+  }
+
+  async function metadataTagsForNames(tagNames: string[]) {
+    const uniqueTagNames = uniqueMetadataNames(tagNames);
+    const tags: CatalogTag[] = [];
+
+    for (const tagName of uniqueTagNames) {
+      const existingTag = findMetadataByName([...availableTags, ...tags], tagName);
+      const tag = existingTag ?? (await createNamedTag(tagName));
+
+      tags.push(tag);
+    }
+
+    return tags;
   }
 
   async function rejectMetadataSuggestionForSource({

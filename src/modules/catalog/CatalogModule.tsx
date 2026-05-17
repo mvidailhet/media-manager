@@ -2,7 +2,6 @@ import { AppShell, Box, Tabs } from "@mantine/core";
 import { IconBulb, IconStar } from "@tabler/icons-react";
 
 import type {
-  AcceptMetadataSuggestionForVideosRequest,
   CatalogPerformer,
   CatalogTag,
   CatalogVideo,
@@ -12,6 +11,7 @@ import type {
 import { BatchMetadataEditPanel } from "./BatchMetadataEditPanel";
 import { CatalogVideosPanel } from "./CatalogVideosPanel";
 import type {
+  CatalogMetadataSuggestionAcceptanceRequest,
   CatalogVideoMetadata,
   CatalogVideoFilters,
   CatalogVideoSort,
@@ -37,7 +37,7 @@ export type CatalogModuleProps = {
   detailStatusMessage: string;
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   onAcceptMetadataSuggestionVideos: (
-    request: AcceptMetadataSuggestionForVideosRequest,
+    request: CatalogMetadataSuggestionAcceptanceRequest,
   ) => void;
   onAppendPerformer: (performer: CatalogPerformer) => void;
   onAppendTag: (tag: CatalogTag) => void;

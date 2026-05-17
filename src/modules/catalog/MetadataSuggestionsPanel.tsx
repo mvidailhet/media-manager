@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { IconCaretDownFilled, IconCheck, IconX } from "@tabler/icons-react";
-import { Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Stack, Text, TextInput, Tree, useTree } from "@mantine/core";
+import { Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Select, Stack, TagsInput, Text, Tree, useTree } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, MetadataSuggestionGroup } from "../../tauriCommands";
-import type { AcceptMetadataSuggestionForVideosRequest, RejectMetadataSuggestionSourceRequest } from "../../tauriCommands";
+import type { RejectMetadataSuggestionSourceRequest } from "../../tauriCommands";
 import { findMetadataByName, findNearMetadataMatch } from "../../shared/metadata/metadataHelpers";
+import type { CatalogMetadataSuggestionAcceptanceRequest } from "./catalogTypes";
 
-type AcceptMetadataSuggestionVideos = (request: AcceptMetadataSuggestionForVideosRequest) => void;
+type AcceptMetadataSuggestionVideos = (request: CatalogMetadataSuggestionAcceptanceRequest) => void;
 type RejectMetadataSuggestionSource = (request: RejectMetadataSuggestionSourceRequest) => void;
 const metadataSuggestionTreeIconSize = 14;
 const metadataSuggestionTreeCaretSize = 12;
@@ -104,6 +105,8 @@ export function MetadataSuggestionSource({
   const [acceptedSuggestionKind, setAcceptedSuggestionKind] =
     useState(suggestionKind);
   const [acceptedValue, setAcceptedValue] = useState(suggestedValue);
+  const [additionalTagNames, setAdditionalTagNames] = useState<string[]>([]);
+  const [isAddingTags, setIsAddingTags] = useState(false);
   const selectedVideoIds = getSelectedVideoIds(
     tree.checkedState,
     suggestionVideoTree.videoValueToVideoId,
@@ -111,6 +114,10 @@ export function MetadataSuggestionSource({
   const trimmedAcceptedValue = acceptedValue.trim();
   const availableMetadataValues =
     acceptedSuggestionKind === "performer" ? availablePerformers : availableTags;
+  const availableMetadataNames = availableMetadataValues.map(
+    (metadataValue) => metadataValue.name,
+  );
+  const availableTagNames = availableTags.map((tag) => tag.name);
   const exactAcceptedValue = findMetadataByName(
     availableMetadataValues,
     trimmedAcceptedValue,
@@ -133,6 +140,8 @@ export function MetadataSuggestionSource({
   useEffect(() => {
     setAcceptedSuggestionKind(suggestionKind);
     setAcceptedValue(suggestedValue);
+    setAdditionalTagNames([]);
+    setIsAddingTags(false);
   }, [suggestedValue, suggestionKind]);
 
   return (
@@ -148,14 +157,35 @@ export function MetadataSuggestionSource({
           ]}
           onChange={(event) => setAcceptedSuggestionKind(event.currentTarget.value)}
         />
-        <TextInput
+        <Select
           aria-label="Accepted metadata name"
           flex={1}
           miw={240}
+          searchable
+          data={availableMetadataNames}
+          searchValue={acceptedValue}
           value={acceptedValue}
-          onChange={(event) => setAcceptedValue(event.currentTarget.value)}
+          onChange={(value) => setAcceptedValue(value ?? "")}
+          onSearchChange={setAcceptedValue}
         />
       </Group>
+      {isAddingTags ? (
+        <TagsInput
+          aria-label="Additional tags"
+          data={availableTagNames}
+          value={additionalTagNames}
+          onChange={setAdditionalTagNames}
+        />
+      ) : (
+        <Button
+          size="xs"
+          variant="light"
+          w="fit-content"
+          onClick={() => setIsAddingTags(true)}
+        >
+          Add Tags
+        </Button>
+      )}
       {nearAcceptedValue ? (
         <Text size="sm">Near match: {nearAcceptedValue.name}</Text>
       ) : null}
@@ -243,6 +273,7 @@ export function MetadataSuggestionSource({
               ...(acceptedSuggestionKind === suggestionKind
                 ? {}
                 : { acceptedMetadataKind: acceptedSuggestionKind }),
+              additionalTagNames,
               scanRootPath: sourceGroup.scanRootPath,
               suggestedValue,
               sourcePathSegment: sourceGroup.sourcePathSegment,
