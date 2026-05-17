@@ -338,6 +338,44 @@ describe("Catalog module", () => {
     );
   });
 
+  it("keeps keyboard favorite actions in the Videos View from selecting the Video", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const videoCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+
+    fireEvent.keyDown(
+      within(videoCard).getByRole("button", {
+        name: "Mark Family Trip as Favorite",
+      }),
+      { key: "Enter" },
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("marks and unmarks a Video as Favorite from the Video Detail Panel preview", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {

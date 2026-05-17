@@ -45,6 +45,7 @@ export function VideoPreview({
       <Box
         className="catalog-video-preview-badge catalog-video-favorite-button"
         onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
       >
         <ActionIcon
           aria-label={favoriteButtonLabel}
@@ -86,7 +87,7 @@ export function VideoPreview({
   );
 }
 
-export function PreviewStripSurface({
+function PreviewStripSurface({
   catalogVideo,
 }: {
   catalogVideo: CatalogVideo;
@@ -145,7 +146,7 @@ export function PreviewStripSurface({
   );
 }
 
-export function previewStripFrameIndexFromPointer(
+function previewStripFrameIndexFromPointer(
   event: PointerEvent<HTMLElement>,
   frameCount: number,
 ) {
@@ -161,7 +162,7 @@ export function previewStripFrameIndexFromPointer(
   return Math.round(boundedPointerRatio * lastFrameIndex);
 }
 
-export function previewStripFramePosition(
+function previewStripFramePosition(
   frameIndex: number,
   columnCount: number,
   rowCount: number,
