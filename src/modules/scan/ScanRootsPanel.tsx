@@ -114,10 +114,6 @@ export function ScanRootCard({
 }) {
   const [suggestTagsFromChildFolders, setSuggestTagsFromChildFolders] =
     useState(scanRoot.inferenceRules.suggestTagsFromChildFolders);
-  const [
-    suggestPerformersFromChildFolders,
-    setSuggestPerformersFromChildFolders,
-  ] = useState(scanRoot.inferenceRules.suggestPerformersFromChildFolders);
   const [ignoredFolderNames, setIgnoredFolderNames] = useState(
     scanRoot.inferenceRules.ignoredFolderNames.join(", "),
   );
@@ -130,10 +126,6 @@ export function ScanRootCard({
   const tagInferenceLabel = scanRoot.inferenceRules.suggestTagsFromChildFolders
     ? "Tags from child folders"
     : "Tags not inferred";
-  const performerInferenceLabel = scanRoot.inferenceRules
-    .suggestPerformersFromChildFolders
-    ? "Performers from child folders"
-    : "Performers not inferred";
   const ignoredNamesLabel = `Ignored names: ${scanRoot.inferenceRules.ignoredFolderNames.join(
     ", ",
   )}`;
@@ -149,7 +141,6 @@ export function ScanRootCard({
         .split(",")
         .map((ignoredFolderName) => ignoredFolderName.trim())
         .filter((ignoredFolderName) => ignoredFolderName.length > 0),
-      suggestPerformersFromChildFolders,
       suggestTagsFromChildFolders,
     });
   }
@@ -186,9 +177,6 @@ export function ScanRootCard({
           <Badge color="teal" variant="light">
             {tagInferenceLabel}
           </Badge>
-          <Badge color="gray" variant="light">
-            {performerInferenceLabel}
-          </Badge>
         </Group>
         <Text size="sm">{ignoredNamesLabel}</Text>
         <Text size="sm">{ignoredYearsLabel}</Text>
@@ -198,13 +186,6 @@ export function ScanRootCard({
             label="Suggest Tags"
             onChange={(event) =>
               setSuggestTagsFromChildFolders(event.currentTarget.checked)
-            }
-          />
-          <Checkbox
-            checked={suggestPerformersFromChildFolders}
-            label="Suggest Performers"
-            onChange={(event) =>
-              setSuggestPerformersFromChildFolders(event.currentTarget.checked)
             }
           />
         </Group>

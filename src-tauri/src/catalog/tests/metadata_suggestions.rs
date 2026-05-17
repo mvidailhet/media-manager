@@ -17,7 +17,6 @@ fn new_scan_roots_store_default_inference_rules_for_child_folder_tags_only() {
         scan_root.inference_rules,
         crate::catalog::ScanRootInferenceRules {
             suggest_tags_from_child_folders: true,
-            suggest_performers_from_child_folders: false,
             ignored_folder_names: vec![
                 "Misc".to_string(),
                 "Unsorted".to_string(),
@@ -69,7 +68,6 @@ fn scan_root_inference_rules_can_be_changed_without_changing_accepted_local_meta
         .expect("tag attaches");
     let changed_inference_rules = crate::catalog::ScanRootInferenceRules {
         suggest_tags_from_child_folders: true,
-        suggest_performers_from_child_folders: false,
         ignored_folder_names: vec!["Extras".to_string(), "Temp".to_string()],
         ignored_exact_year_range: crate::catalog::ExactYearRange {
             start_year: 1900,
@@ -236,7 +234,6 @@ fn metadata_suggestion_display_normalization_controls_ignored_segments() {
             &scan_root.path,
             crate::catalog::ScanRootInferenceRules {
                 suggest_tags_from_child_folders: true,
-                suggest_performers_from_child_folders: false,
                 ignored_folder_names: vec!["Extras".to_string()],
                 ignored_exact_year_range: crate::catalog::ExactYearRange {
                     start_year: 1900,
@@ -296,7 +293,6 @@ fn changing_scan_root_inference_rules_regenerates_unaccepted_suggestions_only() 
             &scan_root.path,
             crate::catalog::ScanRootInferenceRules {
                 suggest_tags_from_child_folders: true,
-                suggest_performers_from_child_folders: false,
                 ignored_folder_names: vec![" Family ".to_string(), "family".to_string()],
                 ignored_exact_year_range: crate::catalog::ExactYearRange {
                     start_year: 1900,
@@ -1098,7 +1094,6 @@ fn invalid_scan_root_inference_rules_are_rejected() {
             &scan_root.path,
             crate::catalog::ScanRootInferenceRules {
                 suggest_tags_from_child_folders: true,
-                suggest_performers_from_child_folders: false,
                 ignored_folder_names: vec![" ".to_string()],
                 ignored_exact_year_range: crate::catalog::ExactYearRange {
                     start_year: 2100,

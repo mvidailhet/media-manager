@@ -192,7 +192,6 @@ export const defaultInferenceRules = {
     "Downloads",
     "Videos",
   ],
-  suggestPerformersFromChildFolders: false,
   suggestTagsFromChildFolders: true,
 };
 

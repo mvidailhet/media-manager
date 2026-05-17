@@ -90,7 +90,6 @@ export interface ScanRoot {
 
 export interface ScanRootInferenceRules {
   suggestTagsFromChildFolders: boolean;
-  suggestPerformersFromChildFolders: boolean;
   ignoredFolderNames: string[];
   ignoredExactYearRange: ExactYearRange;
 }
