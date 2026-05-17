@@ -100,7 +100,6 @@ export function CatalogModule({
   onCreateOrAttachTag,
   onDetachPerformer,
   onDetachTag,
-  onOpenVideo,
   onRejectMetadataSuggestionSource,
   onRemovePerformer,
   onRemoveTag,
@@ -109,7 +108,6 @@ export function CatalogModule({
   onSelectVideo,
   onSetBatchFavorite,
   onSetBatchVideoSelected,
-  onSetFavorite,
   onSetSelectedFavorite,
   selectedPerformers,
   selectedTags,
@@ -153,10 +151,8 @@ export function CatalogModule({
           catalogVideosStatusMessage={catalogVideosStatusMessage}
           onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
           onCatalogVideoSortChange={onCatalogVideoSortChange}
-          onOpenVideo={onOpenVideo}
           onSetBatchVideoSelected={onSetBatchVideoSelected}
           onSelectVideo={onSelectVideo}
-          onSetFavorite={onSetFavorite}
           selectedVideoIds={selectedVideoIds}
         />
       ) : (

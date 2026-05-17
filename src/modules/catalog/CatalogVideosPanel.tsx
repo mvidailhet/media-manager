@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type KeyboardEvent } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { Badge, Box, Button, Checkbox, Group, NativeSelect, Paper, RangeSlider, Stack, Text, TextInput } from "@mantine/core";
 
@@ -30,10 +30,8 @@ export function CatalogVideosPanel({
   catalogVideosStatusMessage,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
-  onOpenVideo,
   onSetBatchVideoSelected,
   onSelectVideo,
-  onSetFavorite,
   selectedVideoIds,
 }: {
   availablePerformers: CatalogPerformer[];
@@ -46,10 +44,8 @@ export function CatalogVideosPanel({
   catalogVideosStatusMessage: string;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
-  onOpenVideo: (catalogVideo: CatalogVideo) => void;
   onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
-  onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   selectedVideoIds: number[];
 }) {
   return (
@@ -101,9 +97,7 @@ export function CatalogVideosPanel({
                 catalogVideoMetadata={catalogVideoMetadataById[catalogVideo.id]}
                 key={catalogVideo.id}
                 onSelectVideo={onSelectVideo}
-                onOpenVideo={onOpenVideo}
                 onSetBatchVideoSelected={onSetBatchVideoSelected}
-                onSetFavorite={onSetFavorite}
                 isSelectedForBatch={selectedVideoIds.includes(catalogVideo.id)}
               />
             ))}
@@ -230,35 +224,59 @@ export function CatalogVideoCard({
   catalogVideoMetadata,
   isSelectedForBatch,
   onSelectVideo,
-  onOpenVideo,
   onSetBatchVideoSelected,
-  onSetFavorite,
 }: {
   catalogVideo: CatalogVideo;
   catalogVideoMetadata: CatalogVideoMetadata | undefined;
   isSelectedForBatch: boolean;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
-  onOpenVideo: (catalogVideo: CatalogVideo) => void;
   onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
-  onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
 }) {
-  const favoriteButtonLabel = catalogVideo.isFavorite
-    ? `Unmark ${catalogVideo.title} as Favorite`
-    : `Mark ${catalogVideo.title} as Favorite`;
   const tags = catalogVideoMetadata?.tags ?? [];
   const performers = catalogVideoMetadata?.performers ?? [];
+
+  function selectCatalogVideo() {
+    onSelectVideo(catalogVideo);
+  }
+
+  function selectCatalogVideoFromKeyboard(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    selectCatalogVideo();
+  }
 
   return (
     <Paper
       component="article"
       aria-label={catalogVideo.title}
       className="catalog-video-card"
+      onClick={selectCatalogVideo}
+      onKeyDown={selectCatalogVideoFromKeyboard}
       p="xs"
+      tabIndex={0}
       withBorder
     >
       <Stack gap="xs">
         <Box className="catalog-video-preview">
           <PreviewStripSurface catalogVideo={catalogVideo} />
+          <Box
+            className="catalog-video-preview-badge catalog-video-batch-checkbox"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <Checkbox
+              aria-label={`Select ${catalogVideo.title}`}
+              checked={isSelectedForBatch}
+              onChange={(event) =>
+                onSetBatchVideoSelected(
+                  catalogVideo.id,
+                  event.currentTarget.checked,
+                )
+              }
+            />
+          </Box>
           {!catalogVideo.isAvailable ? (
             <Badge
               className="catalog-video-preview-badge catalog-video-unavailable-badge"
@@ -269,7 +287,14 @@ export function CatalogVideoCard({
             </Badge>
           ) : null}
           <Badge
-            className="catalog-video-preview-badge catalog-video-duration-badge"
+            className="catalog-video-preview-badge catalog-video-preview-pill catalog-video-file-size-badge"
+            color="dark"
+            variant="filled"
+          >
+            {formatCompactFileSize(catalogVideo.fileSizeBytes)}
+          </Badge>
+          <Badge
+            className="catalog-video-preview-badge catalog-video-preview-pill catalog-video-duration-badge"
             color="dark"
             variant="filled"
           >
@@ -277,62 +302,19 @@ export function CatalogVideoCard({
           </Badge>
         </Box>
 
-        <Group gap="xs" align="start" wrap="nowrap">
-          <Checkbox
-            aria-label={`Select ${catalogVideo.title}`}
-            checked={isSelectedForBatch}
-            onChange={(event) =>
-              onSetBatchVideoSelected(
-                catalogVideo.id,
-                event.currentTarget.checked,
-              )
-            }
-          />
-          <Button
-            type="button"
-            variant="subtle"
-            px={0}
-            className="catalog-video-title-button"
-            onClick={() => void onSelectVideo(catalogVideo)}
-          >
-            {catalogVideo.title}
-          </Button>
-        </Group>
+        <Text className="catalog-video-title" fw={500}>
+          {catalogVideo.title}
+        </Text>
 
         <MetadataBadges label="Tags" items={tags} />
         <MetadataBadges label="Performers" items={performers} />
 
         <Group justify="space-between" gap="xs" wrap="nowrap">
-          <Text size="xs" c="dimmed">
-            {formatCompactFileSize(catalogVideo.fileSizeBytes)}
-          </Text>
           {catalogVideo.isFavorite ? (
             <Badge size="xs" color="yellow">
               Favorite
             </Badge>
           ) : null}
-        </Group>
-
-        <Group gap="xs">
-          <Button
-            type="button"
-            size="xs"
-            variant="default"
-            disabled={!catalogVideo.isAvailable}
-            onClick={() => void onOpenVideo(catalogVideo)}
-          >
-            {`Open ${catalogVideo.title}`}
-          </Button>
-          <Button
-            type="button"
-            size="xs"
-            variant={catalogVideo.isFavorite ? "light" : "default"}
-            onClick={() =>
-              void onSetFavorite(catalogVideo, !catalogVideo.isFavorite)
-            }
-          >
-            {favoriteButtonLabel}
-          </Button>
         </Group>
       </Stack>
     </Paper>

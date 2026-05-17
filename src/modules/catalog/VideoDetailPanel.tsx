@@ -18,6 +18,7 @@ export function VideoDetailPanel({
   onCreateOrAttachTag,
   onDetachPerformer,
   onDetachTag,
+  onOpenVideo,
   onSaveTitle,
   onSetFavorite,
   selectedPerformers,
@@ -33,6 +34,7 @@ export function VideoDetailPanel({
   onCreateOrAttachTag: (name: string) => void;
   onDetachPerformer: (performer: CatalogPerformer) => void;
   onDetachTag: (tag: CatalogTag) => void;
+  onOpenVideo: () => void;
   onSaveTitle: (title: string) => void;
   onSetFavorite: (isFavorite: boolean) => void;
   selectedPerformers: CatalogPerformer[];
@@ -65,6 +67,14 @@ export function VideoDetailPanel({
       <Stack gap="md">
         <SectionHeader label="Selected Video" title="Video Detail Panel" />
         {detailStatusMessage ? <Text>{detailStatusMessage}</Text> : null}
+        <Button
+          type="button"
+          disabled={!video.isAvailable}
+          w="fit-content"
+          onClick={() => void onOpenVideo()}
+        >
+          {`Open ${video.title}`}
+        </Button>
         <Group align="end" wrap="nowrap">
           <TextInput
             className="video-detail-title-input"

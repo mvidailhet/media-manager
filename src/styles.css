@@ -68,21 +68,22 @@ body {
 }
 
 .catalog-video-card {
+  cursor: pointer;
   min-width: 0;
+}
+
+.catalog-video-card:focus-visible {
+  outline: 2px solid #228be6;
+  outline-offset: 2px;
 }
 
 .catalog-video-preview {
   position: relative;
 }
 
-.catalog-video-title-button {
-  min-width: 0;
-}
-
-.catalog-video-title-button .mantine-Button-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.catalog-video-title {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .preview-strip {
@@ -105,6 +106,24 @@ body {
 .catalog-video-unavailable-badge {
   right: 8px;
   top: 8px;
+}
+
+.catalog-video-batch-checkbox {
+  left: 8px;
+  top: 8px;
+}
+
+.catalog-video-batch-checkbox .mantine-Checkbox-input {
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.catalog-video-preview-pill {
+  background: rgba(17, 24, 39, 0.72);
+}
+
+.catalog-video-file-size-badge {
+  bottom: 8px;
+  left: 8px;
 }
 
 .catalog-video-duration-badge {

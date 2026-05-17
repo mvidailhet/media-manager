@@ -280,6 +280,11 @@ export default function App() {
             onCreateOrAttachTag={catalogModuleProps.onCreateOrAttachTag}
             onDetachPerformer={catalogModuleProps.onDetachPerformer}
             onDetachTag={catalogModuleProps.onDetachTag}
+            onOpenVideo={() =>
+              void catalogModuleProps.onOpenVideo(
+                catalogModuleProps.selectedVideo!,
+              )
+            }
             onSaveTitle={catalogModuleProps.onSaveTitle}
             onSetFavorite={catalogModuleProps.onSetSelectedFavorite}
             selectedPerformers={catalogModuleProps.selectedPerformers}

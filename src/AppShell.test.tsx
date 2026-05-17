@@ -53,7 +53,7 @@ describe("App shell", () => {
     expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
 
     fireEvent.click(
-      await within(catalogVideos).findByRole("button", {
+      await within(catalogVideos).findByRole("article", {
         name: "Family Trip",
       }),
     );
@@ -71,7 +71,7 @@ describe("App shell", () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(catalogVideos).getByRole("button", {
+      within(catalogVideos).getByRole("article", {
         name: "City Walk",
       }),
     );
@@ -164,7 +164,11 @@ describe("App shell", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    fireEvent.click(await within(catalogVideos).findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+    );
     fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
 
     expect(
@@ -207,7 +211,7 @@ describe("App shell", () => {
       name: "Catalog Videos",
     });
     fireEvent.click(
-      await within(catalogVideos).findByRole("button", {
+      await within(catalogVideos).findByRole("article", {
         name: "Family Trip",
       }),
     );

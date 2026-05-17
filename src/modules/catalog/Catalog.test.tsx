@@ -138,9 +138,18 @@ describe("Catalog module", () => {
       name: "Family Trip",
     });
 
+    expect(within(videoCard).getByText("Family Trip")).toBeInTheDocument();
     expect(
-      within(videoCard).getByRole("button", { name: "Family Trip" }),
-    ).toBeInTheDocument();
+      within(videoCard).queryByRole("button", { name: "Family Trip" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(videoCard).queryByRole("button", { name: "Open Family Trip" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(videoCard).queryByRole("button", {
+        name: "Mark Family Trip as Favorite",
+      }),
+    ).not.toBeInTheDocument();
     expect(await within(videoCard).findByText("Travel")).toBeInTheDocument();
     expect(await within(videoCard).findByText("Blair")).toBeInTheDocument();
     expect(within(videoCard).getByText("1h 2m")).toBeInTheDocument();
@@ -292,26 +301,35 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     fireEvent.click(
-      await within(catalogVideos).findByRole("button", {
-        name: "Mark Family Trip as Favorite",
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
       }),
     );
-
-    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
-    await within(catalogVideos).findByRole("button", {
-      name: "Unmark Family Trip as Favorite",
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
     });
 
     fireEvent.click(
-      within(catalogVideos).getByRole("button", {
-        name: "Unmark Family Trip as Favorite",
-      }),
+      within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+    );
+
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
+    await waitFor(() =>
+      expect(
+        within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+      ).toBeChecked(),
+    );
+
+    fireEvent.click(
+      within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
     );
 
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, false);
-    await within(catalogVideos).findByRole("button", {
-      name: "Mark Family Trip as Favorite",
-    });
+    await waitFor(() =>
+      expect(
+        within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+      ).not.toBeChecked(),
+    );
   });
 
   it("shows a Catalog Videos error when a Videos View Favorite update fails", async () => {
@@ -338,9 +356,15 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     fireEvent.click(
-      await within(catalogVideos).findByRole("button", {
-        name: "Mark Family Trip as Favorite",
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
       }),
+    );
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
     );
 
     expect(
@@ -373,18 +397,16 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     fireEvent.click(
-      await within(catalogVideos).findByRole("button", {
+      await within(catalogVideos).findByRole("article", {
         name: "Family Trip",
-      }),
-    );
-    fireEvent.click(
-      within(catalogVideos).getByRole("button", {
-        name: "Mark Family Trip as Favorite",
       }),
     );
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
+    fireEvent.click(
+      within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+    );
 
     fireEvent.change(within(detailPanel).getByLabelText("Title"), {
       target: { value: "Family Archive" },
@@ -392,15 +414,17 @@ describe("Catalog module", () => {
     fireEvent.click(
       within(detailPanel).getByRole("button", { name: "Save Title" }),
     );
-    await screen.findByRole("button", { name: "Family Archive" });
+    await screen.findByText("Family Archive");
 
     favoriteUpdate.resolve(undefined);
 
-    await within(catalogVideos).findByRole("button", {
-      name: "Unmark Family Archive as Favorite",
-    });
+    await waitFor(() =>
+      expect(
+        within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+      ).toBeChecked(),
+    );
     expect(
-      within(catalogVideos).queryByRole("button", { name: "Family Trip" }),
+      within(catalogVideos).queryByText("Family Trip"),
     ).not.toBeInTheDocument();
   });
 
@@ -640,14 +664,13 @@ describe("Catalog module", () => {
       target: { value: "fileSizeAscending" },
     });
 
-    const videoTitles = within(catalogVideos).getAllByRole("button", {
+    const videoTitles = within(catalogVideos).getAllByRole("article", {
       name: /^(Large Archive|Small Clip)$/,
     });
 
-    expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
-      "Small Clip",
-      "Large Archive",
-    ]);
+    expect(
+      videoTitles.map((videoCard) => videoCard.getAttribute("aria-label")),
+    ).toEqual(["Small Clip", "Large Archive"]);
   });
 
   it("opens a Video from the grid and refreshes Catalog Videos", async () => {
@@ -688,11 +711,16 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    await within(catalogVideos).findByText("Family Trip");
     fireEvent.click(
-      within(catalogVideos).getByRole("button", {
-        name: "Open Family Trip",
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
       }),
+    );
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Open Family Trip" }),
     );
 
     await waitFor(() => {
@@ -763,15 +791,13 @@ describe("Catalog module", () => {
       target: { value: "lastOpenedDescending" },
     });
 
-    const videoTitles = within(catalogVideos).getAllByRole("button", {
+    const videoTitles = within(catalogVideos).getAllByRole("article", {
       name: /^(Older Clip|Fresh Clip|Never Opened)$/,
     });
 
-    expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
-      "Fresh Clip",
-      "Older Clip",
-      "Never Opened",
-    ]);
+    expect(
+      videoTitles.map((videoCard) => videoCard.getAttribute("aria-label")),
+    ).toEqual(["Fresh Clip", "Older Clip", "Never Opened"]);
   });
 
   it("keeps unknown File Sizes last when sorting by File Size descending", async () => {
@@ -814,14 +840,13 @@ describe("Catalog module", () => {
       target: { value: "fileSizeDescending" },
     });
 
-    const videoTitles = within(catalogVideos).getAllByRole("button", {
+    const videoTitles = within(catalogVideos).getAllByRole("article", {
       name: /^(Large Archive|Missing Size)$/,
     });
 
-    expect(videoTitles.map((titleButton) => titleButton.textContent)).toEqual([
-      "Large Archive",
-      "Missing Size",
-    ]);
+    expect(
+      videoTitles.map((videoCard) => videoCard.getAttribute("aria-label")),
+    ).toEqual(["Large Archive", "Missing Size"]);
   });
 
   it("updates metadata filters after Tag edits in the Video Detail Panel", async () => {
@@ -854,7 +879,7 @@ describe("Catalog module", () => {
     await waitFor(() => {
       expect(mockedTagsForVideo).toHaveBeenCalledWith(1);
     });
-    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
@@ -1041,7 +1066,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
@@ -1109,7 +1134,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
 
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
@@ -1183,7 +1208,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
 
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
@@ -1225,7 +1250,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
@@ -1283,7 +1308,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
@@ -1318,7 +1343,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
@@ -1369,7 +1394,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Family Trip" }));
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
