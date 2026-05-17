@@ -33,7 +33,6 @@ export function useScanRoots({
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
     scanRootsLoadingMessage,
   );
-  const [manualScanRootPath, setManualScanRootPath] = useState("");
 
   async function refreshScanRoots(shouldClearStatusMessage = true) {
     try {
@@ -88,11 +87,6 @@ export function useScanRoots({
     }
   }
 
-  async function addManualScanRoot(event: React.FormEvent) {
-    event.preventDefault();
-    await persistScanRoot(manualScanRootPath);
-  }
-
   async function persistScanRoot(path: string) {
     const scanRootPath = path.trim();
 
@@ -109,7 +103,6 @@ export function useScanRoots({
           left.path.localeCompare(right.path),
         ),
       );
-      setManualScanRootPath("");
       setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
       await refreshCatalogVideos();
       await refreshScanIssues();
@@ -192,9 +185,7 @@ export function useScanRoots({
   }
 
   return {
-    addManualScanRoot,
     chooseScanRootFolder,
-    manualScanRootPath,
     refreshEveryScanRoot,
     refreshScanRoots,
     refreshSelectedScanRoot,
@@ -202,7 +193,6 @@ export function useScanRoots({
     saveScanRootInferenceRules,
     scanRoots,
     scanRootsStatusMessage,
-    setManualScanRootPath,
   };
 }
 

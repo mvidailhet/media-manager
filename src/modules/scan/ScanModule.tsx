@@ -15,12 +15,9 @@ export type ScanModuleProps = {
   failedPreviewStrips: FailedPreviewStrip[];
   generatedPreviewStripCount: number;
   generatingPreviewStripTitle?: string;
-  manualScanRootPath: string;
   missingVideos: CatalogVideo[];
-  onAddManualScanRoot: (event: React.FormEvent) => void;
   onChooseScanRootFolder: () => void;
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
-  onManualScanRootPathChange: (path: string) => void;
   onPausePreviewStripQueue: () => void;
   onRefreshEveryScanRoot: () => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
@@ -52,12 +49,9 @@ export function ScanModule({
   failedPreviewStrips,
   generatedPreviewStripCount,
   generatingPreviewStripTitle,
-  manualScanRootPath,
   missingVideos,
-  onAddManualScanRoot,
   onChooseScanRootFolder,
   onIgnoreFailedPreview,
-  onManualScanRootPathChange,
   onPausePreviewStripQueue,
   onRefreshEveryScanRoot,
   onRefreshSelectedScanRoot,
@@ -105,12 +99,9 @@ export function ScanModule({
 
       <Tabs.Panel value={scanRootsTab}>
         <ScanRootsPanel
-          manualScanRootPath={manualScanRootPath}
           scanRoots={scanRoots}
           scanRootsStatusMessage={scanRootsStatusMessage}
-          onAddManualScanRoot={onAddManualScanRoot}
           onChooseScanRootFolder={onChooseScanRootFolder}
-          onManualScanRootPathChange={onManualScanRootPathChange}
           onRefreshEveryScanRoot={onRefreshEveryScanRoot}
           onRefreshSelectedScanRoot={onRefreshSelectedScanRoot}
           onRequestScanRootRemoval={onRequestScanRootRemoval}

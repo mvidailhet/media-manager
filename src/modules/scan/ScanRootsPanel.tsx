@@ -17,13 +17,9 @@ import type { ScanRoot } from '../../tauriCommands';
 import { AvailabilityBadge } from '../../shared/components/AvailabilityBadge';
 import { SectionHeader } from '../../shared/components/SectionHeader';
 import { WrappingCode } from '../../shared/components/WrappingCode';
-import styles from './ScanRootsPanel.module.css';
 
 export function ScanRootsPanel({
-  manualScanRootPath,
-  onAddManualScanRoot,
   onChooseScanRootFolder,
-  onManualScanRootPathChange,
   onRefreshEveryScanRoot,
   onRefreshSelectedScanRoot,
   onRequestScanRootRemoval,
@@ -31,10 +27,7 @@ export function ScanRootsPanel({
   scanRoots,
   scanRootsStatusMessage,
 }: {
-  manualScanRootPath: string;
-  onAddManualScanRoot: (event: React.FormEvent) => void;
   onChooseScanRootFolder: () => void;
-  onManualScanRootPathChange: (path: string) => void;
   onRefreshEveryScanRoot: () => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
@@ -49,6 +42,7 @@ export function ScanRootsPanel({
     <Box component="section" aria-label="Scan Root management" p="md" maw={760}>
       <Stack gap="md">
         <Group justify="space-between" align="start">
+          <SectionHeader label="Catalog sources" title="Scan Roots" />
           <Group gap="xs">
             <Button
               type="button"
@@ -68,21 +62,6 @@ export function ScanRootsPanel({
         </Group>
 
         {scanRootsStatusMessage ? <Text>{scanRootsStatusMessage}</Text> : null}
-
-        <Box component="form" onSubmit={onAddManualScanRoot}>
-          <Group align="end">
-            <TextInput
-              className={styles.pathInput}
-              label="Manual path"
-              value={manualScanRootPath}
-              onChange={(event) =>
-                onManualScanRootPathChange(event.target.value)
-              }
-              placeholder="/Volumes/Archive/Videos"
-            />
-            <Button type="submit">Add path</Button>
-          </Group>
-        </Box>
 
         {scanRoots.length > 0 ? (
           <Stack gap="sm">
@@ -240,4 +219,3 @@ export function ScanRootCard({
     </Paper>
   );
 }
-

@@ -1850,10 +1850,9 @@ describe("Catalog module", () => {
     const chooseFolderButton = await screen.findByRole("button", {
       name: "Choose folder",
     });
-    const manualPathInput = screen.getByLabelText("Manual path");
 
     expect(chooseFolderButton).toBeVisible();
-    expect(manualPathInput).toBeVisible();
+    expect(screen.queryByLabelText("Manual path")).not.toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "FFmpeg status" }),
     ).not.toBeInTheDocument();
