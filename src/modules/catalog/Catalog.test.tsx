@@ -1695,11 +1695,7 @@ describe("Catalog module", () => {
         name: "Metadata Suggestions",
       }),
     ).not.toBeInTheDocument();
-    expect(
-      await within(metadataSuggestions).findByRole("heading", {
-        name: "Family",
-      }),
-    ).toBeInTheDocument();
+    expect(await within(metadataSuggestions).findByText("Family")).toBeInTheDocument();
     metadataSuggestions = screen.getByRole("region", {
       name: "Metadata Suggestions",
     });

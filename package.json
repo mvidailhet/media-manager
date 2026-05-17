@@ -8,6 +8,7 @@
     "tauri:dev": "tauri dev",
     "build": "tsc && vite build",
     "test": "vitest run",
+    "test:watch": "vitest watch",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml"
   },
   "dependencies": {

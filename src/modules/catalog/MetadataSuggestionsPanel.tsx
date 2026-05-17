@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { IconCaretDownFilled, IconCheck, IconX } from "@tabler/icons-react";
-import { Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Stack, Text, TextInput, Title, Tree, useTree } from "@mantine/core";
+import { Badge, Box, Button, Checkbox, Divider, Group, NativeSelect, Stack, Text, TextInput, Tree, useTree } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, MetadataSuggestionGroup } from "../../tauriCommands";
 import type { AcceptMetadataSuggestionForVideosRequest, RejectMetadataSuggestionSourceRequest } from "../../tauriCommands";
-import { formatSuggestionKind } from "../../shared/formatting/suggestionFormatting";
 import { findMetadataByName, findNearMetadataMatch } from "../../shared/metadata/metadataHelpers";
 
 type AcceptMetadataSuggestionVideos = (request: AcceptMetadataSuggestionForVideosRequest) => void;
@@ -35,7 +34,7 @@ export function MetadataSuggestionsPanel({
       aria-label="Metadata Suggestions"
     >
       {metadataSuggestionGroups.length > 0 ? (
-        <Stack gap="sm">
+        <Stack gap="xl">
           {metadataSuggestionGroups.map((suggestionGroup) => (
             <Stack
               component="article"
@@ -43,15 +42,10 @@ export function MetadataSuggestionsPanel({
               key={`${suggestionGroup.suggestionKind}:${suggestionGroup.suggestedValue}`}
             >
               <Divider />
-              <Group gap="xs" align="center">
-                <Title order={4} size="h5">
-                  {suggestionGroup.suggestedValue}
-                </Title>
-                <Badge variant="light">
-                  {formatSuggestionKind(suggestionGroup.suggestionKind)}
-                </Badge>
-              </Group>
-              <Stack gap="xs">
+              <Badge variant="light" w="fit-content" size='xl' mt='lg' mb='md'>
+                {suggestionGroup.suggestedValue}
+              </Badge>
+              <Stack gap="xl">
                 {suggestionGroup.sources.map((sourceGroup) => (
                   <MetadataSuggestionSource
                     availablePerformers={availablePerformers}
