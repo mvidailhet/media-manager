@@ -16,8 +16,10 @@ import {
   IconFolderSearch,
   IconSettings,
 } from "@tabler/icons-react";
-import { CatalogModule } from "./modules/catalog/CatalogModule";
-import { VideoDetailPanel } from "./modules/catalog/VideoDetailPanel";
+import {
+  CatalogModule,
+  CatalogModuleDetailAside,
+} from "./modules/catalog/CatalogModule";
 import type { CatalogVideo } from "./modules/catalog/useCatalogModuleController";
 import { useCatalogModuleController } from "./modules/catalog/useCatalogModuleController";
 import { ScanModule } from "./modules/scan/ScanModule";
@@ -267,25 +269,11 @@ export default function App() {
           <SettingsModule {...settingsModuleProps} />
         ) : null}
       </AppShell.Main>
-      {catalogModuleProps.selectedVideo ? (
-        <AppShell.Aside p="md">
-          <VideoDetailPanel
-            detailStatusMessage={catalogModuleProps.detailStatusMessage}
-            onOpenContainingFolder={() =>
-              void catalogModuleProps.onOpenVideoContainingFolder(
-                catalogModuleProps.selectedVideo!,
-              )
-            }
-            onOpenVideo={() =>
-              void catalogModuleProps.onOpenVideo(
-                catalogModuleProps.selectedVideo!,
-              )
-            }
-            onSaveTitle={catalogModuleProps.onSaveTitle}
-            onSetFavorite={catalogModuleProps.onSetSelectedFavorite}
-            video={catalogModuleProps.selectedVideo}
-          />
-        </AppShell.Aside>
+      {activeAppModule === "catalog" ? (
+        <CatalogModuleDetailAside
+          {...catalogModuleProps}
+          metadataSuggestionGroups={metadataSuggestionGroups}
+        />
       ) : null}
     </AppShell>
   );

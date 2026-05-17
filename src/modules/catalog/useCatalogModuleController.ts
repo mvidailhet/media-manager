@@ -65,6 +65,7 @@ export function useCatalogModuleController({
   const [catalogView, setCatalogView] = useState<CatalogView>("allVideos");
   const [detailStatusMessage, setDetailStatusMessage] = useState("");
   const selectedVideoRequestId = useRef(0);
+  const selectedVideoId = useRef<number | null>(null);
   const {
     catalogVideoActionStatusMessage,
     catalogVideos,
@@ -182,6 +183,7 @@ export function useCatalogModuleController({
   async function selectVideoForDetail(catalogVideo: CatalogVideo) {
     const requestId = selectedVideoRequestId.current + 1;
     selectedVideoRequestId.current = requestId;
+    selectedVideoId.current = catalogVideo.id;
     setSelectedVideo(catalogVideo);
     setDetailStatusMessage("");
 
@@ -230,6 +232,7 @@ export function useCatalogModuleController({
 
   function resetCatalogSelection() {
     selectedVideoRequestId.current += 1;
+    selectedVideoId.current = null;
     setSelectedVideo(null);
     setSelectedVideoTags([]);
     setSelectedVideoPerformers([]);
@@ -412,15 +415,21 @@ export function useCatalogModuleController({
       return;
     }
 
+    const videoId = selectedVideo.id;
+
     try {
-      await attachTagToCatalogVideo(tag.id, selectedVideo.id);
-      setSelectedVideoTags((currentTags) =>
-        appendUniqueMetadata(currentTags, tag),
-      );
-      addTagToCatalogVideoMetadata(selectedVideo.id, tag);
-      setDetailStatusMessage("");
+      await attachTagToCatalogVideo(tag.id, videoId);
+      if (selectedVideoId.current === videoId) {
+        setSelectedVideoTags((currentTags) =>
+          appendUniqueMetadata(currentTags, tag),
+        );
+        setDetailStatusMessage("");
+      }
+      addTagToCatalogVideoMetadata(videoId, tag);
     } catch (error) {
-      setDetailStatusMessage(errorMessage(error));
+      if (selectedVideoId.current === videoId) {
+        setDetailStatusMessage(errorMessage(error));
+      }
     }
   }
 
@@ -429,6 +438,7 @@ export function useCatalogModuleController({
       return;
     }
 
+    const videoId = selectedVideo.id;
     const trimmedTagName = tagName.trim();
 
     if (trimmedTagName.length === 0) {
@@ -440,15 +450,19 @@ export function useCatalogModuleController({
       const existingTag = findMetadataByName(availableTags, trimmedTagName);
       const tag = existingTag ?? (await createNamedTag(trimmedTagName));
 
-      await attachTagToCatalogVideo(tag.id, selectedVideo.id);
+      await attachTagToCatalogVideo(tag.id, videoId);
       setAvailableTags((currentTags) => appendUniqueMetadata(currentTags, tag));
-      setSelectedVideoTags((currentTags) =>
-        appendUniqueMetadata(currentTags, tag),
-      );
-      addTagToCatalogVideoMetadata(selectedVideo.id, tag);
-      setDetailStatusMessage("");
+      if (selectedVideoId.current === videoId) {
+        setSelectedVideoTags((currentTags) =>
+          appendUniqueMetadata(currentTags, tag),
+        );
+        setDetailStatusMessage("");
+      }
+      addTagToCatalogVideoMetadata(videoId, tag);
     } catch (error) {
-      setDetailStatusMessage(errorMessage(error));
+      if (selectedVideoId.current === videoId) {
+        setDetailStatusMessage(errorMessage(error));
+      }
     }
   }
 
@@ -457,16 +471,22 @@ export function useCatalogModuleController({
       return;
     }
 
+    const videoId = selectedVideo.id;
+
     try {
-      await detachTagFromCatalogVideo(tag.id, selectedVideo.id);
-      setSelectedVideoTags((currentTags) =>
-        currentTags.filter((currentTag) => currentTag.id !== tag.id),
-      );
-      removeTagFromCatalogVideoMetadata(selectedVideo.id, tag);
+      await detachTagFromCatalogVideo(tag.id, videoId);
+      if (selectedVideoId.current === videoId) {
+        setSelectedVideoTags((currentTags) =>
+          currentTags.filter((currentTag) => currentTag.id !== tag.id),
+        );
+        setDetailStatusMessage("");
+      }
+      removeTagFromCatalogVideoMetadata(videoId, tag);
       setAvailableTags(await loadAvailableTags());
-      setDetailStatusMessage("");
     } catch (error) {
-      setDetailStatusMessage(errorMessage(error));
+      if (selectedVideoId.current === videoId) {
+        setDetailStatusMessage(errorMessage(error));
+      }
     }
   }
 
@@ -475,15 +495,21 @@ export function useCatalogModuleController({
       return;
     }
 
+    const videoId = selectedVideo.id;
+
     try {
-      await attachPerformerToCatalogVideo(performer.id, selectedVideo.id);
-      setSelectedVideoPerformers((currentPerformers) =>
-        appendUniqueMetadata(currentPerformers, performer),
-      );
-      addPerformerToCatalogVideoMetadata(selectedVideo.id, performer);
-      setDetailStatusMessage("");
+      await attachPerformerToCatalogVideo(performer.id, videoId);
+      if (selectedVideoId.current === videoId) {
+        setSelectedVideoPerformers((currentPerformers) =>
+          appendUniqueMetadata(currentPerformers, performer),
+        );
+        setDetailStatusMessage("");
+      }
+      addPerformerToCatalogVideoMetadata(videoId, performer);
     } catch (error) {
-      setDetailStatusMessage(errorMessage(error));
+      if (selectedVideoId.current === videoId) {
+        setDetailStatusMessage(errorMessage(error));
+      }
     }
   }
 
@@ -492,6 +518,7 @@ export function useCatalogModuleController({
       return;
     }
 
+    const videoId = selectedVideo.id;
     const trimmedPerformerName = performerName.trim();
 
     if (trimmedPerformerName.length === 0) {
@@ -507,17 +534,21 @@ export function useCatalogModuleController({
       const performer =
         existingPerformer ?? (await createNamedPerformer(trimmedPerformerName));
 
-      await attachPerformerToCatalogVideo(performer.id, selectedVideo.id);
+      await attachPerformerToCatalogVideo(performer.id, videoId);
       setAvailablePerformers((currentPerformers) =>
         appendUniqueMetadata(currentPerformers, performer),
       );
-      setSelectedVideoPerformers((currentPerformers) =>
-        appendUniqueMetadata(currentPerformers, performer),
-      );
-      addPerformerToCatalogVideoMetadata(selectedVideo.id, performer);
-      setDetailStatusMessage("");
+      if (selectedVideoId.current === videoId) {
+        setSelectedVideoPerformers((currentPerformers) =>
+          appendUniqueMetadata(currentPerformers, performer),
+        );
+        setDetailStatusMessage("");
+      }
+      addPerformerToCatalogVideoMetadata(videoId, performer);
     } catch (error) {
-      setDetailStatusMessage(errorMessage(error));
+      if (selectedVideoId.current === videoId) {
+        setDetailStatusMessage(errorMessage(error));
+      }
     }
   }
 
@@ -526,18 +557,24 @@ export function useCatalogModuleController({
       return;
     }
 
+    const videoId = selectedVideo.id;
+
     try {
-      await detachPerformerFromCatalogVideo(performer.id, selectedVideo.id);
-      setSelectedVideoPerformers((currentPerformers) =>
-        currentPerformers.filter(
-          (currentPerformer) => currentPerformer.id !== performer.id,
-        ),
-      );
-      removePerformerFromCatalogVideoMetadata(selectedVideo.id, performer);
+      await detachPerformerFromCatalogVideo(performer.id, videoId);
+      if (selectedVideoId.current === videoId) {
+        setSelectedVideoPerformers((currentPerformers) =>
+          currentPerformers.filter(
+            (currentPerformer) => currentPerformer.id !== performer.id,
+          ),
+        );
+        setDetailStatusMessage("");
+      }
+      removePerformerFromCatalogVideoMetadata(videoId, performer);
       setAvailablePerformers(await loadAvailablePerformers());
-      setDetailStatusMessage("");
     } catch (error) {
-      setDetailStatusMessage(errorMessage(error));
+      if (selectedVideoId.current === videoId) {
+        setDetailStatusMessage(errorMessage(error));
+      }
     }
   }
 
