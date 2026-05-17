@@ -149,7 +149,7 @@ describe("Catalog module", () => {
       within(videoCard).queryByRole("button", {
         name: "Mark Family Trip as Favorite",
       }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(await within(videoCard).findByText("Travel")).toBeInTheDocument();
     expect(await within(videoCard).findByText("Blair")).toBeInTheDocument();
     expect(within(videoCard).getByText("1h 2m")).toBeInTheDocument();
@@ -278,7 +278,67 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("marks and unmarks a Video as Favorite from the Videos View", async () => {
+  it("marks and unmarks a Video as Favorite directly from the Videos View preview", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const videoCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+
+    fireEvent.click(
+      within(videoCard).getByRole("button", {
+        name: "Mark Family Trip as Favorite",
+      }),
+    );
+
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        within(videoCard).getByRole("button", {
+          name: "Unmark Family Trip as Favorite",
+        }),
+      ).toBeInTheDocument(),
+    );
+
+    fireEvent.click(
+      within(videoCard).getByRole("button", {
+        name: "Unmark Family Trip as Favorite",
+      }),
+    );
+
+    expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, false);
+    await waitFor(() =>
+      expect(
+        within(videoCard).getByRole("button", {
+          name: "Mark Family Trip as Favorite",
+        }),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("marks and unmarks a Video as Favorite from the Video Detail Panel preview", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -308,27 +368,38 @@ describe("Catalog module", () => {
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
+    expect(
+      within(detailPanel).queryByRole("checkbox", { name: "Favorite" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+      within(detailPanel).getByRole("button", {
+        name: "Mark Family Trip as Favorite",
+      }),
     );
 
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, true);
     await waitFor(() =>
       expect(
-        within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
-      ).toBeChecked(),
+        within(detailPanel).getByRole("button", {
+          name: "Unmark Family Trip as Favorite",
+        }),
+      ).toBeInTheDocument(),
     );
 
     fireEvent.click(
-      within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+      within(detailPanel).getByRole("button", {
+        name: "Unmark Family Trip as Favorite",
+      }),
     );
 
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, false);
     await waitFor(() =>
       expect(
-        within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
-      ).not.toBeChecked(),
+        within(detailPanel).getByRole("button", {
+          name: "Mark Family Trip as Favorite",
+        }),
+      ).toBeInTheDocument(),
     );
   });
 
@@ -364,7 +435,9 @@ describe("Catalog module", () => {
       name: "Video Detail Panel",
     });
     fireEvent.click(
-      within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+      within(detailPanel).getByRole("button", {
+        name: "Mark Family Trip as Favorite",
+      }),
     );
 
     expect(
@@ -405,7 +478,9 @@ describe("Catalog module", () => {
       name: "Video Detail Panel",
     });
     fireEvent.click(
-      within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
+      within(detailPanel).getByRole("button", {
+        name: "Mark Family Trip as Favorite",
+      }),
     );
 
     fireEvent.change(within(detailPanel).getByLabelText("Title"), {
@@ -420,8 +495,10 @@ describe("Catalog module", () => {
 
     await waitFor(() =>
       expect(
-        within(detailPanel).getByRole("checkbox", { name: "Favorite" }),
-      ).toBeChecked(),
+        within(detailPanel).getByRole("button", {
+          name: "Unmark Family Archive as Favorite",
+        }),
+      ).toBeInTheDocument(),
     );
     expect(
       within(catalogVideos).queryByText("Family Trip"),
@@ -1142,7 +1219,7 @@ describe("Catalog module", () => {
     expect(
       within(detailPanel).getByDisplayValue("Family Trip"),
     ).toBeInTheDocument();
-    expect(within(detailPanel).getByText("1h 2m")).toBeInTheDocument();
+    expect(within(detailPanel).getAllByText("1h 2m").length).toBeGreaterThan(0);
     expect(
       within(detailPanel).getAllByText("80.7 MB").length,
     ).toBeGreaterThanOrEqual(2);
@@ -1162,7 +1239,11 @@ describe("Catalog module", () => {
     fireEvent.click(
       within(detailPanel).getByRole("button", { name: "Save Title" }),
     );
-    fireEvent.click(within(detailPanel).getByLabelText("Favorite"));
+    fireEvent.click(
+      within(detailPanel).getByRole("button", {
+        name: "Mark Family Trip as Favorite",
+      }),
+    );
     fireEvent.click(
       within(detailPanel).getByRole("button", { name: "Attach Archive" }),
     );

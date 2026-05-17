@@ -108,6 +108,7 @@ export function CatalogModule({
   onSelectVideo,
   onSetBatchFavorite,
   onSetBatchVideoSelected,
+  onSetFavorite,
   onSetSelectedFavorite,
   selectedPerformers,
   selectedTags,
@@ -151,6 +152,7 @@ export function CatalogModule({
           catalogVideosStatusMessage={catalogVideosStatusMessage}
           onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
           onCatalogVideoSortChange={onCatalogVideoSortChange}
+          onSetFavorite={onSetFavorite}
           onSetBatchVideoSelected={onSetBatchVideoSelected}
           onSelectVideo={onSelectVideo}
           selectedVideoIds={selectedVideoIds}

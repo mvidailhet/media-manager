@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { Badge, Box, Button, Checkbox, Code, Group, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Badge, Box, Button, Code, Group, Stack, Text, TextInput, Title } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../tauriCommands";
-import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
 import { DefinitionTerm } from "../../shared/components/DefinitionTerm";
 import { SectionHeader } from "../../shared/components/SectionHeader";
 import { formatDuration, formatFileSize } from "../../shared/formatting/videoFormatting";
 import { findMetadataByName, findNearMetadataMatch, singularMetadataLabel } from "../../shared/metadata/metadataHelpers";
+import { VideoPreview } from "./components/VideoPreview";
 
 export function VideoDetailPanel({
   availablePerformers,
@@ -75,6 +75,11 @@ export function VideoDetailPanel({
         >
           {`Open ${video.title}`}
         </Button>
+        <VideoPreview
+          catalogVideo={video}
+          isLarge
+          onFavoriteChange={onSetFavorite}
+        />
         <Group align="end" wrap="nowrap">
           <TextInput
             className="video-detail-title-input"
@@ -87,11 +92,6 @@ export function VideoDetailPanel({
             Save Title
           </Button>
         </Group>
-        <Checkbox
-          checked={video.isFavorite}
-          label="Favorite"
-          onChange={(event) => void onSetFavorite(event.currentTarget.checked)}
-        />
 
         <Group gap="xl" align="start" grow>
           <MetadataChecklist
