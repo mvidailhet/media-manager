@@ -4,6 +4,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { convertFileSrc } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 import { vi } from "vitest";
 
@@ -12,6 +13,7 @@ import { AppProviders } from "../AppProviders";
 import {
   acceptMetadataSuggestionForVideos,
   addScanRoot,
+  cancelScanRootRefreshJob,
   attachPerformerToVideo,
   attachTagToVideo,
   createPerformer,
@@ -35,8 +37,7 @@ import {
   processNextPreviewStripQueueItem,
   removeScanRoot,
   resumePreviewStripQueue,
-  refreshAllScanRoots,
-  refreshScanRoot,
+  startScanRootRefreshJob,
   rejectMetadataSuggestionSource,
   retryFailedPreviewStrip,
   saveFfmpegConfiguration,
@@ -56,9 +57,14 @@ vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: vi.fn((path: string) => `asset://${path}`),
 }));
 
+vi.mock("@tauri-apps/api/event", () => ({
+  listen: vi.fn(),
+}));
+
 vi.mock("../tauriCommands", () => ({
   acceptMetadataSuggestionForVideos: vi.fn(),
   addScanRoot: vi.fn(),
+  cancelScanRootRefreshJob: vi.fn(),
   attachPerformerToVideo: vi.fn(),
   attachTagToVideo: vi.fn(),
   createPerformer: vi.fn(),
@@ -82,8 +88,7 @@ vi.mock("../tauriCommands", () => ({
   processNextPreviewStripQueueItem: vi.fn(),
   removeScanRoot: vi.fn(),
   resumePreviewStripQueue: vi.fn(),
-  refreshAllScanRoots: vi.fn(),
-  refreshScanRoot: vi.fn(),
+  startScanRootRefreshJob: vi.fn(),
   rejectMetadataSuggestionSource: vi.fn(),
   retryFailedPreviewStrip: vi.fn(),
   saveFfmpegConfiguration: vi.fn(),
@@ -97,6 +102,7 @@ vi.mock("../tauriCommands", () => ({
 
 export const mockedOpen = vi.mocked(open);
 export const mockedConvertFileSrc = vi.mocked(convertFileSrc);
+export const mockedListen = vi.mocked(listen);
 export const mockedGetLocalDesktopAppStatus = vi.mocked(getLocalDesktopAppStatus);
 export const mockedGetFfmpegToolsStatus = vi.mocked(getFfmpegToolsStatus);
 export const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
@@ -134,6 +140,7 @@ export const mockedListUnprocessableVideoCandidates = vi.mocked(
 );
 export const mockedListScanRoots = vi.mocked(listScanRoots);
 export const mockedAddScanRoot = vi.mocked(addScanRoot);
+export const mockedCancelScanRootRefreshJob = vi.mocked(cancelScanRootRefreshJob);
 export const mockedForgetCatalogVideo = vi.mocked(forgetCatalogVideo);
 export const mockedGetPreviewStripQueueStatus = vi.mocked(getPreviewStripQueueStatus);
 export const mockedPausePreviewStripQueue = vi.mocked(pausePreviewStripQueue);
@@ -142,8 +149,7 @@ export const mockedProcessNextPreviewStripQueueItem = vi.mocked(
 );
 export const mockedRemoveScanRoot = vi.mocked(removeScanRoot);
 export const mockedResumePreviewStripQueue = vi.mocked(resumePreviewStripQueue);
-export const mockedRefreshAllScanRoots = vi.mocked(refreshAllScanRoots);
-export const mockedRefreshScanRoot = vi.mocked(refreshScanRoot);
+export const mockedStartScanRootRefreshJob = vi.mocked(startScanRootRefreshJob);
 export const mockedUpdateScanRootInferenceRules = vi.mocked(
   updateScanRootInferenceRules,
 );
@@ -319,10 +325,8 @@ export function resetAppTestHarness() {
       isPaused: false,
     });
     mockedRemoveScanRoot.mockResolvedValue(undefined);
-    mockedRefreshScanRoot.mockResolvedValue({
-      scannedVideoCount: 0,
-      unprocessableCandidateCount: 0,
-    });
+    mockedStartScanRootRefreshJob.mockResolvedValue(undefined);
+    mockedCancelScanRootRefreshJob.mockResolvedValue(undefined);
     mockedUpdateScanRootInferenceRules.mockImplementation(
       async (path, inferenceRules) => ({
         inferenceRules,
@@ -330,9 +334,6 @@ export function resetAppTestHarness() {
         path,
       }),
     );
-    mockedRefreshAllScanRoots.mockResolvedValue({
-      scannedVideoCount: 0,
-      unprocessableCandidateCount: 0,
-    });
+    mockedListen.mockResolvedValue(vi.fn());
     mockedOpen.mockResolvedValue(null);
 }

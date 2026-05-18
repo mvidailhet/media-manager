@@ -36,8 +36,6 @@ import {
   mockedProcessNextPreviewStripQueueItem,
   mockedRemoveScanRoot,
   mockedResumePreviewStripQueue,
-  mockedRefreshAllScanRoots,
-  mockedRefreshScanRoot,
   mockedUpdateScanRootInferenceRules,
   availableFfmpegToolsStatus,
   pendingPreviewStrip,

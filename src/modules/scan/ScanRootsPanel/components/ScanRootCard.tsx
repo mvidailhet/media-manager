@@ -7,20 +7,27 @@ import {
   NumberInput,
   Paper,
   Stack,
+  Text,
   TextInput,
 } from "@mantine/core";
 import { IconSettings } from "@tabler/icons-react";
 
-import type { ScanRoot } from "../../../../tauriCommands";
+import type { ScanRoot, ScanRootRefreshJobProgress } from "../../../../tauriCommands";
 import { AvailabilityBadge } from "../../../../shared/components/AvailabilityBadge";
 import { WrappingCode } from "../../../../shared/components/WrappingCode";
 
 export function ScanRootCard({
+  activeScanRootRefresh,
+  isScanRootRefreshRunning,
+  onCancelScanRootRefresh,
   onRefreshSelectedScanRoot,
   onRequestScanRootRemoval,
   onSaveScanRootInferenceRules,
   scanRoot,
 }: {
+  activeScanRootRefresh: ScanRootRefreshJobProgress | null;
+  isScanRootRefreshRunning: boolean;
+  onCancelScanRootRefresh: (scanRoot: ScanRoot) => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
   onSaveScanRootInferenceRules: (
@@ -44,6 +51,13 @@ export function ScanRootCard({
   const inferenceRulesButtonLabel = areInferenceRulesOpen
     ? `Hide Scan Root settings for ${scanRoot.path}`
     : `Show Scan Root settings for ${scanRoot.path}`;
+  const cardScanRootRefresh =
+    activeScanRootRefresh?.scanRootPath === scanRoot.path
+      ? activeScanRootRefresh
+      : null;
+  const canCancelScanRootRefresh =
+    cardScanRootRefresh !== null &&
+    !["cancelled", "complete", "failed"].includes(cardScanRootRefresh.status);
 
   function saveInferenceRules() {
     onSaveScanRootInferenceRules(scanRoot, {
@@ -86,7 +100,9 @@ export function ScanRootCard({
               type="button"
               size="xs"
               variant="default"
+              aria-label={`Refresh Scan Root ${scanRoot.path}`}
               onClick={() => void onRefreshSelectedScanRoot(scanRoot)}
+              disabled={isScanRootRefreshRunning}
             >
               Refresh
             </Button>
@@ -96,11 +112,31 @@ export function ScanRootCard({
               variant="light"
               color="red"
               onClick={() => onRequestScanRootRemoval(scanRoot)}
+              disabled={isScanRootRefreshRunning}
             >
               Remove
             </Button>
           </Group>
         </Group>
+        {cardScanRootRefresh ? (
+          <Stack gap={2}>
+            <Text fw={700}>{scanRootRefreshStatusLabel(cardScanRootRefresh.status)}</Text>
+            <Text>{videoCandidateProgressLabel(cardScanRootRefresh)}</Text>
+            <Text>{videoCountLabel(cardScanRootRefresh.scannedVideoCount)}</Text>
+            <Text>{scanIssueCountLabel(cardScanRootRefresh.unprocessableCandidateCount)}</Text>
+            {canCancelScanRootRefresh ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="light"
+                color="red"
+                onClick={() => void onCancelScanRootRefresh(scanRoot)}
+              >
+                Cancel scan
+              </Button>
+            ) : null}
+          </Stack>
+        ) : null}
         {areInferenceRulesOpen ? (
           <Stack gap={4}>
             <Group align="end" gap="sm">
@@ -141,7 +177,12 @@ export function ScanRootCard({
                   )
                 }
               />
-              <Button type="button" size="xs" onClick={saveInferenceRules}>
+              <Button
+                type="button"
+                size="xs"
+                onClick={saveInferenceRules}
+                disabled={isScanRootRefreshRunning}
+              >
                 Save Inference Rules
               </Button>
             </Group>
@@ -150,4 +191,37 @@ export function ScanRootCard({
       </Stack>
     </Paper>
   );
+}
+
+function scanRootRefreshStatusLabel(status: ScanRootRefreshJobProgress["status"]) {
+  const labels: Record<ScanRootRefreshJobProgress["status"], string> = {
+    cancelled: "Cancelled",
+    complete: "Complete",
+    discovery: "Discovery",
+    failed: "Failed",
+    metadataSuggestionUpdate: "Metadata suggestion update",
+    scanning: "Scanning",
+  };
+
+  return labels[status];
+}
+
+function videoCandidateProgressLabel(progress: ScanRootRefreshJobProgress) {
+  if (progress.totalVideoCandidateCount === null) {
+    return `${progress.processedVideoCandidateCount} video candidates processed`;
+  }
+
+  return `${progress.processedVideoCandidateCount} of ${progress.totalVideoCandidateCount} video candidates processed`;
+}
+
+function videoCountLabel(scannedVideoCount: number) {
+  return scannedVideoCount === 1
+    ? "1 Video scanned"
+    : `${scannedVideoCount} Videos scanned`;
+}
+
+function scanIssueCountLabel(unprocessableCandidateCount: number) {
+  return unprocessableCandidateCount === 1
+    ? "1 Scan Issue"
+    : `${unprocessableCandidateCount} Scan Issues`;
 }
