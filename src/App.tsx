@@ -28,8 +28,10 @@ import type {
   ScanRootRemovalPolicy,
 } from "./modules/scan/useScanModuleController";
 import { useScanModuleController } from "./modules/scan/useScanModuleController";
-import { SettingsModule } from "./modules/settings/SettingsModule";
-import { useSettingsModuleController } from "./modules/settings/useSettingsModuleController";
+import {
+  SettingsModule,
+  useSettingsModuleController,
+} from "./modules/settings";
 import styles from "./App.module.css";
 import { WrappingCode } from "./shared/components/WrappingCode";
 import { errorMessage } from "./shared/errors/errorMessage";

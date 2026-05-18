@@ -59,4 +59,19 @@ describe("App module boundaries", () => {
     expect(scanModuleSource).toMatch(/ScanRootsPanel/);
     expect(settingsModuleSource).toMatch(/TauriStatusPanel/);
   });
+
+  it("imports Settings only through the module boundary", () => {
+    expect(appSource).toMatch(
+      /from "\.\/modules\/settings"/,
+    );
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/settings\/SettingsModule"/,
+    );
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/settings\/useSettingsModuleController"/,
+    );
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/settings\/SettingsStatusPanels"/,
+    );
+  });
 });
