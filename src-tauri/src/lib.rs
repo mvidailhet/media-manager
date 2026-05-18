@@ -592,19 +592,36 @@ fn start_scan_root_refresh_job(
 
         match catalog {
             Ok(catalog) => {
+                let last_progress = Arc::new(Mutex::new(None::<ScanRootRefreshProgress>));
+                let emitted_progress = Arc::clone(&last_progress);
                 let refresh_result = catalog.refresh_scan_root_with_progress(
                     &scan_root_path,
                     &video_file_probe,
                     &video_extension_allowlist,
                     || cancellation_requested.load(std::sync::atomic::Ordering::SeqCst),
-                    |progress| emit_scan_root_refresh_progress(&app_handle, progress),
+                    |progress| {
+                        if let Ok(mut last_progress) = emitted_progress.lock() {
+                            *last_progress = Some(progress.clone());
+                        }
+                        emit_scan_root_refresh_progress(&app_handle, progress);
+                    },
                 );
 
                 if let Err(error) = refresh_result {
-                    emit_scan_root_refresh_progress(
-                        &app_handle,
-                        failed_scan_root_refresh_progress(&scan_root_path, error),
-                    );
+                    let failed_progress = last_progress
+                        .lock()
+                        .ok()
+                        .and_then(|last_progress| last_progress.clone())
+                        .map(|last_progress| {
+                            failed_scan_root_refresh_progress_from_last(
+                                last_progress,
+                                error.clone(),
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            failed_scan_root_refresh_progress(&scan_root_path, error)
+                        });
+                    emit_scan_root_refresh_progress(&app_handle, failed_progress);
                 }
             }
             Err(error) => {
@@ -646,6 +663,17 @@ fn failed_scan_root_refresh_progress(
         scanned_video_count: 0,
         unprocessable_candidate_count: 0,
         message: Some(message),
+    }
+}
+
+fn failed_scan_root_refresh_progress_from_last(
+    last_progress: ScanRootRefreshProgress,
+    message: String,
+) -> ScanRootRefreshProgress {
+    ScanRootRefreshProgress {
+        status: ScanRootRefreshStatus::Failed,
+        message: Some(message),
+        ..last_progress
     }
 }
 

@@ -627,6 +627,11 @@ describe("Scan module", () => {
         "/Volumes/Archive/Videos",
       );
     });
+    expect(screen.getByRole("button", { name: "Choose folder" })).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: /Refresh Scan Root/ })[1]).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Remove" })[0]).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Inference Rules" })).toBeDisabled();
+
     scanRootRefreshEvent?.({
       payload: {
         scanRootPath: "/Volumes/Archive/Videos",
@@ -642,10 +647,6 @@ describe("Scan module", () => {
     expect(screen.getByText("1 of 3 video candidates processed")).toBeInTheDocument();
     expect(screen.getByText("1 Video scanned")).toBeInTheDocument();
     expect(screen.getByText("0 Scan Issues")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Choose folder" })).toBeDisabled();
-    expect(screen.getAllByRole("button", { name: /Refresh Scan Root/ })[1]).toBeDisabled();
-    expect(screen.getAllByRole("button", { name: "Remove" })[0]).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save Inference Rules" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel scan" }));
 

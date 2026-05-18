@@ -113,20 +113,14 @@ impl Catalog {
 
         for video_candidate_path in video_candidate_paths {
             if should_cancel() {
-                let refresh_summary = ScanRootRefreshSummary {
+                return Ok(cancel_scan_root_refresh(
+                    scan_root_path,
+                    seen_video_candidate_paths.len() as i64,
+                    total_video_candidate_count,
                     scanned_video_count,
                     unprocessable_candidate_count,
-                };
-                on_progress(ScanRootRefreshProgress {
-                    scan_root_path: scan_root_path.to_string(),
-                    status: ScanRootRefreshStatus::Cancelled,
-                    processed_video_candidate_count: seen_video_candidate_paths.len() as i64,
-                    total_video_candidate_count: Some(total_video_candidate_count),
-                    scanned_video_count,
-                    unprocessable_candidate_count,
-                    message: None,
-                });
-                return Ok(refresh_summary);
+                    &mut on_progress,
+                ));
             }
 
             let file_size_bytes = file_size_bytes(&video_candidate_path)?;
@@ -164,6 +158,17 @@ impl Catalog {
                 unprocessable_candidate_count,
                 message: None,
             });
+        }
+
+        if should_cancel() {
+            return Ok(cancel_scan_root_refresh(
+                scan_root_path,
+                seen_video_candidate_paths.len() as i64,
+                total_video_candidate_count,
+                scanned_video_count,
+                unprocessable_candidate_count,
+                &mut on_progress,
+            ));
         }
 
         self.remove_stale_scan_root_entries(scan_root_id, &seen_video_candidate_paths)?;
@@ -465,4 +470,33 @@ impl Catalog {
 
         Ok(())
     }
+}
+
+fn cancel_scan_root_refresh<E>(
+    scan_root_path: &str,
+    processed_video_candidate_count: i64,
+    total_video_candidate_count: i64,
+    scanned_video_count: i64,
+    unprocessable_candidate_count: i64,
+    on_progress: &mut E,
+) -> ScanRootRefreshSummary
+where
+    E: FnMut(ScanRootRefreshProgress),
+{
+    let refresh_summary = ScanRootRefreshSummary {
+        scanned_video_count,
+        unprocessable_candidate_count,
+    };
+
+    on_progress(ScanRootRefreshProgress {
+        scan_root_path: scan_root_path.to_string(),
+        status: ScanRootRefreshStatus::Cancelled,
+        processed_video_candidate_count,
+        total_video_candidate_count: Some(total_video_candidate_count),
+        scanned_video_count,
+        unprocessable_candidate_count,
+        message: None,
+    });
+
+    refresh_summary
 }

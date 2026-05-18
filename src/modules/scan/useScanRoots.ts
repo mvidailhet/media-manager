@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -37,6 +37,18 @@ export function useScanRoots({
   );
   const [activeScanRootRefresh, setActiveScanRootRefresh] =
     useState<ScanRootRefreshJobProgress | null>(null);
+  const latestRefreshCatalogVideos = useRef(refreshCatalogVideos);
+  const latestRefreshPreviewStripQueueStatus = useRef(
+    refreshPreviewStripQueueStatus,
+  );
+  const latestRefreshScanIssues = useRef(refreshScanIssues);
+
+  useEffect(() => {
+    latestRefreshCatalogVideos.current = refreshCatalogVideos;
+    latestRefreshPreviewStripQueueStatus.current =
+      refreshPreviewStripQueueStatus;
+    latestRefreshScanIssues.current = refreshScanIssues;
+  }, [refreshCatalogVideos, refreshPreviewStripQueueStatus, refreshScanIssues]);
 
   async function refreshScanRoots(shouldClearStatusMessage = true) {
     try {
@@ -93,9 +105,9 @@ export function useScanRoots({
 
           if (isFinishedScanRootRefresh(event.payload.status)) {
             void refreshScanRoots(false);
-            void refreshCatalogVideos();
-            void refreshScanIssues();
-            void refreshPreviewStripQueueStatus();
+            void latestRefreshCatalogVideos.current();
+            void latestRefreshScanIssues.current();
+            void latestRefreshPreviewStripQueueStatus.current();
           }
         },
       );
@@ -107,7 +119,7 @@ export function useScanRoots({
       canUpdateScanRootRefresh = false;
       removeScanRootRefreshListener?.();
     };
-  }, [refreshCatalogVideos, refreshPreviewStripQueueStatus, refreshScanIssues]);
+  }, []);
 
   async function chooseScanRootFolder() {
     try {
@@ -133,15 +145,20 @@ export function useScanRoots({
 
     try {
       const scanRoot = await addScanRoot(scanRootPath);
+      const startingScanRootRefresh = startingScanRootRefreshProgress(
+        scanRoot.path,
+      );
 
       setScanRoots((currentScanRoots) =>
         [...currentScanRoots, scanRoot].sort((left, right) =>
           left.path.localeCompare(right.path),
         ),
       );
+      setActiveScanRootRefresh(startingScanRootRefresh);
       setScanRootsStatusMessage(scanRootRefreshStartedMessage);
       await startScanRootRefreshJob(scanRoot.path);
     } catch (error) {
+      setActiveScanRootRefresh(null);
       setScanRootsStatusMessage(errorMessage(error));
     }
   }
@@ -169,9 +186,11 @@ export function useScanRoots({
 
   async function refreshSelectedScanRoot(scanRoot: ScanRoot) {
     try {
+      setActiveScanRootRefresh(startingScanRootRefreshProgress(scanRoot.path));
       setScanRootsStatusMessage(scanRootRefreshStartedMessage);
       await startScanRootRefreshJob(scanRoot.path);
     } catch (error) {
+      setActiveScanRootRefresh(null);
       setScanRootsStatusMessage(errorMessage(error));
     }
   }
@@ -249,6 +268,20 @@ function videoCandidateProgressLabel(progress: ScanRootRefreshJobProgress) {
 
 function isFinishedScanRootRefresh(status: ScanRootRefreshJobProgress["status"]) {
   return status === "complete" || status === "cancelled" || status === "failed";
+}
+
+function startingScanRootRefreshProgress(
+  scanRootPath: string,
+): ScanRootRefreshJobProgress {
+  return {
+    scanRootPath,
+    status: "discovery",
+    processedVideoCandidateCount: 0,
+    totalVideoCandidateCount: null,
+    scannedVideoCount: 0,
+    unprocessableCandidateCount: 0,
+    message: null,
+  };
 }
 
 export type { ScanRoot, ScanRootRemovalPolicy };

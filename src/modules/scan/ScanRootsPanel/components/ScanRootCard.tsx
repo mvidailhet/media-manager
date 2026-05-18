@@ -57,7 +57,7 @@ export function ScanRootCard({
       : null;
   const canCancelScanRootRefresh =
     cardScanRootRefresh !== null &&
-    !["cancelled", "complete", "failed"].includes(cardScanRootRefresh.status);
+    ["discovery", "scanning"].includes(cardScanRootRefresh.status);
 
   function saveInferenceRules() {
     onSaveScanRootInferenceRules(scanRoot, {
