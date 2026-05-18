@@ -1,87 +1,19 @@
-import { useState } from 'react';
+import { useState } from "react";
 import {
   ActionIcon,
-  Box,
   Button,
   Checkbox,
   Group,
   NumberInput,
   Paper,
   Stack,
-  Text,
   TextInput,
-} from '@mantine/core';
-import { IconSettings } from '@tabler/icons-react';
+} from "@mantine/core";
+import { IconSettings } from "@tabler/icons-react";
 
-import type { ScanRoot } from '../../tauriCommands';
-import { AvailabilityBadge } from '../../shared/components/AvailabilityBadge';
-import { SectionHeader } from '../../shared/components/SectionHeader';
-import { WrappingCode } from '../../shared/components/WrappingCode';
-
-export function ScanRootsPanel({
-  onChooseScanRootFolder,
-  onRefreshEveryScanRoot,
-  onRefreshSelectedScanRoot,
-  onRequestScanRootRemoval,
-  onSaveScanRootInferenceRules,
-  scanRoots,
-  scanRootsStatusMessage,
-}: {
-  onChooseScanRootFolder: () => void;
-  onRefreshEveryScanRoot: () => void;
-  onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
-  onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
-  onSaveScanRootInferenceRules: (
-    scanRoot: ScanRoot,
-    inferenceRules: ScanRoot['inferenceRules'],
-  ) => void;
-  scanRoots: ScanRoot[];
-  scanRootsStatusMessage: string;
-}) {
-  return (
-    <Box component="section" aria-label="Scan Root management" p="md" maw={760}>
-      <Stack gap="md">
-        <Group justify="space-between" align="start">
-          <SectionHeader label="Catalog sources" title="Scan Roots" />
-          <Group gap="xs">
-            <Button
-              type="button"
-              variant="light"
-              onClick={onChooseScanRootFolder}
-            >
-              Choose folder
-            </Button>
-            <Button
-              type="button"
-              variant="default"
-              onClick={() => void onRefreshEveryScanRoot()}
-            >
-              Refresh all Scan Roots
-            </Button>
-          </Group>
-        </Group>
-
-        {scanRootsStatusMessage ? <Text>{scanRootsStatusMessage}</Text> : null}
-
-        {scanRoots.length > 0 ? (
-          <Stack gap="sm">
-            {scanRoots.map((scanRoot) => (
-              <ScanRootCard
-                key={scanRoot.path}
-                onRefreshSelectedScanRoot={onRefreshSelectedScanRoot}
-                onRequestScanRootRemoval={onRequestScanRootRemoval}
-                onSaveScanRootInferenceRules={onSaveScanRootInferenceRules}
-                scanRoot={scanRoot}
-              />
-            ))}
-          </Stack>
-        ) : (
-          <Text c="dimmed">No Scan Roots added.</Text>
-        )}
-      </Stack>
-    </Box>
-  );
-}
+import type { ScanRoot } from "../../../../tauriCommands";
+import { AvailabilityBadge } from "../../../../shared/components/AvailabilityBadge";
+import { WrappingCode } from "../../../../shared/components/WrappingCode";
 
 export function ScanRootCard({
   onRefreshSelectedScanRoot,
@@ -93,7 +25,7 @@ export function ScanRootCard({
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
   onSaveScanRootInferenceRules: (
     scanRoot: ScanRoot,
-    inferenceRules: ScanRoot['inferenceRules'],
+    inferenceRules: ScanRoot["inferenceRules"],
   ) => void;
   scanRoot: ScanRoot;
 }) {
@@ -101,7 +33,7 @@ export function ScanRootCard({
   const [suggestTagsFromChildFolders, setSuggestTagsFromChildFolders] =
     useState(scanRoot.inferenceRules.suggestTagsFromChildFolders);
   const [ignoredFolderNames, setIgnoredFolderNames] = useState(
-    scanRoot.inferenceRules.ignoredFolderNames.join(', '),
+    scanRoot.inferenceRules.ignoredFolderNames.join(", "),
   );
   const [ignoredExactYearStart, setIgnoredExactYearStart] = useState(
     scanRoot.inferenceRules.ignoredExactYearRange.startYear,
@@ -120,7 +52,7 @@ export function ScanRootCard({
         startYear: ignoredExactYearStart,
       },
       ignoredFolderNames: ignoredFolderNames
-        .split(',')
+        .split(",")
         .map((ignoredFolderName) => ignoredFolderName.trim())
         .filter((ignoredFolderName) => ignoredFolderName.length > 0),
       suggestTagsFromChildFolders,
@@ -195,7 +127,7 @@ export function ScanRootCard({
                 value={ignoredExactYearStart}
                 onChange={(value) =>
                   setIgnoredExactYearStart(
-                    typeof value === 'number' ? value : 1900,
+                    typeof value === "number" ? value : 1900,
                   )
                 }
               />
@@ -205,7 +137,7 @@ export function ScanRootCard({
                 value={ignoredExactYearEnd}
                 onChange={(value) =>
                   setIgnoredExactYearEnd(
-                    typeof value === 'number' ? value : 2099,
+                    typeof value === "number" ? value : 2099,
                   )
                 }
               />
