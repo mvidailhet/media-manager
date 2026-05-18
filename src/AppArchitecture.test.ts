@@ -1,40 +1,23 @@
 import { describe, expect, it } from "vitest";
 
+import architectureTestSource from "./AppArchitecture.test.ts?raw";
 import appSource from "./App.tsx?raw";
-import catalogModuleSource from "./modules/catalog/CatalogModule.tsx?raw";
-import catalogControllerSource from "./modules/catalog/useCatalogModuleController.ts?raw";
-import previewGenerationHookSource from "./modules/scan/usePreviewGeneration.ts?raw";
-import scanControllerSource from "./modules/scan/useScanModuleController.ts?raw";
-import scanModuleSource from "./modules/scan/ScanModule.tsx?raw";
-import settingsModuleSource from "./modules/settings/SettingsModule.tsx?raw";
-import settingsControllerSource from "./modules/settings/useSettingsModuleController.ts?raw";
 
 describe("App module boundaries", () => {
-  it("delegates Tauri command ownership to module hooks", () => {
+  it("keeps root architecture tests focused on App composition", () => {
+    const moduleInternalImportPattern = new RegExp(
+      String.raw`\.\/modules\/(?:catalog|scan|settings)\/`,
+    );
+
+    expect(architectureTestSource).not.toMatch(moduleInternalImportPattern);
+  });
+
+  it("delegates low-level Tauri command ownership to modules", () => {
     expect(appSource).not.toMatch(/from "\.\/tauriCommands"/);
-    expect(appSource).not.toMatch(/useCatalogVideos/);
-    expect(appSource).not.toMatch(/useCatalogMetadata/);
-    expect(catalogControllerSource).toMatch(/useCatalogVideos/);
-    expect(catalogControllerSource).toMatch(/useCatalogMetadata/);
-    expect(appSource).not.toMatch(/useScanRoots/);
-    expect(appSource).not.toMatch(/useScanIssues/);
-    expect(appSource).not.toMatch(/usePreviewGeneration/);
-    expect(scanControllerSource).toMatch(/useScanRoots/);
-    expect(scanControllerSource).toMatch(/useScanIssues/);
-    expect(scanControllerSource).toMatch(/usePreviewGeneration/);
-    expect(appSource).not.toMatch(/useSettingsStatus/);
-    expect(settingsControllerSource).toMatch(/useSettingsStatus/);
     expect(appSource).not.toMatch(/attachTagToVideo/);
     expect(appSource).not.toMatch(/detachTagFromVideo/);
     expect(appSource).not.toMatch(/performersForVideo/);
     expect(appSource).not.toMatch(/tagsForVideo/);
-  });
-
-  it("keeps Preview Generation polling independent from parent renders", () => {
-    expect(previewGenerationHookSource).toMatch(/latestRefreshCatalogVideos/);
-    expect(previewGenerationHookSource).not.toMatch(
-      /\}, \[previewStripQueueStatus, refreshCatalogVideos, refreshScanIssues\]\)/,
-    );
   });
 
   it("keeps App focused on composing workflow modules", () => {
@@ -49,28 +32,19 @@ describe("App module boundaries", () => {
     expect(appSource).not.toMatch(/FfmpegStatusPanel/);
     expect(appSource).not.toMatch(/useCatalogVideos/);
     expect(appSource).not.toMatch(/useCatalogMetadata/);
-    expect(appSource).not.toMatch(/from "\.\/modules\/settings\/useSettingsStatus"/);
+    expect(appSource).not.toMatch(/useScanRoots/);
+    expect(appSource).not.toMatch(/useScanIssues/);
+    expect(appSource).not.toMatch(/usePreviewGeneration/);
+    expect(appSource).not.toMatch(/useSettingsStatus/);
     expect(appSource).toMatch(/useSettingsModuleController/);
     expect(appSource).toMatch(/useScanModuleController/);
-
-    expect(catalogModuleSource).toMatch(/CatalogVideosPanel/);
-    expect(catalogControllerSource).toMatch(/useCatalogVideos/);
-    expect(catalogControllerSource).toMatch(/useCatalogMetadata/);
-    expect(scanModuleSource).toMatch(/ScanRootsPanel/);
-    expect(settingsModuleSource).toMatch(/TauriStatusPanel/);
   });
 
-  it("imports Settings only through the module boundary", () => {
+  it("imports workflow modules only through their entry points", () => {
     expect(appSource).toMatch(/from "\.\/modules\/settings"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/settings\//);
-  });
-
-  it("imports Catalog only through the module boundary", () => {
     expect(appSource).toMatch(/from "\.\/modules\/catalog"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/catalog\//);
-  });
-
-  it("keeps Scan internals behind the Scan module entry point", () => {
     expect(appSource).toMatch(/from "\.\/modules\/scan"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/scan\//);
   });
