@@ -59,4 +59,12 @@ describe("App module boundaries", () => {
     expect(scanModuleSource).toMatch(/ScanRootsPanel/);
     expect(settingsModuleSource).toMatch(/TauriStatusPanel/);
   });
+
+  it("keeps Scan internals behind the Scan module entry point", () => {
+    expect(appSource).toMatch(/from "\.\/modules\/scan"/);
+    expect(appSource).not.toMatch(/from "\.\/modules\/scan\/ScanModule"/);
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/scan\/useScanModuleController"/,
+    );
+  });
 });
