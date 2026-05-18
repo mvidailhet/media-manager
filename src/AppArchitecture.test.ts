@@ -60,6 +60,19 @@ describe("App module boundaries", () => {
     expect(settingsModuleSource).toMatch(/TauriStatusPanel/);
   });
 
+  it("imports Settings only through the module boundary", () => {
+    expect(appSource).toMatch(/from "\.\/modules\/settings"/);
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/settings\/SettingsModule"/,
+    );
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/settings\/useSettingsModuleController"/,
+    );
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/settings\/SettingsStatusPanels"/,
+    );
+  });
+
   it("keeps Scan internals behind the Scan module entry point", () => {
     expect(appSource).toMatch(/from "\.\/modules\/scan"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/scan\/ScanModule"/);
