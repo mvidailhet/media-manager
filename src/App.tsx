@@ -18,10 +18,10 @@ import {
 } from "@tabler/icons-react";
 import {
   CatalogModule,
-  CatalogModuleDetailAside,
   type CatalogVideo,
   useCatalogModuleController,
 } from "./modules/catalog";
+import { CatalogModuleDetailAside } from "./modules/catalog/CatalogModuleDetailAside";
 import {
   ScanModule,
   type ScanRoot,

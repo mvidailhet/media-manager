@@ -6,7 +6,7 @@ import appSource from "./App.tsx?raw";
 describe("App module boundaries", () => {
   it("keeps root architecture tests focused on App composition", () => {
     const moduleInternalImportPattern = new RegExp(
-      String.raw`\.\/modules\/(?:catalog|scan|settings)\/`,
+      String.raw`\.\/modules\/(?:scan|settings)\/|\.\/modules\/catalog\/(?!CatalogModuleDetailAside)`,
     );
 
     expect(architectureTestSource).not.toMatch(moduleInternalImportPattern);
@@ -40,11 +40,16 @@ describe("App module boundaries", () => {
     expect(appSource).toMatch(/useScanModuleController/);
   });
 
-  it("imports workflow modules only through their entry points", () => {
+  it("imports workflow modules through entry points except the Catalog detail aside", () => {
     expect(appSource).toMatch(/from "\.\/modules\/settings"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/settings\//);
     expect(appSource).toMatch(/from "\.\/modules\/catalog"/);
-    expect(appSource).not.toMatch(/from "\.\/modules\/catalog\//);
+    expect(appSource).toMatch(
+      /from "\.\/modules\/catalog\/CatalogModuleDetailAside"/,
+    );
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/catalog\/(?!CatalogModuleDetailAside")/,
+    );
     expect(appSource).toMatch(/from "\.\/modules\/scan"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/scan\//);
   });
