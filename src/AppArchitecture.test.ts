@@ -62,30 +62,16 @@ describe("App module boundaries", () => {
 
   it("imports Settings only through the module boundary", () => {
     expect(appSource).toMatch(/from "\.\/modules\/settings"/);
-    expect(appSource).not.toMatch(
-      /from "\.\/modules\/settings\/SettingsModule"/,
-    );
-    expect(appSource).not.toMatch(
-      /from "\.\/modules\/settings\/useSettingsModuleController"/,
-    );
-    expect(appSource).not.toMatch(
-      /from "\.\/modules\/settings\/SettingsStatusPanels"/,
-    );
+    expect(appSource).not.toMatch(/from "\.\/modules\/settings\//);
   });
 
   it("imports Catalog only through the module boundary", () => {
     expect(appSource).toMatch(/from "\.\/modules\/catalog"/);
-    expect(appSource).not.toMatch(/from "\.\/modules\/catalog\/CatalogModule"/);
-    expect(appSource).not.toMatch(
-      /from "\.\/modules\/catalog\/useCatalogModuleController"/,
-    );
+    expect(appSource).not.toMatch(/from "\.\/modules\/catalog\//);
   });
 
   it("keeps Scan internals behind the Scan module entry point", () => {
     expect(appSource).toMatch(/from "\.\/modules\/scan"/);
-    expect(appSource).not.toMatch(/from "\.\/modules\/scan\/ScanModule"/);
-    expect(appSource).not.toMatch(
-      /from "\.\/modules\/scan\/useScanModuleController"/,
-    );
+    expect(appSource).not.toMatch(/from "\.\/modules\/scan\//);
   });
 });
