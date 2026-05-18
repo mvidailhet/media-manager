@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import appSource from "../../App.tsx?raw";
 import batchMetadataEditPanelSource from "./BatchMetadataEditPanel.tsx?raw";
+import catalogModuleEntryPointSource from "./index.ts?raw";
 import catalogModuleSource from "./CatalogModule.tsx?raw";
 import catalogVideoCardSource from "./CatalogVideosPanel/components/CatalogVideoCard.tsx?raw";
 import catalogVideoDurationFiltersSource from "./CatalogVideosPanel/catalogVideoDurationFilters.ts?raw";
@@ -174,6 +175,9 @@ describe("Catalog module boundaries", () => {
     );
     expect(catalogModuleDetailAsideSource).toMatch(/VideoDetailPanel/);
     expect(catalogModuleSource).not.toMatch(/function CatalogModuleDetailAside/);
+    expect(catalogModuleEntryPointSource).not.toMatch(
+      /CatalogModuleDetailAside/,
+    );
     expect(appSource).toMatch(
       /from "\.\/modules\/catalog\/CatalogModuleDetailAside"/,
     );
