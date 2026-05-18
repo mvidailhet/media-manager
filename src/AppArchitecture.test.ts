@@ -73,6 +73,14 @@ describe("App module boundaries", () => {
     );
   });
 
+  it("imports Catalog only through the module boundary", () => {
+    expect(appSource).toMatch(/from "\.\/modules\/catalog"/);
+    expect(appSource).not.toMatch(/from "\.\/modules\/catalog\/CatalogModule"/);
+    expect(appSource).not.toMatch(
+      /from "\.\/modules\/catalog\/useCatalogModuleController"/,
+    );
+  });
+
   it("keeps Scan internals behind the Scan module entry point", () => {
     expect(appSource).toMatch(/from "\.\/modules\/scan"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/scan\/ScanModule"/);

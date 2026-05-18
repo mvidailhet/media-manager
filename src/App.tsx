@@ -19,9 +19,9 @@ import {
 import {
   CatalogModule,
   CatalogModuleDetailAside,
-} from "./modules/catalog/CatalogModule";
-import type { CatalogVideo } from "./modules/catalog/useCatalogModuleController";
-import { useCatalogModuleController } from "./modules/catalog/useCatalogModuleController";
+  type CatalogVideo,
+  useCatalogModuleController,
+} from "./modules/catalog";
 import {
   ScanModule,
   type ScanRoot,
