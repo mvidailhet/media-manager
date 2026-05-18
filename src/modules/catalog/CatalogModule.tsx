@@ -19,7 +19,7 @@ import type {
 } from "./catalogTypes";
 import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel";
 import { useSelectedVideoDetailActions } from "./useSelectedVideoDetailActions";
-import { VideoDetailPanel } from "./VideoDetailPanel";
+import { VideoDetailPanel } from "./VideoDetailPanel/VideoDetailPanel";
 
 export type CatalogModuleProps = {
   availablePerformers: CatalogPerformer[];

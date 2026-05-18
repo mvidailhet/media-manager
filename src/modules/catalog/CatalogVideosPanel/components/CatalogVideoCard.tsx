@@ -3,7 +3,7 @@ import { Box, Checkbox, Paper, Stack, Text } from "@mantine/core";
 
 import type { CatalogVideo } from "../../../../tauriCommands";
 import type { CatalogVideoMetadata } from "../../catalogTypes";
-import { VideoPreview } from "../../components/VideoPreview";
+import { VideoPreview } from "../../components/VideoPreview/VideoPreview";
 import styles from "../../CatalogVideosPanel.module.css";
 import { MetadataBadges } from "./MetadataBadges";
 
