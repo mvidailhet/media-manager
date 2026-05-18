@@ -1,8 +1,6 @@
 import type { FfmpegToolsStatus } from "../../tauriCommands";
-import {
-  FfmpegStatusPanel,
-  TauriStatusPanel,
-} from "./SettingsStatusPanels";
+import { FfmpegStatusPanel } from "./SettingsStatusPanels/FfmpegStatusPanel";
+import { TauriStatusPanel } from "./SettingsStatusPanels/TauriStatusPanel";
 
 export type SettingsModuleProps = {
   ffmpegPath: string;
