@@ -5,7 +5,6 @@ import type {
   FailedPreviewStrip,
   PreviewStripQueueStatus,
   ScanRootRefreshJobProgress,
-  UnprocessableVideoCandidate,
   UnprocessableVideoCandidateGroup,
 } from "../../tauriCommands";
 import { PreviewGenerationView } from "./PreviewGenerationView/PreviewGenerationView";
@@ -42,7 +41,6 @@ export type ScanModuleProps = {
   scanTab: string | null;
   unavailableScanRoots: ScanRoot[];
   unprocessableVideoCandidateGroups: UnprocessableVideoCandidateGroup[];
-  unprocessableVideoCandidates: UnprocessableVideoCandidate[];
 };
 
 export const scanRootsTab = "scanRoots";
@@ -75,7 +73,6 @@ export function ScanModule({
   scanTab,
   unavailableScanRoots,
   unprocessableVideoCandidateGroups,
-  unprocessableVideoCandidates,
 }: ScanModuleProps) {
   return (
     <Tabs value={scanTab} onChange={onScanTabChange} keepMounted={false}>

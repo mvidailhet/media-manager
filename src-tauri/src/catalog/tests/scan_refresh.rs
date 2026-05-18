@@ -426,15 +426,55 @@ fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_pro
     assert_eq!(
         catalog
             .list_unprocessable_video_candidates_by_scan_root()
-            .expect("unprocessable candidates grouped by Scan Root"),
+        .expect("unprocessable candidates grouped by Scan Root"),
         vec![crate::catalog::UnprocessableVideoCandidateGroup {
             scan_root_path: scan_root.path,
+            candidate_count: 1,
             candidates: vec![crate::catalog::UnprocessableVideoCandidate {
                 path: canonical_broken_video_path.to_string_lossy().into_owned(),
                 reason: "missing moov atom".to_string(),
                 file_size_bytes: 6,
             }],
         }]
+    );
+}
+
+#[test]
+fn listing_unprocessable_candidates_by_scan_root_caps_candidate_details() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    for candidate_number in 1..=21 {
+        let broken_video_path = movies_root.join(format!("broken-{candidate_number:02}.mkv"));
+        std::fs::write(&broken_video_path, "broken").expect("broken video exists");
+    }
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &AlwaysFailingVideoFileProbe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    let candidate_groups = catalog
+        .list_unprocessable_video_candidates_by_scan_root()
+        .expect("unprocessable candidates grouped by Scan Root");
+
+    assert_eq!(candidate_groups.len(), 1);
+    assert_eq!(candidate_groups[0].scan_root_path, scan_root.path);
+    assert_eq!(candidate_groups[0].candidate_count, 21);
+    assert_eq!(candidate_groups[0].candidates.len(), 20);
+    assert!(
+        candidate_groups[0]
+            .candidates
+            .iter()
+            .all(|candidate| candidate.reason == "ffprobe failed")
     );
 }
 
@@ -479,6 +519,14 @@ fn cancelled_scan_root_refresh_keeps_processed_results_without_cleanup_or_sugges
         metadata_suggestions(&catalog.database),
         Vec::<(String, String)>::new()
     );
+}
+
+struct AlwaysFailingVideoFileProbe;
+
+impl VideoFileProbe for AlwaysFailingVideoFileProbe {
+    fn probe_video_file(&self, _video_path: &std::path::Path) -> Result<VideoProbe, String> {
+        Err("ffprobe failed".to_string())
+    }
 }
 
 #[test]

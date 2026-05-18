@@ -27,7 +27,6 @@ import {
   mockedRetryFailedPreviewStrip,
   mockedIgnoreFailedPreviewStrip,
   mockedListCatalogVideos,
-  mockedListUnprocessableVideoCandidates,
   mockedListUnprocessableVideoCandidatesByScanRoot,
   mockedListScanRoots,
   mockedAddScanRoot,
@@ -389,21 +388,15 @@ describe("Scan module", () => {
         path: "/Volumes/Archive/Videos",
       },
     ]);
-    mockedListUnprocessableVideoCandidates.mockResolvedValue([
-      {
-        path: "/Volumes/Archive/Videos/broken.mov",
-        reason: "ffprobe failed",
-        fileSizeBytes: 1234,
-      },
-    ]);
     mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
       {
         scanRootPath: "/Volumes/Archive/Videos",
+        candidateCount: 1,
         candidates: [
           {
-            path: "/Volumes/Archive/Videos/broken.mkv",
-            reason: "missing moov atom",
-            fileSizeBytes: 2048,
+            path: "/Volumes/Archive/Videos/broken.mov",
+            reason: "ffprobe failed",
+            fileSizeBytes: 1234,
           },
         ],
       },
@@ -423,17 +416,15 @@ describe("Scan module", () => {
       await screen.findByRole("tab", { name: "Scan Roots" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Scan 4" })).toBeInTheDocument();
-    expect(
-      screen.getByRole("tab", { name: "Scan Issues 3" }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Scan Issues 2" })).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: "Preview Generation 1" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Scan Issues 3" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Scan Issues 2" }));
 
     const scanIssues = await screen.findByRole("tabpanel", {
-      name: "Scan Issues 3",
+      name: "Scan Issues 2",
     });
     expect(within(scanIssues).getByText("Missing Trip")).toBeInTheDocument();
     expect(
@@ -852,11 +843,17 @@ describe("Scan module", () => {
         path: "/Volumes/Archive/Videos",
       },
     ]);
-    mockedListUnprocessableVideoCandidates.mockResolvedValue([
+    mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos/broken.mkv",
-        reason: "missing moov atom",
-        fileSizeBytes: 2048,
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidateCount: 1,
+        candidates: [
+          {
+            path: "/Volumes/Archive/Videos/broken.mkv",
+            reason: "missing moov atom",
+            fileSizeBytes: 2048,
+          },
+        ],
       },
     ]);
 
@@ -915,21 +912,15 @@ describe("Scan module", () => {
         path: "/Volumes/Documentaries",
       },
     ]);
-    mockedListUnprocessableVideoCandidates.mockResolvedValue([
-      ...allArchiveCandidates,
-      {
-        path: "/Volumes/Documentaries/broken.mov",
-        reason: "unsupported codec",
-        fileSizeBytes: 4096,
-      },
-    ]);
     mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
       {
         scanRootPath: "/Volumes/Archive/Videos",
-        candidates: allArchiveCandidates,
+        candidateCount: allArchiveCandidates.length,
+        candidates: allArchiveCandidates.slice(0, 20),
       },
       {
         scanRootPath: "/Volumes/Documentaries",
+        candidateCount: 1,
         candidates: [
           {
             path: "/Volumes/Documentaries/broken.mov",

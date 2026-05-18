@@ -16,7 +16,7 @@ import { IconSettings } from "@tabler/icons-react";
 import type {
   ScanRoot,
   ScanRootRefreshJobProgress,
-  UnprocessableVideoCandidate,
+  UnprocessableVideoCandidateGroup,
 } from "../../../../tauriCommands";
 import { AvailabilityBadge } from "../../../../shared/components/AvailabilityBadge";
 import { DefinitionList } from "../../../../shared/components/DefinitionList";
@@ -34,7 +34,7 @@ export function ScanRootCard({
   onRequestScanRootRemoval,
   onSaveScanRootInferenceRules,
   scanRoot,
-  unprocessableVideoCandidates,
+  unprocessableVideoCandidateGroup,
 }: {
   activeScanRootRefresh: ScanRootRefreshJobProgress | null;
   isScanRootRefreshRunning: boolean;
@@ -46,7 +46,7 @@ export function ScanRootCard({
     inferenceRules: ScanRoot["inferenceRules"],
   ) => void;
   scanRoot: ScanRoot;
-  unprocessableVideoCandidates: UnprocessableVideoCandidate[];
+  unprocessableVideoCandidateGroup?: UnprocessableVideoCandidateGroup;
 }) {
   const [areInferenceRulesOpen, setAreInferenceRulesOpen] = useState(false);
   const [
@@ -75,10 +75,12 @@ export function ScanRootCard({
     cardScanRootRefresh !== null &&
     ["discovery", "scanning"].includes(cardScanRootRefresh.status);
   const displayedUnprocessableVideoCandidates =
-    unprocessableVideoCandidates.slice(
+    unprocessableVideoCandidateGroup?.candidates.slice(
       0,
       maximumDisplayedUnprocessableVideoCandidates,
-    );
+    ) ?? [];
+  const unprocessableVideoCandidateCount =
+    unprocessableVideoCandidateGroup?.candidateCount ?? 0;
   const unprocessableVideoCandidatesButtonLabel =
     areUnprocessableVideoCandidatesOpen
       ? `Hide Unprocessable Video Candidates for ${scanRoot.path}`
@@ -163,8 +165,10 @@ export function ScanRootCard({
           </Stack>
         ) : null}
         <Group gap="xs">
-          <Text>{unprocessableVideoCandidateCountLabel(unprocessableVideoCandidates.length)}</Text>
-          {unprocessableVideoCandidates.length > 0 ? (
+          <Text>
+            {unprocessableVideoCandidateCountLabel(unprocessableVideoCandidateCount)}
+          </Text>
+          {unprocessableVideoCandidateCount > 0 ? (
             <Button
               type="button"
               size="xs"
@@ -200,7 +204,7 @@ export function ScanRootCard({
             <Text c="dimmed">
               {displayedUnprocessableVideoCandidatesLabel(
                 displayedUnprocessableVideoCandidates.length,
-                unprocessableVideoCandidates.length,
+                unprocessableVideoCandidateCount,
               )}
             </Text>
           </Stack>

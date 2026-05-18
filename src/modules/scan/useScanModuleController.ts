@@ -57,10 +57,14 @@ export function useScanModuleController({
   const unavailableScanRoots = scanRootsState.scanRoots.filter(
     (scanRoot) => !scanRoot.isAvailable,
   );
+  const unprocessableVideoCandidateCount =
+    scanIssues.unprocessableVideoCandidateGroups.reduce(
+      (candidateCount, candidateGroup) =>
+        candidateCount + candidateGroup.candidateCount,
+      0,
+    );
   const scanIssuesAttentionCount =
-    missingVideos.length +
-    unavailableScanRoots.length +
-    scanIssues.unprocessableVideoCandidates.length;
+    missingVideos.length + unavailableScanRoots.length;
   const previewGenerationAttentionCount = scanIssues.failedPreviewStrips.length;
   const generatedPreviewStripCount = catalogVideos.filter(
     (catalogVideo) => catalogVideo.previewStrip.status === "generated",
@@ -70,7 +74,9 @@ export function useScanModuleController({
       catalogVideo.id === previewGeneration.previewStripQueueStatus?.runningVideoId,
   );
   const scanAttentionCount =
-    scanIssuesAttentionCount + previewGenerationAttentionCount;
+    scanIssuesAttentionCount +
+    unprocessableVideoCandidateCount +
+    previewGenerationAttentionCount;
 
   return {
     metadataSuggestionGroups: scanIssues.metadataSuggestionGroups,
@@ -104,7 +110,6 @@ export function useScanModuleController({
       unavailableScanRoots,
       unprocessableVideoCandidateGroups:
         scanIssues.unprocessableVideoCandidateGroups,
-      unprocessableVideoCandidates: scanIssues.unprocessableVideoCandidates,
     },
     setScanIssuesStatusMessage: scanIssues.setScanIssuesStatusMessage,
   };

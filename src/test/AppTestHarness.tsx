@@ -29,7 +29,6 @@ import {
   listMetadataSuggestionGroups,
   listPerformers,
   listTags,
-  listUnprocessableVideoCandidates,
   listUnprocessableVideoCandidatesByScanRoot,
   listCatalogVideos,
   listScanRoots,
@@ -81,7 +80,6 @@ vi.mock("../tauriCommands", () => ({
   listMetadataSuggestionGroups: vi.fn(),
   listPerformers: vi.fn(),
   listTags: vi.fn(),
-  listUnprocessableVideoCandidates: vi.fn(),
   listUnprocessableVideoCandidatesByScanRoot: vi.fn(),
   listCatalogVideos: vi.fn(),
   listScanRoots: vi.fn(),
@@ -137,9 +135,6 @@ export const mockedOpenCatalogVideo = vi.mocked(openCatalogVideo);
 export const mockedRetryFailedPreviewStrip = vi.mocked(retryFailedPreviewStrip);
 export const mockedIgnoreFailedPreviewStrip = vi.mocked(ignoreFailedPreviewStrip);
 export const mockedListCatalogVideos = vi.mocked(listCatalogVideos);
-export const mockedListUnprocessableVideoCandidates = vi.mocked(
-  listUnprocessableVideoCandidates,
-);
 export const mockedListUnprocessableVideoCandidatesByScanRoot = vi.mocked(
   listUnprocessableVideoCandidatesByScanRoot,
 );
@@ -293,7 +288,6 @@ export function resetAppTestHarness() {
       isPaused: false,
     });
     mockedListCatalogVideos.mockResolvedValue([]);
-    mockedListUnprocessableVideoCandidates.mockResolvedValue([]);
     mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([]);
     mockedListScanRoots.mockResolvedValue([]);
     mockedAddScanRoot.mockImplementation(async (path) => ({

@@ -138,6 +138,7 @@ pub struct UnprocessableVideoCandidate {
 #[serde(rename_all = "camelCase")]
 pub struct UnprocessableVideoCandidateGroup {
     pub scan_root_path: String,
+    pub candidate_count: i64,
     pub candidates: Vec<UnprocessableVideoCandidate>,
 }
 

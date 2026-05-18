@@ -28,8 +28,6 @@ const openCatalogVideoContainingFolderCommand =
   "open_catalog_video_containing_folder";
 const startScanRootRefreshJobCommand = "start_scan_root_refresh_job";
 const cancelScanRootRefreshJobCommand = "cancel_scan_root_refresh_job";
-const listUnprocessableVideoCandidatesCommand =
-  "list_unprocessable_video_candidates";
 const listUnprocessableVideoCandidatesByScanRootCommand =
   "list_unprocessable_video_candidates_by_scan_root";
 const listFailedPreviewStripsCommand = "list_failed_preview_strips";
@@ -145,6 +143,7 @@ export interface UnprocessableVideoCandidate {
 
 export interface UnprocessableVideoCandidateGroup {
   scanRootPath: string;
+  candidateCount: number;
   candidates: UnprocessableVideoCandidate[];
 }
 
@@ -380,14 +379,6 @@ export async function startScanRootRefreshJob(
 
 export async function cancelScanRootRefreshJob(path: string): Promise<void> {
   return invoke<void>(cancelScanRootRefreshJobCommand, { path });
-}
-
-export async function listUnprocessableVideoCandidates(): Promise<
-  UnprocessableVideoCandidate[]
-> {
-  return invoke<UnprocessableVideoCandidate[]>(
-    listUnprocessableVideoCandidatesCommand,
-  );
 }
 
 export async function listUnprocessableVideoCandidatesByScanRoot(): Promise<

@@ -4,7 +4,6 @@ import type {
   FailedPreviewStrip,
   MetadataSuggestionGroup,
   PreviewStripQueueStatus,
-  UnprocessableVideoCandidate,
   UnprocessableVideoCandidateGroup,
 } from "../../tauriCommands";
 import {
@@ -30,8 +29,6 @@ export function useScanIssues({
     React.SetStateAction<PreviewStripQueueStatus | null>
   >;
 }) {
-  const [unprocessableVideoCandidates, setUnprocessableVideoCandidates] =
-    useState<UnprocessableVideoCandidate[]>([]);
   const [
     unprocessableVideoCandidateGroups,
     setUnprocessableVideoCandidateGroups,
@@ -59,11 +56,6 @@ export function useScanIssues({
       ]);
 
       setUnprocessableVideoCandidateGroups(storedUnprocessableVideoCandidateGroups);
-      setUnprocessableVideoCandidates(
-        unprocessableVideoCandidatesFromGroups(
-          storedUnprocessableVideoCandidateGroups,
-        ),
-      );
       setFailedPreviewStrips(storedFailedPreviewStrips);
       setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
       if (shouldClearStatusMessage) {
@@ -92,11 +84,6 @@ export function useScanIssues({
         if (canUpdateScanIssues) {
           setUnprocessableVideoCandidateGroups(
             storedUnprocessableVideoCandidateGroups,
-          );
-          setUnprocessableVideoCandidates(
-            unprocessableVideoCandidatesFromGroups(
-              storedUnprocessableVideoCandidateGroups,
-            ),
           );
           setFailedPreviewStrips(storedFailedPreviewStrips);
           setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
@@ -155,7 +142,6 @@ export function useScanIssues({
     scanIssuesStatusMessage,
     setScanIssuesStatusMessage,
     unprocessableVideoCandidateGroups,
-    unprocessableVideoCandidates,
   };
 }
 
@@ -163,11 +149,4 @@ export type {
   FailedPreviewStrip,
   MetadataSuggestionGroup,
   UnprocessableVideoCandidateGroup,
-  UnprocessableVideoCandidate,
 };
-
-function unprocessableVideoCandidatesFromGroups(
-  candidateGroups: UnprocessableVideoCandidateGroup[],
-) {
-  return candidateGroups.flatMap((candidateGroup) => candidateGroup.candidates);
-}

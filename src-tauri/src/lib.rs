@@ -14,8 +14,7 @@ use catalog::{
     Catalog, CatalogPerformer, CatalogTag, CatalogVideo, FailedPreviewStrip,
     FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, MetadataSuggestionGroup,
     PreviewStripRetryReason, ScanRoot, ScanRootInferenceRules, ScanRootRefreshProgress,
-    ScanRootRefreshStatus, UnprocessableVideoCandidate, UnprocessableVideoCandidateGroup,
-    VideoExtensionAllowlist,
+    ScanRootRefreshStatus, UnprocessableVideoCandidateGroup, VideoExtensionAllowlist,
 };
 use preview_generation::{
     generate_preview_strip_request, store_preview_strip_completion, PreviewGenerationRuntime,
@@ -679,18 +678,6 @@ fn failed_scan_root_refresh_progress_from_last(
 }
 
 #[tauri::command]
-fn list_unprocessable_video_candidates(
-    catalog_state: tauri::State<'_, CatalogState>,
-) -> Result<Vec<UnprocessableVideoCandidate>, String> {
-    let catalog = catalog_state
-        .catalog
-        .lock()
-        .map_err(|error| error.to_string())?;
-
-    catalog.list_unprocessable_video_candidates()
-}
-
-#[tauri::command]
 fn list_unprocessable_video_candidates_by_scan_root(
     catalog_state: tauri::State<'_, CatalogState>,
 ) -> Result<Vec<UnprocessableVideoCandidateGroup>, String> {
@@ -956,7 +943,6 @@ pub fn run() {
             save_ffmpeg_configuration,
             start_scan_root_refresh_job,
             cancel_scan_root_refresh_job,
-            list_unprocessable_video_candidates,
             list_unprocessable_video_candidates_by_scan_root,
             list_failed_preview_strips,
             list_metadata_suggestion_groups,

@@ -67,12 +67,9 @@ export function ScanRootsPanel({
                 onRequestScanRootRemoval={onRequestScanRootRemoval}
                 onSaveScanRootInferenceRules={onSaveScanRootInferenceRules}
                 scanRoot={scanRoot}
-                unprocessableVideoCandidates={
-                  unprocessableVideoCandidateGroups.find(
-                    (candidateGroup) =>
-                      candidateGroup.scanRootPath === scanRoot.path,
-                  )?.candidates ?? []
-                }
+                unprocessableVideoCandidateGroup={unprocessableVideoCandidateGroups.find(
+                  (candidateGroup) => candidateGroup.scanRootPath === scanRoot.path,
+                )}
               />
             ))}
           </Stack>

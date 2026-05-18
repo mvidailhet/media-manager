@@ -22,7 +22,6 @@ import {
   listMetadataSuggestionGroups,
   listPerformers,
   listTags,
-  listUnprocessableVideoCandidates,
   listUnprocessableVideoCandidatesByScanRoot,
   listCatalogVideos,
   listScanRoots,
@@ -230,33 +229,11 @@ describe("Tauri commands", () => {
     });
   });
 
-  it("calls the typed Rust command for Unprocessable Video Candidates", async () => {
-    mockedInvoke.mockResolvedValue([
-      {
-        path: "/Volumes/Archive/Videos/broken.mkv",
-        reason: "missing moov atom",
-        fileSizeBytes: 1024,
-      },
-    ]);
-
-    const candidates = await listUnprocessableVideoCandidates();
-
-    expect(candidates).toEqual([
-      {
-        path: "/Volumes/Archive/Videos/broken.mkv",
-        reason: "missing moov atom",
-        fileSizeBytes: 1024,
-      },
-    ]);
-    expect(mockedInvoke).toHaveBeenCalledWith(
-      "list_unprocessable_video_candidates",
-    );
-  });
-
   it("calls the typed Rust command for Unprocessable Video Candidates grouped by Scan Root", async () => {
     mockedInvoke.mockResolvedValue([
       {
         scanRootPath: "/Volumes/Archive/Videos",
+        candidateCount: 1,
         candidates: [
           {
             path: "/Volumes/Archive/Videos/broken.mkv",
@@ -272,6 +249,7 @@ describe("Tauri commands", () => {
     expect(candidateGroups).toEqual([
       {
         scanRootPath: "/Volumes/Archive/Videos",
+        candidateCount: 1,
         candidates: [
           {
             path: "/Volumes/Archive/Videos/broken.mkv",
