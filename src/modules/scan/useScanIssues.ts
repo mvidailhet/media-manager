@@ -5,12 +5,13 @@ import type {
   MetadataSuggestionGroup,
   PreviewStripQueueStatus,
   UnprocessableVideoCandidate,
+  UnprocessableVideoCandidateGroup,
 } from "../../tauriCommands";
 import {
   ignoreFailedPreviewStrip,
   listFailedPreviewStrips,
   listMetadataSuggestionGroups,
-  listUnprocessableVideoCandidates,
+  listUnprocessableVideoCandidatesByScanRoot,
   retryFailedPreviewStrip,
 } from "../../tauriCommands";
 import { errorMessage } from "../../shared/errors/errorMessage";
@@ -31,6 +32,10 @@ export function useScanIssues({
 }) {
   const [unprocessableVideoCandidates, setUnprocessableVideoCandidates] =
     useState<UnprocessableVideoCandidate[]>([]);
+  const [
+    unprocessableVideoCandidateGroups,
+    setUnprocessableVideoCandidateGroups,
+  ] = useState<UnprocessableVideoCandidateGroup[]>([]);
   const [failedPreviewStrips, setFailedPreviewStrips] = useState<
     FailedPreviewStrip[]
   >([]);
@@ -44,16 +49,21 @@ export function useScanIssues({
   async function refreshScanIssues(shouldClearStatusMessage = true) {
     try {
       const [
-        storedUnprocessableVideoCandidates,
+        storedUnprocessableVideoCandidateGroups,
         storedFailedPreviewStrips,
         storedMetadataSuggestionGroups,
       ] = await Promise.all([
-        listUnprocessableVideoCandidates(),
+        listUnprocessableVideoCandidatesByScanRoot(),
         listFailedPreviewStrips(),
         listMetadataSuggestionGroups(),
       ]);
 
-      setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
+      setUnprocessableVideoCandidateGroups(storedUnprocessableVideoCandidateGroups);
+      setUnprocessableVideoCandidates(
+        unprocessableVideoCandidatesFromGroups(
+          storedUnprocessableVideoCandidateGroups,
+        ),
+      );
       setFailedPreviewStrips(storedFailedPreviewStrips);
       setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
       if (shouldClearStatusMessage) {
@@ -70,17 +80,24 @@ export function useScanIssues({
     async function loadInitialScanIssues() {
       try {
         const [
-          storedUnprocessableVideoCandidates,
+          storedUnprocessableVideoCandidateGroups,
           storedFailedPreviewStrips,
           storedMetadataSuggestionGroups,
         ] = await Promise.all([
-          listUnprocessableVideoCandidates(),
+          listUnprocessableVideoCandidatesByScanRoot(),
           listFailedPreviewStrips(),
           listMetadataSuggestionGroups(),
         ]);
 
         if (canUpdateScanIssues) {
-          setUnprocessableVideoCandidates(storedUnprocessableVideoCandidates);
+          setUnprocessableVideoCandidateGroups(
+            storedUnprocessableVideoCandidateGroups,
+          );
+          setUnprocessableVideoCandidates(
+            unprocessableVideoCandidatesFromGroups(
+              storedUnprocessableVideoCandidateGroups,
+            ),
+          );
           setFailedPreviewStrips(storedFailedPreviewStrips);
           setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
           setScanIssuesStatusMessage("");
@@ -137,6 +154,7 @@ export function useScanIssues({
     retryFailedPreview,
     scanIssuesStatusMessage,
     setScanIssuesStatusMessage,
+    unprocessableVideoCandidateGroups,
     unprocessableVideoCandidates,
   };
 }
@@ -144,5 +162,12 @@ export function useScanIssues({
 export type {
   FailedPreviewStrip,
   MetadataSuggestionGroup,
+  UnprocessableVideoCandidateGroup,
   UnprocessableVideoCandidate,
 };
+
+function unprocessableVideoCandidatesFromGroups(
+  candidateGroups: UnprocessableVideoCandidateGroup[],
+) {
+  return candidateGroups.flatMap((candidateGroup) => candidateGroup.candidates);
+}

@@ -6,6 +6,7 @@ import type {
   PreviewStripQueueStatus,
   ScanRootRefreshJobProgress,
   UnprocessableVideoCandidate,
+  UnprocessableVideoCandidateGroup,
 } from "../../tauriCommands";
 import { PreviewGenerationView } from "./PreviewGenerationView/PreviewGenerationView";
 import { ScanIssuesPanel } from "./ScanIssuesPanel/ScanIssuesPanel";
@@ -40,6 +41,7 @@ export type ScanModuleProps = {
   scanRootsStatusMessage: string;
   scanTab: string | null;
   unavailableScanRoots: ScanRoot[];
+  unprocessableVideoCandidateGroups: UnprocessableVideoCandidateGroup[];
   unprocessableVideoCandidates: UnprocessableVideoCandidate[];
 };
 
@@ -72,6 +74,7 @@ export function ScanModule({
   scanRootsStatusMessage,
   scanTab,
   unavailableScanRoots,
+  unprocessableVideoCandidateGroups,
   unprocessableVideoCandidates,
 }: ScanModuleProps) {
   return (
@@ -104,6 +107,7 @@ export function ScanModule({
         <ScanRootsPanel
           scanRoots={scanRoots}
           scanRootsStatusMessage={scanRootsStatusMessage}
+          unprocessableVideoCandidateGroups={unprocessableVideoCandidateGroups}
           activeScanRootRefresh={activeScanRootRefresh}
           onCancelScanRootRefresh={onCancelScanRootRefresh}
           onChooseScanRootFolder={onChooseScanRootFolder}
@@ -118,7 +122,6 @@ export function ScanModule({
           missingVideos={missingVideos}
           scanIssuesStatusMessage={scanIssuesStatusMessage}
           unavailableScanRoots={unavailableScanRoots}
-          unprocessableVideoCandidates={unprocessableVideoCandidates}
           onRequestMissingVideoForget={onRequestMissingVideoForget}
         />
       </Tabs.Panel>

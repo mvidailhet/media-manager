@@ -28,6 +28,7 @@ import {
   mockedIgnoreFailedPreviewStrip,
   mockedListCatalogVideos,
   mockedListUnprocessableVideoCandidates,
+  mockedListUnprocessableVideoCandidatesByScanRoot,
   mockedListScanRoots,
   mockedAddScanRoot,
   mockedForgetCatalogVideo,
@@ -395,6 +396,18 @@ describe("Scan module", () => {
         fileSizeBytes: 1234,
       },
     ]);
+    mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
+      {
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidates: [
+          {
+            path: "/Volumes/Archive/Videos/broken.mkv",
+            reason: "missing moov atom",
+            fileSizeBytes: 2048,
+          },
+        ],
+      },
+    ]);
     mockedListFailedPreviewStrips.mockResolvedValue([
       {
         videoId: 7,
@@ -427,8 +440,8 @@ describe("Scan module", () => {
       within(scanIssues).getByText("/Volumes/Archive/Videos"),
     ).toBeInTheDocument();
     expect(
-      within(scanIssues).getByText("/Volumes/Archive/Videos/broken.mov"),
-    ).toBeInTheDocument();
+      within(scanIssues).queryByText("/Volumes/Archive/Videos/broken.mov"),
+    ).not.toBeInTheDocument();
     expect(
       within(scanIssues).queryByText("Broken Preview"),
     ).not.toBeInTheDocument();
@@ -798,7 +811,7 @@ describe("Scan module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("lists scan-related issues in Scan Issues", async () => {
+  it("lists only Missing Videos and Unavailable Scan Roots in Scan Issues", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -873,11 +886,89 @@ describe("Scan module", () => {
       within(scanIssues).getByText("/Volumes/Missing/Videos"),
     ).toBeInTheDocument();
     expect(
-      within(scanIssues).getByText("/Volumes/Archive/Videos/broken.mkv"),
+      within(scanIssues).queryByText("Unprocessable Video Candidates"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(scanIssues).queryByText("/Volumes/Archive/Videos/broken.mkv"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(scanIssues).queryByText("missing moov atom"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows each Scan Root card's Unprocessable Video Candidate count and capped details", async () => {
+    const allArchiveCandidates = Array.from({ length: 21 }, (_, candidateIndex) => ({
+      path: `/Volumes/Archive/Videos/broken-${candidateIndex + 1}.mkv`,
+      reason: "missing moov atom",
+      fileSizeBytes: 1_000_000 * (candidateIndex + 1),
+    }));
+
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Documentaries",
+      },
+    ]);
+    mockedListUnprocessableVideoCandidates.mockResolvedValue([
+      ...allArchiveCandidates,
+      {
+        path: "/Volumes/Documentaries/broken.mov",
+        reason: "unsupported codec",
+        fileSizeBytes: 4096,
+      },
+    ]);
+    mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
+      {
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidates: allArchiveCandidates,
+      },
+      {
+        scanRootPath: "/Volumes/Documentaries",
+        candidates: [
+          {
+            path: "/Volumes/Documentaries/broken.mov",
+            reason: "unsupported codec",
+            fileSizeBytes: 4096,
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openScanModule();
+
+    const scanRoots = await screen.findByLabelText("Scan Roots");
+    expect(
+      within(scanRoots).getByText("21 Unprocessable Video Candidates"),
     ).toBeInTheDocument();
     expect(
-      within(scanIssues).getByText("missing moov atom"),
+      within(scanRoots).getByText("1 Unprocessable Video Candidate"),
     ).toBeInTheDocument();
+    expect(
+      within(scanRoots).queryByText("/Volumes/Archive/Videos/broken-1.mkv"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(scanRoots).getByRole("button", {
+        name: "Show Unprocessable Video Candidates for /Volumes/Archive/Videos",
+      }),
+    );
+
+    expect(
+      within(scanRoots).getByText("/Volumes/Archive/Videos/broken-1.mkv"),
+    ).toBeInTheDocument();
+    expect(within(scanRoots).getAllByText("missing moov atom")[0]).toBeInTheDocument();
+    expect(within(scanRoots).getByText("1.0 MB")).toBeInTheDocument();
+    expect(
+      within(scanRoots).queryByText("/Volumes/Archive/Videos/broken-21.mkv"),
+    ).not.toBeInTheDocument();
+    expect(within(scanRoots).getByText("Showing 20 of 21")).toBeInTheDocument();
   });
   it("lists Failed Preview Strips in Preview Generation with retry and ignore actions", async () => {
     mockedListFailedPreviewStrips

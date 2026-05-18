@@ -102,6 +102,8 @@ export function useScanModuleController({
       scanRootsStatusMessage: scanRootsState.scanRootsStatusMessage,
       scanTab,
       unavailableScanRoots,
+      unprocessableVideoCandidateGroups:
+        scanIssues.unprocessableVideoCandidateGroups,
       unprocessableVideoCandidates: scanIssues.unprocessableVideoCandidates,
     },
     setScanIssuesStatusMessage: scanIssues.setScanIssuesStatusMessage,

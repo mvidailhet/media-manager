@@ -23,6 +23,7 @@ import {
   listPerformers,
   listTags,
   listUnprocessableVideoCandidates,
+  listUnprocessableVideoCandidatesByScanRoot,
   listCatalogVideos,
   listScanRoots,
   pausePreviewStripQueue,
@@ -249,6 +250,39 @@ describe("Tauri commands", () => {
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith(
       "list_unprocessable_video_candidates",
+    );
+  });
+
+  it("calls the typed Rust command for Unprocessable Video Candidates grouped by Scan Root", async () => {
+    mockedInvoke.mockResolvedValue([
+      {
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidates: [
+          {
+            path: "/Volumes/Archive/Videos/broken.mkv",
+            reason: "missing moov atom",
+            fileSizeBytes: 1024,
+          },
+        ],
+      },
+    ]);
+
+    const candidateGroups = await listUnprocessableVideoCandidatesByScanRoot();
+
+    expect(candidateGroups).toEqual([
+      {
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidates: [
+          {
+            path: "/Volumes/Archive/Videos/broken.mkv",
+            reason: "missing moov atom",
+            fileSizeBytes: 1024,
+          },
+        ],
+      },
+    ]);
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "list_unprocessable_video_candidates_by_scan_root",
     );
   });
 

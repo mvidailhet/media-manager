@@ -291,6 +291,56 @@ impl Catalog {
         Ok(unprocessable_video_candidates)
     }
 
+    pub fn list_unprocessable_video_candidates_by_scan_root(
+        &self,
+    ) -> Result<Vec<UnprocessableVideoCandidateGroup>, String> {
+        let mut statement = self
+            .database
+            .prepare(
+                "SELECT scan_roots.path, unprocessable_video_candidates.path, reason, file_size_bytes
+                 FROM unprocessable_video_candidates
+                 INNER JOIN scan_roots ON scan_roots.id = unprocessable_video_candidates.scan_root_id
+                 ORDER BY scan_roots.path, unprocessable_video_candidates.path",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let candidate_rows = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    UnprocessableVideoCandidate {
+                        path: row.get(1)?,
+                        reason: row.get(2)?,
+                        file_size_bytes: row.get(3)?,
+                    },
+                ))
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        let mut candidate_groups = Vec::new();
+        for (scan_root_path, candidate) in candidate_rows {
+            if candidate_groups
+                .last()
+                .is_none_or(|candidate_group: &UnprocessableVideoCandidateGroup| {
+                    candidate_group.scan_root_path != scan_root_path
+                })
+            {
+                candidate_groups.push(UnprocessableVideoCandidateGroup {
+                    scan_root_path: scan_root_path.clone(),
+                    candidates: Vec::new(),
+                });
+            }
+
+            if let Some(candidate_group) = candidate_groups.last_mut() {
+                candidate_group.candidates.push(candidate);
+            }
+        }
+
+        Ok(candidate_groups)
+    }
+
     fn store_scanned_video(
         &self,
         scan_root_id: i64,

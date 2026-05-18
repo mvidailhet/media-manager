@@ -423,6 +423,19 @@ fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_pro
             file_size_bytes: 6,
         }]
     );
+    assert_eq!(
+        catalog
+            .list_unprocessable_video_candidates_by_scan_root()
+            .expect("unprocessable candidates grouped by Scan Root"),
+        vec![crate::catalog::UnprocessableVideoCandidateGroup {
+            scan_root_path: scan_root.path,
+            candidates: vec![crate::catalog::UnprocessableVideoCandidate {
+                path: canonical_broken_video_path.to_string_lossy().into_owned(),
+                reason: "missing moov atom".to_string(),
+                file_size_bytes: 6,
+            }],
+        }]
+    );
 }
 
 #[test]
