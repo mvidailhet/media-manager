@@ -157,6 +157,7 @@ export function VideoDetailPanel({
           onCreateOrAttach={actions.createOrAttachTag}
           onDetach={actions.detachTag}
           selectedValues={tags}
+          metadataKind="tag"
           title="Tags"
           videoId={video.id}
         />
@@ -167,6 +168,7 @@ export function VideoDetailPanel({
           onCreateOrAttach={actions.createOrAttachPerformer}
           onDetach={actions.detachPerformer}
           selectedValues={performers}
+          metadataKind="performer"
           title="Performers"
           videoId={video.id}
         />

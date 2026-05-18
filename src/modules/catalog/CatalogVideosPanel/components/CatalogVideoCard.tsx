@@ -5,7 +5,7 @@ import type { CatalogVideo } from "../../../../tauriCommands";
 import type { CatalogVideoMetadata } from "../../catalogTypes";
 import { VideoPreview } from "../../components/VideoPreview/VideoPreview";
 import styles from "../../CatalogVideosPanel.module.css";
-import { MetadataBadges } from "./MetadataBadges";
+import { MetadataBadges } from "../../components/MetadataBadges";
 
 export function CatalogVideoCard({
   catalogVideo,
@@ -78,8 +78,18 @@ export function CatalogVideoCard({
           {catalogVideo.title}
         </Text>
 
-        <MetadataBadges label="Tags" items={tags} />
-        <MetadataBadges label="Performers" items={performers} />
+        <MetadataBadges
+          gap={4}
+          label="Tags"
+          items={tags}
+          metadataKind="tag"
+        />
+        <MetadataBadges
+          gap={4}
+          label="Performers"
+          items={performers}
+          metadataKind="performer"
+        />
       </Stack>
     </Paper>
   );

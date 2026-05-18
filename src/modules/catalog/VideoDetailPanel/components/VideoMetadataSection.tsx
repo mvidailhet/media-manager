@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import {
   ActionIcon,
-  Badge,
   Box,
   Button,
   Group,
@@ -18,6 +17,10 @@ import {
   findMetadataByName,
   normalizedMetadataName,
 } from "../../../../shared/metadata/metadataHelpers";
+import {
+  MetadataBadges,
+  type MetadataBadgeKind,
+} from "../../components/MetadataBadges";
 
 const metadataEditIconSize = 16;
 
@@ -30,6 +33,7 @@ export function VideoMetadataSection<TMetadata extends VideoMetadataValue>({
   onCreateOrAttach,
   onDetach,
   selectedValues,
+  metadataKind,
   title,
   videoId,
 }: {
@@ -39,6 +43,7 @@ export function VideoMetadataSection<TMetadata extends VideoMetadataValue>({
   onCreateOrAttach: (name: string) => void;
   onDetach: (value: TMetadata) => void;
   selectedValues: TMetadata[];
+  metadataKind: MetadataBadgeKind;
   title: string;
   videoId: number;
 }) {
@@ -155,13 +160,11 @@ export function VideoMetadataSection<TMetadata extends VideoMetadataValue>({
             onChange={changeSelectedNames}
           />
         ) : selectedValues.length > 0 ? (
-          <Group gap="xs">
-            {selectedValues.map((value) => (
-              <Badge key={value.id} variant="light">
-                {value.name}
-              </Badge>
-            ))}
-          </Group>
+          <MetadataBadges
+            items={selectedValues}
+            label={title}
+            metadataKind={metadataKind}
+          />
         ) : (
           <Text c="dimmed">{emptyLabel}</Text>
         )}

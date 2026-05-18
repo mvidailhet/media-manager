@@ -1278,7 +1278,7 @@ describe("Catalog module", () => {
     );
   });
 
-  it("shows selected Video Tags and Performers as metadata pills", async () => {
+  it("shows selected Video Tags and Performers as metadata Badges", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },
       { id: 5, name: "Archive" },

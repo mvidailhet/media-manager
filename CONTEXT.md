@@ -124,6 +124,10 @@ _Avoid_: Cloud sync, telemetry
 User-managed **Video** information stored by the app without relying on internet services.
 _Avoid_: Online metadata, cloud sync
 
+**Metadata Badge**:
+A Mantine `Badge` used to display a **Tag** or **Performer** in read-only metadata views.
+_Avoid_: Pill
+
 **Video Extension Allowlist**:
 A configurable list of file extensions considered candidates for **Video** discovery.
 _Avoid_: Supported codec list

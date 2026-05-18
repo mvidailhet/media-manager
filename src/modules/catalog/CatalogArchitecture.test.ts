@@ -7,7 +7,7 @@ import catalogModuleSource from "./CatalogModule.tsx?raw";
 import catalogVideoCardSource from "./CatalogVideosPanel/components/CatalogVideoCard.tsx?raw";
 import catalogVideoDurationFiltersSource from "./CatalogVideosPanel/catalogVideoDurationFilters.ts?raw";
 import catalogVideoFiltersPanelSource from "./CatalogVideosPanel/components/CatalogVideoFiltersPanel.tsx?raw";
-import metadataBadgesSource from "./CatalogVideosPanel/components/MetadataBadges.tsx?raw";
+import metadataBadgesSource from "./components/MetadataBadges.tsx?raw";
 import catalogVideosPanelSource from "./CatalogVideosPanel.tsx?raw";
 import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel.tsx?raw";
 import metadataSuggestionSourceSource from "./MetadataSuggestionsPanel/components/MetadataSuggestionSource.tsx?raw";
@@ -207,6 +207,9 @@ describe("Catalog module boundaries", () => {
 
     expect(videoDetailPanelSource).not.toBe("");
     expect(videoMetadataSectionSource).toMatch(/function VideoMetadataSection/);
+    expect(videoMetadataSectionSource).toMatch(
+      /from "\.\.\/\.\.\/components\/MetadataBadges"/,
+    );
     expect(videoDetailPanelSource).toMatch(
       /".\/components\/VideoMetadataSection"/,
     );
