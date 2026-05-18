@@ -1,33 +1,9 @@
-import { Box, Button, Group, Paper, Stack, Text, TextInput, Title } from "@mantine/core";
+import { Box, Button, Paper, Stack, Text, TextInput } from "@mantine/core";
+import type { FormEvent } from "react";
 
-import type { FfmpegToolsStatus } from "../../tauriCommands";
-import { AvailabilityBadge } from "../../shared/components/AvailabilityBadge";
-import { SectionHeader } from "../../shared/components/SectionHeader";
-import { WrappingCode } from "../../shared/components/WrappingCode";
-
-export function TauriStatusPanel({
-  localDesktopAppStatus,
-}: {
-  localDesktopAppStatus: string;
-}) {
-  return (
-    <Paper
-      component="section"
-      aria-label="Tauri command status"
-      p="md"
-      maw={420}
-    >
-      <Stack gap={8}>
-        <Text c="dimmed" fw={700} size="sm" tt="uppercase">
-          Tauri bridge
-        </Text>
-        <Text c="teal" fw={700}>
-          {localDesktopAppStatus}
-        </Text>
-      </Stack>
-    </Paper>
-  );
-}
+import type { FfmpegToolsStatus } from "../../../tauriCommands";
+import { SectionHeader } from "../../../shared/components/SectionHeader";
+import { FfmpegToolStatusCard } from "./components/FfmpegToolStatusCard";
 
 export function FfmpegStatusPanel({
   ffmpegPath,
@@ -44,7 +20,7 @@ export function FfmpegStatusPanel({
   ffprobePath: string;
   onFfmpegPathChange: (path: string) => void;
   onFfprobePathChange: (path: string) => void;
-  onSaveConfiguredFfmpegPaths: (event: React.FormEvent) => void;
+  onSaveConfiguredFfmpegPaths: (event: FormEvent) => void;
 }) {
   return (
     <Paper
@@ -92,33 +68,5 @@ export function FfmpegStatusPanel({
         </Box>
       </Stack>
     </Paper>
-  );
-}
-
-export function FfmpegToolStatusCard({
-  toolStatus,
-}: {
-  toolStatus: FfmpegToolsStatus["ffmpeg"];
-}) {
-  return (
-    <Group component="article" gap="md" justify="space-between" align="start">
-      <Box>
-        <Title order={3} size="h4">
-          {toolStatus.binaryName}
-        </Title>
-        <Text c="dimmed" lh={1.5}>
-          {toolStatus.statusMessage}
-        </Text>
-        {toolStatus.resolvedPath ? (
-          <WrappingCode mt={8}>
-            {toolStatus.resolvedPath}
-          </WrappingCode>
-        ) : null}
-      </Box>
-      <AvailabilityBadge
-        isAvailable={toolStatus.isAvailable}
-        missingLabel="Missing"
-      />
-    </Group>
   );
 }
