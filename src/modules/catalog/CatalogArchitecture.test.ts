@@ -7,8 +7,17 @@ import metadataSuggestionSourceSource from "./MetadataSuggestionsPanel/component
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
 
-const metadataSuggestionsPanelBarrelFiles = import.meta.glob(
+const metadataSuggestionsPanelTypeScriptBarrelFiles = import.meta.glob(
   "./MetadataSuggestionsPanel/index.ts",
+);
+const metadataSuggestionsPanelReactBarrelFiles = import.meta.glob(
+  "./MetadataSuggestionsPanel/index.tsx",
+);
+const metadataSuggestionsPanelNestedTypeScriptBarrelFiles = import.meta.glob(
+  "./MetadataSuggestionsPanel/**/index.ts",
+);
+const metadataSuggestionsPanelNestedReactBarrelFiles = import.meta.glob(
+  "./MetadataSuggestionsPanel/**/index.tsx",
 );
 
 describe("Catalog module boundaries", () => {
@@ -33,7 +42,14 @@ describe("Catalog module boundaries", () => {
     expect(metadataSuggestionsPanelFolder.pathname).toContain(
       "/src/modules/catalog/MetadataSuggestionsPanel",
     );
-    expect(Object.keys(metadataSuggestionsPanelBarrelFiles)).toHaveLength(0);
+    const metadataSuggestionsPanelBarrelFiles = [
+      ...Object.keys(metadataSuggestionsPanelTypeScriptBarrelFiles),
+      ...Object.keys(metadataSuggestionsPanelReactBarrelFiles),
+      ...Object.keys(metadataSuggestionsPanelNestedTypeScriptBarrelFiles),
+      ...Object.keys(metadataSuggestionsPanelNestedReactBarrelFiles),
+    ];
+
+    expect(metadataSuggestionsPanelBarrelFiles).toHaveLength(0);
     expect(metadataSuggestionsPanelSource).toMatch(/MetadataSuggestionSource/);
     expect(metadataSuggestionsPanelSource).not.toMatch(/useTree/);
     expect(metadataSuggestionsPanelSource).not.toMatch(/Tree\.NodeData/);
