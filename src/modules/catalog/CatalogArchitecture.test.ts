@@ -26,6 +26,40 @@ const metadataSuggestionsPanelBarrelFiles = import.meta.glob(
     query: "?raw",
   },
 );
+const videoDetailPanelBarrelFiles = import.meta.glob(
+  "./VideoDetailPanel/**/index.*",
+  {
+    eager: true,
+    query: "?raw",
+  },
+);
+const videoPreviewBarrelFiles = import.meta.glob(
+  "./components/VideoPreview/**/index.*",
+  {
+    eager: true,
+    query: "?raw",
+  },
+);
+const videoDetailPanelFiles = import.meta.glob("./VideoDetailPanel/**/*.tsx", {
+  eager: true,
+  query: "?raw",
+  import: "default",
+});
+const videoPreviewFiles = import.meta.glob(
+  "./components/VideoPreview/**/*.{ts,tsx,css}",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
+
+function rawSource(
+  files: Record<string, unknown>,
+  path: string,
+) {
+  return String(files[path] ?? "");
+}
 
 describe("Catalog module boundaries", () => {
   it("keeps Catalog data hooks behind the Catalog module boundary", () => {
@@ -80,5 +114,50 @@ describe("Catalog module boundaries", () => {
       /function formatDurationFilterValue/,
     );
     expect(Object.keys(catalogVideosPanelBarrelFiles)).toHaveLength(0);
+  });
+
+  it("keeps Video detail and preview pieces in focused files", () => {
+    const videoDetailPanelSource = rawSource(
+      videoDetailPanelFiles,
+      "./VideoDetailPanel/VideoDetailPanel.tsx",
+    );
+    const videoMetadataSectionSource = rawSource(
+      videoDetailPanelFiles,
+      "./VideoDetailPanel/components/VideoMetadataSection.tsx",
+    );
+    const videoPreviewSource = rawSource(
+      videoPreviewFiles,
+      "./components/VideoPreview/VideoPreview.tsx",
+    );
+    const previewStripSurfaceSource = rawSource(
+      videoPreviewFiles,
+      "./components/VideoPreview/components/PreviewStripSurface.tsx",
+    );
+    const previewStripFrameSource = rawSource(
+      videoPreviewFiles,
+      "./components/VideoPreview/previewStripFrame.ts",
+    );
+
+    expect(videoDetailPanelSource).not.toBe("");
+    expect(videoMetadataSectionSource).toMatch(/function VideoMetadataSection/);
+    expect(videoDetailPanelSource).toMatch(
+      /".\/components\/VideoMetadataSection"/,
+    );
+    expect(videoDetailPanelSource).not.toMatch(/function VideoMetadataSection/);
+    expect(videoDetailPanelSource).not.toMatch(/TagsInput/);
+
+    expect(videoPreviewSource).toMatch(/".\/components\/PreviewStripSurface"/);
+    expect(videoPreviewSource).toMatch(/".\/VideoPreview\.module\.css"/);
+    expect(videoPreviewSource).not.toMatch(/function PreviewStripSurface/);
+    expect(previewStripSurfaceSource).toMatch(/function PreviewStripSurface/);
+    expect(previewStripSurfaceSource).toMatch(/previewStripFramePosition/);
+    expect(previewStripFrameSource).toMatch(
+      /function previewStripFrameIndexFromPointer/,
+    );
+    expect(previewStripFrameSource).toMatch(
+      /function previewStripFramePosition/,
+    );
+    expect(Object.keys(videoDetailPanelBarrelFiles)).toHaveLength(0);
+    expect(Object.keys(videoPreviewBarrelFiles)).toHaveLength(0);
   });
 });
