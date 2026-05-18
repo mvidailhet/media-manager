@@ -1,4 +1,4 @@
-import { AppShell, Box, Tabs } from "@mantine/core";
+import { Box, Tabs } from "@mantine/core";
 import { IconBulb, IconStar } from "@tabler/icons-react";
 
 import type {
@@ -18,8 +18,6 @@ import type {
   CatalogView,
 } from "./catalogTypes";
 import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel";
-import { useSelectedVideoDetailActions } from "./useSelectedVideoDetailActions";
-import { VideoDetailPanel } from "./VideoDetailPanel/VideoDetailPanel";
 
 export type CatalogModuleProps = {
   availablePerformers: CatalogPerformer[];
@@ -181,56 +179,5 @@ export function CatalogModule({
         />
       ) : null}
     </>
-  );
-}
-
-export function CatalogModuleDetailAside({
-  availablePerformers,
-  availableTags,
-  detailStatusMessage,
-  onAttachPerformer,
-  onAttachTag,
-  onCreateOrAttachPerformer,
-  onCreateOrAttachTag,
-  onDetachPerformer,
-  onDetachTag,
-  onOpenVideo,
-  onOpenVideoContainingFolder,
-  onSaveTitle,
-  onSetSelectedFavorite,
-  selectedPerformers,
-  selectedTags,
-  selectedVideo,
-}: CatalogModuleProps) {
-  const selectedVideoDetailActions = useSelectedVideoDetailActions({
-    onAttachPerformer,
-    onAttachTag,
-    onCreateOrAttachPerformer,
-    onCreateOrAttachTag,
-    onDetachPerformer,
-    onDetachTag,
-    onOpenVideo,
-    onOpenVideoContainingFolder,
-    onSaveTitle,
-    onSetSelectedFavorite,
-    selectedVideo,
-  });
-
-  if (!selectedVideo) {
-    return null;
-  }
-
-  return (
-    <AppShell.Aside p="md">
-      <VideoDetailPanel
-        actions={selectedVideoDetailActions}
-        availablePerformers={availablePerformers}
-        availableTags={availableTags}
-        detailStatusMessage={detailStatusMessage}
-        performers={selectedPerformers}
-        tags={selectedTags}
-        video={selectedVideo}
-      />
-    </AppShell.Aside>
   );
 }

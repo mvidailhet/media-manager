@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import appSource from "../../App.tsx?raw";
+import batchMetadataEditPanelSource from "./BatchMetadataEditPanel.tsx?raw";
 import catalogModuleSource from "./CatalogModule.tsx?raw";
 import catalogVideoCardSource from "./CatalogVideosPanel/components/CatalogVideoCard.tsx?raw";
 import catalogVideoDurationFiltersSource from "./CatalogVideosPanel/catalogVideoDurationFilters.ts?raw";
@@ -17,6 +18,29 @@ const catalogVideosPanelBarrelFiles = import.meta.glob(
   {
     eager: true,
     query: "?raw",
+  },
+);
+const batchMetadataEditPanelBarrelFiles = import.meta.glob(
+  "./BatchMetadataEditPanel/**/index.*",
+  {
+    eager: true,
+    query: "?raw",
+  },
+);
+const batchMetadataEditPanelFiles = import.meta.glob(
+  "./BatchMetadataEditPanel/**/*.tsx",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
+const catalogModuleDetailAsideFiles = import.meta.glob(
+  "./CatalogModuleDetailAside.tsx",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
   },
 );
 const metadataSuggestionsPanelBarrelFiles = import.meta.glob(
@@ -114,6 +138,45 @@ describe("Catalog module boundaries", () => {
       /function formatDurationFilterValue/,
     );
     expect(Object.keys(catalogVideosPanelBarrelFiles)).toHaveLength(0);
+  });
+
+  it("keeps Batch Metadata Edit actions in a focused file", () => {
+    const batchMetadataActionsSource = rawSource(
+      batchMetadataEditPanelFiles,
+      "./BatchMetadataEditPanel/components/BatchMetadataActions.tsx",
+    );
+
+    expect(batchMetadataActionsSource).not.toBe("");
+    expect(batchMetadataActionsSource).toMatch(/function BatchMetadataActions/);
+    expect(batchMetadataActionsSource).toMatch(/findMetadataByName/);
+    expect(batchMetadataActionsSource).toMatch(/findNearMetadataMatch/);
+    expect(batchMetadataEditPanelSource).toMatch(
+      /".\/BatchMetadataEditPanel\/components\/BatchMetadataActions"/,
+    );
+    expect(batchMetadataEditPanelSource).not.toMatch(
+      /function BatchMetadataActions/,
+    );
+    expect(Object.keys(batchMetadataEditPanelBarrelFiles)).toHaveLength(0);
+  });
+
+  it("keeps the Catalog detail aside in a focused file imported directly by App", () => {
+    const catalogModuleDetailAsideSource = rawSource(
+      catalogModuleDetailAsideFiles,
+      "./CatalogModuleDetailAside.tsx",
+    );
+
+    expect(catalogModuleDetailAsideSource).not.toBe("");
+    expect(catalogModuleDetailAsideSource).toMatch(
+      /function CatalogModuleDetailAside/,
+    );
+    expect(catalogModuleDetailAsideSource).toMatch(
+      /useSelectedVideoDetailActions/,
+    );
+    expect(catalogModuleDetailAsideSource).toMatch(/VideoDetailPanel/);
+    expect(catalogModuleSource).not.toMatch(/function CatalogModuleDetailAside/);
+    expect(appSource).toMatch(
+      /from "\.\/modules\/catalog\/CatalogModuleDetailAside"/,
+    );
   });
 
   it("keeps Video detail and preview pieces in focused files", () => {
