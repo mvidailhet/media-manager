@@ -6,9 +6,9 @@ import type {
   PreviewStripQueueStatus,
   UnprocessableVideoCandidate,
 } from "../../tauriCommands";
-import { PreviewGenerationView } from "./PreviewGenerationView";
-import { ScanIssuesPanel } from "./ScanIssuesPanel";
-import { ScanRootsPanel } from "./ScanRootsPanel";
+import { PreviewGenerationView } from "./PreviewGenerationView/PreviewGenerationView";
+import { ScanIssuesPanel } from "./ScanIssuesPanel/ScanIssuesPanel";
+import { ScanRootsPanel } from "./ScanRootsPanel/ScanRootsPanel";
 import type { ScanRoot } from "./useScanRoots";
 
 export type ScanModuleProps = {
