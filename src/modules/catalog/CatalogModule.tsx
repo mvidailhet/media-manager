@@ -17,7 +17,7 @@ import type {
   CatalogVideoSort,
   CatalogView,
 } from "./catalogTypes";
-import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel";
+import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel";
 import { useSelectedVideoDetailActions } from "./useSelectedVideoDetailActions";
 import { VideoDetailPanel } from "./VideoDetailPanel";
 
