@@ -9,6 +9,14 @@ import metadataBadgesSource from "./CatalogVideosPanel/components/MetadataBadges
 import catalogVideosPanelSource from "./CatalogVideosPanel.tsx?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
 
+const catalogVideosPanelBarrelFiles = import.meta.glob(
+  "./CatalogVideosPanel/index.*",
+  {
+    eager: true,
+    query: "?raw",
+  },
+);
+
 describe("Catalog module boundaries", () => {
   it("keeps Catalog data hooks behind the Catalog module boundary", () => {
     expect(appSource).not.toMatch(/useCatalogVideos/);
@@ -42,5 +50,6 @@ describe("Catalog module boundaries", () => {
     expect(catalogVideosPanelSource).not.toMatch(
       /function formatDurationFilterValue/,
     );
+    expect(Object.keys(catalogVideosPanelBarrelFiles)).toHaveLength(0);
   });
 });
