@@ -22,12 +22,12 @@ import {
 } from "./modules/catalog/CatalogModule";
 import type { CatalogVideo } from "./modules/catalog/useCatalogModuleController";
 import { useCatalogModuleController } from "./modules/catalog/useCatalogModuleController";
-import { ScanModule } from "./modules/scan/ScanModule";
-import type {
-  ScanRoot,
-  ScanRootRemovalPolicy,
-} from "./modules/scan/useScanModuleController";
-import { useScanModuleController } from "./modules/scan/useScanModuleController";
+import {
+  ScanModule,
+  type ScanRoot,
+  type ScanRootRemovalPolicy,
+  useScanModuleController,
+} from "./modules/scan";
 import {
   SettingsModule,
   useSettingsModuleController,
