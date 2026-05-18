@@ -4,6 +4,7 @@ import type {
   CatalogVideo,
   FailedPreviewStrip,
   PreviewStripQueueStatus,
+  ScanRootRefreshJobProgress,
   UnprocessableVideoCandidate,
 } from "../../tauriCommands";
 import { PreviewGenerationView } from "./PreviewGenerationView/PreviewGenerationView";
@@ -16,10 +17,11 @@ export type ScanModuleProps = {
   generatedPreviewStripCount: number;
   generatingPreviewStripTitle?: string;
   missingVideos: CatalogVideo[];
+  activeScanRootRefresh: ScanRootRefreshJobProgress | null;
+  onCancelScanRootRefresh: (scanRoot: ScanRoot) => void;
   onChooseScanRootFolder: () => void;
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   onPausePreviewStripQueue: () => void;
-  onRefreshEveryScanRoot: () => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
@@ -50,10 +52,11 @@ export function ScanModule({
   generatedPreviewStripCount,
   generatingPreviewStripTitle,
   missingVideos,
+  activeScanRootRefresh,
+  onCancelScanRootRefresh,
   onChooseScanRootFolder,
   onIgnoreFailedPreview,
   onPausePreviewStripQueue,
-  onRefreshEveryScanRoot,
   onRefreshSelectedScanRoot,
   onRequestMissingVideoForget,
   onRequestScanRootRemoval,
@@ -101,8 +104,9 @@ export function ScanModule({
         <ScanRootsPanel
           scanRoots={scanRoots}
           scanRootsStatusMessage={scanRootsStatusMessage}
+          activeScanRootRefresh={activeScanRootRefresh}
+          onCancelScanRootRefresh={onCancelScanRootRefresh}
           onChooseScanRootFolder={onChooseScanRootFolder}
-          onRefreshEveryScanRoot={onRefreshEveryScanRoot}
           onRefreshSelectedScanRoot={onRefreshSelectedScanRoot}
           onRequestScanRootRemoval={onRequestScanRootRemoval}
           onSaveScanRootInferenceRules={onSaveScanRootInferenceRules}

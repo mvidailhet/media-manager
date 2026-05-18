@@ -13,15 +13,15 @@ use std::{
 use catalog::{
     Catalog, CatalogPerformer, CatalogTag, CatalogVideo, FailedPreviewStrip,
     FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, MetadataSuggestionGroup,
-    PreviewStripRetryReason, ScanRoot, ScanRootInferenceRules, ScanRootRefreshSummary,
-    UnprocessableVideoCandidate, VideoExtensionAllowlist,
+    PreviewStripRetryReason, ScanRoot, ScanRootInferenceRules, ScanRootRefreshProgress,
+    ScanRootRefreshStatus, UnprocessableVideoCandidate, VideoExtensionAllowlist,
 };
 use preview_generation::{
     generate_preview_strip_request, store_preview_strip_completion, PreviewGenerationRuntime,
     PreviewGenerationStart, PreviewGenerationStatus,
 };
 use serde::Deserialize;
-use tauri::{Manager, WindowEvent};
+use tauri::{Emitter, Manager, WindowEvent};
 use tooling::{FfmpegConfiguration, FfmpegToolsStatus};
 
 const LOCAL_DESKTOP_APP_STATUS: &str = "Rust command online";
@@ -29,7 +29,69 @@ const CATALOG_DATABASE_FILENAME: &str = "catalog.sqlite3";
 const PREVIEW_STRIP_CACHE_FOLDER_NAME: &str = "preview-strips";
 
 struct CatalogState {
-    catalog: Mutex<Catalog>,
+    catalog: Arc<Mutex<Catalog>>,
+}
+
+struct ScanRootRefreshRuntime {
+    active_job: Mutex<Option<ScanRootRefreshJob>>,
+}
+
+struct ScanRootRefreshJob {
+    scan_root_path: String,
+    cancellation_requested: Arc<std::sync::atomic::AtomicBool>,
+}
+
+impl ScanRootRefreshRuntime {
+    fn idle() -> Self {
+        Self {
+            active_job: Mutex::new(None),
+        }
+    }
+
+    fn start(&self, scan_root_path: &str) -> Result<Arc<std::sync::atomic::AtomicBool>, String> {
+        let mut active_job = self.active_job.lock().map_err(|error| error.to_string())?;
+
+        if active_job.is_some() {
+            return Err("A Scan Root refresh is already running".to_string());
+        }
+
+        let cancellation_requested = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        *active_job = Some(ScanRootRefreshJob {
+            scan_root_path: scan_root_path.to_string(),
+            cancellation_requested: Arc::clone(&cancellation_requested),
+        });
+
+        Ok(cancellation_requested)
+    }
+
+    fn request_cancel(&self, scan_root_path: &str) -> Result<(), String> {
+        let active_job = self.active_job.lock().map_err(|error| error.to_string())?;
+        let Some(active_job) = active_job.as_ref() else {
+            return Err("No Scan Root refresh is running".to_string());
+        };
+
+        if active_job.scan_root_path != scan_root_path {
+            return Err("A different Scan Root refresh is running".to_string());
+        }
+
+        active_job
+            .cancellation_requested
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        Ok(())
+    }
+
+    fn finish(&self, scan_root_path: &str) {
+        let Ok(mut active_job) = self.active_job.lock() else {
+            return;
+        };
+
+        if active_job
+            .as_ref()
+            .is_some_and(|job| job.scan_root_path == scan_root_path)
+        {
+            *active_job = None;
+        }
+    }
 }
 
 fn local_desktop_app_status() -> &'static str {
@@ -50,11 +112,12 @@ fn initialize_catalog(app: &tauri::App) -> Result<(), String> {
     let catalog_path = catalog_path(app)?;
     let catalog = Catalog::open(&catalog_path)?;
     let catalog_state = CatalogState {
-        catalog: Mutex::new(catalog),
+        catalog: Arc::new(Mutex::new(catalog)),
     };
 
     app.manage(catalog_state);
     app.manage(PreviewGenerationRuntime::paused());
+    app.manage(ScanRootRefreshRuntime::idle());
 
     Ok(())
 }
@@ -507,88 +570,111 @@ fn save_ffmpeg_configuration(
 }
 
 #[tauri::command]
-fn refresh_scan_root(
+fn start_scan_root_refresh_job(
     app: tauri::AppHandle,
     catalog_state: tauri::State<'_, CatalogState>,
     preview_generation_runtime: tauri::State<'_, PreviewGenerationRuntime>,
+    scan_root_refresh_runtime: tauri::State<'_, ScanRootRefreshRuntime>,
     path: String,
     video_extension_allowlist: Option<VideoExtensionAllowlist>,
-) -> Result<ScanRootRefreshSummary, String> {
+) -> Result<(), String> {
     pause_preview_strip_queue_state(&preview_generation_runtime)?;
-
-    {
-        let catalog = catalog_state
-            .catalog
-            .lock()
-            .map_err(|error| error.to_string())?;
-        if let Some(refresh_summary) = catalog.refresh_scan_root_if_unreachable(&path)? {
-            return Ok(refresh_summary);
-        }
-    }
-
     let ffprobe_path = tooling::configured_or_discovered_ffprobe_path(&app)?;
-    let video_file_probe = FfprobeVideoFileProbe::new(ffprobe_path);
+    let cancellation_requested = scan_root_refresh_runtime.start(&path)?;
     let video_extension_allowlist = video_extension_allowlist.unwrap_or_default();
-    let catalog = catalog_state
-        .catalog
-        .lock()
-        .map_err(|error| error.to_string())?;
+    let catalog = Arc::clone(&catalog_state.inner().catalog);
+    let app_handle = app.clone();
+    let scan_root_path = path.clone();
 
-    catalog.refresh_scan_root(&path, &video_file_probe, &video_extension_allowlist)
-}
+    thread::spawn(move || {
+        let video_file_probe = FfprobeVideoFileProbe::new(ffprobe_path);
+        let catalog = catalog.lock().map_err(|error| error.to_string());
 
-#[tauri::command]
-fn refresh_all_scan_roots(
-    app: tauri::AppHandle,
-    catalog_state: tauri::State<'_, CatalogState>,
-    preview_generation_runtime: tauri::State<'_, PreviewGenerationRuntime>,
-    video_extension_allowlist: Option<VideoExtensionAllowlist>,
-) -> Result<ScanRootRefreshSummary, String> {
-    pause_preview_strip_queue_state(&preview_generation_runtime)?;
+        match catalog {
+            Ok(catalog) => {
+                let last_progress = Arc::new(Mutex::new(None::<ScanRootRefreshProgress>));
+                let emitted_progress = Arc::clone(&last_progress);
+                let refresh_result = catalog.refresh_scan_root_with_progress(
+                    &scan_root_path,
+                    &video_file_probe,
+                    &video_extension_allowlist,
+                    || cancellation_requested.load(std::sync::atomic::Ordering::SeqCst),
+                    |progress| {
+                        if let Ok(mut last_progress) = emitted_progress.lock() {
+                            *last_progress = Some(progress.clone());
+                        }
+                        emit_scan_root_refresh_progress(&app_handle, progress);
+                    },
+                );
 
-    let scan_roots = {
-        let catalog = catalog_state
-            .catalog
-            .lock()
-            .map_err(|error| error.to_string())?;
-        catalog.list_scan_roots()?
-    };
-    let has_reachable_scan_root = scan_roots
-        .iter()
-        .any(|scan_root| Path::new(&scan_root.path).is_dir());
-
-    if !has_reachable_scan_root {
-        let catalog = catalog_state
-            .catalog
-            .lock()
-            .map_err(|error| error.to_string())?;
-        let mut refresh_summary = ScanRootRefreshSummary {
-            scanned_video_count: 0,
-            unprocessable_candidate_count: 0,
-        };
-
-        for scan_root in scan_roots {
-            if let Some(scan_root_refresh_summary) =
-                catalog.refresh_scan_root_if_unreachable(&scan_root.path)?
-            {
-                refresh_summary.scanned_video_count +=
-                    scan_root_refresh_summary.scanned_video_count;
-                refresh_summary.unprocessable_candidate_count +=
-                    scan_root_refresh_summary.unprocessable_candidate_count;
+                if let Err(error) = refresh_result {
+                    let failed_progress = last_progress
+                        .lock()
+                        .ok()
+                        .and_then(|last_progress| last_progress.clone())
+                        .map(|last_progress| {
+                            failed_scan_root_refresh_progress_from_last(
+                                last_progress,
+                                error.clone(),
+                            )
+                        })
+                        .unwrap_or_else(|| {
+                            failed_scan_root_refresh_progress(&scan_root_path, error)
+                        });
+                    emit_scan_root_refresh_progress(&app_handle, failed_progress);
+                }
+            }
+            Err(error) => {
+                emit_scan_root_refresh_progress(
+                    &app_handle,
+                    failed_scan_root_refresh_progress(&scan_root_path, error),
+                );
             }
         }
 
-        return Ok(refresh_summary);
-    }
+        let scan_root_refresh_runtime = app_handle.state::<ScanRootRefreshRuntime>();
+        scan_root_refresh_runtime.finish(&scan_root_path);
+    });
 
-    let ffprobe_path = tooling::configured_or_discovered_ffprobe_path(&app)?;
-    let video_file_probe = FfprobeVideoFileProbe::new(ffprobe_path);
-    let video_extension_allowlist = video_extension_allowlist.unwrap_or_default();
-    let catalog = catalog_state
-        .catalog
-        .lock()
-        .map_err(|error| error.to_string())?;
-    catalog.refresh_all_scan_roots(&video_file_probe, &video_extension_allowlist)
+    Ok(())
+}
+
+#[tauri::command]
+fn cancel_scan_root_refresh_job(
+    scan_root_refresh_runtime: tauri::State<'_, ScanRootRefreshRuntime>,
+    path: String,
+) -> Result<(), String> {
+    scan_root_refresh_runtime.request_cancel(&path)
+}
+
+fn emit_scan_root_refresh_progress(app: &tauri::AppHandle, progress: ScanRootRefreshProgress) {
+    let _ = app.emit("scan-root-refresh-progress", progress);
+}
+
+fn failed_scan_root_refresh_progress(
+    scan_root_path: &str,
+    message: String,
+) -> ScanRootRefreshProgress {
+    ScanRootRefreshProgress {
+        scan_root_path: scan_root_path.to_string(),
+        status: ScanRootRefreshStatus::Failed,
+        processed_video_candidate_count: 0,
+        total_video_candidate_count: None,
+        scanned_video_count: 0,
+        unprocessable_candidate_count: 0,
+        message: Some(message),
+    }
+}
+
+fn failed_scan_root_refresh_progress_from_last(
+    last_progress: ScanRootRefreshProgress,
+    message: String,
+) -> ScanRootRefreshProgress {
+    ScanRootRefreshProgress {
+        status: ScanRootRefreshStatus::Failed,
+        message: Some(message),
+        ..last_progress
+    }
 }
 
 #[tauri::command]
@@ -855,8 +941,8 @@ pub fn run() {
             open_catalog_video_containing_folder,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
-            refresh_scan_root,
-            refresh_all_scan_roots,
+            start_scan_root_refresh_job,
+            cancel_scan_root_refresh_job,
             list_unprocessable_video_candidates,
             list_failed_preview_strips,
             list_metadata_suggestion_groups,

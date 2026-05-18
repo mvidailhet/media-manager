@@ -26,8 +26,8 @@ const setVideoFavoriteCommand = "set_video_favorite";
 const openCatalogVideoCommand = "open_catalog_video";
 const openCatalogVideoContainingFolderCommand =
   "open_catalog_video_containing_folder";
-const refreshScanRootCommand = "refresh_scan_root";
-const refreshAllScanRootsCommand = "refresh_all_scan_roots";
+const startScanRootRefreshJobCommand = "start_scan_root_refresh_job";
+const cancelScanRootRefreshJobCommand = "cancel_scan_root_refresh_job";
 const listUnprocessableVideoCandidatesCommand =
   "list_unprocessable_video_candidates";
 const listFailedPreviewStripsCommand = "list_failed_preview_strips";
@@ -102,6 +102,24 @@ export interface ExactYearRange {
 export interface ScanRootRefreshSummary {
   scannedVideoCount: number;
   unprocessableCandidateCount: number;
+}
+
+export type ScanRootRefreshJobStatus =
+  | "discovery"
+  | "scanning"
+  | "metadataSuggestionUpdate"
+  | "complete"
+  | "cancelled"
+  | "failed";
+
+export interface ScanRootRefreshJobProgress {
+  scanRootPath: string;
+  status: ScanRootRefreshJobStatus;
+  processedVideoCandidateCount: number;
+  totalVideoCandidateCount: number | null;
+  scannedVideoCount: number;
+  unprocessableCandidateCount: number;
+  message: string | null;
 }
 
 export interface PreviewStripGenerationSummary {
@@ -343,22 +361,18 @@ export async function openCatalogVideoContainingFolder(
   return invoke<void>(openCatalogVideoContainingFolderCommand, { videoId });
 }
 
-export async function refreshScanRoot(
+export async function startScanRootRefreshJob(
   path: string,
   videoExtensionAllowlist?: VideoExtensionAllowlist,
-): Promise<ScanRootRefreshSummary> {
-  return invoke<ScanRootRefreshSummary>(refreshScanRootCommand, {
+): Promise<void> {
+  return invoke<void>(startScanRootRefreshJobCommand, {
     path,
     videoExtensionAllowlist: videoExtensionAllowlist ?? null,
   });
 }
 
-export async function refreshAllScanRoots(
-  videoExtensionAllowlist?: VideoExtensionAllowlist,
-): Promise<ScanRootRefreshSummary> {
-  return invoke<ScanRootRefreshSummary>(refreshAllScanRootsCommand, {
-    videoExtensionAllowlist: videoExtensionAllowlist ?? null,
-  });
+export async function cancelScanRootRefreshJob(path: string): Promise<void> {
+  return invoke<void>(cancelScanRootRefreshJobCommand, { path });
 }
 
 export async function listUnprocessableVideoCandidates(): Promise<

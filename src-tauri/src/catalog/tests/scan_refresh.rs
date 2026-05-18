@@ -426,6 +426,104 @@ fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_pro
 }
 
 #[test]
+fn cancelled_scan_root_refresh_keeps_processed_results_without_cleanup_or_suggestions() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let family_folder = movies_root.join("Family");
+    std::fs::create_dir_all(&family_folder).expect("family folder exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let family_trip_path = family_folder.join("family-trip.mp4");
+    let city_walk_path = family_folder.join("city-walk.mp4");
+    std::fs::write(&family_trip_path, "valid video bytes").expect("valid video exists");
+    std::fs::write(&city_walk_path, "more valid video bytes").expect("second video exists");
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+
+    let refresh_summary = catalog
+        .refresh_scan_root_until_cancelled(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+            1,
+        )
+        .expect("scan root refresh cancels cleanly");
+
+    assert_eq!(
+        refresh_summary,
+        crate::catalog::ScanRootRefreshSummary {
+            scanned_video_count: 1,
+            unprocessable_candidate_count: 0,
+        }
+    );
+    assert_eq!(
+        catalog.listed_videos().expect("stored videos list").len(),
+        1
+    );
+    assert_eq!(
+        metadata_suggestions(&catalog.database),
+        Vec::<(String, String)>::new()
+    );
+}
+
+#[test]
+fn cancelling_after_all_candidates_still_skips_stale_cleanup_and_suggestions() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let family_folder = movies_root.join("Family");
+    std::fs::create_dir_all(&family_folder).expect("family folder exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let family_trip_path = family_folder.join("family-trip.mp4");
+    let city_walk_path = family_folder.join("city-walk.mp4");
+    std::fs::write(&family_trip_path, "valid video bytes").expect("valid video exists");
+    std::fs::write(&city_walk_path, "more valid video bytes").expect("second video exists");
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("initial scan root refreshes");
+    std::fs::remove_file(&city_walk_path).expect("second video disappears");
+
+    let refresh_summary = catalog
+        .refresh_scan_root_until_cancelled(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+            1,
+        )
+        .expect("scan root refresh cancels after processing all visible candidates");
+
+    assert_eq!(
+        refresh_summary,
+        crate::catalog::ScanRootRefreshSummary {
+            scanned_video_count: 1,
+            unprocessable_candidate_count: 0,
+        }
+    );
+    assert_eq!(
+        catalog.listed_videos().expect("stored videos list").len(),
+        2
+    );
+    assert_eq!(
+        metadata_suggestions(&catalog.database),
+        vec![
+            ("Family".to_string(), "tag".to_string()),
+            ("Family".to_string(), "tag".to_string()),
+        ]
+    );
+}
+
+#[test]
 fn refreshing_a_scan_root_removes_file_locations_that_are_no_longer_present() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");

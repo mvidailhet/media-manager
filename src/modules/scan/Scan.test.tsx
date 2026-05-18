@@ -36,8 +36,9 @@ import {
   mockedProcessNextPreviewStripQueueItem,
   mockedRemoveScanRoot,
   mockedResumePreviewStripQueue,
-  mockedRefreshAllScanRoots,
-  mockedRefreshScanRoot,
+  mockedCancelScanRootRefreshJob,
+  mockedListen,
+  mockedStartScanRootRefreshJob,
   mockedUpdateScanRootInferenceRules,
   availableFfmpegToolsStatus,
   pendingPreviewStrip,
@@ -549,12 +550,10 @@ describe("Scan module", () => {
     });
   });
 
-  it("adds a Scan Root through the folder picker and scans it", async () => {
+  it("adds a Scan Root through the folder picker and starts a background scan immediately", async () => {
     mockedOpen.mockResolvedValue("/Volumes/Archive/Videos");
-    mockedRefreshScanRoot.mockResolvedValue({
-      scannedVideoCount: 2,
-      unprocessableCandidateCount: 1,
-    });
+    const scanStart = deferredPromise<void>();
+    mockedStartScanRootRefreshJob.mockReturnValue(scanStart.promise);
 
     renderApp();
 
@@ -571,17 +570,89 @@ describe("Scan module", () => {
     await waitFor(() => {
       expect(mockedAddScanRoot).toHaveBeenCalledWith("/Volumes/Archive/Videos");
     });
-    expect(mockedRefreshScanRoot).toHaveBeenCalledWith(
-      "/Volumes/Archive/Videos",
-    );
     expect(
       await screen.findByText("/Volumes/Archive/Videos"),
     ).toBeInTheDocument();
-    expect(
-      await screen.findByText(
-        "2 Videos scanned, 1 Unprocessable Video Candidates",
-      ),
-    ).toBeInTheDocument();
+    expect(mockedStartScanRootRefreshJob).toHaveBeenCalledWith(
+      "/Volumes/Archive/Videos",
+    );
+  });
+
+  it("shows live Scan Root refresh progress and disables conflicting actions", async () => {
+    let scanRootRefreshEvent:
+      | ((event: {
+          payload: {
+            scanRootPath: string;
+            status: string;
+            processedVideoCandidateCount: number;
+            totalVideoCandidateCount: number | null;
+            scannedVideoCount: number;
+            unprocessableCandidateCount: number;
+          };
+        }) => void)
+      | undefined;
+    mockedListen.mockImplementation(async (_eventName, eventHandler) => {
+      scanRootRefreshEvent = eventHandler as typeof scanRootRefreshEvent;
+      return () => undefined;
+    });
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/More Videos",
+      },
+    ]);
+
+    renderApp();
+    await openScanModule();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Show Scan Root settings for /Volumes/Archive/Videos",
+      }),
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Refresh Scan Root /Volumes/Archive/Videos",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedStartScanRootRefreshJob).toHaveBeenCalledWith(
+        "/Volumes/Archive/Videos",
+      );
+    });
+    expect(screen.getByRole("button", { name: "Choose folder" })).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: /Refresh Scan Root/ })[1]).toBeDisabled();
+    expect(screen.getAllByRole("button", { name: "Remove" })[0]).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Save Inference Rules" })).toBeDisabled();
+
+    scanRootRefreshEvent?.({
+      payload: {
+        scanRootPath: "/Volumes/Archive/Videos",
+        status: "scanning",
+        processedVideoCandidateCount: 1,
+        totalVideoCandidateCount: 3,
+        scannedVideoCount: 1,
+        unprocessableCandidateCount: 0,
+      },
+    });
+
+    expect(await screen.findByText("Scanning")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 video candidates processed")).toBeInTheDocument();
+    expect(screen.getByText("1 Video scanned")).toBeInTheDocument();
+    expect(screen.getByText("0 Scan Issues")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel scan" }));
+
+    expect(mockedCancelScanRootRefreshJob).toHaveBeenCalledWith(
+      "/Volumes/Archive/Videos",
+    );
   });
 
   it("shows a clear message when the folder picker cannot open", async () => {
@@ -677,10 +748,6 @@ describe("Scan module", () => {
         path: "/Volumes/Archive/Videos",
       },
     ]);
-    mockedRefreshScanRoot.mockResolvedValue({
-      scannedVideoCount: 2,
-      unprocessableCandidateCount: 1,
-    });
     mockedListCatalogVideos.mockResolvedValueOnce([]).mockResolvedValueOnce([
       {
         id: 1,
@@ -701,33 +768,23 @@ describe("Scan module", () => {
 
     await openScanModule();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Refresh" }));
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Refresh Scan Root /Volumes/Archive/Videos",
+      }),
+    );
 
-    expect(mockedRefreshScanRoot).toHaveBeenCalledWith(
+    expect(mockedStartScanRootRefreshJob).toHaveBeenCalledWith(
       "/Volumes/Archive/Videos",
     );
-    expect(
-      await screen.findByText(
-        "2 Videos scanned, 1 Unprocessable Video Candidates",
-      ),
-    ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
-    expect(await screen.findByText("Family Trip")).toBeInTheDocument();
   });
 
-  it("refreshes all Scan Roots and reloads availability", async () => {
+  it("does not show Refresh all Scan Roots", async () => {
     mockedListScanRoots
-      .mockResolvedValueOnce([
+      .mockResolvedValue([
         {
           inferenceRules: defaultInferenceRules,
           isAvailable: true,
-          path: "/Volumes/Archive/Videos",
-        },
-      ])
-      .mockResolvedValueOnce([
-        {
-          inferenceRules: defaultInferenceRules,
-          isAvailable: false,
           path: "/Volumes/Archive/Videos",
         },
       ]);
@@ -736,12 +793,9 @@ describe("Scan module", () => {
 
     await openScanModule();
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: "Refresh all Scan Roots" }),
-    );
-
-    expect(mockedRefreshAllScanRoots).toHaveBeenCalled();
-    expect(await screen.findByText("Unavailable")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Refresh all Scan Roots" }),
+    ).not.toBeInTheDocument();
   });
 
   it("lists scan-related issues in Scan Issues", async () => {

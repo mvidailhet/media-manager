@@ -27,8 +27,8 @@ import {
   listScanRoots,
   pausePreviewStripQueue,
   removeScanRoot,
-  refreshAllScanRoots,
-  refreshScanRoot,
+  cancelScanRootRefreshJob,
+  startScanRootRefreshJob,
   rejectMetadataSuggestionSource,
   retryFailedPreviewStrip,
   resumePreviewStripQueue,
@@ -199,51 +199,33 @@ describe("Tauri commands", () => {
     });
   });
 
-  it("refreshes one selected Scan Root through the Rust command", async () => {
-    mockedInvoke.mockResolvedValue({
-      scannedVideoCount: 1,
-      unprocessableCandidateCount: 0,
-    });
+  it("starts one selected Scan Root refresh job through the Rust command", async () => {
+    await startScanRootRefreshJob("/Volumes/Archive/Videos");
 
-    const refreshSummary = await refreshScanRoot("/Volumes/Archive/Videos");
-
-    expect(refreshSummary).toEqual({
-      scannedVideoCount: 1,
-      unprocessableCandidateCount: 0,
-    });
-    expect(mockedInvoke).toHaveBeenCalledWith("refresh_scan_root", {
+    expect(mockedInvoke).toHaveBeenCalledWith("start_scan_root_refresh_job", {
       path: "/Volumes/Archive/Videos",
       videoExtensionAllowlist: null,
     });
   });
 
-  it("passes a configured Video Extension Allowlist to Scan Root refresh", async () => {
+  it("passes a configured Video Extension Allowlist to Scan Root refresh jobs", async () => {
     const videoExtensionAllowlist = {
       extensions: [".mp4", ".flv"],
     };
 
-    await refreshScanRoot("/Volumes/Archive/Videos", videoExtensionAllowlist);
+    await startScanRootRefreshJob("/Volumes/Archive/Videos", videoExtensionAllowlist);
 
-    expect(mockedInvoke).toHaveBeenCalledWith("refresh_scan_root", {
+    expect(mockedInvoke).toHaveBeenCalledWith("start_scan_root_refresh_job", {
       path: "/Volumes/Archive/Videos",
       videoExtensionAllowlist,
     });
   });
 
-  it("refreshes all Scan Roots through the Rust command", async () => {
-    mockedInvoke.mockResolvedValue({
-      scannedVideoCount: 3,
-      unprocessableCandidateCount: 1,
-    });
+  it("cancels the running Scan Root refresh job through the Rust command", async () => {
+    await cancelScanRootRefreshJob("/Volumes/Archive/Videos");
 
-    const refreshSummary = await refreshAllScanRoots();
-
-    expect(refreshSummary).toEqual({
-      scannedVideoCount: 3,
-      unprocessableCandidateCount: 1,
-    });
-    expect(mockedInvoke).toHaveBeenCalledWith("refresh_all_scan_roots", {
-      videoExtensionAllowlist: null,
+    expect(mockedInvoke).toHaveBeenCalledWith("cancel_scan_root_refresh_job", {
+      path: "/Volumes/Archive/Videos",
     });
   });
 

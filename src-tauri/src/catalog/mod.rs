@@ -141,6 +141,29 @@ pub struct ScanRootRefreshSummary {
     pub unprocessable_candidate_count: i64,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ScanRootRefreshStatus {
+    Discovery,
+    Scanning,
+    MetadataSuggestionUpdate,
+    Complete,
+    Cancelled,
+    Failed,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScanRootRefreshProgress {
+    pub scan_root_path: String,
+    pub status: ScanRootRefreshStatus,
+    pub processed_video_candidate_count: i64,
+    pub total_video_candidate_count: Option<i64>,
+    pub scanned_video_count: i64,
+    pub unprocessable_candidate_count: i64,
+    pub message: Option<String>,
+}
+
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PreviewStripGenerationSummary {

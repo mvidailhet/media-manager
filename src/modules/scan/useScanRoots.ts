@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { listen } from "@tauri-apps/api/event";
 import { open } from "@tauri-apps/plugin-dialog";
 
 import type {
   ScanRoot,
-  ScanRootRefreshSummary,
+  ScanRootRefreshJobProgress,
   ScanRootRemovalPolicy,
 } from "../../tauriCommands";
 import {
   addScanRoot,
+  cancelScanRootRefreshJob,
   listScanRoots,
-  refreshAllScanRoots,
-  refreshScanRoot,
   removeScanRoot,
+  startScanRootRefreshJob,
   updateScanRootInferenceRules,
 } from "../../tauriCommands";
 import { errorMessage } from "../../shared/errors/errorMessage";
@@ -19,6 +20,7 @@ import { errorMessage } from "../../shared/errors/errorMessage";
 const scanRootsLoadingMessage = "Loading Scan Roots...";
 const scanRootsErrorMessage = "Scan Roots unavailable";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
+const scanRootRefreshEventName = "scan-root-refresh-progress";
 
 export function useScanRoots({
   refreshCatalogVideos,
@@ -33,6 +35,20 @@ export function useScanRoots({
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
     scanRootsLoadingMessage,
   );
+  const [activeScanRootRefresh, setActiveScanRootRefresh] =
+    useState<ScanRootRefreshJobProgress | null>(null);
+  const latestRefreshCatalogVideos = useRef(refreshCatalogVideos);
+  const latestRefreshPreviewStripQueueStatus = useRef(
+    refreshPreviewStripQueueStatus,
+  );
+  const latestRefreshScanIssues = useRef(refreshScanIssues);
+
+  useEffect(() => {
+    latestRefreshCatalogVideos.current = refreshCatalogVideos;
+    latestRefreshPreviewStripQueueStatus.current =
+      refreshPreviewStripQueueStatus;
+    latestRefreshScanIssues.current = refreshScanIssues;
+  }, [refreshCatalogVideos, refreshPreviewStripQueueStatus, refreshScanIssues]);
 
   async function refreshScanRoots(shouldClearStatusMessage = true) {
     try {
@@ -72,6 +88,39 @@ export function useScanRoots({
     };
   }, []);
 
+  useEffect(() => {
+    let canUpdateScanRootRefresh = true;
+    let removeScanRootRefreshListener: (() => void) | undefined;
+
+    async function subscribeToScanRootRefresh() {
+      removeScanRootRefreshListener = await listen<ScanRootRefreshJobProgress>(
+        scanRootRefreshEventName,
+        (event) => {
+          if (!canUpdateScanRootRefresh) {
+            return;
+          }
+
+          setActiveScanRootRefresh(event.payload);
+          setScanRootsStatusMessage(scanRootRefreshProgressMessage(event.payload));
+
+          if (isFinishedScanRootRefresh(event.payload.status)) {
+            void refreshScanRoots(false);
+            void latestRefreshCatalogVideos.current();
+            void latestRefreshScanIssues.current();
+            void latestRefreshPreviewStripQueueStatus.current();
+          }
+        },
+      );
+    }
+
+    void subscribeToScanRootRefresh();
+
+    return () => {
+      canUpdateScanRootRefresh = false;
+      removeScanRootRefreshListener?.();
+    };
+  }, []);
+
   async function chooseScanRootFolder() {
     try {
       const selectedFolder = await open({
@@ -80,7 +129,7 @@ export function useScanRoots({
       });
 
       if (typeof selectedFolder === "string") {
-        await persistScanRoot(selectedFolder);
+        void persistScanRoot(selectedFolder);
       }
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
@@ -96,18 +145,20 @@ export function useScanRoots({
 
     try {
       const scanRoot = await addScanRoot(scanRootPath);
-      const refreshSummary = await refreshScanRoot(scanRoot.path);
+      const startingScanRootRefresh = startingScanRootRefreshProgress(
+        scanRoot.path,
+      );
 
       setScanRoots((currentScanRoots) =>
         [...currentScanRoots, scanRoot].sort((left, right) =>
           left.path.localeCompare(right.path),
         ),
       );
-      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
-      await refreshCatalogVideos();
-      await refreshScanIssues();
-      await refreshPreviewStripQueueStatus();
+      setActiveScanRootRefresh(startingScanRootRefresh);
+      setScanRootsStatusMessage(scanRootRefreshStartedMessage);
+      await startScanRootRefreshJob(scanRoot.path);
     } catch (error) {
+      setActiveScanRootRefresh(null);
       setScanRootsStatusMessage(errorMessage(error));
     }
   }
@@ -135,14 +186,18 @@ export function useScanRoots({
 
   async function refreshSelectedScanRoot(scanRoot: ScanRoot) {
     try {
+      setActiveScanRootRefresh(startingScanRootRefreshProgress(scanRoot.path));
       setScanRootsStatusMessage(scanRootRefreshStartedMessage);
-      const refreshSummary = await refreshScanRoot(scanRoot.path);
+      await startScanRootRefreshJob(scanRoot.path);
+    } catch (error) {
+      setActiveScanRootRefresh(null);
+      setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
 
-      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
-      await refreshScanRoots(false);
-      await refreshCatalogVideos();
-      await refreshScanIssues();
-      await refreshPreviewStripQueueStatus();
+  async function cancelSelectedScanRootRefresh(scanRoot: ScanRoot) {
+    try {
+      await cancelScanRootRefreshJob(scanRoot.path);
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
     }
@@ -169,24 +224,10 @@ export function useScanRoots({
     }
   }
 
-  async function refreshEveryScanRoot() {
-    try {
-      setScanRootsStatusMessage(scanRootRefreshStartedMessage);
-      const refreshSummary = await refreshAllScanRoots();
-
-      setScanRootsStatusMessage(scanRootRefreshSummaryMessage(refreshSummary));
-      await refreshScanRoots(false);
-      await refreshCatalogVideos();
-      await refreshScanIssues();
-      await refreshPreviewStripQueueStatus();
-    } catch (error) {
-      setScanRootsStatusMessage(errorMessage(error));
-    }
-  }
-
   return {
+    activeScanRootRefresh,
+    cancelSelectedScanRootRefresh,
     chooseScanRootFolder,
-    refreshEveryScanRoot,
     refreshScanRoots,
     refreshSelectedScanRoot,
     removeSelectedScanRoot,
@@ -196,8 +237,51 @@ export function useScanRoots({
   };
 }
 
-function scanRootRefreshSummaryMessage(refreshSummary: ScanRootRefreshSummary) {
-  return `${refreshSummary.scannedVideoCount} Videos scanned, ${refreshSummary.unprocessableCandidateCount} Unprocessable Video Candidates`;
+function scanRootRefreshProgressMessage(progress: ScanRootRefreshJobProgress) {
+  if (progress.message) {
+    return progress.message;
+  }
+
+  return `${scanRootRefreshStatusLabel(progress.status)}: ${videoCandidateProgressLabel(progress)}`;
+}
+
+function scanRootRefreshStatusLabel(status: ScanRootRefreshJobProgress["status"]) {
+  const labels: Record<ScanRootRefreshJobProgress["status"], string> = {
+    cancelled: "Cancelled",
+    complete: "Complete",
+    discovery: "Discovering",
+    failed: "Failed",
+    metadataSuggestionUpdate: "Updating Metadata Suggestions",
+    scanning: "Scanning",
+  };
+
+  return labels[status];
+}
+
+function videoCandidateProgressLabel(progress: ScanRootRefreshJobProgress) {
+  if (progress.totalVideoCandidateCount === null) {
+    return `${progress.processedVideoCandidateCount} video candidates processed`;
+  }
+
+  return `${progress.processedVideoCandidateCount} of ${progress.totalVideoCandidateCount} video candidates processed`;
+}
+
+function isFinishedScanRootRefresh(status: ScanRootRefreshJobProgress["status"]) {
+  return status === "complete" || status === "cancelled" || status === "failed";
+}
+
+function startingScanRootRefreshProgress(
+  scanRootPath: string,
+): ScanRootRefreshJobProgress {
+  return {
+    scanRootPath,
+    status: "discovery",
+    processedVideoCandidateCount: 0,
+    totalVideoCandidateCount: null,
+    scannedVideoCount: 0,
+    unprocessableCandidateCount: 0,
+    message: null,
+  };
 }
 
 export type { ScanRoot, ScanRootRemovalPolicy };

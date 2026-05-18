@@ -1,6 +1,7 @@
 use super::*;
 
 impl Catalog {
+    #[cfg(test)]
     pub fn refresh_scan_root<P: VideoFileProbe>(
         &self,
         scan_root_path: &str,
@@ -55,6 +56,171 @@ impl Catalog {
         })
     }
 
+    pub fn refresh_scan_root_with_progress<P, C, E>(
+        &self,
+        scan_root_path: &str,
+        video_file_probe: &P,
+        video_extension_allowlist: &VideoExtensionAllowlist,
+        should_cancel: C,
+        mut on_progress: E,
+    ) -> Result<ScanRootRefreshSummary, String>
+    where
+        P: VideoFileProbe,
+        C: Fn() -> bool,
+        E: FnMut(ScanRootRefreshProgress),
+    {
+        on_progress(ScanRootRefreshProgress {
+            scan_root_path: scan_root_path.to_string(),
+            status: ScanRootRefreshStatus::Discovery,
+            processed_video_candidate_count: 0,
+            total_video_candidate_count: None,
+            scanned_video_count: 0,
+            unprocessable_candidate_count: 0,
+            message: None,
+        });
+
+        if let Some(refresh_summary) = self.refresh_scan_root_if_unreachable(scan_root_path)? {
+            on_progress(ScanRootRefreshProgress {
+                scan_root_path: scan_root_path.to_string(),
+                status: ScanRootRefreshStatus::Complete,
+                processed_video_candidate_count: 0,
+                total_video_candidate_count: Some(0),
+                scanned_video_count: refresh_summary.scanned_video_count,
+                unprocessable_candidate_count: refresh_summary.unprocessable_candidate_count,
+                message: None,
+            });
+            return Ok(refresh_summary);
+        }
+
+        let scan_root_id = self.scan_root_id(scan_root_path)?;
+        self.mark_scan_root_availability(scan_root_id, true)?;
+        let video_candidate_paths =
+            discover_video_candidate_paths(Path::new(scan_root_path), video_extension_allowlist)?;
+        let total_video_candidate_count = video_candidate_paths.len() as i64;
+        let mut seen_video_candidate_paths = HashSet::new();
+        let mut scanned_video_count = 0;
+        let mut unprocessable_candidate_count = 0;
+
+        on_progress(ScanRootRefreshProgress {
+            scan_root_path: scan_root_path.to_string(),
+            status: ScanRootRefreshStatus::Scanning,
+            processed_video_candidate_count: 0,
+            total_video_candidate_count: Some(total_video_candidate_count),
+            scanned_video_count,
+            unprocessable_candidate_count,
+            message: None,
+        });
+
+        for video_candidate_path in video_candidate_paths {
+            if should_cancel() {
+                return Ok(cancel_scan_root_refresh(
+                    scan_root_path,
+                    seen_video_candidate_paths.len() as i64,
+                    total_video_candidate_count,
+                    scanned_video_count,
+                    unprocessable_candidate_count,
+                    &mut on_progress,
+                ));
+            }
+
+            let file_size_bytes = file_size_bytes(&video_candidate_path)?;
+            let video_candidate_path_text = video_candidate_path.to_string_lossy().into_owned();
+            seen_video_candidate_paths.insert(video_candidate_path_text.clone());
+
+            match video_file_probe.probe_video_file(&video_candidate_path) {
+                Ok(video_probe) => {
+                    self.store_scanned_video(
+                        scan_root_id,
+                        &video_candidate_path,
+                        file_size_bytes,
+                        video_probe.duration_milliseconds,
+                    )?;
+                    scanned_video_count += 1;
+                }
+                Err(reason) => {
+                    self.store_unprocessable_video_candidate(
+                        scan_root_id,
+                        &video_candidate_path,
+                        file_size_bytes,
+                        &reason,
+                    )?;
+                    self.remove_file_location(&video_candidate_path_text)?;
+                    unprocessable_candidate_count += 1;
+                }
+            }
+
+            on_progress(ScanRootRefreshProgress {
+                scan_root_path: scan_root_path.to_string(),
+                status: ScanRootRefreshStatus::Scanning,
+                processed_video_candidate_count: seen_video_candidate_paths.len() as i64,
+                total_video_candidate_count: Some(total_video_candidate_count),
+                scanned_video_count,
+                unprocessable_candidate_count,
+                message: None,
+            });
+        }
+
+        if should_cancel() {
+            return Ok(cancel_scan_root_refresh(
+                scan_root_path,
+                seen_video_candidate_paths.len() as i64,
+                total_video_candidate_count,
+                scanned_video_count,
+                unprocessable_candidate_count,
+                &mut on_progress,
+            ));
+        }
+
+        self.remove_stale_scan_root_entries(scan_root_id, &seen_video_candidate_paths)?;
+        on_progress(ScanRootRefreshProgress {
+            scan_root_path: scan_root_path.to_string(),
+            status: ScanRootRefreshStatus::MetadataSuggestionUpdate,
+            processed_video_candidate_count: seen_video_candidate_paths.len() as i64,
+            total_video_candidate_count: Some(total_video_candidate_count),
+            scanned_video_count,
+            unprocessable_candidate_count,
+            message: None,
+        });
+        self.regenerate_unaccepted_metadata_suggestions(scan_root_id, scan_root_path)?;
+
+        let refresh_summary = ScanRootRefreshSummary {
+            scanned_video_count,
+            unprocessable_candidate_count,
+        };
+        on_progress(ScanRootRefreshProgress {
+            scan_root_path: scan_root_path.to_string(),
+            status: ScanRootRefreshStatus::Complete,
+            processed_video_candidate_count: seen_video_candidate_paths.len() as i64,
+            total_video_candidate_count: Some(total_video_candidate_count),
+            scanned_video_count,
+            unprocessable_candidate_count,
+            message: None,
+        });
+
+        Ok(refresh_summary)
+    }
+
+    #[cfg(test)]
+    pub fn refresh_scan_root_until_cancelled<P: VideoFileProbe>(
+        &self,
+        scan_root_path: &str,
+        video_file_probe: &P,
+        video_extension_allowlist: &VideoExtensionAllowlist,
+        processed_video_candidate_limit: i64,
+    ) -> Result<ScanRootRefreshSummary, String> {
+        let last_processed_video_candidate_count = std::cell::Cell::new(0);
+        self.refresh_scan_root_with_progress(
+            scan_root_path,
+            video_file_probe,
+            video_extension_allowlist,
+            || last_processed_video_candidate_count.get() >= processed_video_candidate_limit,
+            |progress| {
+                last_processed_video_candidate_count.set(progress.processed_video_candidate_count);
+            },
+        )
+    }
+
+    #[cfg(test)]
     pub fn refresh_all_scan_roots<P: VideoFileProbe>(
         &self,
         video_file_probe: &P,
@@ -304,4 +470,33 @@ impl Catalog {
 
         Ok(())
     }
+}
+
+fn cancel_scan_root_refresh<E>(
+    scan_root_path: &str,
+    processed_video_candidate_count: i64,
+    total_video_candidate_count: i64,
+    scanned_video_count: i64,
+    unprocessable_candidate_count: i64,
+    on_progress: &mut E,
+) -> ScanRootRefreshSummary
+where
+    E: FnMut(ScanRootRefreshProgress),
+{
+    let refresh_summary = ScanRootRefreshSummary {
+        scanned_video_count,
+        unprocessable_candidate_count,
+    };
+
+    on_progress(ScanRootRefreshProgress {
+        scan_root_path: scan_root_path.to_string(),
+        status: ScanRootRefreshStatus::Cancelled,
+        processed_video_candidate_count,
+        total_video_candidate_count: Some(total_video_candidate_count),
+        scanned_video_count,
+        unprocessable_candidate_count,
+        message: None,
+    });
+
+    refresh_summary
 }
