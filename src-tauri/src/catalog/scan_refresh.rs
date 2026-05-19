@@ -266,33 +266,6 @@ impl Catalog {
         }))
     }
 
-    pub fn list_unprocessable_video_candidates(
-        &self,
-    ) -> Result<Vec<UnprocessableVideoCandidate>, String> {
-        let mut statement = self
-            .database
-            .prepare(
-                "SELECT path, reason, file_size_bytes
-                 FROM unprocessable_video_candidates
-                 ORDER BY path",
-            )
-            .map_err(|error| error.to_string())?;
-
-        let unprocessable_video_candidates = statement
-            .query_map([], |row| {
-                Ok(UnprocessableVideoCandidate {
-                    path: row.get(0)?,
-                    reason: row.get(1)?,
-                    file_size_bytes: row.get(2)?,
-                })
-            })
-            .map_err(|error| error.to_string())?
-            .collect::<Result<Vec<_>, _>>()
-            .map_err(|error| error.to_string())?;
-
-        Ok(unprocessable_video_candidates)
-    }
-
     pub fn list_unprocessable_video_candidates_by_scan_root(
         &self,
     ) -> Result<Vec<UnprocessableVideoCandidateGroup>, String> {

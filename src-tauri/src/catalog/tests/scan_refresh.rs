@@ -415,16 +415,6 @@ fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_pro
     );
     assert_eq!(
         catalog
-            .list_unprocessable_video_candidates()
-            .expect("unprocessable candidates list"),
-        vec![crate::catalog::UnprocessableVideoCandidate {
-            path: canonical_broken_video_path.to_string_lossy().into_owned(),
-            reason: "missing moov atom".to_string(),
-            file_size_bytes: 6,
-        }]
-    );
-    assert_eq!(
-        catalog
             .list_unprocessable_video_candidates_by_scan_root()
         .expect("unprocessable candidates grouped by Scan Root"),
         vec![crate::catalog::UnprocessableVideoCandidateGroup {
@@ -700,12 +690,16 @@ fn refreshing_a_scan_root_replaces_a_previous_file_location_with_an_unprocessabl
     );
     assert_eq!(
         catalog
-            .list_unprocessable_video_candidates()
-            .expect("unprocessable candidates list"),
-        vec![crate::catalog::UnprocessableVideoCandidate {
-            path: canonical_family_trip_path.to_string_lossy().into_owned(),
-            reason: "missing moov atom".to_string(),
-            file_size_bytes: 17,
+            .list_unprocessable_video_candidates_by_scan_root()
+            .expect("unprocessable candidates grouped by Scan Root"),
+        vec![crate::catalog::UnprocessableVideoCandidateGroup {
+            scan_root_path: scan_root.path,
+            candidate_count: 1,
+            candidates: vec![crate::catalog::UnprocessableVideoCandidate {
+                path: canonical_family_trip_path.to_string_lossy().into_owned(),
+                reason: "missing moov atom".to_string(),
+                file_size_bytes: 17,
+            }],
         }]
     );
 }
