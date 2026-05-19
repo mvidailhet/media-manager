@@ -168,6 +168,10 @@ _Avoid_: Deleted metadata
 A remembered choice that maps a **Metadata Suggestion** source and value to an accepted **Tag** or **Performer**.
 _Avoid_: Alias
 
+**Metadata Suggestions Review**:
+A secondary **Catalog** workflow for accepting or rejecting **Metadata Suggestions**.
+_Avoid_: Catalog view, main workspace
+
 **Missing Videos View**:
 The scanning workspace for reviewing **Missing Videos** outside normal **Video** browsing.
 _Avoid_: Generic review queue
@@ -196,13 +200,9 @@ _Avoid_: Metadata inference
 The implementation path for accepted **Local Metadata**, **Search Filters**, and **Batch Metadata Edit** before folder-derived inference.
 _Avoid_: Metadata suggestions
 
-**Favorites View**:
-A shortcut workspace showing **Videos** marked **Favorite**.
-_Avoid_: Tag view
-
-**Recently Opened View**:
-A shortcut workspace based on **Open History**.
-_Avoid_: Watch history
+**Favorite Search Filter**:
+A **Search Filter** that narrows **Videos** to those marked **Favorite**.
+_Avoid_: Favorites view, tag view
 
 **Metadata Merge**:
 An action that combines duplicate **Tags** or duplicate **Performers** into one accepted value.
@@ -288,7 +288,7 @@ _Avoid_: Metadata suggestion
 - **Favorite** is a **Search Filter** but not a **Tag**.
 - **Favorite** is the only special **Video** marker in v1.
 - **Open History** tracks last opened time and open count, not playback progress.
-- **Open History** supports recently opened views and sorting in v1.
+- **Open History** supports sorting in v1.
 - **File Size** is visible and sortable in v1 but not a **Search Filter**.
 - A **Trashed Video** keeps its metadata while it can be restored from Trash.
 - v1 does not rename, move, trash, or restore files.
@@ -318,12 +318,19 @@ _Avoid_: Metadata suggestion
 - **Metadata Suggestion Mappings** and **Rejected Metadata Suggestions** should be editable from review or Scan Root settings after the first inference slice.
 - A **Metadata Suggestion** can normalize display text while preserving the original folder name as its source.
 - A **Metadata Suggestion** records the folder or path segment that produced it.
-- **Inference Rules** are configured with **Scan Roots**, while **Metadata Suggestions** are reviewed in the **Catalog**.
+- **Inference Rules** are configured with **Scan Roots**, while **Metadata Suggestions** are handled in **Metadata Suggestions Review**.
 - The **Catalog** owns **Metadata Suggestion** review state, while **Scan Roots** own the **Inference Rules** that produce suggestions.
 - v1 **Metadata Suggestions** do not use numeric confidence scores.
 - Accepting a **Metadata Suggestion** can create a new **Tag** or **Performer**, or map to an existing value with a different name.
 - Accepted **Metadata Suggestions** can keep lightweight provenance without changing their status as **Local Metadata**.
-- **Metadata Suggestions** are reviewed in the **Catalog** with access to affected **Videos** and their **Preview Strips**.
+- **Metadata Suggestions Review** is launched from the **Catalog** with access to affected **Videos** and their **Preview Strips**.
+- **Metadata Suggestions Review** is only shown as a **Catalog** entry point when there are **Metadata Suggestions** to review.
+- The **Metadata Suggestions Review** entry point count is the number of **Metadata Suggestion** groups to review, not the number of affected **Videos**.
+- **Metadata Suggestions Review** replaces the **Catalog** main content as a secondary mode, while keeping the **Video Detail Panel** available.
+- Entering **Metadata Suggestions Review** clears the current **Video Detail Panel** selection.
+- Leaving **Metadata Suggestions Review** clears any **Video Detail Panel** selection made during review.
+- Leaving **Metadata Suggestions Review** returns to the previous **Videos View** browsing state.
+- Resolving the last **Metadata Suggestion** automatically leaves **Metadata Suggestions Review**.
 - **Metadata Suggestion** review shows source path groups under each suggested value.
 - **Metadata Suggestions** are loaded with **Catalog** review state, not **Missing Videos** state.
 - **Missing Videos View** includes **Missing Videos**.
@@ -337,11 +344,11 @@ _Avoid_: Metadata suggestion
 - **Failed Preview Strips** are loaded with **Preview Strip** generation because they are reviewed from generation controls.
 - **Forget From Catalog** is available for **Missing Videos** from **Missing Videos View**.
 - **Forget From Catalog** requires confirmation and is final in v1.
-- v1 has **Videos View**, **Favorites View**, **Recently Opened View**, **Missing Videos View**, and **Preview Strip** generation as workspaces.
-- **Favorites View** and **Recently Opened View** reuse the same **Video** result model as **Videos View**.
-- **Videos View**, **Favorites View**, **Recently Opened View**, and **Metadata Suggestions** are **Catalog** views rather than separate catalogs.
+- v1 has **Videos View**, **Missing Videos View**, and **Preview Strip** generation as workspaces.
+- **Favorite Search Filter** narrows results inside **Videos View** instead of creating a separate workspace.
+- **Videos View** is the only **Catalog** view in v1.
 - The **Video Detail Panel** is reset when changing **Catalog** views.
-- **Metadata Suggestions** use the same **Video Detail Panel** as other **Catalog** views for affected **Videos**.
+- **Metadata Suggestions Review** uses the same **Video Detail Panel** for affected **Videos**.
 - The primary app navigation is module-first: **Catalog**, scanning work, and configuration.
 - The **Catalog** is the default workspace when the app opens, even when setup is incomplete.
 - The **First Vertical Slice** proves **Scan Root** selection, scanning, SQLite storage, FFmpeg probing, and listing **Videos**.
@@ -463,10 +470,10 @@ _Avoid_: Metadata suggestion
 > **Domain expert:** "With **Preview Strip** generation controls, with retry or ignore-for-now actions."
 >
 > **Dev:** "What are the main v1 workspaces?"
-> **Domain expert:** "**Videos View**, **Favorites View**, **Recently Opened View**, **Missing Videos View**, and **Preview Strip** generation."
+> **Domain expert:** "**Videos View**, **Missing Videos View**, and **Preview Strip** generation."
 >
-> **Dev:** "Are **Favorites View** and **Recently Opened View** separate catalogs?"
-> **Domain expert:** "No. They are shortcut workspaces over the same **Video** results."
+> **Dev:** "Is **Favorite** a separate workspace?"
+> **Domain expert:** "No. **Favorite Search Filter** narrows the normal **Videos View**."
 >
 > **Dev:** "What should the first usable implementation prove?"
 > **Domain expert:** "The **First Vertical Slice** adds a **Scan Root**, scans it, stores discovered **Videos**, and lists them in the **Videos View**."
@@ -562,7 +569,7 @@ _Avoid_: Metadata suggestion
 > **Domain expert:** "No. **Open History** only records last opened time and open count."
 >
 > **Dev:** "Should **Open History** support advanced date filtering in v1?"
-> **Domain expert:** "No. Use it for recently opened views and sorting first."
+> **Domain expert:** "No. Use it for sorting first."
 >
 > **Dev:** "Is a **Trashed Video** the same as a **Missing Video**?"
 > **Domain expert:** "No. A **Trashed Video** was intentionally moved to Trash by the app; a **Missing Video** is unavailable without a confirmed app action."
