@@ -115,7 +115,9 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("tab", { name: "Metadata Suggestions" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Metadata Suggestions" }),
+    );
 
     const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
@@ -159,6 +161,16 @@ describe("Catalog module", () => {
 
     renderApp();
 
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "All Videos" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Favorites" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Metadata Suggestions" }),
+    ).not.toBeInTheDocument();
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
@@ -249,8 +261,10 @@ describe("Catalog module", () => {
       within(catalogVideos).queryByText("Search Videos"),
     ).not.toBeInTheDocument();
     expect(
-      within(catalogVideos).queryByLabelText("Favorites only"),
-    ).not.toBeInTheDocument();
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Favorite Search Filter",
+      }),
+    ).not.toBeChecked();
     expect(
       within(catalogVideos).queryByLabelText("Minimum duration minutes"),
     ).not.toBeInTheDocument();
@@ -587,7 +601,7 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows Favorites View as the same Video result model filtered to Favorite Videos", async () => {
+  it("uses Favorite Search Filter to narrow Videos to Favorite Videos", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -626,14 +640,17 @@ describe("Catalog module", () => {
       await within(catalogVideos).findByText("Studio Clip"),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Favorites" }));
+    fireEvent.click(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Favorite Search Filter",
+      }),
+    );
 
     expect(
-      screen.getByRole("tab", { name: "Favorites", selected: true }),
-    ).toBeInTheDocument();
-    expect(
-      within(catalogVideos).queryByLabelText("Favorites only"),
-    ).not.toBeInTheDocument();
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Favorite Search Filter",
+      }),
+    ).toBeChecked();
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("1h 2m")).toBeInTheDocument();
     expect(

@@ -5,7 +5,6 @@ import type {
   CatalogVideoFilters,
   CatalogVideoMetadata,
   CatalogVideoSort,
-  CatalogVideoWorkspace,
 } from "../catalogTypes";
 import { defaultCatalogVideoFilters } from "../catalogTypes";
 import {
@@ -24,30 +23,23 @@ export function useVideosPanelController({
     useState<CatalogVideoFilters>(defaultCatalogVideoFilters);
   const [catalogVideoSort, setCatalogVideoSort] =
     useState<CatalogVideoSort>("titleAscending");
-  const [catalogVideoWorkspace, setCatalogVideoWorkspace] =
-    useState<CatalogVideoWorkspace>("videos");
 
-  const activeCatalogVideoFilters =
-    catalogVideoWorkspace === "favorites"
-      ? { ...catalogVideoFilters, favoritesOnly: true }
-      : catalogVideoFilters;
   const filteredCatalogVideos = sortedCatalogVideos(
     catalogVideos.filter((catalogVideo) =>
       catalogVideoMatchesFilters(
         catalogVideo,
         catalogVideoMetadataById[catalogVideo.id],
-        activeCatalogVideoFilters,
+        catalogVideoFilters,
       ),
     ),
     catalogVideoSort,
   );
 
   return {
-    activeCatalogVideoFilters,
+    catalogVideoFilters,
     catalogVideoSort,
     filteredCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
-    setCatalogVideoWorkspace,
   };
 }

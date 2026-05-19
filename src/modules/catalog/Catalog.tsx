@@ -1,3 +1,5 @@
+import { Button, Group } from "@mantine/core";
+
 import type {
   CatalogPerformer,
   CatalogTag,
@@ -14,7 +16,6 @@ import type {
   CatalogView,
 } from "./catalogTypes";
 import { MetadataSuggestionsSection } from "./components/MetadataSuggestionsSection";
-import { NavigationTabs } from "./components/NavigationTabs";
 import { VideosPanel } from "./VideosPanel";
 
 export type CatalogProps = {
@@ -100,30 +101,40 @@ export function Catalog({
   onSetFavorite,
   selectedVideoIds,
 }: CatalogProps) {
-  const isCatalogVideoListView = catalogView !== "metadataSuggestions";
+  const hasMetadataSuggestions = metadataSuggestionGroups.length > 0;
+  const isVideosView = catalogView === "videos";
   return (
     <>
-      <NavigationTabs
-        catalogView={catalogView}
-        onCatalogViewChange={onCatalogViewChange}
-      />
-      {isCatalogVideoListView ? (
-        <VideosPanel
-          availablePerformers={availablePerformers}
-          availableTags={availableTags}
-          catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
-          catalogVideoFilters={catalogVideoFilters}
-          catalogVideoMetadataById={catalogVideoMetadataById}
-          catalogVideoSort={catalogVideoSort}
-          catalogVideos={catalogVideos}
-          catalogVideosStatusMessage={catalogVideosStatusMessage}
-          onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
-          onCatalogVideoSortChange={onCatalogVideoSortChange}
-          onSetFavorite={onSetFavorite}
-          onSetBatchVideoSelected={onSetBatchVideoSelected}
-          onSelectVideo={onSelectVideo}
-          selectedVideoIds={selectedVideoIds}
-        />
+      {isVideosView ? (
+        <>
+          {hasMetadataSuggestions ? (
+            <Group justify="flex-end" px="md" pt="md">
+              <Button
+                type="button"
+                variant="light"
+                onClick={() => onCatalogViewChange("metadataSuggestions")}
+              >
+                Metadata Suggestions
+              </Button>
+            </Group>
+          ) : null}
+          <VideosPanel
+            availablePerformers={availablePerformers}
+            availableTags={availableTags}
+            catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
+            catalogVideoFilters={catalogVideoFilters}
+            catalogVideoMetadataById={catalogVideoMetadataById}
+            catalogVideoSort={catalogVideoSort}
+            catalogVideos={catalogVideos}
+            catalogVideosStatusMessage={catalogVideosStatusMessage}
+            onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
+            onCatalogVideoSortChange={onCatalogVideoSortChange}
+            onSetFavorite={onSetFavorite}
+            onSetBatchVideoSelected={onSetBatchVideoSelected}
+            onSelectVideo={onSelectVideo}
+            selectedVideoIds={selectedVideoIds}
+          />
+        </>
       ) : (
         <MetadataSuggestionsSection
           availablePerformers={availablePerformers}
