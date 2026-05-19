@@ -40,6 +40,28 @@ describe("App module boundaries", () => {
     expect(appSource).toMatch(/useScanModuleController/);
   });
 
+  it("delegates app shell navigation and confirmations to focused components", () => {
+    expect(appSource).toContain(
+      'from "./components/ModuleNavigation"',
+    );
+    expect(appSource).toContain(
+      'from "./components/RemoveScanRootConfirmation"',
+    );
+    expect(appSource).toContain(
+      'from "./components/ForgetMissingVideoConfirmation"',
+    );
+    expect(appSource).toMatch(/<ModuleNavigation/);
+    expect(appSource).toMatch(/<RemoveScanRootConfirmation/);
+    expect(appSource).toMatch(/<ForgetMissingVideoConfirmation/);
+    expect(appSource).not.toMatch(/aria-label="Module navigation"/);
+    expect(appSource).not.toMatch(
+      /aria-label="Remove Scan Root confirmation"/,
+    );
+    expect(appSource).not.toMatch(
+      /aria-label="Forget Missing Video confirmation"/,
+    );
+  });
+
   it("imports workflow modules through entry points except the Catalog detail aside", () => {
     expect(appSource).toMatch(/from "\.\/modules\/settings"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/settings\//);
