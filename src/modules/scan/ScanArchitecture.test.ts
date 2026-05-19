@@ -16,10 +16,10 @@ describe("Scan module boundaries", () => {
   });
 
   it("keeps Scan panels owned by the Scan module", () => {
-    expect(appSource).not.toMatch(/ScanRootsPanel/);
+    expect(appSource).not.toMatch(/RootsPanel/);
     expect(appSource).not.toMatch(/ScanIssuesPanel/);
     expect(appSource).not.toMatch(/PreviewGenerationView/);
-    expect(scanModuleSource).toMatch(/ScanRootsPanel/);
+    expect(scanModuleSource).toMatch(/RootsPanel/);
   });
 
   it("keeps Preview Generation polling independent from parent renders", () => {

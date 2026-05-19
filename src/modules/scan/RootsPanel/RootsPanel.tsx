@@ -6,9 +6,9 @@ import type {
   UnprocessableVideoCandidateGroup,
 } from "../../../tauriCommands";
 import { SectionHeader } from "../../../shared/components/SectionHeader";
-import { ScanRootCard } from "./components/ScanRootCard";
+import { RootCard } from "./components/RootCard";
 
-export function ScanRootsPanel({
+export function RootsPanel({
   onChooseScanRootFolder,
   onCancelScanRootRefresh,
   onRefreshSelectedScanRoot,
@@ -58,7 +58,7 @@ export function ScanRootsPanel({
         {scanRoots.length > 0 ? (
           <Stack gap="sm">
             {scanRoots.map((scanRoot) => (
-              <ScanRootCard
+              <RootCard
                 key={scanRoot.path}
                 activeScanRootRefresh={activeScanRootRefresh}
                 isScanRootRefreshRunning={isScanRootRefreshRunning}
