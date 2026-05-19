@@ -7,6 +7,7 @@ import {
   Group,
   NumberInput,
   Paper,
+  Progress,
   Stack,
   Text,
   TextInput,
@@ -157,8 +158,7 @@ export function ScanRootCard({
         {cardScanRootRefresh ? (
           <Stack gap={2}>
             <Text fw={700}>{scanRootRefreshStatusLabel(cardScanRootRefresh.status)}</Text>
-            <Text>{videoCandidateProgressLabel(cardScanRootRefresh)}</Text>
-            <Text>{videoCountLabel(cardScanRootRefresh.scannedVideoCount)}</Text>
+            <ScanRootRefreshProgressBar progress={cardScanRootRefresh} />
             <Text>{scanIssueCountLabel(cardScanRootRefresh.unprocessableCandidateCount)}</Text>
             {canCancelScanRootRefresh ? (
               <Button
@@ -299,18 +299,31 @@ function scanRootRefreshStatusLabel(status: ScanRootRefreshJobProgress["status"]
   return labels[status];
 }
 
-function videoCandidateProgressLabel(progress: ScanRootRefreshJobProgress) {
-  if (progress.totalVideoCandidateCount === null) {
-    return `${progress.processedVideoCandidateCount} video candidates processed`;
-  }
+function ScanRootRefreshProgressBar({
+  progress,
+}: {
+  progress: ScanRootRefreshJobProgress;
+}) {
+  const totalVideoCandidateCount = progress.totalVideoCandidateCount ?? 0;
+  const progressPercentage =
+    totalVideoCandidateCount > 0
+      ? Math.round(
+          (progress.processedVideoCandidateCount / totalVideoCandidateCount) * 100,
+        )
+      : 0;
 
-  return `${progress.processedVideoCandidateCount} of ${progress.totalVideoCandidateCount} video candidates processed`;
-}
-
-function videoCountLabel(scannedVideoCount: number) {
-  return scannedVideoCount === 1
-    ? "1 Video scanned"
-    : `${scannedVideoCount} Videos scanned`;
+  return (
+    <Group gap="sm" wrap="nowrap">
+      <Progress
+        aria-label="Scan Root progress"
+        value={progressPercentage}
+        flex={1}
+      />
+      <Text miw={64} ta="right">
+        {progress.processedVideoCandidateCount} / {totalVideoCandidateCount}
+      </Text>
+    </Group>
+  );
 }
 
 function scanIssueCountLabel(unprocessableCandidateCount: number) {

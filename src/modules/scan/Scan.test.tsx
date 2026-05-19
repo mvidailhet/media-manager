@@ -648,8 +648,15 @@ describe("Scan module", () => {
     });
 
     expect(await screen.findByText("Scanning")).toBeInTheDocument();
-    expect(screen.getByText("1 of 3 video candidates processed")).toBeInTheDocument();
-    expect(screen.getByText("1 Video scanned")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Scan Root progress" })).toHaveAttribute(
+      "aria-valuenow",
+      "33",
+    );
+    expect(screen.getByText("1 / 3")).toBeInTheDocument();
+    expect(
+      screen.queryByText("1 of 3 video candidates processed"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("1 Video scanned")).not.toBeInTheDocument();
     expect(screen.getByText("0 Scan Issues")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel scan" }));
