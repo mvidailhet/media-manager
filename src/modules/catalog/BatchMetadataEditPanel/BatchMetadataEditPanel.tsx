@@ -1,8 +1,9 @@
-import { Button, Group, Paper, Stack } from "@mantine/core";
+import { Group, Paper, Stack } from "@mantine/core";
 
-import type { CatalogPerformer, CatalogTag } from "../../tauriCommands";
-import { SectionHeader } from "../../shared/components/SectionHeader";
-import { BatchMetadataActions } from "./BatchMetadataEditPanel/components/BatchMetadataActions";
+import type { CatalogPerformer, CatalogTag } from "../../../tauriCommands";
+import { SectionHeader } from "../../../shared/components/SectionHeader";
+import { FavoriteActions } from "./components/FavoriteActions";
+import { MetadataActions } from "./components/MetadataActions";
 
 export function BatchMetadataEditPanel({
   availablePerformers,
@@ -43,24 +44,9 @@ export function BatchMetadataEditPanel({
           label={`${selectedVideoCount} selected`}
           title="Batch Metadata Edit"
         />
-        <Group gap="xs">
-          <Button
-            type="button"
-            variant="default"
-            onClick={() => void onSetFavorite(true)}
-          >
-            Mark selected Videos as Favorite
-          </Button>
-          <Button
-            type="button"
-            variant="default"
-            onClick={() => void onSetFavorite(false)}
-          >
-            Unmark selected Videos as Favorite
-          </Button>
-        </Group>
+        <FavoriteActions onSetFavorite={onSetFavorite} />
         <Group gap="xl" align="start">
-          <BatchMetadataActions
+          <MetadataActions
             availableItems={availableTags}
             label="Tags"
             onAppend={onAppendTag}
@@ -68,7 +54,7 @@ export function BatchMetadataEditPanel({
             onRemove={onRemoveTag}
             removableItems={removableTags}
           />
-          <BatchMetadataActions
+          <MetadataActions
             availableItems={availablePerformers}
             label="Performers"
             onAppend={onAppendPerformer}
