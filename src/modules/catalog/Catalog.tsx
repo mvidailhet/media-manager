@@ -1,6 +1,3 @@
-import { Box, Tabs } from "@mantine/core";
-import { IconBulb, IconStar } from "@tabler/icons-react";
-
 import type {
   CatalogPerformer,
   CatalogTag,
@@ -9,7 +6,6 @@ import type {
   RejectMetadataSuggestionSourceRequest,
 } from "../../tauriCommands";
 import { BatchMetadataEditPanel } from "./BatchMetadataEditPanel";
-import { VideosPanel } from "./VideosPanel";
 import type {
   CatalogMetadataSuggestionAcceptanceRequest,
   CatalogVideoMetadata,
@@ -17,7 +13,9 @@ import type {
   CatalogVideoSort,
   CatalogView,
 } from "./catalogTypes";
-import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel";
+import { MetadataSuggestionsSection } from "./components/MetadataSuggestionsSection";
+import { NavigationTabs } from "./components/NavigationTabs";
+import { VideosPanel } from "./VideosPanel";
 
 export type CatalogProps = {
   availablePerformers: CatalogPerformer[];
@@ -70,8 +68,6 @@ export type CatalogProps = {
   selectedVideoIds: number[];
 };
 
-const navigationIconSize = 20;
-
 export function Catalog({
   availablePerformers,
   availableTags,
@@ -107,27 +103,10 @@ export function Catalog({
   const isCatalogVideoListView = catalogView !== "metadataSuggestions";
   return (
     <>
-      <Tabs
-        value={catalogView}
-        onChange={(value) => onCatalogViewChange(value as CatalogView)}
-        keepMounted={false}
-      >
-        <Tabs.List aria-label="Catalog navigation">
-          <Tabs.Tab value="allVideos">All Videos</Tabs.Tab>
-          <Tabs.Tab
-            value="favorites"
-            leftSection={<IconStar size={navigationIconSize} />}
-          >
-            Favorites
-          </Tabs.Tab>
-          <Tabs.Tab
-            value="metadataSuggestions"
-            leftSection={<IconBulb size={navigationIconSize} />}
-          >
-            Metadata Suggestions
-          </Tabs.Tab>
-        </Tabs.List>
-      </Tabs>
+      <NavigationTabs
+        catalogView={catalogView}
+        onCatalogViewChange={onCatalogViewChange}
+      />
       {isCatalogVideoListView ? (
         <VideosPanel
           availablePerformers={availablePerformers}
@@ -146,21 +125,14 @@ export function Catalog({
           selectedVideoIds={selectedVideoIds}
         />
       ) : (
-        <Box
-          component="section"
-          aria-label="Catalog Metadata Suggestions"
-          p="md"
-          maw={760}
-        >
-          <MetadataSuggestionsPanel
-            availablePerformers={availablePerformers}
-            availableTags={availableTags}
-            metadataSuggestionGroups={metadataSuggestionGroups}
-            onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
-            onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
-            onReviewVideo={onReviewVideo}
-          />
-        </Box>
+        <MetadataSuggestionsSection
+          availablePerformers={availablePerformers}
+          availableTags={availableTags}
+          metadataSuggestionGroups={metadataSuggestionGroups}
+          onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
+          onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
+          onReviewVideo={onReviewVideo}
+        />
       )}
       {batchSelectedVideoCount > 0 ? (
         <BatchMetadataEditPanel

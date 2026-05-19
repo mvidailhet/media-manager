@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import appSource from "../../App.tsx?raw";
 import catalogModuleEntryPointSource from "./index.ts?raw";
 import catalogSource from "./Catalog.tsx?raw";
+import metadataSuggestionsSectionSource from "./components/MetadataSuggestionsSection.tsx?raw";
 import metadataBadgesSource from "./components/MetadataBadges.tsx?raw";
+import navigationTabsSource from "./components/NavigationTabs.tsx?raw";
 import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel.tsx?raw";
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
@@ -117,6 +119,34 @@ describe("Catalog module boundaries", () => {
   it("keeps Catalog panels owned by the Catalog module", () => {
     expect(appSource).not.toMatch(/VideosPanel/);
     expect(catalogSource).toMatch(/VideosPanel/);
+  });
+
+  it("keeps Catalog entry navigation and Metadata Suggestions section in focused children", () => {
+    expect(catalogSource).toMatch(/NavigationTabs/);
+    expect(catalogSource).toMatch(/MetadataSuggestionsSection/);
+    expect(catalogSource).not.toMatch(/Tabs\.List/);
+    expect(catalogSource).not.toMatch(/Tabs\.Tab/);
+    expect(catalogSource).not.toMatch(/IconStar|IconBulb/);
+    expect(catalogSource).not.toMatch(/aria-label="Catalog Metadata Suggestions"/);
+
+    expect(navigationTabsSource).toMatch(/function NavigationTabs/);
+    expect(navigationTabsSource).toMatch(/Catalog navigation/);
+    expect(navigationTabsSource).toMatch(/All Videos/);
+    expect(navigationTabsSource).toMatch(/Favorites/);
+    expect(navigationTabsSource).toMatch(/Metadata Suggestions/);
+    expect(navigationTabsSource).toMatch(/onCatalogViewChange/);
+    expect(navigationTabsSource).not.toMatch(/CatalogNavigationTabs/);
+
+    expect(metadataSuggestionsSectionSource).toMatch(
+      /function MetadataSuggestionsSection/,
+    );
+    expect(metadataSuggestionsSectionSource).toMatch(
+      /aria-label="Catalog Metadata Suggestions"/,
+    );
+    expect(metadataSuggestionsSectionSource).toMatch(/MetadataSuggestionsPanel/);
+    expect(metadataSuggestionsSectionSource).not.toMatch(
+      /CatalogMetadataSuggestionsSection/,
+    );
   });
 
   it("keeps Metadata Suggestions panel, group, source, and tree helpers in focused files", () => {
