@@ -10,7 +10,9 @@ import unavailableScanRootsPanelSource from "./ScanIssuesPanel/components/Unavai
 import rootsPanelSource from "./RootsPanel/RootsPanel.tsx?raw";
 import rootsPanelIndexSource from "./RootsPanel/index.ts?raw";
 import rootCardSource from "./RootsPanel/components/RootCard/RootCard.tsx?raw";
+import rootCardIndexSource from "./RootsPanel/components/RootCard/index.ts?raw";
 import headerSource from "./RootsPanel/components/RootCard/components/Header.tsx?raw";
+import progressBarSource from "./RootsPanel/components/RootCard/components/ProgressBar.tsx?raw";
 import refreshProgressSource from "./RootsPanel/components/RootCard/components/RefreshProgress.tsx?raw";
 import unprocessableCandidatesSectionSource from "./RootsPanel/components/RootCard/components/UnprocessableCandidatesSection.tsx?raw";
 import inferenceRulesFormSource from "./RootsPanel/components/RootCard/components/InferenceRulesForm.tsx?raw";
@@ -53,14 +55,17 @@ describe("Scan module file structure", () => {
     expect(rootsPanelSource).toContain("function RootsPanel");
     expect(rootsPanelIndexSource).toContain('./RootsPanel"');
     expect(rootCardSource).toContain("function RootCard");
+    expect(rootCardIndexSource).toContain('./RootCard"');
     expect(headerSource).toContain("function Header");
+    expect(progressBarSource).toContain("function ProgressBar");
     expect(refreshProgressSource).toContain("function RefreshProgress");
     expect(unprocessableCandidatesSectionSource).toContain(
       "function UnprocessableCandidatesSection",
     );
     expect(inferenceRulesFormSource).toContain("function InferenceRulesForm");
-    expect(rootsPanelSource).toContain('./components/RootCard/RootCard"');
+    expect(rootsPanelSource).toContain('./components/RootCard"');
     expect(rootCardSource).toContain('./components/Header"');
+    expect(refreshProgressSource).toContain('./ProgressBar"');
     expect(rootCardSource).toContain('./components/RefreshProgress"');
     expect(rootCardSource).toContain(
       './components/UnprocessableCandidatesSection"',
@@ -71,7 +76,25 @@ describe("Scan module file structure", () => {
     expect(refreshProgressSource).not.toMatch(/function ScanRoot/);
     expect(unprocessableCandidatesSectionSource).not.toMatch(/function ScanRoot/);
     expect(inferenceRulesFormSource).not.toMatch(/function ScanRoot/);
+    expectComponentFileToOwnOnly(rootsPanelSource, "RootsPanel");
+    expectComponentFileToOwnOnly(rootCardSource, "RootCard");
+    expectComponentFileToOwnOnly(headerSource, "Header");
+    expectComponentFileToOwnOnly(progressBarSource, "ProgressBar");
+    expectComponentFileToOwnOnly(refreshProgressSource, "RefreshProgress");
+    expectComponentFileToOwnOnly(
+      unprocessableCandidatesSectionSource,
+      "UnprocessableCandidatesSection",
+    );
+    expectComponentFileToOwnOnly(inferenceRulesFormSource, "InferenceRulesForm");
     expect(scanIssuesPanelSource).not.toContain("index.ts");
     expect(previewGenerationSource).not.toContain("index.ts");
   });
 });
+
+function expectComponentFileToOwnOnly(source: string, componentName: string) {
+  const componentFunctionNames = Array.from(
+    source.matchAll(/function ([A-Z][A-Za-z0-9]*)/g),
+  ).map((match) => match[1]);
+
+  expect(componentFunctionNames).toEqual([componentName]);
+}

@@ -6,7 +6,7 @@ import type {
   UnprocessableVideoCandidateGroup,
 } from "../../../tauriCommands";
 import { SectionHeader } from "../../../shared/components/SectionHeader";
-import { RootCard } from "./components/RootCard/RootCard";
+import { RootCard } from "./components/RootCard";
 
 export function RootsPanel({
   onChooseScanRootFolder,

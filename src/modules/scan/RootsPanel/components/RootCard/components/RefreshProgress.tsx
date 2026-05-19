@@ -1,9 +1,10 @@
-import { Button, Group, Progress, Stack, Text } from "@mantine/core";
+import { Button, Stack, Text } from "@mantine/core";
 
 import type {
   ScanRoot,
   ScanRootRefreshJobProgress,
 } from "../../../../../../tauriCommands";
+import { ProgressBar } from "./ProgressBar";
 
 export function RefreshProgress({
   onCancelRefresh,
@@ -47,29 +48,6 @@ function refreshStatusLabel(status: ScanRootRefreshJobProgress["status"]) {
   };
 
   return labels[status];
-}
-
-function ProgressBar({ progress }: { progress: ScanRootRefreshJobProgress }) {
-  const totalVideoCandidateCount = progress.totalVideoCandidateCount ?? 0;
-  const progressPercentage =
-    totalVideoCandidateCount > 0
-      ? Math.round(
-          (progress.processedVideoCandidateCount / totalVideoCandidateCount) * 100,
-        )
-      : 0;
-
-  return (
-    <Group gap="sm" wrap="nowrap">
-      <Progress
-        aria-label="Scan Root progress"
-        value={progressPercentage}
-        flex={1}
-      />
-      <Text miw={64} ta="right">
-        {progress.processedVideoCandidateCount} / {totalVideoCandidateCount}
-      </Text>
-    </Group>
-  );
 }
 
 function scanIssueCountLabel(unprocessableCandidateCount: number) {
