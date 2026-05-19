@@ -1,0 +1,1 @@
+export { VideoDetailPanel } from "./VideoDetailPanel";

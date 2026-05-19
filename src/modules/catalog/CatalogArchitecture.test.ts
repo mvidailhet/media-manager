@@ -236,9 +236,21 @@ describe("Catalog module boundaries", () => {
       videoDetailPanelFiles,
       "./VideoDetailPanel/VideoDetailPanel.tsx",
     );
-    const videoMetadataSectionSource = rawSource(
+    const titleEditorSource = rawSource(
       videoDetailPanelFiles,
-      "./VideoDetailPanel/components/VideoMetadataSection.tsx",
+      "./VideoDetailPanel/components/TitleEditor.tsx",
+    );
+    const actionButtonsSource = rawSource(
+      videoDetailPanelFiles,
+      "./VideoDetailPanel/components/ActionButtons.tsx",
+    );
+    const metadataSectionSource = rawSource(
+      videoDetailPanelFiles,
+      "./VideoDetailPanel/components/MetadataSection.tsx",
+    );
+    const fileLocationsSectionSource = rawSource(
+      videoDetailPanelFiles,
+      "./VideoDetailPanel/components/FileLocationsSection.tsx",
     );
     const videoPreviewSource = rawSource(
       videoPreviewFiles,
@@ -254,15 +266,39 @@ describe("Catalog module boundaries", () => {
     );
 
     expect(videoDetailPanelSource).not.toBe("");
-    expect(videoMetadataSectionSource).toMatch(/function VideoMetadataSection/);
-    expect(videoMetadataSectionSource).toMatch(
+    expect(titleEditorSource).toMatch(/function TitleEditor/);
+    expect(titleEditorSource).toMatch(/useState/);
+    expect(titleEditorSource).toMatch(/Save title/);
+    expect(actionButtonsSource).toMatch(/function ActionButtons/);
+    expect(actionButtonsSource).toMatch(/Open in finder/);
+    expect(metadataSectionSource).toMatch(/function MetadataSection/);
+    expect(metadataSectionSource).toMatch(
       /from "\.\.\/\.\.\/components\/MetadataBadges"/,
     );
-    expect(videoDetailPanelSource).toMatch(
-      /".\/components\/VideoMetadataSection"/,
+    expect(fileLocationsSectionSource).toMatch(
+      /function FileLocationsSection/,
     );
-    expect(videoDetailPanelSource).not.toMatch(/function VideoMetadataSection/);
+    expect(fileLocationsSectionSource).toMatch(/Preferred File Location/);
+    expect(fileLocationsSectionSource).toMatch(/Missing/);
+    expect(videoDetailPanelSource).toMatch(/".\/components\/TitleEditor"/);
+    expect(videoDetailPanelSource).toMatch(
+      /".\/components\/ActionButtons"/,
+    );
+    expect(videoDetailPanelSource).toMatch(
+      /".\/components\/MetadataSection"/,
+    );
+    expect(videoDetailPanelSource).toMatch(
+      /".\/components\/FileLocationsSection"/,
+    );
+    expect(videoDetailPanelSource).not.toMatch(/function TitleEditor/);
+    expect(videoDetailPanelSource).not.toMatch(/function ActionButtons/);
+    expect(videoDetailPanelSource).not.toMatch(/function MetadataSection/);
+    expect(videoDetailPanelSource).not.toMatch(/function FileLocationsSection/);
+    expect(videoDetailPanelSource).not.toMatch(/useState/);
+    expect(videoDetailPanelSource).not.toMatch(/useEffect/);
+    expect(videoDetailPanelSource).not.toMatch(/TextInput/);
     expect(videoDetailPanelSource).not.toMatch(/TagsInput/);
+    expect(videoDetailPanelSource).not.toMatch(/formatFileSize/);
 
     expect(videoPreviewSource).toMatch(/".\/components\/PreviewStripSurface"/);
     expect(videoPreviewSource).toMatch(/".\/VideoPreview\.module\.css"/);
@@ -275,7 +311,9 @@ describe("Catalog module boundaries", () => {
     expect(previewStripFrameSource).toMatch(
       /function previewStripFramePosition/,
     );
-    expect(Object.keys(videoDetailPanelBarrelFiles)).toHaveLength(0);
+    expect(Object.keys(videoDetailPanelBarrelFiles)).toEqual([
+      "./VideoDetailPanel/index.ts",
+    ]);
     expect(Object.keys(videoPreviewBarrelFiles)).toHaveLength(0);
   });
 });
