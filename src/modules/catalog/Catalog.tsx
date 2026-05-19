@@ -1,5 +1,3 @@
-import { Button, Group } from "@mantine/core";
-
 import type {
   CatalogPerformer,
   CatalogTag,
@@ -15,6 +13,7 @@ import type {
   CatalogVideoSort,
   CatalogView,
 } from "./catalogTypes";
+import { CatalogToolbar } from "./components/CatalogToolbar";
 import { MetadataSuggestionsSection } from "./components/MetadataSuggestionsSection";
 import { VideosPanel } from "./VideosPanel";
 
@@ -101,23 +100,17 @@ export function Catalog({
   onSetFavorite,
   selectedVideoIds,
 }: CatalogProps) {
-  const hasMetadataSuggestions = metadataSuggestionGroups.length > 0;
   const isVideosView = catalogView === "videos";
   return (
     <>
       {isVideosView ? (
         <>
-          {hasMetadataSuggestions ? (
-            <Group justify="flex-end" px="md" pt="md">
-              <Button
-                type="button"
-                variant="light"
-                onClick={() => onCatalogViewChange("metadataSuggestions")}
-              >
-                Metadata Suggestions
-              </Button>
-            </Group>
-          ) : null}
+          <CatalogToolbar
+            metadataSuggestionGroupCount={metadataSuggestionGroups.length}
+            onOpenMetadataSuggestionsReview={() =>
+              onCatalogViewChange("metadataSuggestions")
+            }
+          />
           <VideosPanel
             availablePerformers={availablePerformers}
             availableTags={availableTags}

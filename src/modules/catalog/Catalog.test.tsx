@@ -170,12 +170,280 @@ describe("Catalog module", () => {
       await screen.findByRole("region", { name: "Metadata Suggestions" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Back to Videos View" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
 
     expect(
       screen.getByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  it("shows a Metadata Suggestions toolbar entry only when suggestion groups exist with a group count badge", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValueOnce([]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+
+    expect(
+      screen.queryByRole("button", { name: "Metadata Suggestions" }),
+    ).not.toBeInTheDocument();
+    expect(catalogVideos).toBeInTheDocument();
+  });
+
+  it("shows the Metadata Suggestions toolbar entry badge as the suggestion group count", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValueOnce([
+      {
+        suggestionKind: "tag",
+        suggestedValue: "Travel",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive",
+            sourcePathSegment: "Trips",
+            videos: [
+              {
+                videoId: 1,
+                title: "Family Trip",
+                fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+              },
+              {
+                videoId: 2,
+                title: "City Walk",
+                fileLocationPath: "/Volumes/Archive/Trips/city-walk.mp4",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        suggestionKind: "performer",
+        suggestedValue: "Alice",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive",
+            sourcePathSegment: "Alice",
+            videos: [
+              {
+                videoId: 3,
+                title: "Portrait",
+                fileLocationPath: "/Volumes/Archive/Alice/portrait.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+
+    const metadataSuggestionsButton = await screen.findByRole("button", {
+      name: "Metadata Suggestions",
+    });
+
+    expect(metadataSuggestionsButton).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText("3")).not.toBeInTheDocument();
+  });
+
+  it("uses Back to Catalog from Metadata Suggestions Review and restores Videos View browsing state", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestionKind: "tag",
+        suggestedValue: "Travel",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive",
+            sourcePathSegment: "Trips",
+            videos: [
+              {
+                videoId: 1,
+                title: "Family Trip",
+                fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 50740352,
+        fileLocationPath: "/Volumes/Archive/City/city-walk.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
+      target: { value: "City" },
+    });
+    expect(
+      await within(catalogVideos).findByRole("article", { name: "City Walk" }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByRole("article", { name: "Family Trip" }),
+    ).not.toBeInTheDocument();
+
+    await openMetadataSuggestionsView();
+    expect(
+      await screen.findByRole("region", { name: "Metadata Suggestions" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
+
+    const restoredCatalogVideos = screen.getByRole("region", {
+      name: "Catalog Videos",
+    });
+    expect(
+      within(restoredCatalogVideos).getByDisplayValue("City"),
+    ).toBeInTheDocument();
+    expect(
+      within(restoredCatalogVideos).getByRole("article", { name: "City Walk" }),
+    ).toBeInTheDocument();
+    expect(
+      within(restoredCatalogVideos).queryByRole("article", {
+        name: "Family Trip",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clears Video Detail Panel selection when entering and leaving Metadata Suggestions Review", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestionKind: "tag",
+        suggestedValue: "Travel",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive",
+            sourcePathSegment: "Trips",
+            videos: [
+              {
+                videoId: 1,
+                title: "Family Trip",
+                fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("article", { name: "Family Trip" }),
+    );
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+
+    await openMetadataSuggestionsView();
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      getMetadataSuggestionTreeLabel(metadataSuggestions, "/Volumes/Archive"),
+    );
+    fireEvent.click(within(metadataSuggestions).getByText("Trips/family-trip.mp4"));
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
+
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("automatically returns to Catalog when the last Metadata Suggestion is resolved", async () => {
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestionKind: "tag",
+          suggestedValue: "Travel",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive",
+              sourcePathSegment: "Trips",
+              videos: [
+                {
+                  videoId: 1,
+                  title: "Family Trip",
+                  fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("region", { name: "Catalog Videos" }),
+      ).toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("region", { name: "Metadata Suggestions" }),
+    ).not.toBeInTheDocument();
   });
 
   it("loads Catalog Videos into the Videos View", async () => {
@@ -2542,7 +2810,7 @@ describe("Catalog module", () => {
       expect(mockedPerformersForVideo).toHaveBeenCalledWith(7);
     });
     expect(
-      await within(metadataSuggestions).findByText("No Metadata Suggestions."),
+      await screen.findByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
   });
 
@@ -2667,7 +2935,7 @@ describe("Catalog module", () => {
       });
     });
     expect(
-      await within(metadataSuggestions).findByText("No Metadata Suggestions."),
+      await screen.findByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
   });
 
@@ -2769,7 +3037,7 @@ describe("Catalog module", () => {
       suggestionKind: "tag",
     });
     expect(
-      await within(metadataSuggestions).findByText("No Metadata Suggestions."),
+      await screen.findByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
   });
 

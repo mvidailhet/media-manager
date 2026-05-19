@@ -1,4 +1,5 @@
 import { Box, Button, Group } from "@mantine/core";
+import { IconArrowLeft } from "@tabler/icons-react";
 
 import type {
   CatalogPerformer,
@@ -8,6 +9,8 @@ import type {
 } from "../../../tauriCommands";
 import type { CatalogMetadataSuggestionAcceptanceRequest } from "../catalogTypes";
 import { MetadataSuggestionsPanel } from "../MetadataSuggestionsPanel";
+
+const backNavigationIconSize = 20;
 
 type MetadataSuggestionsSectionProps = {
   availablePerformers: CatalogPerformer[];
@@ -40,8 +43,13 @@ export function MetadataSuggestionsSection({
       maw={760}
     >
       <Group justify="flex-start" mb="md">
-        <Button type="button" variant="subtle" onClick={onReturnToVideosView}>
-          Back to Videos View
+        <Button
+          type="button"
+          variant="subtle"
+          leftSection={<IconArrowLeft size={backNavigationIconSize} />}
+          onClick={onReturnToVideosView}
+        >
+          Back to Catalog
         </Button>
       </Group>
       <MetadataSuggestionsPanel

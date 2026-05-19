@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import {
   appendUniqueMetadata,
@@ -136,6 +136,19 @@ export function useCatalogModuleController(): CatalogController {
     metadataSuggestionGroups,
     refreshMetadataSuggestionGroups,
   } = useMetadataSuggestionsController();
+
+  useEffect(() => {
+    if (catalogView !== "metadataSuggestions") {
+      return;
+    }
+
+    if (metadataSuggestionGroups.length > 0) {
+      return;
+    }
+
+    setCatalogView("videos");
+    resetCatalogSelection();
+  }, [catalogView, metadataSuggestionGroups.length]);
 
   async function acceptSelectedMetadataSuggestionVideos({
     acceptedMetadataKind,
