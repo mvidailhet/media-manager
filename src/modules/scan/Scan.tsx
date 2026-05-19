@@ -1,4 +1,4 @@
-import { Badge, Group, Tabs } from "@mantine/core";
+import { Tabs } from "@mantine/core";
 
 import type {
   CatalogVideo,
@@ -10,9 +10,10 @@ import type {
 import { PreviewGenerationView } from "./PreviewGenerationView/PreviewGenerationView";
 import { RootsPanel } from "./RootsPanel";
 import { ScanIssuesPanel } from "./ScanIssuesPanel/ScanIssuesPanel";
+import { TabsList } from "./components/TabsList";
 import type { ScanRoot } from "./useScanRoots";
 
-export type ScanModuleProps = {
+export type ScanProps = {
   failedPreviewStrips: FailedPreviewStrip[];
   generatedPreviewStripCount: number;
   generatingPreviewStripTitle?: string;
@@ -47,7 +48,7 @@ export const scanRootsTab = "scanRoots";
 export const scanIssuesTab = "scanIssues";
 export const previewGenerationTab = "previewGeneration";
 
-export function ScanModule({
+export function Scan({
   failedPreviewStrips,
   generatedPreviewStripCount,
   generatingPreviewStripTitle,
@@ -73,32 +74,13 @@ export function ScanModule({
   scanTab,
   unavailableScanRoots,
   unprocessableVideoCandidateGroups,
-}: ScanModuleProps) {
+}: ScanProps) {
   return (
     <Tabs value={scanTab} onChange={onScanTabChange} keepMounted={false}>
-      <Tabs.List aria-label="Scan module tabs">
-        <Tabs.Tab value={scanRootsTab}>Scan Roots</Tabs.Tab>
-        <Tabs.Tab value={scanIssuesTab}>
-          <Group gap={6}>
-            <span>Scan Issues</span>
-            {scanIssuesAttentionCount > 0 ? (
-              <Badge size="sm" color="red">
-                {scanIssuesAttentionCount}
-              </Badge>
-            ) : null}
-          </Group>
-        </Tabs.Tab>
-        <Tabs.Tab value={previewGenerationTab}>
-          <Group gap={6}>
-            <span>Preview Generation</span>
-            {previewGenerationAttentionCount > 0 ? (
-              <Badge size="sm" color="red">
-                {previewGenerationAttentionCount}
-              </Badge>
-            ) : null}
-          </Group>
-        </Tabs.Tab>
-      </Tabs.List>
+      <TabsList
+        previewGenerationAttentionCount={previewGenerationAttentionCount}
+        scanIssuesAttentionCount={scanIssuesAttentionCount}
+      />
 
       <Tabs.Panel value={scanRootsTab}>
         <RootsPanel

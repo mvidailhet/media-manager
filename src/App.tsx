@@ -7,7 +7,7 @@ import {
 } from "./modules/catalog";
 import { CatalogModuleDetailAside } from "./modules/catalog/CatalogModuleDetailAside";
 import {
-  ScanModule,
+  Scan,
   type ScanRoot,
   type ScanRootRemovalPolicy,
   useScanModuleController,
@@ -118,7 +118,7 @@ export default function App() {
             metadataSuggestionGroups={metadataSuggestionGroups}
           />
         ) : null}
-        {activeAppModule === "scan" ? <ScanModule {...scanModuleProps} /> : null}
+        {activeAppModule === "scan" ? <Scan {...scanModuleProps} /> : null}
 
         {scanRootPendingRemoval ? (
           <RemoveScanRootConfirmation

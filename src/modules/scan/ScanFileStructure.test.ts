@@ -4,6 +4,9 @@ import previewGenerationSource from "./PreviewGenerationView/PreviewGenerationVi
 import previewStripQueueActivityLabelSource from "./PreviewGenerationView/previewStripQueueActivityLabel.ts?raw";
 import failedPreviewStripsPanelSource from "./PreviewGenerationView/components/FailedPreviewStripsPanel.tsx?raw";
 import previewStripQueuePanelSource from "./PreviewGenerationView/components/PreviewStripQueuePanel.tsx?raw";
+import attentionTabLabelSource from "./components/AttentionTabLabel.tsx?raw";
+import tabsListSource from "./components/TabsList.tsx?raw";
+import scanSource from "./Scan.tsx?raw";
 import scanIssuesPanelSource from "./ScanIssuesPanel/ScanIssuesPanel.tsx?raw";
 import missingVideosPanelSource from "./ScanIssuesPanel/components/MissingVideosPanel.tsx?raw";
 import unavailableScanRootsPanelSource from "./ScanIssuesPanel/components/UnavailableScanRootsPanel.tsx?raw";
@@ -18,6 +21,22 @@ import unprocessableCandidatesSectionSource from "./RootsPanel/components/RootCa
 import inferenceRulesFormSource from "./RootsPanel/components/RootCard/components/InferenceRulesForm.tsx?raw";
 
 describe("Scan module file structure", () => {
+  it("keeps the Scan entry tabs in focused child components", () => {
+    expect(scanSource).toContain("function Scan");
+    expect(tabsListSource).toContain("function TabsList");
+    expect(attentionTabLabelSource).toContain("function AttentionTabLabel");
+    expect(scanSource).toContain('./components/TabsList"');
+    expect(tabsListSource).toContain('./AttentionTabLabel"');
+    expect(tabsListSource).toContain("Scan Roots");
+    expect(tabsListSource).toContain("Scan Issues");
+    expect(tabsListSource).toContain("Preview Generation");
+    expect(tabsListSource).not.toMatch(/function Scan/);
+    expect(attentionTabLabelSource).not.toMatch(/function Scan/);
+    expectComponentFileToOwnOnly(scanSource, "Scan");
+    expectComponentFileToOwnOnly(tabsListSource, "TabsList");
+    expectComponentFileToOwnOnly(attentionTabLabelSource, "AttentionTabLabel");
+  });
+
   it("keeps each Scan Issues panel in its focused component file", () => {
     expect(missingVideosPanelSource).toContain("function MissingVideosPanel");
     expect(unavailableScanRootsPanelSource).toContain(

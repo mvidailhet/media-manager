@@ -1,8 +1,8 @@
 import { useState } from "react";
 
 import type { CatalogVideo } from "../catalog/useCatalogModuleController";
-import type { ScanModuleProps } from "./ScanModule";
-import { scanRootsTab } from "./ScanModule";
+import type { ScanProps } from "./Scan";
+import { scanRootsTab } from "./Scan";
 import { usePreviewGeneration } from "./usePreviewGeneration";
 import { useScanIssues } from "./useScanIssues";
 import type { ScanRoot, ScanRootRemovalPolicy } from "./useScanRoots";
@@ -17,7 +17,7 @@ type ScanModuleController = {
     typeof useScanRoots
   >["removeSelectedScanRoot"];
   scanAttentionCount: number;
-  scanModuleProps: ScanModuleProps;
+  scanModuleProps: ScanProps;
   setScanIssuesStatusMessage: ReturnType<
     typeof useScanIssues
   >["setScanIssuesStatusMessage"];
