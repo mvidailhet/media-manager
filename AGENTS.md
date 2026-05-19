@@ -40,6 +40,23 @@ This repo uses the single-context layout: root `CONTEXT.md` plus root `docs/adr/
 - One concept per file: a class, an interface, or a group of closely related pure functions.
 - IMPORTANT: keep a single source of truth for every domain value. If a value already exists elsewhere in the project, reuse that definition instead of copying it into a new local constant or map.
 
+### Frontend component splitting
+- Do not define child React components in the same file as their parent component.
+- When a component owns child components, make the parent a folder-owned component:
+  - `ComponentName/ComponentName.tsx` contains the parent component.
+  - `ComponentName/components/ChildName.tsx` contains child components used only by that parent.
+  - `ComponentName/index.ts` may re-export the parent when that preserves clean imports.
+- Do not keep `ComponentName.tsx` as a sibling of `ComponentName/components/`. Move the parent file into the `ComponentName/` folder before adding child components.
+- Exception: app, route, and module entry components may stay directly in their owning folder when that folder already names the app or domain boundary.
+  - Prefer `src/modules/catalog/Catalog.tsx` over `src/modules/catalog/CatalogModule/CatalogModule.tsx`.
+  - Put child components owned by that entry component in the owning folder's `components/` directory.
+  - Put feature-owned child components under the smallest feature folder that owns them, such as `src/modules/catalog/VideosPanel/components/`.
+- Keep parent components focused on composition, state ownership, and data flow. Move visually or behaviorally distinct UI regions into named child components.
+- Before creating a new frontend feature or refactoring frontend UI, describe the intended component split: parent component, child components, and each component's responsibility.
+- Prefer splitting when a JSX region has its own heading, controls, conditional state, repeated rendering, or domain name.
+- Scope components to the smallest folder hierarchy that owns all their usages. A component used by only one parent stays next to that parent. When it becomes used by sibling components, move it up to the nearest shared parent's `components/` folder.
+- Name child components for their local responsibility, not by repeating their ancestry. Folder hierarchy already provides context, so avoid prefixes like `ScanRoot` or `ScanRootCard` inside `ScanRootCard/components/` unless the name would otherwise be ambiguous.
+
 ### Comments
 - If code needs a comment to explain what it does, rename or restructure until it doesn't.
 - Only add a comment to explain *why* something is done when the reason is not obvious from the code itself.
