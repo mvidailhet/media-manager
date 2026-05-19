@@ -143,6 +143,7 @@ export function Catalog({
           onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
           onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
           onReviewVideo={onReviewVideo}
+          onReturnToVideosView={() => onCatalogViewChange("videos")}
         />
       )}
       {batchSelectedVideoCount > 0 ? (

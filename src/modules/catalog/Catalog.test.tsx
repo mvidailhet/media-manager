@@ -140,6 +140,44 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("returns from Metadata Suggestions to Videos View without main Catalog tabs", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestionKind: "tag",
+        suggestedValue: "Travel",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive",
+            sourcePathSegment: "Trips",
+            videos: [
+              {
+                videoId: 1,
+                title: "Family Trip",
+                fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Metadata Suggestions" }),
+    );
+    expect(
+      await screen.findByRole("region", { name: "Metadata Suggestions" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Videos View" }));
+
+    expect(
+      screen.getByRole("region", { name: "Catalog Videos" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
   it("loads Catalog Videos into the Videos View", async () => {
     mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
     mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
