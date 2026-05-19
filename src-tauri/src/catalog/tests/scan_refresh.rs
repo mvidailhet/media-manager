@@ -352,6 +352,46 @@ fn refreshing_a_scan_root_recursively_stores_probeable_videos() {
 }
 
 #[test]
+fn refreshing_a_scan_root_ignores_hidden_video_candidates() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let hidden_folder = movies_root.join(".Hidden");
+    std::fs::create_dir_all(&hidden_folder).expect("hidden folder exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let visible_trip_path = movies_root.join("family-trip.mp4");
+    let hidden_trip_path = movies_root.join(".hidden-trip.mp4");
+    let hidden_folder_trip_path = hidden_folder.join("folder-trip.mp4");
+    std::fs::write(&visible_trip_path, "visible video bytes").expect("visible video exists");
+    std::fs::write(&hidden_trip_path, "hidden video bytes").expect("hidden video exists");
+    std::fs::write(&hidden_folder_trip_path, "folder video bytes")
+        .expect("hidden folder video exists");
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+
+    let refresh_summary = catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert_eq!(
+        refresh_summary,
+        crate::catalog::ScanRootRefreshSummary {
+            scanned_video_count: 1,
+            unprocessable_candidate_count: 0,
+        }
+    );
+    let listed_videos = catalog.listed_videos().expect("stored videos list");
+    assert_eq!(listed_videos.len(), 1);
+    assert_eq!(listed_videos[0].title, "family-trip");
+}
+
+#[test]
 fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_progress() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
@@ -416,7 +456,7 @@ fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_pro
     assert_eq!(
         catalog
             .list_unprocessable_video_candidates_by_scan_root()
-        .expect("unprocessable candidates grouped by Scan Root"),
+            .expect("unprocessable candidates grouped by Scan Root"),
         vec![crate::catalog::UnprocessableVideoCandidateGroup {
             scan_root_path: scan_root.path,
             candidate_count: 1,
@@ -460,12 +500,10 @@ fn listing_unprocessable_candidates_by_scan_root_caps_candidate_details() {
     assert_eq!(candidate_groups[0].scan_root_path, scan_root.path);
     assert_eq!(candidate_groups[0].candidate_count, 21);
     assert_eq!(candidate_groups[0].candidates.len(), 20);
-    assert!(
-        candidate_groups[0]
-            .candidates
-            .iter()
-            .all(|candidate| candidate.reason == "ffprobe failed")
-    );
+    assert!(candidate_groups[0]
+        .candidates
+        .iter()
+        .all(|candidate| candidate.reason == "ffprobe failed"));
 }
 
 #[test]

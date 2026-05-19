@@ -304,12 +304,11 @@ impl Catalog {
 
         let mut candidate_groups = Vec::new();
         for (scan_root_path, candidate_count, candidate) in candidate_rows {
-            if candidate_groups
-                .last()
-                .is_none_or(|candidate_group: &UnprocessableVideoCandidateGroup| {
+            if candidate_groups.last().is_none_or(
+                |candidate_group: &UnprocessableVideoCandidateGroup| {
                     candidate_group.scan_root_path != scan_root_path
-                })
-            {
+                },
+            ) {
                 candidate_groups.push(UnprocessableVideoCandidateGroup {
                     scan_root_path: scan_root_path.clone(),
                     candidate_count,

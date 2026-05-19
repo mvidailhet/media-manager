@@ -810,8 +810,19 @@ fn discover_video_candidate_paths_recursively(
     allowed_extensions: &HashSet<String>,
     video_candidate_paths: &mut Vec<PathBuf>,
 ) -> Result<(), String> {
+    const HIDDEN_FILE_PREFIX: char = '.';
+
     for directory_entry in fs::read_dir(folder_path).map_err(|error| error.to_string())? {
         let directory_entry = directory_entry.map_err(|error| error.to_string())?;
+        let candidate_name = directory_entry.file_name();
+        let is_hidden_candidate = candidate_name
+            .to_str()
+            .map(|candidate_name| candidate_name.starts_with(HIDDEN_FILE_PREFIX))
+            .unwrap_or(false);
+        if is_hidden_candidate {
+            continue;
+        }
+
         let candidate_path = directory_entry.path();
         let file_type = directory_entry
             .file_type()
