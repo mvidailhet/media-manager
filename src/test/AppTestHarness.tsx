@@ -242,9 +242,9 @@ export async function openMetadataSuggestionsView() {
   );
 }
 
-export async function openScanIssuesTab() {
+export async function openMissingVideosTab() {
   await openScanModule();
-  fireEvent.click(await screen.findByRole("tab", { name: /Scan Issues/ }));
+  fireEvent.click(await screen.findByRole("tab", { name: /Missing Videos/ }));
 }
 
 export async function openPreviewGenerationTab() {

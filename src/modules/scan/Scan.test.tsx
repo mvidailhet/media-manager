@@ -50,7 +50,7 @@ import {
   openScanModule,
   openSettingsModule,
   openMetadataSuggestionsView,
-  openScanIssuesTab,
+  openMissingVideosTab,
   openPreviewGenerationTab,
 } from "../../test/AppTestHarness";
 
@@ -354,7 +354,7 @@ describe("Scan module", () => {
     expect(screen.getByText("Last scan done 1 day ago")).toBeInTheDocument();
   });
 
-  it("routes Scan attention badges to Scan Roots, Scan Issues, and Preview Generation", async () => {
+  it("routes Scan attention badges to Scan Roots, Missing Videos, and Preview Generation", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -461,25 +461,25 @@ describe("Scan module", () => {
       await screen.findByRole("tab", { name: "Scan Roots 1" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Scan 4" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Scan Issues 1" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Missing Videos 1" })).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: "Preview Generation 1" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Scan Issues 1" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Missing Videos 1" }));
 
-    const scanIssues = await screen.findByRole("tabpanel", {
-      name: "Scan Issues 1",
+    const missingVideosWorkflow = await screen.findByRole("tabpanel", {
+      name: "Missing Videos 1",
     });
-    expect(within(scanIssues).getByText("Missing Trip")).toBeInTheDocument();
+    expect(within(missingVideosWorkflow).getByText("Missing Trip")).toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("/Volumes/Archive/Videos"),
+      within(missingVideosWorkflow).queryByText("/Volumes/Archive/Videos"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("/Volumes/Archive/Videos/broken.mov"),
+      within(missingVideosWorkflow).queryByText("/Volumes/Archive/Videos/broken.mov"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("Broken Preview"),
+      within(missingVideosWorkflow).queryByText("Broken Preview"),
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("tab", { name: "Preview Generation 1" }));
@@ -713,7 +713,9 @@ describe("Scan module", () => {
       screen.queryByText("1 of 3 video candidates processed"),
     ).not.toBeInTheDocument();
     expect(screen.queryByText("1 Video scanned")).not.toBeInTheDocument();
-    expect(screen.getByText("0 Scan Issues")).toBeInTheDocument();
+    expect(
+      screen.getByText("0 Unprocessable Video Candidates"),
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel scan" }));
 
@@ -948,7 +950,7 @@ describe("Scan module", () => {
     ).toBeInTheDocument();
   });
 
-  it("lists only Missing Videos in Scan Issues", async () => {
+  it("lists only Missing Videos in Missing Videos", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -1029,44 +1031,41 @@ describe("Scan module", () => {
     ]);
 
     renderApp();
-    await openScanIssuesTab();
+    await openMissingVideosTab();
 
     await waitFor(() => {
       expect(mockedListMetadataSuggestionGroups).toHaveBeenCalled();
     });
 
-    const scanIssues = await screen.findByRole("region", {
-      name: "Scan Issues",
+    const missingVideosWorkflow = await screen.findByRole("region", {
+      name: "Missing Videos",
     });
     expect(
-      within(scanIssues).getByRole("heading", { name: "Scan Issues" }),
+      within(missingVideosWorkflow).getByRole("heading", { name: "Missing Videos" }),
     ).toBeInTheDocument();
     expect(
-      within(scanIssues).getByRole("heading", { name: "Missing Videos" }),
+      await within(missingVideosWorkflow).findByText("Family Trip"),
     ).toBeInTheDocument();
     expect(
-      await within(scanIssues).findByText("Family Trip"),
-    ).toBeInTheDocument();
-    expect(
-      within(scanIssues).queryByText("Available Trip"),
+      within(missingVideosWorkflow).queryByText("Available Trip"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("Offline Trip"),
+      within(missingVideosWorkflow).queryByText("Offline Trip"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("/Volumes/Missing/Videos"),
+      within(missingVideosWorkflow).queryByText("/Volumes/Missing/Videos"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("Unavailable Scan Roots"),
+      within(missingVideosWorkflow).queryByText("Unavailable Scan Roots"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("Unprocessable Video Candidates"),
+      within(missingVideosWorkflow).queryByText("Unprocessable Video Candidates"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("/Volumes/Archive/Videos/broken.mkv"),
+      within(missingVideosWorkflow).queryByText("/Volumes/Archive/Videos/broken.mkv"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).queryByText("missing moov atom"),
+      within(missingVideosWorkflow).queryByText("missing moov atom"),
     ).not.toBeInTheDocument();
   });
 

@@ -19,9 +19,9 @@ function normalizeConfiguredPath(value: string) {
 }
 
 export function useSettingsStatus({
-  refreshScanIssues,
+  refreshMissingVideos,
 }: {
-  refreshScanIssues: () => Promise<void>;
+  refreshMissingVideos: () => Promise<void>;
 }) {
   const [localDesktopAppStatus, setLocalDesktopAppStatus] =
     useState(loadingStatusMessage);
@@ -96,7 +96,7 @@ export function useSettingsStatus({
       setFfmpegPath(status.configuration.ffmpegPath ?? "");
       setFfprobePath(status.configuration.ffprobePath ?? "");
       setFfmpegStatusMessage("");
-      await refreshScanIssues();
+      await refreshMissingVideos();
     } catch {
       setFfmpegStatusMessage(ffmpegErrorMessage);
     }

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   appendUniqueMetadata,
@@ -28,6 +28,10 @@ import {
   sortedCatalogVideos,
 } from "./catalogVideoFiltering";
 import type { CatalogProps } from "./Catalog";
+import {
+  listMetadataSuggestionGroups,
+  type MetadataSuggestionGroup,
+} from "../../tauriCommands";
 
 export type { CatalogVideo };
 
@@ -60,13 +64,7 @@ function uniqueMetadataNames(metadataNames: string[]) {
   return uniqueNames;
 }
 
-export function useCatalogModuleController({
-  refreshScanIssues,
-  setScanIssuesStatusMessage,
-}: {
-  refreshScanIssues: (shouldClearStatusMessage?: boolean) => Promise<void>;
-  setScanIssuesStatusMessage: (message: string) => void;
-}): CatalogController {
+export function useCatalogModuleController(): CatalogController {
   const [selectedVideo, setSelectedVideo] = useState<CatalogVideo | null>(null);
   const [selectedVideoTags, setSelectedVideoTags] = useState<CatalogTag[]>([]);
   const [selectedVideoPerformers, setSelectedVideoPerformers] = useState<
@@ -83,6 +81,9 @@ export function useCatalogModuleController({
     useState<CatalogVideoWorkspace>("videos");
   const [catalogView, setCatalogView] = useState<CatalogView>("allVideos");
   const [detailStatusMessage, setDetailStatusMessage] = useState("");
+  const [metadataSuggestionGroups, setMetadataSuggestionGroups] = useState<
+    MetadataSuggestionGroup[]
+  >([]);
   const selectedVideoRequestId = useRef(0);
   const selectedVideoId = useRef<number | null>(null);
   const {
@@ -119,6 +120,35 @@ export function useCatalogModuleController({
     loadVideoTags,
   } = useCatalogMetadata({ catalogVideos });
 
+  async function refreshMetadataSuggestionGroups() {
+    setMetadataSuggestionGroups(await listMetadataSuggestionGroups());
+  }
+
+  useEffect(() => {
+    let canUpdateMetadataSuggestionGroups = true;
+
+    async function loadMetadataSuggestionGroups() {
+      try {
+        const storedMetadataSuggestionGroups =
+          await listMetadataSuggestionGroups();
+
+        if (canUpdateMetadataSuggestionGroups) {
+          setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
+        }
+      } catch {
+        if (canUpdateMetadataSuggestionGroups) {
+          setMetadataSuggestionGroups([]);
+        }
+      }
+    }
+
+    void loadMetadataSuggestionGroups();
+
+    return () => {
+      canUpdateMetadataSuggestionGroups = false;
+    };
+  }, []);
+
   async function acceptSelectedMetadataSuggestionVideos({
     acceptedMetadataKind,
     acceptedValue,
@@ -145,7 +175,7 @@ export function useCatalogModuleController({
           videoIds.map((videoId) => attachTagToCatalogVideo(tag.id, videoId)),
         ),
       );
-      await refreshScanIssues(false);
+      await refreshMetadataSuggestionGroups();
       const [storedTags, storedPerformers] = await Promise.all([
         loadAvailableTags(),
         loadAvailablePerformers(),
@@ -178,7 +208,7 @@ export function useCatalogModuleController({
         setSelectedVideoPerformers(selectedVideoMetadata.performers);
       }
     } catch (error) {
-      setScanIssuesStatusMessage(errorMessage(error));
+      setDetailStatusMessage(errorMessage(error));
     }
   }
 
@@ -214,9 +244,9 @@ export function useCatalogModuleController({
         suggestedValue,
         suggestionKind,
       });
-      await refreshScanIssues(false);
+      await refreshMetadataSuggestionGroups();
     } catch (error) {
-      setScanIssuesStatusMessage(errorMessage(error));
+      setDetailStatusMessage(errorMessage(error));
     }
   }
 
@@ -864,7 +894,7 @@ export function useCatalogModuleController({
       catalogVideosStatusMessage,
       catalogView,
       detailStatusMessage,
-      metadataSuggestionGroups: [],
+      metadataSuggestionGroups,
       onAcceptMetadataSuggestionVideos: acceptSelectedMetadataSuggestionVideos,
       onAppendPerformer: appendPerformerToBatchSelectedVideos,
       onAppendTag: appendTagToBatchSelectedVideos,

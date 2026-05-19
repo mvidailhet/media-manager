@@ -21,7 +21,9 @@ export function RefreshProgress({
     <Stack gap={2}>
       <Text fw={700}>{refreshStatusLabel(progress.status)}</Text>
       <ProgressBar progress={progress} />
-      <Text>{scanIssueCountLabel(progress.unprocessableCandidateCount)}</Text>
+      <Text>
+        {unprocessableCandidateCountLabel(progress.unprocessableCandidateCount)}
+      </Text>
       {canCancelRefresh ? (
         <Button
           type="button"
@@ -50,8 +52,8 @@ function refreshStatusLabel(status: ScanRootRefreshJobProgress["status"]) {
   return labels[status];
 }
 
-function scanIssueCountLabel(unprocessableCandidateCount: number) {
+function unprocessableCandidateCountLabel(unprocessableCandidateCount: number) {
   return unprocessableCandidateCount === 1
-    ? "1 Scan Issue"
-    : `${unprocessableCandidateCount} Scan Issues`;
+    ? "1 Unprocessable Video Candidate"
+    : `${unprocessableCandidateCount} Unprocessable Video Candidates`;
 }

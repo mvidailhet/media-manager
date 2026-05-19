@@ -11,3 +11,7 @@ Settings will be exposed behind a gear icon and hold app/tooling status such as 
 The first implementation pass will be mechanical extraction before UI or API redesign. Frontend state can remain owned by `App` while JSX is split into modules. Backend commands can keep calling the public `Catalog` facade while migrations, videos, scan roots, metadata, metadata suggestions, preview strip records, and preview generation are extracted behind it. We will use local React state for module navigation for now, rather than introducing a router before deep links or session restore require one.
 
 This trades short-term duplication of some wiring for lower refactor risk. A flat page/component structure would be simpler to start, but it would keep domain concepts scattered by technical role. A deeper immediate service split would create more public API churn than the current app needs.
+
+## Status note
+
+The former **Scan Issues** workspace was later narrowed and renamed to **Missing Videos View**. **Unavailable Scan Roots** are handled in **Scan Roots**, and **Unprocessable Video Candidates** are reviewed from their **Scan Root**.

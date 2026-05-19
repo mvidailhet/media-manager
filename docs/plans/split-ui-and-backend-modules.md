@@ -27,7 +27,7 @@ src/
     scan/
       ScanModule.tsx
       ScanRootsView.tsx
-      ScanIssuesView.tsx
+      MissingVideosView.tsx
       PreviewGenerationView.tsx
       components/
     settings/
@@ -40,7 +40,7 @@ src/
     metadata/
 ```
 
-The top-level navigation exposes Catalog, Scan, and Settings. Catalog opens by default. The All Videos, Favorites, Recently Opened, and Metadata Suggestions views live inside Catalog. Scan Roots, Scan Issues, and Preview Generation live inside Scan. Settings holds Tauri bridge status and FFmpeg/FFprobe status/configuration.
+The top-level navigation exposes Catalog, Scan, and Settings. Catalog opens by default. The All Videos, Favorites, Recently Opened, and Metadata Suggestions views live inside Catalog. Scan Roots, Missing Videos, and Preview Generation live inside Scan. Settings holds Tauri bridge status and FFmpeg/FFprobe status/configuration.
 
 ## Target backend shape
 
@@ -74,7 +74,7 @@ Keep `Catalog` as the public facade during the split. Tauri commands should keep
 2. Frontend module navigation
    - Add local state for active module.
    - Add Catalog views: All Videos, Favorites, Recently Opened, Metadata Suggestions.
-   - Add Scan tabs: Scan Roots, Scan Issues, Preview Generation.
+   - Add Scan tabs: Scan Roots, Missing Videos, Preview Generation.
    - Reset Video Detail Panel and batch selection when changing Catalog views.
 
 3. Frontend state ownership

@@ -114,6 +114,7 @@ describe("Catalog module boundaries", () => {
     expect(appSource).not.toMatch(/useCatalogMetadata/);
     expect(catalogControllerSource).toMatch(/useCatalogVideos/);
     expect(catalogControllerSource).toMatch(/useCatalogMetadata/);
+    expect(catalogControllerSource).toMatch(/listMetadataSuggestionGroups/);
   });
 
   it("keeps Catalog panels owned by the Catalog module", () => {

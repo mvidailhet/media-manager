@@ -9,11 +9,11 @@ import type {
 } from "../../tauriCommands";
 import { PreviewGenerationView } from "./PreviewGenerationView/PreviewGenerationView";
 import { RootsPanel } from "./RootsPanel";
-import { ScanIssuesPanel } from "./ScanIssuesPanel/ScanIssuesPanel";
+import { MissingVideosPanel } from "./MissingVideosPanel/MissingVideosPanel";
 import { TabsList } from "./components/TabsList";
 import {
   previewGenerationTab,
-  scanIssuesTab,
+  missingVideosTab,
   scanRootsTab,
 } from "./scanTabs";
 import type { ScanRoot } from "./useScanRoots";
@@ -41,9 +41,9 @@ export type ScanProps = {
   onScanTabChange: (scanTab: string | null) => void;
   previewGenerationAttentionCount: number;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
-  scanIssuesAttentionCount: number;
+  missingVideosAttentionCount: number;
   scanRootsAttentionCount: number;
-  scanIssuesStatusMessage: string;
+  missingVideosStatusMessage: string;
   scanRoots: ScanRoot[];
   scanRootsStatusMessage: string;
   scanTab: string | null;
@@ -70,9 +70,9 @@ export function Scan({
   onScanTabChange,
   previewGenerationAttentionCount,
   previewStripQueueStatus,
-  scanIssuesAttentionCount,
+  missingVideosAttentionCount,
   scanRootsAttentionCount,
-  scanIssuesStatusMessage,
+  missingVideosStatusMessage,
   scanRoots,
   scanRootsStatusMessage,
   scanTab,
@@ -83,7 +83,7 @@ export function Scan({
       <TabsList
         previewGenerationAttentionCount={previewGenerationAttentionCount}
         scanRootsAttentionCount={scanRootsAttentionCount}
-        scanIssuesAttentionCount={scanIssuesAttentionCount}
+        missingVideosAttentionCount={missingVideosAttentionCount}
       />
 
       <Tabs.Panel value={scanRootsTab}>
@@ -101,10 +101,10 @@ export function Scan({
         />
       </Tabs.Panel>
 
-      <Tabs.Panel value={scanIssuesTab}>
-        <ScanIssuesPanel
+      <Tabs.Panel value={missingVideosTab}>
+        <MissingVideosPanel
           missingVideos={missingVideos}
-          scanIssuesStatusMessage={scanIssuesStatusMessage}
+          missingVideosStatusMessage={missingVideosStatusMessage}
           onRequestMissingVideoForget={onRequestMissingVideoForget}
         />
       </Tabs.Panel>

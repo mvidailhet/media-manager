@@ -46,7 +46,7 @@ import {
   openScanModule,
   openSettingsModule,
   openMetadataSuggestionsView,
-  openScanIssuesTab,
+  openMissingVideosTab,
   openPreviewGenerationTab,
 } from "../../test/AppTestHarness";
 
@@ -2739,7 +2739,7 @@ describe("Catalog module", () => {
       .mockResolvedValueOnce([]);
 
     renderApp();
-    await openScanIssuesTab();
+    await openMissingVideosTab();
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Forget From Catalog" }),

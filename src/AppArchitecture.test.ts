@@ -4,6 +4,10 @@ import architectureTestSource from "./AppArchitecture.test.ts?raw";
 import appSource from "./App.tsx?raw";
 
 describe("App module boundaries", () => {
+  const legacyMissingVideosPattern = new RegExp(
+    `Scan${"Issues"}|scan${"Issues"}|useScan${"Issues"}`,
+  );
+
   it("keeps root architecture tests focused on App composition", () => {
     const moduleInternalImportPattern = new RegExp(
       String.raw`\.\/modules\/(?:scan|settings)\/|\.\/modules\/catalog\/(?!CatalogDetailAside)`,
@@ -29,14 +33,15 @@ describe("App module boundaries", () => {
     expect(appSource).not.toMatch(/<SettingsModule/);
     expect(appSource).not.toMatch(/CatalogVideosPanel/);
     expect(appSource).not.toMatch(/ScanRootsPanel/);
-    expect(appSource).not.toMatch(/ScanIssuesPanel/);
+    expect(appSource).not.toMatch(legacyMissingVideosPattern);
+    expect(appSource).not.toMatch(/MissingVideosPanel/);
     expect(appSource).not.toMatch(/PreviewGenerationView/);
     expect(appSource).not.toMatch(/TauriStatusPanel/);
     expect(appSource).not.toMatch(/FfmpegStatusPanel/);
     expect(appSource).not.toMatch(/useCatalogVideos/);
     expect(appSource).not.toMatch(/useCatalogMetadata/);
     expect(appSource).not.toMatch(/useScanRoots/);
-    expect(appSource).not.toMatch(/useScanIssues/);
+    expect(appSource).not.toMatch(/useMissingVideos/);
     expect(appSource).not.toMatch(/usePreviewGeneration/);
     expect(appSource).not.toMatch(/useSettingsStatus/);
     expect(appSource).toMatch(/useSettingsModuleController/);

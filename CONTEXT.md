@@ -170,7 +170,7 @@ _Avoid_: Alias
 
 **Missing Videos View**:
 The scanning workspace for reviewing **Missing Videos** outside normal **Video** browsing.
-_Avoid_: Scan Issues, review queue
+_Avoid_: Generic review queue
 
 **Forget From Catalog**:
 An explicit action that removes a **Missing Video** and its local metadata from the **Catalog** without touching the filesystem.
