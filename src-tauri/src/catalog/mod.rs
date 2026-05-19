@@ -945,13 +945,82 @@ fn is_google_chrome_capture_timestamp(capture_timestamp: &str) -> bool {
 }
 
 fn remove_separator_boundary_technical_tokens(title: &str) -> String {
-    title
+    let title_without_separator_tokens = title
         .split(" - ")
         .map(str::trim)
         .filter(|title_segment| !title_segment.is_empty())
         .filter(|title_segment| !is_technical_filename_token(title_segment))
         .collect::<Vec<_>>()
-        .join(" - ")
+        .join(" - ");
+
+    remove_title_edge_technical_tokens(&title_without_separator_tokens)
+}
+
+fn remove_title_edge_technical_tokens(title: &str) -> String {
+    let mut cleaned_title = title.trim().to_string();
+
+    loop {
+        let title_before_cleanup = cleaned_title.clone();
+        cleaned_title = remove_leading_title_edge_technical_token(&cleaned_title);
+        cleaned_title = remove_trailing_title_edge_technical_token(&cleaned_title);
+
+        if cleaned_title == title_before_cleanup {
+            return cleaned_title;
+        }
+    }
+}
+
+fn remove_leading_title_edge_technical_token(title: &str) -> String {
+    for (separator_index, separator) in title.char_indices() {
+        if !is_title_edge_separator(separator) {
+            continue;
+        }
+
+        let leading_token = title[..separator_index].trim();
+        if is_title_edge_technical_filename_token(leading_token, separator) {
+            return title[separator_index + separator.len_utf8()..]
+                .trim()
+                .to_string();
+        }
+        return title.to_string();
+    }
+
+    title.to_string()
+}
+
+fn remove_trailing_title_edge_technical_token(title: &str) -> String {
+    for (separator_index, separator) in title.char_indices().rev() {
+        if !is_title_edge_separator(separator) {
+            continue;
+        }
+
+        let trailing_token = title[separator_index + separator.len_utf8()..].trim();
+        if is_title_edge_technical_filename_token(trailing_token, separator) {
+            return title[..separator_index].trim().to_string();
+        }
+        return title.to_string();
+    }
+
+    title.to_string()
+}
+
+fn is_title_edge_separator(separator: char) -> bool {
+    matches!(separator, ' ' | '_')
+}
+
+fn is_title_edge_technical_filename_token(title_segment: &str, separator: char) -> bool {
+    if separator == ' ' {
+        return is_whitespace_boundary_technical_filename_token(title_segment);
+    }
+
+    is_technical_filename_token(title_segment)
+}
+
+fn is_whitespace_boundary_technical_filename_token(title_segment: &str) -> bool {
+    let normalized_title_segment = title_segment.trim().to_ascii_lowercase();
+
+    !matches!(normalized_title_segment.as_str(), "4k" | "8k")
+        && is_technical_filename_token(title_segment)
 }
 
 fn normalized_title_cleanup_artifacts(title: &str) -> String {

@@ -409,6 +409,50 @@ fn refreshing_a_scan_root_derives_new_video_titles_from_cleaned_filename_stems()
 }
 
 #[test]
+fn refreshing_a_scan_root_strips_technical_tokens_at_title_boundaries() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let filename_examples = [
+        ("1080p City Walk.mp4", "City Walk", "leading bytes"),
+        ("City Walk 1080p.mp4", "City Walk", "trailing bytes"),
+        ("City Walk_1920x1080.mp4", "City Walk", "separator bytes"),
+        (
+            "4K Extreme Training.mp4",
+            "4K Extreme Training",
+            "meaningful bytes",
+        ),
+    ];
+
+    for (filename, _expected_title, file_bytes) in filename_examples {
+        std::fs::write(movies_root.join(filename), file_bytes).expect("video file exists");
+    }
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    let mut actual_titles = listed_video_titles(&catalog);
+    actual_titles.sort();
+    let mut expected_titles = filename_examples
+        .into_iter()
+        .map(|(_filename, expected_title, _file_bytes)| expected_title.to_string())
+        .collect::<Vec<_>>();
+    expected_titles.sort();
+    assert_eq!(actual_titles, expected_titles);
+}
+
+#[test]
 fn refreshing_a_scan_root_keeps_existing_video_titles_on_rescan() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
