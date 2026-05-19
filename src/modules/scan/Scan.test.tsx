@@ -481,7 +481,9 @@ describe("Scan module", () => {
 
     const scanRoots = await screen.findByLabelText("Scan Roots");
 
-    expect(within(scanRoots).queryByLabelText("Suggest Tags")).not.toBeInTheDocument();
+    expect(
+      within(scanRoots).queryByLabelText("Suggest tags from folder names"),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
       within(scanRoots).getByRole("button", {
@@ -489,7 +491,12 @@ describe("Scan module", () => {
       }),
     );
 
-    expect(within(scanRoots).getByLabelText("Suggest Tags")).toBeChecked();
+    expect(
+      within(scanRoots).getByLabelText("Suggest tags from folder names"),
+    ).toBeChecked();
+    expect(
+      within(scanRoots).getByLabelText("Suggest tags from filename brackets"),
+    ).toBeChecked();
     expect(within(scanRoots).getByLabelText("Ignored folder names")).toHaveValue(
       "Misc, Unsorted, To Sort, To Review, New, Temp, Archive, Archives, Downloads, Videos",
     );
@@ -506,7 +513,9 @@ describe("Scan module", () => {
       }),
     );
 
-    expect(within(scanRoots).queryByLabelText("Suggest Tags")).not.toBeInTheDocument();
+    expect(
+      within(scanRoots).queryByLabelText("Suggest tags from folder names"),
+    ).not.toBeInTheDocument();
   });
 
   it("saves changed Scan Root Inference Rules", async () => {
@@ -534,7 +543,8 @@ describe("Scan module", () => {
     fireEvent.change(screen.getByLabelText("Ignored year start"), {
       target: { value: "1980" },
     });
-    fireEvent.click(screen.getByLabelText("Suggest Tags"));
+    fireEvent.click(screen.getByLabelText("Suggest tags from folder names"));
+    fireEvent.click(screen.getByLabelText("Suggest tags from filename brackets"));
     fireEvent.click(
       screen.getByRole("button", { name: "Save Inference Rules" }),
     );
@@ -548,7 +558,8 @@ describe("Scan module", () => {
             startYear: 1980,
           },
           ignoredFolderNames: ["Misc", "Extras"],
-          suggestTagsFromChildFolders: false,
+          suggestTagsFromFilenameBrackets: false,
+          suggestTagsFromFolderNames: false,
         },
       );
     });

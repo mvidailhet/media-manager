@@ -17,7 +17,8 @@ const CREATE_SCAN_ROOTS_TABLE: &str = concat!(
         path TEXT NOT NULL UNIQUE,
         drive_identity TEXT,
         is_available INTEGER NOT NULL DEFAULT 1,
-        suggest_tags_from_child_folders INTEGER NOT NULL DEFAULT 1,
+        suggest_tags_from_folder_names INTEGER NOT NULL DEFAULT 1,
+        suggest_tags_from_filename_brackets INTEGER NOT NULL DEFAULT 1,
         ignored_folder_names TEXT NOT NULL DEFAULT '",
     default_ignored_folder_names_json!(),
     "',
@@ -80,12 +81,19 @@ const CREATE_METADATA_SUGGESTIONS_TABLE: &str = "
         video_id INTEGER NOT NULL,
         source_path_segment TEXT NOT NULL,
         suggested_value TEXT NOT NULL,
+        normalized_suggested_value TEXT NOT NULL,
         suggestion_kind TEXT NOT NULL,
         accepted_at TEXT,
         rejected_at TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (scan_root_id, video_id, source_path_segment, suggestion_kind),
+        UNIQUE (
+            scan_root_id,
+            video_id,
+            source_path_segment,
+            normalized_suggested_value,
+            suggestion_kind
+        ),
         FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE,
         FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
     );
@@ -240,6 +248,7 @@ pub(super) fn run_migrations(database: &Connection) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     add_scan_root_availability_column_if_missing(database)?;
     add_scan_root_inference_rule_columns_if_missing(database)?;
+    add_metadata_suggestion_normalized_value_column_if_missing(database)?;
     add_failed_preview_strip_ignored_at_column_if_missing(database)?;
     add_video_favorite_column_if_missing(database)?;
     add_video_open_history_columns_if_missing(database)
@@ -262,9 +271,17 @@ fn add_scan_root_availability_column_if_missing(database: &Connection) -> Result
 }
 
 fn add_scan_root_inference_rule_columns_if_missing(database: &Connection) -> Result<(), String> {
+    let has_legacy_folder_rule_column =
+        catalog_table_has_column(database, "scan_roots", "suggest_tags_from_child_folders")?;
+    let has_folder_name_rule_column =
+        catalog_table_has_column(database, "scan_roots", "suggest_tags_from_folder_names")?;
     let scan_root_inference_rule_columns = [
         (
-            "suggest_tags_from_child_folders",
+            "suggest_tags_from_folder_names",
+            "INTEGER NOT NULL DEFAULT 1".to_string(),
+        ),
+        (
+            "suggest_tags_from_filename_brackets",
             "INTEGER NOT NULL DEFAULT 1".to_string(),
         ),
         (
@@ -294,7 +311,147 @@ fn add_scan_root_inference_rule_columns_if_missing(database: &Connection) -> Res
             .map_err(|error| error.to_string())?;
     }
 
+    if has_legacy_folder_rule_column && !has_folder_name_rule_column {
+        database
+            .execute(
+                "UPDATE scan_roots
+                 SET suggest_tags_from_folder_names = suggest_tags_from_child_folders",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+    }
+
     Ok(())
+}
+
+fn add_metadata_suggestion_normalized_value_column_if_missing(
+    database: &Connection,
+) -> Result<(), String> {
+    if metadata_suggestions_has_normalized_value_unique_constraint(database)? {
+        return Ok(());
+    }
+
+    let normalized_value_expression = if catalog_table_has_column(
+        database,
+        "metadata_suggestions",
+        "normalized_suggested_value",
+    )? {
+        "CASE
+            WHEN normalized_suggested_value IS NULL
+                 OR normalized_suggested_value = ''
+            THEN lower(suggested_value)
+            ELSE normalized_suggested_value
+        END"
+    } else {
+        "lower(suggested_value)"
+    };
+    let rebuild_metadata_suggestions_table = format!(
+        "
+        CREATE TABLE metadata_suggestions_next (
+            id INTEGER PRIMARY KEY,
+            scan_root_id INTEGER NOT NULL,
+            video_id INTEGER NOT NULL,
+            source_path_segment TEXT NOT NULL,
+            suggested_value TEXT NOT NULL,
+            normalized_suggested_value TEXT NOT NULL,
+            suggestion_kind TEXT NOT NULL,
+            accepted_at TEXT,
+            rejected_at TEXT,
+            created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE (
+                scan_root_id,
+                video_id,
+                source_path_segment,
+                normalized_suggested_value,
+                suggestion_kind
+            ),
+            FOREIGN KEY (scan_root_id) REFERENCES scan_roots (id) ON DELETE CASCADE,
+            FOREIGN KEY (video_id) REFERENCES videos (id) ON DELETE CASCADE
+        );
+
+        INSERT INTO metadata_suggestions_next (
+            id,
+            scan_root_id,
+            video_id,
+            source_path_segment,
+            suggested_value,
+            normalized_suggested_value,
+            suggestion_kind,
+            accepted_at,
+            rejected_at,
+            created_at,
+            updated_at
+        )
+        SELECT id,
+               scan_root_id,
+               video_id,
+               source_path_segment,
+               suggested_value,
+               {normalized_value_expression},
+               suggestion_kind,
+               accepted_at,
+               rejected_at,
+               created_at,
+               updated_at
+        FROM metadata_suggestions;
+
+        DROP TABLE metadata_suggestions;
+        ALTER TABLE metadata_suggestions_next RENAME TO metadata_suggestions;
+        ",
+    );
+
+    database
+        .execute_batch(&rebuild_metadata_suggestions_table)
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
+fn metadata_suggestions_has_normalized_value_unique_constraint(
+    database: &Connection,
+) -> Result<bool, String> {
+    if !catalog_table_has_column(
+        database,
+        "metadata_suggestions",
+        "normalized_suggested_value",
+    )? {
+        return Ok(false);
+    }
+
+    let mut index_statement = database
+        .prepare("PRAGMA index_list(metadata_suggestions)")
+        .map_err(|error| error.to_string())?;
+    let index_names = index_statement
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string())?;
+
+    for index_name in index_names {
+        let mut column_statement = database
+            .prepare(&format!("PRAGMA index_info({index_name})"))
+            .map_err(|error| error.to_string())?;
+        let indexed_columns = column_statement
+            .query_map([], |row| row.get::<_, String>(2))
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        if indexed_columns
+            == vec![
+                "scan_root_id",
+                "video_id",
+                "source_path_segment",
+                "normalized_suggested_value",
+                "suggestion_kind",
+            ]
+        {
+            return Ok(true);
+        }
+    }
+
+    Ok(false)
 }
 
 fn add_failed_preview_strip_ignored_at_column_if_missing(

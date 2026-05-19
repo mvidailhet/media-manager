@@ -35,7 +35,13 @@ fn catalog_index_names(database: &Connection) -> Vec<String> {
             "SELECT name
                  FROM sqlite_schema
                  WHERE type = 'index'
-                   AND tbl_name IN ('tags', 'performers', 'tag_videos', 'performer_videos')
+                   AND tbl_name IN (
+                        'metadata_suggestions',
+                        'tags',
+                        'performers',
+                        'tag_videos',
+                        'performer_videos'
+                   )
                  ORDER BY name",
         )
         .expect("index names query prepares");
