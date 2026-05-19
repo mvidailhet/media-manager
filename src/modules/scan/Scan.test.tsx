@@ -893,7 +893,7 @@ describe("Scan module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows each Scan Root card's Unprocessable Video Candidate count and capped details", async () => {
+  it("shows each Scan Root card's Unprocessable video count and capped relative details", async () => {
     const allArchiveCandidates = Array.from({ length: 21 }, (_, candidateIndex) => ({
       path: `/Volumes/Archive/Videos/broken-${candidateIndex + 1}.mkv`,
       reason: "missing moov atom",
@@ -911,12 +911,17 @@ describe("Scan module", () => {
         isAvailable: true,
         path: "/Volumes/Documentaries",
       },
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/No Issues",
+      },
     ]);
     mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
       {
         scanRootPath: "/Volumes/Archive/Videos",
         candidateCount: allArchiveCandidates.length,
-        candidates: allArchiveCandidates.slice(0, 20),
+        candidates: allArchiveCandidates,
       },
       {
         scanRootPath: "/Volumes/Documentaries",
@@ -936,30 +941,42 @@ describe("Scan module", () => {
 
     const scanRoots = await screen.findByLabelText("Scan Roots");
     expect(
-      within(scanRoots).getByText("21 Unprocessable Video Candidates"),
+      within(scanRoots).getByText("21 Unprocessable videos"),
     ).toBeInTheDocument();
     expect(
-      within(scanRoots).getByText("1 Unprocessable Video Candidate"),
+      within(scanRoots).getByText("1 Unprocessable video"),
     ).toBeInTheDocument();
+    expect(
+      within(scanRoots).queryByText("0 Unprocessable videos"),
+    ).not.toBeInTheDocument();
     expect(
       within(scanRoots).queryByText("/Volumes/Archive/Videos/broken-1.mkv"),
     ).not.toBeInTheDocument();
 
     fireEvent.click(
       within(scanRoots).getByRole("button", {
-        name: "Show Unprocessable Video Candidates for /Volumes/Archive/Videos",
+        name: "Show Unprocessable videos for /Volumes/Archive/Videos",
       }),
     );
 
+    expect(within(scanRoots).getByText("broken-1.mkv")).toBeInTheDocument();
     expect(
-      within(scanRoots).getByText("/Volumes/Archive/Videos/broken-1.mkv"),
-    ).toBeInTheDocument();
+      within(scanRoots).queryByText("/Volumes/Archive/Videos/broken-1.mkv"),
+    ).not.toBeInTheDocument();
     expect(within(scanRoots).getAllByText("missing moov atom")[0]).toBeInTheDocument();
     expect(within(scanRoots).getByText("1.0 MB")).toBeInTheDocument();
     expect(
-      within(scanRoots).queryByText("/Volumes/Archive/Videos/broken-21.mkv"),
+      within(scanRoots).queryByText("broken-21.mkv"),
     ).not.toBeInTheDocument();
     expect(within(scanRoots).getByText("Showing 20 of 21")).toBeInTheDocument();
+
+    fireEvent.click(within(scanRoots).getByRole("button", { name: "Show all" }));
+
+    expect(within(scanRoots).getByText("broken-21.mkv")).toBeInTheDocument();
+    expect(within(scanRoots).getByText("Showing 21 of 21")).toBeInTheDocument();
+    expect(
+      within(scanRoots).queryByRole("button", { name: "Show all" }),
+    ).not.toBeInTheDocument();
   });
   it("lists Failed Preview Strips in Preview Generation with retry and ignore actions", async () => {
     mockedListFailedPreviewStrips

@@ -53,6 +53,8 @@ export function ScanRootCard({
     areUnprocessableVideoCandidatesOpen,
     setAreUnprocessableVideoCandidatesOpen,
   ] = useState(false);
+  const [areAllUnprocessableVideosShown, setAreAllUnprocessableVideosShown] =
+    useState(false);
   const [suggestTagsFromChildFolders, setSuggestTagsFromChildFolders] =
     useState(scanRoot.inferenceRules.suggestTagsFromChildFolders);
   const [ignoredFolderNames, setIgnoredFolderNames] = useState(
@@ -74,17 +76,24 @@ export function ScanRootCard({
   const canCancelScanRootRefresh =
     cardScanRootRefresh !== null &&
     ["discovery", "scanning"].includes(cardScanRootRefresh.status);
-  const displayedUnprocessableVideoCandidates =
-    unprocessableVideoCandidateGroup?.candidates.slice(
-      0,
-      maximumDisplayedUnprocessableVideoCandidates,
-    ) ?? [];
+  const unprocessableVideoCandidates =
+    unprocessableVideoCandidateGroup?.candidates ?? [];
+  const displayedUnprocessableVideoCandidates = areAllUnprocessableVideosShown
+    ? unprocessableVideoCandidates
+    : unprocessableVideoCandidates.slice(
+        0,
+        maximumDisplayedUnprocessableVideoCandidates,
+      );
   const unprocessableVideoCandidateCount =
     unprocessableVideoCandidateGroup?.candidateCount ?? 0;
+  const hasUnprocessableVideos = unprocessableVideoCandidateCount > 0;
+  const areUnprocessableVideosTruncated =
+    displayedUnprocessableVideoCandidates.length <
+    unprocessableVideoCandidates.length;
   const unprocessableVideoCandidatesButtonLabel =
     areUnprocessableVideoCandidatesOpen
-      ? `Hide Unprocessable Video Candidates for ${scanRoot.path}`
-      : `Show Unprocessable Video Candidates for ${scanRoot.path}`;
+      ? `Hide Unprocessable videos for ${scanRoot.path}`
+      : `Show Unprocessable videos for ${scanRoot.path}`;
 
   function saveInferenceRules() {
     onSaveScanRootInferenceRules(scanRoot, {
@@ -164,11 +173,11 @@ export function ScanRootCard({
             ) : null}
           </Stack>
         ) : null}
-        <Group gap="xs">
-          <Text>
-            {unprocessableVideoCandidateCountLabel(unprocessableVideoCandidateCount)}
-          </Text>
-          {unprocessableVideoCandidateCount > 0 ? (
+        {hasUnprocessableVideos ? (
+          <Group gap="xs">
+            <Text>
+              {unprocessableVideoCandidateCountLabel(unprocessableVideoCandidateCount)}
+            </Text>
             <Button
               type="button"
               size="xs"
@@ -183,14 +192,16 @@ export function ScanRootCard({
             >
               {areUnprocessableVideoCandidatesOpen ? "Hide" : "Show"}
             </Button>
-          ) : null}
-        </Group>
+          </Group>
+        ) : null}
         {areUnprocessableVideoCandidatesOpen ? (
           <Stack gap="sm">
             {displayedUnprocessableVideoCandidates.map((candidate) => (
               <Stack component="article" gap="xs" key={candidate.path}>
                 <Divider />
-                <WrappingCode>{candidate.path}</WrappingCode>
+                <WrappingCode>
+                  {relativeUnprocessableVideoPath(scanRoot.path, candidate.path)}
+                </WrappingCode>
                 <DefinitionList>
                   <DefinitionTerm label="Failure Reason">
                     {candidate.reason}
@@ -207,6 +218,16 @@ export function ScanRootCard({
                 unprocessableVideoCandidateCount,
               )}
             </Text>
+            {areUnprocessableVideosTruncated ? (
+              <Button
+                type="button"
+                size="xs"
+                variant="subtle"
+                onClick={() => setAreAllUnprocessableVideosShown(true)}
+              >
+                Show all
+              </Button>
+            ) : null}
           </Stack>
         ) : null}
         {areInferenceRulesOpen ? (
@@ -300,8 +321,8 @@ function scanIssueCountLabel(unprocessableCandidateCount: number) {
 
 function unprocessableVideoCandidateCountLabel(candidateCount: number) {
   return candidateCount === 1
-    ? "1 Unprocessable Video Candidate"
-    : `${candidateCount} Unprocessable Video Candidates`;
+    ? "1 Unprocessable video"
+    : `${candidateCount} Unprocessable videos`;
 }
 
 function displayedUnprocessableVideoCandidatesLabel(
@@ -309,4 +330,18 @@ function displayedUnprocessableVideoCandidatesLabel(
   totalCandidateCount: number,
 ) {
   return `Showing ${displayedCandidateCount} of ${totalCandidateCount}`;
+}
+
+function relativeUnprocessableVideoPath(scanRootPath: string, candidatePath: string) {
+  const scanRootWithTrailingSlash = pathWithTrailingSeparator(scanRootPath);
+
+  if (!candidatePath.startsWith(scanRootWithTrailingSlash)) {
+    return candidatePath;
+  }
+
+  return candidatePath.slice(scanRootWithTrailingSlash.length);
+}
+
+function pathWithTrailingSeparator(path: string) {
+  return path.endsWith("/") || path.endsWith("\\") ? path : `${path}/`;
 }

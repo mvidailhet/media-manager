@@ -1,7 +1,5 @@
 use super::*;
 
-const MAXIMUM_DISPLAYED_UNPROCESSABLE_VIDEO_CANDIDATES: i64 = 20;
-
 impl Catalog {
     #[cfg(test)]
     pub fn refresh_scan_root<P: VideoFileProbe>(
@@ -276,18 +274,16 @@ impl Catalog {
                  , candidate_count
                  FROM (
                      SELECT scan_root_id, path, reason, file_size_bytes,
-                            COUNT(*) OVER (PARTITION BY scan_root_id) AS candidate_count,
-                            ROW_NUMBER() OVER (PARTITION BY scan_root_id ORDER BY path) AS candidate_position
+                            COUNT(*) OVER (PARTITION BY scan_root_id) AS candidate_count
                      FROM unprocessable_video_candidates
                  ) AS unprocessable_video_candidates
                  INNER JOIN scan_roots ON scan_roots.id = unprocessable_video_candidates.scan_root_id
-                 WHERE candidate_position <= ?1
                  ORDER BY scan_roots.path, unprocessable_video_candidates.path",
             )
             .map_err(|error| error.to_string())?;
 
         let candidate_rows = statement
-            .query_map([MAXIMUM_DISPLAYED_UNPROCESSABLE_VIDEO_CANDIDATES], |row| {
+            .query_map([], |row| {
                 Ok((
                     row.get::<_, String>(0)?,
                     row.get::<_, i64>(4)?,

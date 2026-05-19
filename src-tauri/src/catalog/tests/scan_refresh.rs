@@ -470,7 +470,7 @@ fn refreshing_a_scan_root_stores_unprocessable_candidates_without_discarding_pro
 }
 
 #[test]
-fn listing_unprocessable_candidates_by_scan_root_caps_candidate_details() {
+fn listing_unprocessable_candidates_by_scan_root_returns_all_candidate_details() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
@@ -499,7 +499,7 @@ fn listing_unprocessable_candidates_by_scan_root_caps_candidate_details() {
     assert_eq!(candidate_groups.len(), 1);
     assert_eq!(candidate_groups[0].scan_root_path, scan_root.path);
     assert_eq!(candidate_groups[0].candidate_count, 21);
-    assert_eq!(candidate_groups[0].candidates.len(), 20);
+    assert_eq!(candidate_groups[0].candidates.len(), 21);
     assert!(candidate_groups[0]
         .candidates
         .iter()
