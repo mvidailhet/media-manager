@@ -11,7 +11,7 @@ import {
   minimumDurationMinutes,
 } from "../catalogVideoDurationFilters";
 
-export function CatalogVideoFiltersPanel({
+export function FiltersPanel({
   availablePerformers,
   availableTags,
   filters,

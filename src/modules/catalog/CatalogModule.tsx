@@ -9,7 +9,7 @@ import type {
   RejectMetadataSuggestionSourceRequest,
 } from "../../tauriCommands";
 import { BatchMetadataEditPanel } from "./BatchMetadataEditPanel";
-import { CatalogVideosPanel } from "./CatalogVideosPanel";
+import { VideosPanel } from "./VideosPanel";
 import type {
   CatalogMetadataSuggestionAcceptanceRequest,
   CatalogVideoMetadata,
@@ -129,7 +129,7 @@ export function CatalogModule({
         </Tabs.List>
       </Tabs>
       {isCatalogVideoListView ? (
-        <CatalogVideosPanel
+        <VideosPanel
           availablePerformers={availablePerformers}
           availableTags={availableTags}
           catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}

@@ -4,10 +4,10 @@ import { Box, Checkbox, Paper, Stack, Text } from "@mantine/core";
 import type { CatalogVideo } from "../../../../tauriCommands";
 import type { CatalogVideoMetadata } from "../../catalogTypes";
 import { VideoPreview } from "../../components/VideoPreview/VideoPreview";
-import styles from "../../CatalogVideosPanel.module.css";
+import styles from "../VideosPanel.module.css";
 import { MetadataBadges } from "../../components/MetadataBadges";
 
-export function CatalogVideoCard({
+export function VideoCard({
   catalogVideo,
   catalogVideoMetadata,
   isSelectedForBatch,
@@ -74,7 +74,7 @@ export function CatalogVideoCard({
           </Box>
         </Box>
 
-        <Text className={styles.title} fw={500} size='sm'>
+        <Text className={styles.title} fw={500} size="sm">
           {catalogVideo.title}
         </Text>
 
