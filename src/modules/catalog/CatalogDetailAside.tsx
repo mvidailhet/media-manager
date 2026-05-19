@@ -1,10 +1,10 @@
 import { AppShell } from "@mantine/core";
 
-import type { CatalogModuleProps } from "./CatalogModule";
+import type { CatalogProps } from "./Catalog";
 import { useSelectedVideoDetailActions } from "./useSelectedVideoDetailActions";
 import { VideoDetailPanel } from "./VideoDetailPanel";
 
-export function CatalogModuleDetailAside({
+export function CatalogDetailAside({
   availablePerformers,
   availableTags,
   detailStatusMessage,
@@ -21,7 +21,7 @@ export function CatalogModuleDetailAside({
   selectedPerformers,
   selectedTags,
   selectedVideo,
-}: CatalogModuleProps) {
+}: CatalogProps) {
   const selectedVideoDetailActions = useSelectedVideoDetailActions({
     onAttachPerformer,
     onAttachTag,

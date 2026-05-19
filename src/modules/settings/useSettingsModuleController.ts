@@ -1,20 +1,20 @@
-import type { SettingsModuleProps } from "./SettingsModule";
+import type { SettingsProps } from "./Settings";
 import {
   commandErrorMessage,
   ffmpegErrorMessage,
   useSettingsStatus,
 } from "./useSettingsStatus";
 
-type SettingsModuleController = {
+type SettingsController = {
   settingsAttentionCount: number;
-  settingsModuleProps: SettingsModuleProps;
+  settingsProps: SettingsProps;
 };
 
 export function useSettingsModuleController({
   refreshScanIssues,
 }: {
   refreshScanIssues: () => Promise<void>;
-}): SettingsModuleController {
+}): SettingsController {
   const settingsStatus = useSettingsStatus({
     refreshScanIssues,
   });
@@ -42,7 +42,7 @@ export function useSettingsModuleController({
 
   return {
     settingsAttentionCount,
-    settingsModuleProps: {
+    settingsProps: {
       ffmpegPath,
       ffmpegStatusMessage,
       ffmpegToolsStatus,

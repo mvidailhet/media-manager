@@ -7,7 +7,7 @@ import {
   singularMetadataLabel,
 } from "../../../../shared/metadata/metadataHelpers";
 
-export function BatchMetadataActions<T extends { id: number; name: string }>({
+export function MetadataActions<T extends { id: number; name: string }>({
   availableItems,
   label,
   onAppend,

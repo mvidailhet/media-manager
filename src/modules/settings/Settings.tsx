@@ -2,7 +2,7 @@ import type { FfmpegToolsStatus } from "../../tauriCommands";
 import { FfmpegStatusPanel } from "./SettingsStatusPanels/FfmpegStatusPanel";
 import { TauriStatusPanel } from "./SettingsStatusPanels/TauriStatusPanel";
 
-export type SettingsModuleProps = {
+export type SettingsProps = {
   ffmpegPath: string;
   ffmpegStatusMessage: string;
   ffmpegToolsStatus: FfmpegToolsStatus | null;
@@ -13,7 +13,7 @@ export type SettingsModuleProps = {
   onSaveConfiguredFfmpegPaths: (event: React.FormEvent) => void;
 };
 
-export function SettingsModule({
+export function Settings({
   ffmpegPath,
   ffmpegStatusMessage,
   ffmpegToolsStatus,
@@ -22,7 +22,7 @@ export function SettingsModule({
   onFfmpegPathChange,
   onFfprobePathChange,
   onSaveConfiguredFfmpegPaths,
-}: SettingsModuleProps) {
+}: SettingsProps) {
   return (
     <>
       <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import appSource from "../../App.tsx?raw";
 import previewGenerationHookSource from "./usePreviewGeneration.ts?raw";
 import scanControllerSource from "./useScanModuleController.ts?raw";
+import scanModuleEntryPointSource from "./index.ts?raw";
 import scanSource from "./Scan.tsx?raw";
 
 describe("Scan module boundaries", () => {
@@ -27,5 +28,12 @@ describe("Scan module boundaries", () => {
     expect(previewGenerationHookSource).not.toMatch(
       /\}, \[previewStripQueueStatus, refreshCatalogVideos, refreshScanIssues\]\)/,
     );
+  });
+
+  it("uses the module folder context for the Scan entry name", () => {
+    expect(scanModuleEntryPointSource).toContain('export { Scan } from "./Scan"');
+    expect(scanSource).toMatch(/function Scan\(/);
+    expect(scanModuleEntryPointSource).not.toMatch(/export \{ ScanModule/);
+    expect(scanSource).not.toMatch(/function ScanModule|ScanModuleProps/);
   });
 });
