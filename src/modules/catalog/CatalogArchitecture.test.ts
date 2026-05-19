@@ -27,6 +27,14 @@ const legacyCatalogVideosPanelFiles = import.meta.glob(
     import: "default",
   },
 );
+const legacyCatalogVideosPanelTopLevelFiles = import.meta.glob(
+  "./CatalogVideosPanel*.{ts,tsx,css}",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
 const batchMetadataEditPanelBarrelFiles = import.meta.glob(
   "./BatchMetadataEditPanel/**/index.*",
   {
@@ -178,6 +186,7 @@ describe("Catalog module boundaries", () => {
       "./VideosPanel/index.ts",
     ]);
     expect(Object.keys(legacyCatalogVideosPanelFiles)).toHaveLength(0);
+    expect(Object.keys(legacyCatalogVideosPanelTopLevelFiles)).toHaveLength(0);
   });
 
   it("keeps Batch Metadata Edit actions in a focused file", () => {
