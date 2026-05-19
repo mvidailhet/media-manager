@@ -1,5 +1,7 @@
 use super::*;
 
+const MAXIMUM_DISPLAYED_UNPROCESSABLE_VIDEO_CANDIDATES: i64 = 20;
+
 impl Catalog {
     #[cfg(test)]
     pub fn refresh_scan_root<P: VideoFileProbe>(
@@ -289,6 +291,65 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
 
         Ok(unprocessable_video_candidates)
+    }
+
+    pub fn list_unprocessable_video_candidates_by_scan_root(
+        &self,
+    ) -> Result<Vec<UnprocessableVideoCandidateGroup>, String> {
+        let mut statement = self
+            .database
+            .prepare(
+                "SELECT scan_roots.path, unprocessable_video_candidates.path, reason, file_size_bytes
+                 , candidate_count
+                 FROM (
+                     SELECT scan_root_id, path, reason, file_size_bytes,
+                            COUNT(*) OVER (PARTITION BY scan_root_id) AS candidate_count,
+                            ROW_NUMBER() OVER (PARTITION BY scan_root_id ORDER BY path) AS candidate_position
+                     FROM unprocessable_video_candidates
+                 ) AS unprocessable_video_candidates
+                 INNER JOIN scan_roots ON scan_roots.id = unprocessable_video_candidates.scan_root_id
+                 WHERE candidate_position <= ?1
+                 ORDER BY scan_roots.path, unprocessable_video_candidates.path",
+            )
+            .map_err(|error| error.to_string())?;
+
+        let candidate_rows = statement
+            .query_map([MAXIMUM_DISPLAYED_UNPROCESSABLE_VIDEO_CANDIDATES], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(4)?,
+                    UnprocessableVideoCandidate {
+                        path: row.get(1)?,
+                        reason: row.get(2)?,
+                        file_size_bytes: row.get(3)?,
+                    },
+                ))
+            })
+            .map_err(|error| error.to_string())?
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|error| error.to_string())?;
+
+        let mut candidate_groups = Vec::new();
+        for (scan_root_path, candidate_count, candidate) in candidate_rows {
+            if candidate_groups
+                .last()
+                .is_none_or(|candidate_group: &UnprocessableVideoCandidateGroup| {
+                    candidate_group.scan_root_path != scan_root_path
+                })
+            {
+                candidate_groups.push(UnprocessableVideoCandidateGroup {
+                    scan_root_path: scan_root_path.clone(),
+                    candidate_count,
+                    candidates: Vec::new(),
+                });
+            }
+
+            if let Some(candidate_group) = candidate_groups.last_mut() {
+                candidate_group.candidates.push(candidate);
+            }
+        }
+
+        Ok(candidate_groups)
     }
 
     fn store_scanned_video(

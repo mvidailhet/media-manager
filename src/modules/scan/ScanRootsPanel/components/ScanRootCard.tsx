@@ -3,6 +3,7 @@ import {
   ActionIcon,
   Button,
   Checkbox,
+  Divider,
   Group,
   NumberInput,
   Paper,
@@ -12,9 +13,18 @@ import {
 } from "@mantine/core";
 import { IconSettings } from "@tabler/icons-react";
 
-import type { ScanRoot, ScanRootRefreshJobProgress } from "../../../../tauriCommands";
+import type {
+  ScanRoot,
+  ScanRootRefreshJobProgress,
+  UnprocessableVideoCandidateGroup,
+} from "../../../../tauriCommands";
 import { AvailabilityBadge } from "../../../../shared/components/AvailabilityBadge";
+import { DefinitionList } from "../../../../shared/components/DefinitionList";
+import { DefinitionTerm } from "../../../../shared/components/DefinitionTerm";
 import { WrappingCode } from "../../../../shared/components/WrappingCode";
+import { formatFileSize } from "../../../../shared/formatting/videoFormatting";
+
+const maximumDisplayedUnprocessableVideoCandidates = 20;
 
 export function ScanRootCard({
   activeScanRootRefresh,
@@ -24,6 +34,7 @@ export function ScanRootCard({
   onRequestScanRootRemoval,
   onSaveScanRootInferenceRules,
   scanRoot,
+  unprocessableVideoCandidateGroup,
 }: {
   activeScanRootRefresh: ScanRootRefreshJobProgress | null;
   isScanRootRefreshRunning: boolean;
@@ -35,8 +46,13 @@ export function ScanRootCard({
     inferenceRules: ScanRoot["inferenceRules"],
   ) => void;
   scanRoot: ScanRoot;
+  unprocessableVideoCandidateGroup?: UnprocessableVideoCandidateGroup;
 }) {
   const [areInferenceRulesOpen, setAreInferenceRulesOpen] = useState(false);
+  const [
+    areUnprocessableVideoCandidatesOpen,
+    setAreUnprocessableVideoCandidatesOpen,
+  ] = useState(false);
   const [suggestTagsFromChildFolders, setSuggestTagsFromChildFolders] =
     useState(scanRoot.inferenceRules.suggestTagsFromChildFolders);
   const [ignoredFolderNames, setIgnoredFolderNames] = useState(
@@ -58,6 +74,17 @@ export function ScanRootCard({
   const canCancelScanRootRefresh =
     cardScanRootRefresh !== null &&
     ["discovery", "scanning"].includes(cardScanRootRefresh.status);
+  const displayedUnprocessableVideoCandidates =
+    unprocessableVideoCandidateGroup?.candidates.slice(
+      0,
+      maximumDisplayedUnprocessableVideoCandidates,
+    ) ?? [];
+  const unprocessableVideoCandidateCount =
+    unprocessableVideoCandidateGroup?.candidateCount ?? 0;
+  const unprocessableVideoCandidatesButtonLabel =
+    areUnprocessableVideoCandidatesOpen
+      ? `Hide Unprocessable Video Candidates for ${scanRoot.path}`
+      : `Show Unprocessable Video Candidates for ${scanRoot.path}`;
 
   function saveInferenceRules() {
     onSaveScanRootInferenceRules(scanRoot, {
@@ -135,6 +162,51 @@ export function ScanRootCard({
                 Cancel scan
               </Button>
             ) : null}
+          </Stack>
+        ) : null}
+        <Group gap="xs">
+          <Text>
+            {unprocessableVideoCandidateCountLabel(unprocessableVideoCandidateCount)}
+          </Text>
+          {unprocessableVideoCandidateCount > 0 ? (
+            <Button
+              type="button"
+              size="xs"
+              variant="subtle"
+              aria-label={unprocessableVideoCandidatesButtonLabel}
+              onClick={() =>
+                setAreUnprocessableVideoCandidatesOpen(
+                  (currentAreUnprocessableVideoCandidatesOpen) =>
+                    !currentAreUnprocessableVideoCandidatesOpen,
+                )
+              }
+            >
+              {areUnprocessableVideoCandidatesOpen ? "Hide" : "Show"}
+            </Button>
+          ) : null}
+        </Group>
+        {areUnprocessableVideoCandidatesOpen ? (
+          <Stack gap="sm">
+            {displayedUnprocessableVideoCandidates.map((candidate) => (
+              <Stack component="article" gap="xs" key={candidate.path}>
+                <Divider />
+                <WrappingCode>{candidate.path}</WrappingCode>
+                <DefinitionList>
+                  <DefinitionTerm label="Failure Reason">
+                    {candidate.reason}
+                  </DefinitionTerm>
+                  <DefinitionTerm label="File Size">
+                    {formatFileSize(candidate.fileSizeBytes)}
+                  </DefinitionTerm>
+                </DefinitionList>
+              </Stack>
+            ))}
+            <Text c="dimmed">
+              {displayedUnprocessableVideoCandidatesLabel(
+                displayedUnprocessableVideoCandidates.length,
+                unprocessableVideoCandidateCount,
+              )}
+            </Text>
           </Stack>
         ) : null}
         {areInferenceRulesOpen ? (
@@ -224,4 +296,17 @@ function scanIssueCountLabel(unprocessableCandidateCount: number) {
   return unprocessableCandidateCount === 1
     ? "1 Scan Issue"
     : `${unprocessableCandidateCount} Scan Issues`;
+}
+
+function unprocessableVideoCandidateCountLabel(candidateCount: number) {
+  return candidateCount === 1
+    ? "1 Unprocessable Video Candidate"
+    : `${candidateCount} Unprocessable Video Candidates`;
+}
+
+function displayedUnprocessableVideoCandidatesLabel(
+  displayedCandidateCount: number,
+  totalCandidateCount: number,
+) {
+  return `Showing ${displayedCandidateCount} of ${totalCandidateCount}`;
 }

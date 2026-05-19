@@ -28,7 +28,6 @@ import {
   mockedRetryFailedPreviewStrip,
   mockedIgnoreFailedPreviewStrip,
   mockedListCatalogVideos,
-  mockedListUnprocessableVideoCandidates,
   mockedListScanRoots,
   mockedAddScanRoot,
   mockedForgetCatalogVideo,

@@ -28,8 +28,8 @@ const openCatalogVideoContainingFolderCommand =
   "open_catalog_video_containing_folder";
 const startScanRootRefreshJobCommand = "start_scan_root_refresh_job";
 const cancelScanRootRefreshJobCommand = "cancel_scan_root_refresh_job";
-const listUnprocessableVideoCandidatesCommand =
-  "list_unprocessable_video_candidates";
+const listUnprocessableVideoCandidatesByScanRootCommand =
+  "list_unprocessable_video_candidates_by_scan_root";
 const listFailedPreviewStripsCommand = "list_failed_preview_strips";
 const listMetadataSuggestionGroupsCommand = "list_metadata_suggestion_groups";
 const acceptMetadataSuggestionForVideosCommand =
@@ -139,6 +139,12 @@ export interface UnprocessableVideoCandidate {
   path: string;
   reason: string;
   fileSizeBytes: number;
+}
+
+export interface UnprocessableVideoCandidateGroup {
+  scanRootPath: string;
+  candidateCount: number;
+  candidates: UnprocessableVideoCandidate[];
 }
 
 export interface FailedPreviewStrip {
@@ -375,11 +381,11 @@ export async function cancelScanRootRefreshJob(path: string): Promise<void> {
   return invoke<void>(cancelScanRootRefreshJobCommand, { path });
 }
 
-export async function listUnprocessableVideoCandidates(): Promise<
-  UnprocessableVideoCandidate[]
+export async function listUnprocessableVideoCandidatesByScanRoot(): Promise<
+  UnprocessableVideoCandidateGroup[]
 > {
-  return invoke<UnprocessableVideoCandidate[]>(
-    listUnprocessableVideoCandidatesCommand,
+  return invoke<UnprocessableVideoCandidateGroup[]>(
+    listUnprocessableVideoCandidatesByScanRootCommand,
   );
 }
 

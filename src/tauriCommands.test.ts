@@ -22,7 +22,7 @@ import {
   listMetadataSuggestionGroups,
   listPerformers,
   listTags,
-  listUnprocessableVideoCandidates,
+  listUnprocessableVideoCandidatesByScanRoot,
   listCatalogVideos,
   listScanRoots,
   pausePreviewStripQueue,
@@ -229,26 +229,38 @@ describe("Tauri commands", () => {
     });
   });
 
-  it("calls the typed Rust command for Unprocessable Video Candidates", async () => {
+  it("calls the typed Rust command for Unprocessable Video Candidates grouped by Scan Root", async () => {
     mockedInvoke.mockResolvedValue([
       {
-        path: "/Volumes/Archive/Videos/broken.mkv",
-        reason: "missing moov atom",
-        fileSizeBytes: 1024,
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidateCount: 1,
+        candidates: [
+          {
+            path: "/Volumes/Archive/Videos/broken.mkv",
+            reason: "missing moov atom",
+            fileSizeBytes: 1024,
+          },
+        ],
       },
     ]);
 
-    const candidates = await listUnprocessableVideoCandidates();
+    const candidateGroups = await listUnprocessableVideoCandidatesByScanRoot();
 
-    expect(candidates).toEqual([
+    expect(candidateGroups).toEqual([
       {
-        path: "/Volumes/Archive/Videos/broken.mkv",
-        reason: "missing moov atom",
-        fileSizeBytes: 1024,
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidateCount: 1,
+        candidates: [
+          {
+            path: "/Volumes/Archive/Videos/broken.mkv",
+            reason: "missing moov atom",
+            fileSizeBytes: 1024,
+          },
+        ],
       },
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith(
-      "list_unprocessable_video_candidates",
+      "list_unprocessable_video_candidates_by_scan_root",
     );
   });
 

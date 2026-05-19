@@ -136,6 +136,14 @@ pub struct UnprocessableVideoCandidate {
 
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct UnprocessableVideoCandidateGroup {
+    pub scan_root_path: String,
+    pub candidate_count: i64,
+    pub candidates: Vec<UnprocessableVideoCandidate>,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ScanRootRefreshSummary {
     pub scanned_video_count: i64,
     pub unprocessable_candidate_count: i64,

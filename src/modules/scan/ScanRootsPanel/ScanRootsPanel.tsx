@@ -1,6 +1,10 @@
 import { Box, Button, Group, Stack, Text } from "@mantine/core";
 
-import type { ScanRoot, ScanRootRefreshJobProgress } from "../../../tauriCommands";
+import type {
+  ScanRoot,
+  ScanRootRefreshJobProgress,
+  UnprocessableVideoCandidateGroup,
+} from "../../../tauriCommands";
 import { SectionHeader } from "../../../shared/components/SectionHeader";
 import { ScanRootCard } from "./components/ScanRootCard";
 
@@ -12,6 +16,7 @@ export function ScanRootsPanel({
   onSaveScanRootInferenceRules,
   scanRoots,
   scanRootsStatusMessage,
+  unprocessableVideoCandidateGroups,
   activeScanRootRefresh,
 }: {
   activeScanRootRefresh: ScanRootRefreshJobProgress | null;
@@ -25,6 +30,7 @@ export function ScanRootsPanel({
   ) => void;
   scanRoots: ScanRoot[];
   scanRootsStatusMessage: string;
+  unprocessableVideoCandidateGroups: UnprocessableVideoCandidateGroup[];
 }) {
   const isScanRootRefreshRunning =
     activeScanRootRefresh !== null &&
@@ -61,6 +67,9 @@ export function ScanRootsPanel({
                 onRequestScanRootRemoval={onRequestScanRootRemoval}
                 onSaveScanRootInferenceRules={onSaveScanRootInferenceRules}
                 scanRoot={scanRoot}
+                unprocessableVideoCandidateGroup={unprocessableVideoCandidateGroups.find(
+                  (candidateGroup) => candidateGroup.scanRootPath === scanRoot.path,
+                )}
               />
             ))}
           </Stack>

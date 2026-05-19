@@ -7,7 +7,6 @@ import previewStripQueuePanelSource from "./PreviewGenerationView/components/Pre
 import scanIssuesPanelSource from "./ScanIssuesPanel/ScanIssuesPanel.tsx?raw";
 import missingVideosPanelSource from "./ScanIssuesPanel/components/MissingVideosPanel.tsx?raw";
 import unavailableScanRootsPanelSource from "./ScanIssuesPanel/components/UnavailableScanRootsPanel.tsx?raw";
-import unprocessableCandidatesPanelSource from "./ScanIssuesPanel/components/UnprocessableCandidatesPanel.tsx?raw";
 import scanRootsPanelSource from "./ScanRootsPanel/ScanRootsPanel.tsx?raw";
 import scanRootCardSource from "./ScanRootsPanel/components/ScanRootCard.tsx?raw";
 
@@ -17,14 +16,11 @@ describe("Scan module file structure", () => {
     expect(unavailableScanRootsPanelSource).toContain(
       "function UnavailableScanRootsPanel",
     );
-    expect(unprocessableCandidatesPanelSource).toContain(
-      "function UnprocessableCandidatesPanel",
-    );
     expect(scanIssuesPanelSource).toContain('./components/MissingVideosPanel"');
     expect(scanIssuesPanelSource).toContain(
       './components/UnavailableScanRootsPanel"',
     );
-    expect(scanIssuesPanelSource).toContain(
+    expect(scanIssuesPanelSource).not.toContain(
       './components/UnprocessableCandidatesPanel"',
     );
   });
