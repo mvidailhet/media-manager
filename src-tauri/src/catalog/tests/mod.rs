@@ -83,6 +83,15 @@ fn video_id_for_title(database: &Connection, title: &str) -> i64 {
         .expect("video id loads")
 }
 
+fn listed_video_titles(catalog: &Catalog) -> Vec<String> {
+    catalog
+        .listed_videos()
+        .expect("stored videos list")
+        .into_iter()
+        .map(|video| video.title)
+        .collect()
+}
+
 fn metadata_suggestions(database: &Connection) -> Vec<(String, String)> {
     let mut statement = database
         .prepare(
