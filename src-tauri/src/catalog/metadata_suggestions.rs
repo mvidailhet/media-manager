@@ -303,7 +303,10 @@ impl Catalog {
                 &video_path,
                 &scan_root.inference_rules,
             ) {
-                if is_single_video_leaf_folder_suggestion(
+                if matches!(
+                    suggestion_source.origin,
+                    MetadataSuggestionSourceOrigin::FolderName
+                ) && is_single_video_leaf_folder_suggestion(
                     &video_path,
                     &suggestion_source.source_path_segment,
                     &video_count_by_folder,

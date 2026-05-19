@@ -350,6 +350,39 @@ fn scan_root_refresh_generates_tag_suggestions_from_filename_brackets() {
 }
 
 #[test]
+fn filename_bracket_suggestions_are_not_suppressed_by_single_video_leaf_folder_filter() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let family_folder = movies_root.join("Family");
+    std::fs::create_dir_all(&family_folder).expect("family folder exists");
+    std::fs::write(
+        family_folder.join("family-trip [Family].mp4"),
+        "valid video bytes",
+    )
+    .expect("family video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert_eq!(
+        metadata_suggestion_sources(&catalog.database),
+        vec![(
+            "Family".to_string(),
+            "Family".to_string(),
+            "tag".to_string(),
+        )]
+    );
+}
+
+#[test]
 fn disabled_filename_bracket_rule_suppresses_filename_suggestions() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");

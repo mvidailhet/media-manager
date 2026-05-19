@@ -1034,6 +1034,12 @@ fn group_metadata_suggestions(
 struct MetadataSuggestionSource {
     source_path_segment: String,
     suggested_value: String,
+    origin: MetadataSuggestionSourceOrigin,
+}
+
+enum MetadataSuggestionSourceOrigin {
+    FilenameBracket,
+    FolderName,
 }
 
 fn metadata_suggestion_sources_for_path(
@@ -1049,6 +1055,7 @@ fn metadata_suggestion_sources_for_path(
             .map(|folder_segment| MetadataSuggestionSource {
                 suggested_value: metadata_suggestion_display_value(&folder_segment),
                 source_path_segment: folder_segment,
+                origin: MetadataSuggestionSourceOrigin::FolderName,
             }),
     );
 
@@ -1063,6 +1070,7 @@ fn metadata_suggestion_sources_for_path(
                 .map(|suggestion| MetadataSuggestionSource {
                     source_path_segment: suggestion.source,
                     suggested_value: suggestion.suggested_value,
+                    origin: MetadataSuggestionSourceOrigin::FilenameBracket,
                 }),
         );
     }
