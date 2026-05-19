@@ -260,10 +260,10 @@ describe("Catalog module boundaries", () => {
       /function BatchMetadataActions/,
     );
     expect(metadataActionsSource).not.toMatch(/BatchMetadataActions/);
-    expect(catalogModuleSource).toMatch(
+    expect(catalogSource).toMatch(
       /from "\.\/BatchMetadataEditPanel"/,
     );
-    expect(catalogModuleSource).not.toMatch(
+    expect(catalogSource).not.toMatch(
       /from "\.\/BatchMetadataEditPanel\.tsx"/,
     );
     expect(Object.keys(batchMetadataEditPanelBarrelFiles)).toEqual([
