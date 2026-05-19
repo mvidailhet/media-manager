@@ -863,11 +863,179 @@ fn file_size_bytes(video_path: &Path) -> Result<i64, String> {
 }
 
 fn video_title(video_path: &Path) -> Result<String, String> {
-    video_path
+    let file_stem = video_path
         .file_stem()
         .and_then(|file_name| file_name.to_str())
-        .map(|file_name| file_name.to_string())
-        .ok_or_else(|| "Video Title could not be read from filename".to_string())
+        .ok_or_else(|| "Video Title could not be read from filename".to_string())?;
+
+    Ok(cleaned_video_title_from_file_stem(file_stem))
+}
+
+fn cleaned_video_title_from_file_stem(file_stem: &str) -> String {
+    let original_title = file_stem.trim();
+    let title_without_brackets = remove_square_bracket_chunks(original_title);
+    let title_without_capture_suffixes = remove_capture_suffixes(&title_without_brackets);
+    let title_without_technical_tokens =
+        remove_separator_boundary_technical_tokens(&title_without_capture_suffixes);
+    let cleaned_title = normalized_title_cleanup_artifacts(&title_without_technical_tokens);
+
+    if cleaned_title.is_empty() {
+        original_title.to_string()
+    } else {
+        cleaned_title
+    }
+}
+
+fn remove_square_bracket_chunks(title: &str) -> String {
+    let mut title_without_brackets = String::new();
+    let mut remaining_title = title;
+
+    while let Some(open_index) = remaining_title.find('[') {
+        title_without_brackets.push_str(&remaining_title[..open_index]);
+        let after_open_bracket = &remaining_title[open_index + 1..];
+        let Some(close_index) = after_open_bracket.find(']') else {
+            title_without_brackets.push_str(&remaining_title[open_index..]);
+            return title_without_brackets;
+        };
+        title_without_brackets.push(' ');
+        remaining_title = &after_open_bracket[close_index + 1..];
+    }
+
+    title_without_brackets.push_str(remaining_title);
+    title_without_brackets
+}
+
+fn remove_capture_suffixes(title: &str) -> String {
+    let title_without_site_suffix = title
+        .strip_suffix(" - Pornhub.com")
+        .or_else(|| title.strip_suffix(" - Pornhubcom"))
+        .unwrap_or(title);
+
+    remove_google_chrome_capture_suffix(title_without_site_suffix)
+}
+
+fn remove_google_chrome_capture_suffix(title: &str) -> String {
+    const GOOGLE_CHROME_CAPTURE_PREFIX: &str = " - Google Chrome ";
+    const GOOGLE_CHROME_CAPTURE_TIMESTAMP_LENGTH: usize = "YYYY-MM-DD HH-MM-SS".len();
+
+    let Some(capture_prefix_index) = title.rfind(GOOGLE_CHROME_CAPTURE_PREFIX) else {
+        return title.to_string();
+    };
+    let capture_timestamp = &title[capture_prefix_index + GOOGLE_CHROME_CAPTURE_PREFIX.len()..];
+    if capture_timestamp.len() != GOOGLE_CHROME_CAPTURE_TIMESTAMP_LENGTH {
+        return title.to_string();
+    }
+    if !is_google_chrome_capture_timestamp(capture_timestamp) {
+        return title.to_string();
+    }
+
+    title[..capture_prefix_index].to_string()
+}
+
+fn is_google_chrome_capture_timestamp(capture_timestamp: &str) -> bool {
+    capture_timestamp
+        .chars()
+        .enumerate()
+        .all(|(index, character)| match index {
+            4 | 7 => character == '-',
+            10 => character == ' ',
+            13 | 16 => character == '-',
+            _ => character.is_ascii_digit(),
+        })
+}
+
+fn remove_separator_boundary_technical_tokens(title: &str) -> String {
+    let title_without_separator_tokens = title
+        .split(" - ")
+        .map(str::trim)
+        .filter(|title_segment| !title_segment.is_empty())
+        .filter(|title_segment| !is_technical_filename_token(title_segment))
+        .collect::<Vec<_>>()
+        .join(" - ");
+
+    remove_title_edge_technical_tokens(&title_without_separator_tokens)
+}
+
+fn remove_title_edge_technical_tokens(title: &str) -> String {
+    let mut cleaned_title = title.trim().to_string();
+
+    loop {
+        let title_before_cleanup = cleaned_title.clone();
+        cleaned_title = remove_leading_title_edge_technical_token(&cleaned_title);
+        cleaned_title = remove_trailing_title_edge_technical_token(&cleaned_title);
+
+        if cleaned_title == title_before_cleanup {
+            return cleaned_title;
+        }
+    }
+}
+
+fn remove_leading_title_edge_technical_token(title: &str) -> String {
+    for (separator_index, separator) in title.char_indices() {
+        if !is_title_edge_separator(separator) {
+            continue;
+        }
+
+        let leading_token = title[..separator_index].trim();
+        if is_title_edge_technical_filename_token(leading_token, separator) {
+            return title[separator_index + separator.len_utf8()..]
+                .trim()
+                .to_string();
+        }
+        return title.to_string();
+    }
+
+    title.to_string()
+}
+
+fn remove_trailing_title_edge_technical_token(title: &str) -> String {
+    for (separator_index, separator) in title.char_indices().rev() {
+        if !is_title_edge_separator(separator) {
+            continue;
+        }
+
+        let trailing_token = title[separator_index + separator.len_utf8()..].trim();
+        if is_title_edge_technical_filename_token(trailing_token, separator) {
+            return title[..separator_index].trim().to_string();
+        }
+        return title.to_string();
+    }
+
+    title.to_string()
+}
+
+fn is_title_edge_separator(separator: char) -> bool {
+    matches!(separator, ' ' | '_')
+}
+
+fn is_title_edge_technical_filename_token(title_segment: &str, separator: char) -> bool {
+    if separator == ' ' {
+        return is_whitespace_boundary_technical_filename_token(title_segment);
+    }
+
+    is_technical_filename_token(title_segment)
+}
+
+fn is_whitespace_boundary_technical_filename_token(title_segment: &str) -> bool {
+    let normalized_title_segment = title_segment.trim().to_ascii_lowercase();
+
+    !matches!(normalized_title_segment.as_str(), "4k" | "8k")
+        && is_technical_filename_token(title_segment)
+}
+
+fn normalized_title_cleanup_artifacts(title: &str) -> String {
+    let mut collapsed_spaces = title.split_whitespace().collect::<Vec<_>>().join(" ");
+    while collapsed_spaces.contains(" - - ") {
+        collapsed_spaces = collapsed_spaces.replace(" - - ", " - ");
+    }
+    let title_segments = collapsed_spaces
+        .split(" - ")
+        .map(str::trim)
+        .map(|title_segment| title_segment.trim_matches('-').trim())
+        .filter(|title_segment| !title_segment.is_empty())
+        .collect::<Vec<_>>();
+
+    title_segments.join(" - ")
 }
 
 fn video_fingerprint(

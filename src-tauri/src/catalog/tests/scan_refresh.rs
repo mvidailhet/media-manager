@@ -352,6 +352,142 @@ fn refreshing_a_scan_root_recursively_stores_probeable_videos() {
 }
 
 #[test]
+fn refreshing_a_scan_root_derives_new_video_titles_from_cleaned_filename_stems() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let filename_examples = [
+        (
+            "Advanced [Tag - 1080p] Training (Part 1) - Pornhub.com.mp4",
+            "Advanced Training (Part 1)",
+            "advanced bytes",
+        ),
+        (
+            "4K Extreme Training - 1920x1080.mkv",
+            "4K Extreme Training",
+            "extreme bytes",
+        ),
+        (
+            "720p - City Walk - Google Chrome 2026-05-17 21-30-45.mov",
+            "City Walk",
+            "city bytes",
+        ),
+        ("[HD] [1080p].mp4", "[HD] [1080p]", "fallback bytes"),
+        (
+            "Title - [Metadata] - - Scene - Pornhubcom.mp4",
+            "Title - Scene",
+            "scene bytes",
+        ),
+    ];
+
+    for (filename, _expected_title, file_bytes) in filename_examples {
+        std::fs::write(movies_root.join(filename), file_bytes).expect("video file exists");
+    }
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    let mut actual_titles = listed_video_titles(&catalog);
+    actual_titles.sort();
+    let mut expected_titles = filename_examples
+        .into_iter()
+        .map(|(_filename, expected_title, _file_bytes)| expected_title.to_string())
+        .collect::<Vec<_>>();
+    expected_titles.sort();
+    assert_eq!(actual_titles, expected_titles);
+}
+
+#[test]
+fn refreshing_a_scan_root_strips_technical_tokens_at_title_boundaries() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let filename_examples = [
+        ("1080p City Walk.mp4", "City Walk", "leading bytes"),
+        ("City Walk 1080p.mp4", "City Walk", "trailing bytes"),
+        ("City Walk_1920x1080.mp4", "City Walk", "separator bytes"),
+        (
+            "4K Extreme Training.mp4",
+            "4K Extreme Training",
+            "meaningful bytes",
+        ),
+    ];
+
+    for (filename, _expected_title, file_bytes) in filename_examples {
+        std::fs::write(movies_root.join(filename), file_bytes).expect("video file exists");
+    }
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    let mut actual_titles = listed_video_titles(&catalog);
+    actual_titles.sort();
+    let mut expected_titles = filename_examples
+        .into_iter()
+        .map(|(_filename, expected_title, _file_bytes)| expected_title.to_string())
+        .collect::<Vec<_>>();
+    expected_titles.sort();
+    assert_eq!(actual_titles, expected_titles);
+}
+
+#[test]
+fn refreshing_a_scan_root_keeps_existing_video_titles_on_rescan() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let family_trip_path = movies_root.join("Family Trip [HD].mp4");
+    std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("initial scan root refreshes");
+    catalog
+        .update_video_title(1, "Manual Family Title")
+        .expect("title updates");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("second scan root refreshes");
+
+    assert_eq!(listed_video_titles(&catalog), vec!["Manual Family Title"]);
+}
+
+#[test]
 fn refreshing_a_scan_root_ignores_hidden_video_candidates() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
