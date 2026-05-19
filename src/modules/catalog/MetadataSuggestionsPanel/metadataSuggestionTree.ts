@@ -34,6 +34,7 @@ export function buildSuggestionVideoTree(
       video.fileLocationPath,
     );
     const videoNodeValue = `video:${video.videoId}`;
+    const fileName = getFileName(video.fileLocationPath);
     const folderNode = findOrCreateFolderNode(
       rootFolderNode,
       sourceGroup.scanRootPath,
@@ -41,7 +42,7 @@ export function buildSuggestionVideoTree(
     );
 
     folderNode.videos.push({
-      label: video.title,
+      label: fileName || video.title,
       value: videoNodeValue,
     });
     videoValueToVideoId.set(videoNodeValue, video.videoId);
@@ -133,4 +134,10 @@ function getRelativeFolderSegments(scanRootPath: string, fileLocationPath: strin
   const folderPath = relativeFilePath.slice(0, relativeFilePath.lastIndexOf("/"));
 
   return folderPath.split("/").filter(Boolean);
+}
+
+function getFileName(fileLocationPath: string) {
+  const pathSegments = fileLocationPath.split("/").filter(Boolean);
+
+  return pathSegments[pathSegments.length - 1] ?? "";
 }

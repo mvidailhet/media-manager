@@ -131,7 +131,7 @@ describe("Catalog module", () => {
       }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(within(metadataSuggestions).getByText("Trips/Family Trip"));
+    fireEvent.click(within(metadataSuggestions).getByText("Trips/family-trip.mp4"));
 
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
@@ -1969,14 +1969,14 @@ describe("Catalog module", () => {
     fireEvent.click(getMetadataSuggestionTreeLabel(metadataSuggestions, "Family"));
     expect(
       within(metadataSuggestions).getByRole("checkbox", {
-        name: "Trips/Family Trip",
+        name: "Trips/family-trip.mp4",
       }),
     ).toBeInTheDocument();
     expect(
-      within(metadataSuggestions).getByText("Trips/Family Trip"),
+      within(metadataSuggestions).getByText("Trips/family-trip.mp4"),
     ).toBeInTheDocument();
     expect(
-      within(metadataSuggestions).getByText("Birthday"),
+      within(metadataSuggestions).getByText("birthday.mp4"),
     ).toBeInTheDocument();
     expect(within(metadataSuggestions).queryByText("Picnic")).not.toBeInTheDocument();
     fireEvent.click(
@@ -1986,7 +1986,7 @@ describe("Catalog module", () => {
       ),
     );
     expect(
-      within(metadataSuggestions).getByText("family/Picnic"),
+      within(metadataSuggestions).getByText("family/picnic.mp4"),
     ).toBeInTheDocument();
     expect(
       within(metadataSuggestions).queryByText(
@@ -1994,7 +1994,7 @@ describe("Catalog module", () => {
       ),
     ).not.toBeInTheDocument();
     expect(
-      within(metadataSuggestions).queryByText("family-trip.mp4"),
+      within(metadataSuggestions).queryByText("Family Trip"),
     ).not.toBeInTheDocument();
   });
 
@@ -2047,7 +2047,7 @@ describe("Catalog module", () => {
 
     expect(
       within(metadataSuggestions).getByRole("checkbox", {
-        name: "Best/Maniac Alisa/File",
+        name: "Best/Maniac Alisa/file.mp4",
       }),
     ).toBeInTheDocument();
     expect(
@@ -2071,10 +2071,10 @@ describe("Catalog module", () => {
       ),
     );
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "file 1" }),
+      within(metadataSuggestions).getByRole("checkbox", { name: "file-1.mp4" }),
     ).toBeInTheDocument();
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "file 2" }),
+      within(metadataSuggestions).getByRole("checkbox", { name: "file-2.mp4" }),
     ).toBeInTheDocument();
   });
 
@@ -2140,7 +2140,7 @@ describe("Catalog module", () => {
     );
     fireEvent.click(
       await within(metadataSuggestions).findByRole("checkbox", {
-        name: "Birthday",
+        name: "birthday.mp4",
       }),
     );
     fireEvent.click(
@@ -2207,11 +2207,15 @@ describe("Catalog module", () => {
     );
 
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "Family Trip" }),
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "family-trip.mp4",
+      }),
     ).not.toBeChecked();
     await waitFor(() => {
       expect(
-        within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+        within(metadataSuggestions).getByRole("checkbox", {
+          name: "birthday.mp4",
+        }),
       ).not.toBeChecked();
     });
   });
@@ -2257,13 +2261,15 @@ describe("Catalog module", () => {
     );
     fireEvent.click(
       await within(metadataSuggestions).findByRole("checkbox", {
-        name: "Birthday",
+        name: "birthday.mp4",
       }),
     );
 
     await waitFor(() => {
       expect(
-        within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+        within(metadataSuggestions).getByRole("checkbox", {
+          name: "birthday.mp4",
+        }),
       ).not.toBeChecked();
     });
     expect(
@@ -2317,7 +2323,7 @@ describe("Catalog module", () => {
     );
     fireEvent.click(
       await within(metadataSuggestions).findByRole("checkbox", {
-        name: "Birthday",
+        name: "birthday.mp4",
       }),
     );
     fireEvent.click(
@@ -2327,10 +2333,12 @@ describe("Catalog module", () => {
     );
 
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "Family Trip" }),
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "family-trip.mp4",
+      }),
     ).not.toBeChecked();
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+      within(metadataSuggestions).getByRole("checkbox", { name: "birthday.mp4" }),
     ).not.toBeChecked();
     expect(
       within(metadataSuggestions).getByRole("button", { name: "Accept" }),
@@ -2383,10 +2391,12 @@ describe("Catalog module", () => {
     );
 
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "Family Trip" }),
+      within(metadataSuggestions).getByRole("checkbox", {
+        name: "family-trip.mp4",
+      }),
     ).not.toBeChecked();
     expect(
-      within(metadataSuggestions).getByRole("checkbox", { name: "Birthday" }),
+      within(metadataSuggestions).getByRole("checkbox", { name: "birthday.mp4" }),
     ).not.toBeChecked();
     expect(
       within(metadataSuggestions).getByRole("button", { name: "Accept" }),
