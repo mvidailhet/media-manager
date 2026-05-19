@@ -1,21 +1,18 @@
 import { useState } from "react";
 import { AppShell } from "@mantine/core";
 import {
-  CatalogModule,
+  Catalog,
   type CatalogVideo,
   useCatalogModuleController,
 } from "./modules/catalog";
-import { CatalogModuleDetailAside } from "./modules/catalog/CatalogModuleDetailAside";
+import { CatalogDetailAside } from "./modules/catalog/CatalogDetailAside";
 import {
-  ScanModule,
+  Scan,
   type ScanRoot,
   type ScanRootRemovalPolicy,
   useScanModuleController,
 } from "./modules/scan";
-import {
-  SettingsModule,
-  useSettingsModuleController,
-} from "./modules/settings";
+import { Settings, useSettingsModuleController } from "./modules/settings";
 import styles from "./App.module.css";
 import { ForgetMissingVideoConfirmation } from "./components/ForgetMissingVideoConfirmation";
 import { ModuleNavigation } from "./components/ModuleNavigation";
@@ -39,7 +36,7 @@ export default function App() {
       scan.setScanIssuesStatusMessage(message),
   });
   const {
-    catalogModuleProps,
+    catalogProps,
     catalogVideos,
     forgetMissingVideo,
     missingVideos,
@@ -55,11 +52,10 @@ export default function App() {
   const settings = useSettingsModuleController({
     refreshScanIssues: async () => scan.refreshScanIssues(false),
   });
-  const { metadataSuggestionGroups, scanAttentionCount, scanModuleProps } =
-    scan;
-  const { settingsAttentionCount, settingsModuleProps } = settings;
+  const { metadataSuggestionGroups, scanAttentionCount, scanProps } = scan;
+  const { settingsAttentionCount, settingsProps } = settings;
   const isVideoDetailAsideVisible =
-    activeAppModule === "catalog" && catalogModuleProps.selectedVideo !== null;
+    activeAppModule === "catalog" && catalogProps.selectedVideo !== null;
 
   async function confirmScanRootRemoval(removalPolicy: ScanRootRemovalPolicy) {
     if (!scanRootPendingRemoval) {
@@ -113,12 +109,12 @@ export default function App() {
           setActiveAppModule={setActiveAppModule}
         />
         {activeAppModule === "catalog" ? (
-          <CatalogModule
-            {...catalogModuleProps}
+          <Catalog
+            {...catalogProps}
             metadataSuggestionGroups={metadataSuggestionGroups}
           />
         ) : null}
-        {activeAppModule === "scan" ? <ScanModule {...scanModuleProps} /> : null}
+        {activeAppModule === "scan" ? <Scan {...scanProps} /> : null}
 
         {scanRootPendingRemoval ? (
           <RemoveScanRootConfirmation
@@ -137,12 +133,12 @@ export default function App() {
         ) : null}
 
         {activeAppModule === "settings" ? (
-          <SettingsModule {...settingsModuleProps} />
+          <Settings {...settingsProps} />
         ) : null}
       </AppShell.Main>
       {activeAppModule === "catalog" ? (
-        <CatalogModuleDetailAside
-          {...catalogModuleProps}
+        <CatalogDetailAside
+          {...catalogProps}
           metadataSuggestionGroups={metadataSuggestionGroups}
         />
       ) : null}

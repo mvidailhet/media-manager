@@ -6,7 +6,7 @@ import appSource from "./App.tsx?raw";
 describe("App module boundaries", () => {
   it("keeps root architecture tests focused on App composition", () => {
     const moduleInternalImportPattern = new RegExp(
-      String.raw`\.\/modules\/(?:scan|settings)\/|\.\/modules\/catalog\/(?!CatalogModuleDetailAside)`,
+      String.raw`\.\/modules\/(?:scan|settings)\/|\.\/modules\/catalog\/(?!CatalogDetailAside)`,
     );
 
     expect(architectureTestSource).not.toMatch(moduleInternalImportPattern);
@@ -21,9 +21,12 @@ describe("App module boundaries", () => {
   });
 
   it("keeps App focused on composing workflow modules", () => {
-    expect(appSource).toMatch(/<CatalogModule/);
-    expect(appSource).toMatch(/<ScanModule/);
-    expect(appSource).toMatch(/<SettingsModule/);
+    expect(appSource).toMatch(/<Catalog/);
+    expect(appSource).toMatch(/<Scan/);
+    expect(appSource).toMatch(/<Settings/);
+    expect(appSource).not.toMatch(/<CatalogModule/);
+    expect(appSource).not.toMatch(/<ScanModule/);
+    expect(appSource).not.toMatch(/<SettingsModule/);
     expect(appSource).not.toMatch(/CatalogVideosPanel/);
     expect(appSource).not.toMatch(/ScanRootsPanel/);
     expect(appSource).not.toMatch(/ScanIssuesPanel/);
@@ -67,10 +70,10 @@ describe("App module boundaries", () => {
     expect(appSource).not.toMatch(/from "\.\/modules\/settings\//);
     expect(appSource).toMatch(/from "\.\/modules\/catalog"/);
     expect(appSource).toMatch(
-      /from "\.\/modules\/catalog\/CatalogModuleDetailAside"/,
+      /from "\.\/modules\/catalog\/CatalogDetailAside"/,
     );
     expect(appSource).not.toMatch(
-      /from "\.\/modules\/catalog\/(?!CatalogModuleDetailAside")/,
+      /from "\.\/modules\/catalog\/(?!CatalogDetailAside")/,
     );
     expect(appSource).toMatch(/from "\.\/modules\/scan"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/scan\//);

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import appSource from "../../App.tsx?raw";
 import batchMetadataEditPanelSource from "./BatchMetadataEditPanel.tsx?raw";
 import catalogModuleEntryPointSource from "./index.ts?raw";
-import catalogModuleSource from "./CatalogModule.tsx?raw";
+import catalogSource from "./Catalog.tsx?raw";
 import metadataBadgesSource from "./components/MetadataBadges.tsx?raw";
 import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel.tsx?raw";
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
@@ -50,7 +50,7 @@ const batchMetadataEditPanelFiles = import.meta.glob(
   },
 );
 const catalogModuleDetailAsideFiles = import.meta.glob(
-  "./CatalogModuleDetailAside.tsx",
+  "./CatalogDetailAside.tsx",
   {
     eager: true,
     query: "?raw",
@@ -117,7 +117,7 @@ describe("Catalog module boundaries", () => {
 
   it("keeps Catalog panels owned by the Catalog module", () => {
     expect(appSource).not.toMatch(/VideosPanel/);
-    expect(catalogModuleSource).toMatch(/VideosPanel/);
+    expect(catalogSource).toMatch(/VideosPanel/);
   });
 
   it("keeps Metadata Suggestions panel, group, source, and tree helpers in focused files", () => {
@@ -244,24 +244,33 @@ describe("Catalog module boundaries", () => {
   it("keeps the Catalog detail aside in a focused file imported directly by App", () => {
     const catalogModuleDetailAsideSource = rawSource(
       catalogModuleDetailAsideFiles,
-      "./CatalogModuleDetailAside.tsx",
+      "./CatalogDetailAside.tsx",
     );
 
     expect(catalogModuleDetailAsideSource).not.toBe("");
     expect(catalogModuleDetailAsideSource).toMatch(
-      /function CatalogModuleDetailAside/,
+      /function CatalogDetailAside/,
     );
     expect(catalogModuleDetailAsideSource).toMatch(
       /useSelectedVideoDetailActions/,
     );
     expect(catalogModuleDetailAsideSource).toMatch(/VideoDetailPanel/);
-    expect(catalogModuleSource).not.toMatch(/function CatalogModuleDetailAside/);
+    expect(catalogSource).not.toMatch(/function CatalogDetailAside/);
     expect(catalogModuleEntryPointSource).not.toMatch(
-      /CatalogModuleDetailAside/,
+      /CatalogDetailAside/,
     );
     expect(appSource).toMatch(
-      /from "\.\/modules\/catalog\/CatalogModuleDetailAside"/,
+      /from "\.\/modules\/catalog\/CatalogDetailAside"/,
     );
+  });
+
+  it("uses the module folder context for the Catalog entry name", () => {
+    expect(catalogModuleEntryPointSource).toContain(
+      'export { Catalog } from "./Catalog"',
+    );
+    expect(catalogSource).toMatch(/function Catalog\(/);
+    expect(catalogModuleEntryPointSource).not.toMatch(/export \{ CatalogModule/);
+    expect(catalogSource).not.toMatch(/function CatalogModule|CatalogModuleProps/);
   });
 
   it("keeps Video detail and preview pieces in focused files", () => {

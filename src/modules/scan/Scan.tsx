@@ -12,7 +12,7 @@ import { RootsPanel } from "./RootsPanel";
 import { ScanIssuesPanel } from "./ScanIssuesPanel/ScanIssuesPanel";
 import type { ScanRoot } from "./useScanRoots";
 
-export type ScanModuleProps = {
+export type ScanProps = {
   failedPreviewStrips: FailedPreviewStrip[];
   generatedPreviewStripCount: number;
   generatingPreviewStripTitle?: string;
@@ -47,7 +47,7 @@ export const scanRootsTab = "scanRoots";
 export const scanIssuesTab = "scanIssues";
 export const previewGenerationTab = "previewGeneration";
 
-export function ScanModule({
+export function Scan({
   failedPreviewStrips,
   generatedPreviewStripCount,
   generatingPreviewStripTitle,
@@ -73,7 +73,7 @@ export function ScanModule({
   scanTab,
   unavailableScanRoots,
   unprocessableVideoCandidateGroups,
-}: ScanModuleProps) {
+}: ScanProps) {
   return (
     <Tabs value={scanTab} onChange={onScanTabChange} keepMounted={false}>
       <Tabs.List aria-label="Scan module tabs">

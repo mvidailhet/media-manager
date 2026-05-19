@@ -1,4 +1,4 @@
-export { CatalogModule } from "./CatalogModule";
+export { Catalog } from "./Catalog";
 export {
   useCatalogModuleController,
   type CatalogVideo,
