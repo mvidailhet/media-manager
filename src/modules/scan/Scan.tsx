@@ -11,6 +11,11 @@ import { PreviewGenerationView } from "./PreviewGenerationView/PreviewGeneration
 import { RootsPanel } from "./RootsPanel";
 import { ScanIssuesPanel } from "./ScanIssuesPanel/ScanIssuesPanel";
 import { TabsList } from "./components/TabsList";
+import {
+  previewGenerationTab,
+  scanIssuesTab,
+  scanRootsTab,
+} from "./scanTabs";
 import type { ScanRoot } from "./useScanRoots";
 
 export type ScanProps = {
@@ -43,10 +48,6 @@ export type ScanProps = {
   unavailableScanRoots: ScanRoot[];
   unprocessableVideoCandidateGroups: UnprocessableVideoCandidateGroup[];
 };
-
-export const scanRootsTab = "scanRoots";
-export const scanIssuesTab = "scanIssues";
-export const previewGenerationTab = "previewGeneration";
 
 export function Scan({
   failedPreviewStrips,

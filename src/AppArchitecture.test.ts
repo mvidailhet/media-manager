@@ -22,7 +22,7 @@ describe("App module boundaries", () => {
 
   it("keeps App focused on composing workflow modules", () => {
     expect(appSource).toMatch(/<CatalogModule/);
-    expect(appSource).toMatch(/<Scan/);
+    expect(appSource).toContain("<Scan {...scanModuleProps} />");
     expect(appSource).toMatch(/<SettingsModule/);
     expect(appSource).not.toMatch(/CatalogVideosPanel/);
     expect(appSource).not.toMatch(/ScanRootsPanel/);

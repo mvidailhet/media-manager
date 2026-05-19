@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import type { CatalogVideo } from "../catalog/useCatalogModuleController";
 import type { ScanProps } from "./Scan";
-import { scanRootsTab } from "./Scan";
+import { scanRootsTab } from "./scanTabs";
 import { usePreviewGeneration } from "./usePreviewGeneration";
 import { useScanIssues } from "./useScanIssues";
 import type { ScanRoot, ScanRootRemovalPolicy } from "./useScanRoots";

@@ -4,7 +4,7 @@ import {
   previewGenerationTab,
   scanIssuesTab,
   scanRootsTab,
-} from "../Scan";
+} from "../scanTabs";
 import { AttentionTabLabel } from "./AttentionTabLabel";
 
 type TabsListProps = {
