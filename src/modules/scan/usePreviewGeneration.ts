@@ -1,10 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { PreviewStripQueueStatus } from "../../tauriCommands";
+import type {
+  FailedPreviewStrip,
+  PreviewStripQueueStatus,
+} from "../../tauriCommands";
 import {
   getPreviewStripQueueStatus,
+  ignoreFailedPreviewStrip,
+  listFailedPreviewStrips,
   pausePreviewStripQueue,
   processNextPreviewStripQueueItem,
+  retryFailedPreviewStrip,
   resumePreviewStripQueue,
 } from "../../tauriCommands";
 import { errorMessage } from "../../shared/errors/errorMessage";
@@ -14,22 +20,25 @@ const previewStripQueuePollingIntervalMilliseconds = 250;
 
 export function usePreviewGeneration({
   refreshCatalogVideos,
-  refreshScanIssues,
 }: {
   refreshCatalogVideos: () => Promise<void>;
-  refreshScanIssues: () => Promise<void>;
 }) {
+  const [failedPreviewStrips, setFailedPreviewStrips] = useState<
+    FailedPreviewStrip[]
+  >([]);
   const [previewStripStatusMessage, setPreviewStripStatusMessage] =
     useState("");
   const [previewStripQueueStatus, setPreviewStripQueueStatus] =
     useState<PreviewStripQueueStatus | null>(null);
   const latestRefreshCatalogVideos = useRef(refreshCatalogVideos);
-  const latestRefreshScanIssues = useRef(refreshScanIssues);
 
   useEffect(() => {
     latestRefreshCatalogVideos.current = refreshCatalogVideos;
-    latestRefreshScanIssues.current = refreshScanIssues;
-  }, [refreshCatalogVideos, refreshScanIssues]);
+  }, [refreshCatalogVideos]);
+
+  async function refreshFailedPreviewStrips() {
+    setFailedPreviewStrips(await listFailedPreviewStrips());
+  }
 
   async function refreshPreviewStripQueueStatus() {
     try {
@@ -46,10 +55,14 @@ export function usePreviewGeneration({
 
     async function loadInitialPreviewStripQueueStatus() {
       try {
-        const queueStatus = await getPreviewStripQueueStatus();
+        const [queueStatus, storedFailedPreviewStrips] = await Promise.all([
+          getPreviewStripQueueStatus(),
+          listFailedPreviewStrips(),
+        ]);
 
         if (canUpdatePreviewStripQueue) {
           setPreviewStripQueueStatus(queueStatus);
+          setFailedPreviewStrips(storedFailedPreviewStrips);
         }
       } catch {
         if (canUpdatePreviewStripQueue) {
@@ -118,7 +131,7 @@ export function usePreviewGeneration({
         setPreviewStripQueueStatus(queueStatus);
         if (queueStatus.runningCount === 0) {
           await latestRefreshCatalogVideos.current();
-          await latestRefreshScanIssues.current();
+          await refreshFailedPreviewStrips();
         }
       } catch (error) {
         if (canUpdatePreviewStripQueue) {
@@ -155,12 +168,46 @@ export function usePreviewGeneration({
     }
   }
 
+  async function retryFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
+    try {
+      const queueStatus = await retryFailedPreviewStrip(
+        failedPreviewStrip.videoId,
+      );
+
+      setPreviewStripQueueStatus(queueStatus);
+      setPreviewStripStatusMessage("");
+      await refreshCatalogVideos();
+      await refreshFailedPreviewStrips();
+      await refreshPreviewStripQueueStatus();
+    } catch (error) {
+      setPreviewStripStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function ignoreFailedPreview(failedPreviewStrip: FailedPreviewStrip) {
+    try {
+      const queueStatus = await ignoreFailedPreviewStrip(
+        failedPreviewStrip.videoId,
+      );
+
+      setPreviewStripQueueStatus(queueStatus);
+      setPreviewStripStatusMessage("");
+      await refreshFailedPreviewStrips();
+    } catch (error) {
+      setPreviewStripStatusMessage(errorMessage(error));
+    }
+  }
+
   return {
+    failedPreviewStrips,
+    ignoreFailedPreview,
     pausePreviewStripQueueAction,
     previewStripQueueStatus,
     previewStripStatusMessage,
+    refreshFailedPreviewStrips,
     refreshPreviewStripQueueStatus,
     resumePreviewStripQueueAction,
+    retryFailedPreview,
     setPreviewStripQueueStatus,
   };
 }

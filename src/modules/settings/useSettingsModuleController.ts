@@ -11,12 +11,12 @@ type SettingsController = {
 };
 
 export function useSettingsModuleController({
-  refreshScanIssues,
+  refreshMissingVideos,
 }: {
-  refreshScanIssues: () => Promise<void>;
+  refreshMissingVideos: () => Promise<void>;
 }): SettingsController {
   const settingsStatus = useSettingsStatus({
-    refreshScanIssues,
+    refreshMissingVideos,
   });
   const {
     ffmpegPath,

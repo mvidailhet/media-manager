@@ -29,12 +29,7 @@ export default function App() {
     useState<ScanRoot | null>(null);
   const [missingVideoPendingForget, setMissingVideoPendingForget] =
     useState<CatalogVideo | null>(null);
-  const catalog = useCatalogModuleController({
-    refreshScanIssues: async (shouldClearStatusMessage) =>
-      scan.refreshScanIssues(shouldClearStatusMessage),
-    setScanIssuesStatusMessage: (message) =>
-      scan.setScanIssuesStatusMessage(message),
-  });
+  const catalog = useCatalogModuleController();
   const {
     catalogProps,
     catalogVideos,
@@ -50,9 +45,9 @@ export default function App() {
     refreshCatalogVideos,
   });
   const settings = useSettingsModuleController({
-    refreshScanIssues: async () => scan.refreshScanIssues(false),
+    refreshMissingVideos: async () => scan.refreshMissingVideos(false),
   });
-  const { metadataSuggestionGroups, scanAttentionCount, scanProps } = scan;
+  const { scanAttentionCount, scanProps } = scan;
   const { settingsAttentionCount, settingsProps } = settings;
   const isVideoDetailAsideVisible =
     activeAppModule === "catalog" && catalogProps.selectedVideo !== null;
@@ -82,10 +77,10 @@ export default function App() {
     try {
       await forgetMissingVideo(missingVideoPendingForget.id);
       setMissingVideoPendingForget(null);
-      scan.setScanIssuesStatusMessage("");
+      scan.setMissingVideosStatusMessage("");
       await refreshCatalogVideos();
     } catch (error) {
-      scan.setScanIssuesStatusMessage(errorMessage(error));
+      scan.setMissingVideosStatusMessage(errorMessage(error));
     }
   }
 
@@ -109,10 +104,7 @@ export default function App() {
           setActiveAppModule={setActiveAppModule}
         />
         {activeAppModule === "catalog" ? (
-          <Catalog
-            {...catalogProps}
-            metadataSuggestionGroups={metadataSuggestionGroups}
-          />
+          <Catalog {...catalogProps} />
         ) : null}
         {activeAppModule === "scan" ? <Scan {...scanProps} /> : null}
 
@@ -137,10 +129,7 @@ export default function App() {
         ) : null}
       </AppShell.Main>
       {activeAppModule === "catalog" ? (
-        <CatalogDetailAside
-          {...catalogProps}
-          metadataSuggestionGroups={metadataSuggestionGroups}
-        />
+        <CatalogDetailAside {...catalogProps} />
       ) : null}
     </AppShell>
   );

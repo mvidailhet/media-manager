@@ -1,3 +1,3 @@
 export const scanRootsTab = "scanRoots";
-export const scanIssuesTab = "scanIssues";
+export const missingVideosTab = "missingVideos";
 export const previewGenerationTab = "previewGeneration";

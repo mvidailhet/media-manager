@@ -6,11 +6,13 @@ import type {
   ScanRoot,
   ScanRootRefreshJobProgress,
   ScanRootRemovalPolicy,
+  UnprocessableVideoCandidateGroup,
 } from "../../tauriCommands";
 import {
   addScanRoot,
   cancelScanRootRefreshJob,
   checkScanRootAvailability,
+  listUnprocessableVideoCandidatesByScanRoot,
   listScanRoots,
   removeScanRoot,
   startScanRootRefreshJob,
@@ -27,13 +29,15 @@ const scanRootRefreshEventName = "scan-root-refresh-progress";
 export function useScanRoots({
   refreshCatalogVideos,
   refreshPreviewStripQueueStatus,
-  refreshScanIssues,
 }: {
   refreshCatalogVideos: () => Promise<void>;
   refreshPreviewStripQueueStatus: () => Promise<void>;
-  refreshScanIssues: () => Promise<void>;
 }) {
   const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
+  const [
+    unprocessableVideoCandidateGroups,
+    setUnprocessableVideoCandidateGroups,
+  ] = useState<UnprocessableVideoCandidateGroup[]>([]);
   const [scanRootsStatusMessage, setScanRootsStatusMessage] = useState(
     scanRootsLoadingMessage,
   );
@@ -43,20 +47,28 @@ export function useScanRoots({
   const latestRefreshPreviewStripQueueStatus = useRef(
     refreshPreviewStripQueueStatus,
   );
-  const latestRefreshScanIssues = useRef(refreshScanIssues);
 
   useEffect(() => {
     latestRefreshCatalogVideos.current = refreshCatalogVideos;
     latestRefreshPreviewStripQueueStatus.current =
       refreshPreviewStripQueueStatus;
-    latestRefreshScanIssues.current = refreshScanIssues;
-  }, [refreshCatalogVideos, refreshPreviewStripQueueStatus, refreshScanIssues]);
+  }, [refreshCatalogVideos, refreshPreviewStripQueueStatus]);
+
+  async function refreshUnprocessableVideoCandidates() {
+    const candidateGroups = await listUnprocessableVideoCandidatesByScanRoot();
+
+    setUnprocessableVideoCandidateGroups(candidateGroups);
+  }
 
   async function refreshScanRoots(shouldClearStatusMessage = true) {
     try {
-      const storedScanRoots = await listScanRoots();
+      const [storedScanRoots, candidateGroups] = await Promise.all([
+        listScanRoots(),
+        listUnprocessableVideoCandidatesByScanRoot(),
+      ]);
 
       setScanRoots(storedScanRoots);
+      setUnprocessableVideoCandidateGroups(candidateGroups);
       if (shouldClearStatusMessage) {
         setScanRootsStatusMessage("");
       }
@@ -92,7 +104,10 @@ export function useScanRoots({
 
     async function loadInitialScanRoots() {
       try {
-        const storedScanRoots = await listScanRoots();
+        const [storedScanRoots, candidateGroups] = await Promise.all([
+          listScanRoots(),
+          listUnprocessableVideoCandidatesByScanRoot(),
+        ]);
         const checkedScanRoots = await Promise.all(
           storedScanRoots.map((scanRoot) =>
             checkScanRootAvailability(scanRoot.path),
@@ -115,6 +130,7 @@ export function useScanRoots({
                 : scanRoot;
             }),
           );
+          setUnprocessableVideoCandidateGroups(candidateGroups);
           setScanRootsStatusMessage("");
           if (storedScanRoots.length > 0) {
             void latestRefreshCatalogVideos.current();
@@ -152,7 +168,6 @@ export function useScanRoots({
           if (isFinishedScanRootRefresh(event.payload.status)) {
             void refreshScanRoots(false);
             void latestRefreshCatalogVideos.current();
-            void latestRefreshScanIssues.current();
             void latestRefreshPreviewStripQueueStatus.current();
           }
         },
@@ -222,7 +237,7 @@ export function useScanRoots({
       );
       setScanRootsStatusMessage("");
       await refreshCatalogVideos();
-      await refreshScanIssues();
+      await refreshUnprocessableVideoCandidates();
       return true;
     } catch (error) {
       setScanRootsStatusMessage(errorMessage(error));
@@ -276,11 +291,13 @@ export function useScanRoots({
     checkSelectedScanRootAvailability,
     chooseScanRootFolder,
     refreshScanRoots,
+    refreshUnprocessableVideoCandidates,
     refreshSelectedScanRoot,
     removeSelectedScanRoot,
     saveScanRootInferenceRules,
     scanRoots,
     scanRootsStatusMessage,
+    unprocessableVideoCandidateGroups,
   };
 }
 

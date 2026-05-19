@@ -2,7 +2,7 @@ import { Tabs } from "@mantine/core";
 
 import {
   previewGenerationTab,
-  scanIssuesTab,
+  missingVideosTab,
   scanRootsTab,
 } from "../scanTabs";
 import { AttentionTabLabel } from "./AttentionTabLabel";
@@ -10,13 +10,13 @@ import { AttentionTabLabel } from "./AttentionTabLabel";
 type TabsListProps = {
   previewGenerationAttentionCount: number;
   scanRootsAttentionCount: number;
-  scanIssuesAttentionCount: number;
+  missingVideosAttentionCount: number;
 };
 
 export function TabsList({
   previewGenerationAttentionCount,
   scanRootsAttentionCount,
-  scanIssuesAttentionCount,
+  missingVideosAttentionCount,
 }: TabsListProps) {
   return (
     <Tabs.List aria-label="Scan module tabs">
@@ -26,10 +26,10 @@ export function TabsList({
           label="Scan Roots"
         />
       </Tabs.Tab>
-      <Tabs.Tab value={scanIssuesTab}>
+      <Tabs.Tab value={missingVideosTab}>
         <AttentionTabLabel
-          attentionCount={scanIssuesAttentionCount}
-          label="Scan Issues"
+          attentionCount={missingVideosAttentionCount}
+          label="Missing Videos"
         />
       </Tabs.Tab>
       <Tabs.Tab value={previewGenerationTab}>

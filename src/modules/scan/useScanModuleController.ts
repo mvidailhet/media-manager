@@ -4,23 +4,20 @@ import type { CatalogVideo } from "../catalog/useCatalogModuleController";
 import type { ScanProps } from "./Scan";
 import { scanRootsTab } from "./scanTabs";
 import { usePreviewGeneration } from "./usePreviewGeneration";
-import { useScanIssues } from "./useScanIssues";
+import { useMissingVideos } from "./useMissingVideos";
 import type { ScanRoot, ScanRootRemovalPolicy } from "./useScanRoots";
 import { useScanRoots } from "./useScanRoots";
 
 type ScanController = {
-  metadataSuggestionGroups: ReturnType<
-    typeof useScanIssues
-  >["metadataSuggestionGroups"];
-  refreshScanIssues: ReturnType<typeof useScanIssues>["refreshScanIssues"];
+  refreshMissingVideos: ReturnType<typeof useMissingVideos>["refreshMissingVideos"];
   removeSelectedScanRoot: ReturnType<
     typeof useScanRoots
   >["removeSelectedScanRoot"];
   scanAttentionCount: number;
   scanProps: ScanProps;
-  setScanIssuesStatusMessage: ReturnType<
-    typeof useScanIssues
-  >["setScanIssuesStatusMessage"];
+  setMissingVideosStatusMessage: ReturnType<
+    typeof useMissingVideos
+  >["setMissingVideosStatusMessage"];
 };
 
 export function useScanModuleController({
@@ -37,35 +34,31 @@ export function useScanModuleController({
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
 }): ScanController {
   const [scanTab, setScanTab] = useState<string | null>(scanRootsTab);
+  const missingVideosWorkflow = useMissingVideos({
+    refreshCatalogVideos,
+  });
   const previewGeneration = usePreviewGeneration({
     refreshCatalogVideos,
-    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
-  });
-  const scanIssues = useScanIssues({
-    refreshCatalogVideos,
-    refreshPreviewStripQueueStatus:
-      previewGeneration.refreshPreviewStripQueueStatus,
-    setPreviewStripQueueStatus: previewGeneration.setPreviewStripQueueStatus,
   });
   const scanRootsState = useScanRoots({
     refreshCatalogVideos,
     refreshPreviewStripQueueStatus:
       previewGeneration.refreshPreviewStripQueueStatus,
-    refreshScanIssues: async () => scanIssues.refreshScanIssues(false),
   });
 
   const unavailableScanRoots = scanRootsState.scanRoots.filter(
     (scanRoot) => !scanRoot.isAvailable,
   );
   const unprocessableVideoCandidateCount =
-    scanIssues.unprocessableVideoCandidateGroups.reduce(
+    scanRootsState.unprocessableVideoCandidateGroups.reduce(
       (candidateCount, candidateGroup) =>
         candidateCount + candidateGroup.candidateCount,
       0,
     );
   const scanRootsAttentionCount = unavailableScanRoots.length;
-  const scanIssuesAttentionCount = missingVideos.length;
-  const previewGenerationAttentionCount = scanIssues.failedPreviewStrips.length;
+  const missingVideosAttentionCount = missingVideos.length;
+  const previewGenerationAttentionCount =
+    previewGeneration.failedPreviewStrips.length;
   const generatedPreviewStripCount = catalogVideos.filter(
     (catalogVideo) => catalogVideo.previewStrip.status === "generated",
   ).length;
@@ -75,17 +68,16 @@ export function useScanModuleController({
   );
   const scanAttentionCount =
     scanRootsAttentionCount +
-    scanIssuesAttentionCount +
+    missingVideosAttentionCount +
     unprocessableVideoCandidateCount +
     previewGenerationAttentionCount;
 
   return {
-    metadataSuggestionGroups: scanIssues.metadataSuggestionGroups,
-    refreshScanIssues: scanIssues.refreshScanIssues,
+    refreshMissingVideos: missingVideosWorkflow.refreshMissingVideos,
     removeSelectedScanRoot: scanRootsState.removeSelectedScanRoot,
     scanAttentionCount,
     scanProps: {
-      failedPreviewStrips: scanIssues.failedPreviewStrips,
+      failedPreviewStrips: previewGeneration.failedPreviewStrips,
       generatedPreviewStripCount,
       generatingPreviewStripTitle: generatingPreviewStripVideo?.title,
       missingVideos,
@@ -93,27 +85,27 @@ export function useScanModuleController({
       onCancelScanRootRefresh: scanRootsState.cancelSelectedScanRootRefresh,
       onCheckScanRootAvailability: scanRootsState.checkSelectedScanRootAvailability,
       onChooseScanRootFolder: scanRootsState.chooseScanRootFolder,
-      onIgnoreFailedPreview: scanIssues.ignoreFailedPreview,
+      onIgnoreFailedPreview: previewGeneration.ignoreFailedPreview,
       onPausePreviewStripQueue: previewGeneration.pausePreviewStripQueueAction,
       onRefreshSelectedScanRoot: scanRootsState.refreshSelectedScanRoot,
       onRequestMissingVideoForget,
       onRequestScanRootRemoval,
       onResumePreviewStripQueue: previewGeneration.resumePreviewStripQueueAction,
-      onRetryFailedPreview: scanIssues.retryFailedPreview,
+      onRetryFailedPreview: previewGeneration.retryFailedPreview,
       onSaveScanRootInferenceRules: scanRootsState.saveScanRootInferenceRules,
       onScanTabChange: setScanTab,
       previewGenerationAttentionCount,
       previewStripQueueStatus: previewGeneration.previewStripQueueStatus,
-      scanIssuesAttentionCount,
+      missingVideosAttentionCount,
       scanRootsAttentionCount,
-      scanIssuesStatusMessage: scanIssues.scanIssuesStatusMessage,
+      missingVideosStatusMessage: missingVideosWorkflow.missingVideosStatusMessage,
       scanRoots: scanRootsState.scanRoots,
       scanRootsStatusMessage: scanRootsState.scanRootsStatusMessage,
       scanTab,
       unprocessableVideoCandidateGroups:
-        scanIssues.unprocessableVideoCandidateGroups,
+        scanRootsState.unprocessableVideoCandidateGroups,
     },
-    setScanIssuesStatusMessage: scanIssues.setScanIssuesStatusMessage,
+    setMissingVideosStatusMessage: missingVideosWorkflow.setMissingVideosStatusMessage,
   };
 }
 

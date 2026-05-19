@@ -8,8 +8,8 @@ import attentionTabLabelSource from "./components/AttentionTabLabel.tsx?raw";
 import tabsListSource from "./components/TabsList.tsx?raw";
 import scanSource from "./Scan.tsx?raw";
 import scanTabsSource from "./scanTabs.ts?raw";
-import scanIssuesPanelSource from "./ScanIssuesPanel/ScanIssuesPanel.tsx?raw";
-import missingVideosPanelSource from "./ScanIssuesPanel/components/MissingVideosPanel.tsx?raw";
+import missingVideosPanelSource from "./MissingVideosPanel/MissingVideosPanel.tsx?raw";
+import missingVideosListSource from "./MissingVideosPanel/components/MissingVideosList.tsx?raw";
 import rootsPanelSource from "./RootsPanel/RootsPanel.tsx?raw";
 import rootsPanelIndexSource from "./RootsPanel/index.ts?raw";
 import rootCardSource from "./RootsPanel/components/RootCard/RootCard.tsx?raw";
@@ -30,10 +30,10 @@ describe("Scan module file structure", () => {
     expect(tabsListSource).toContain('../scanTabs"');
     expect(tabsListSource).toContain('./AttentionTabLabel"');
     expect(tabsListSource).toContain("Scan Roots");
-    expect(tabsListSource).toContain("Scan Issues");
+    expect(tabsListSource).toContain("Missing Videos");
     expect(tabsListSource).toContain("Preview Generation");
     expect(scanTabsSource).toContain('scanRootsTab = "scanRoots"');
-    expect(scanTabsSource).toContain('scanIssuesTab = "scanIssues"');
+    expect(scanTabsSource).toContain('missingVideosTab = "missingVideos"');
     expect(scanTabsSource).toContain(
       'previewGenerationTab = "previewGeneration"',
     );
@@ -45,11 +45,12 @@ describe("Scan module file structure", () => {
     expectComponentFileToOwnOnly(attentionTabLabelSource, "AttentionTabLabel");
   });
 
-  it("keeps Scan Issues focused on Missing Videos", () => {
+  it("keeps Missing Videos focused on Missing Videos", () => {
     expect(missingVideosPanelSource).toContain("function MissingVideosPanel");
-    expect(scanIssuesPanelSource).toContain('./components/MissingVideosPanel"');
-    expect(scanIssuesPanelSource).not.toContain("UnavailableScanRootsPanel");
-    expect(scanIssuesPanelSource).not.toContain(
+    expect(missingVideosListSource).toContain("function MissingVideosList");
+    expect(missingVideosPanelSource).toContain('./components/MissingVideosList"');
+    expect(missingVideosPanelSource).not.toContain("UnavailableScanRootsPanel");
+    expect(missingVideosPanelSource).not.toContain(
       './components/UnprocessableCandidatesPanel"',
     );
   });
@@ -64,7 +65,7 @@ describe("Scan module file structure", () => {
     expect(previewStripQueueActivityLabelSource).toContain(
       "function previewStripQueueActivityLabel",
     );
-    expect(scanIssuesPanelSource).not.toContain("FailedPreviewStripsPanel");
+    expect(missingVideosPanelSource).not.toContain("FailedPreviewStripsPanel");
     expect(previewGenerationSource).toContain(
       './components/PreviewStripQueuePanel"',
     );
@@ -108,7 +109,7 @@ describe("Scan module file structure", () => {
       "UnprocessableCandidatesSection",
     );
     expectComponentFileToOwnOnly(inferenceRulesFormSource, "InferenceRulesForm");
-    expect(scanIssuesPanelSource).not.toContain("index.ts");
+    expect(missingVideosPanelSource).not.toContain("index.ts");
     expect(previewGenerationSource).not.toContain("index.ts");
   });
 });

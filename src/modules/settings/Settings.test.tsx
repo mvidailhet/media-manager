@@ -45,7 +45,7 @@ import {
   openScanModule,
   openSettingsModule,
   openMetadataSuggestionsView,
-  openScanIssuesTab,
+  openMissingVideosTab,
   openPreviewGenerationTab,
 } from "../../test/AppTestHarness";
 
