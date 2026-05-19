@@ -24,9 +24,9 @@ import {
 
 const metadataEditIconSize = 16;
 
-type VideoMetadataValue = CatalogTag | CatalogPerformer;
+type MetadataValue = CatalogTag | CatalogPerformer;
 
-export function VideoMetadataSection<TMetadata extends VideoMetadataValue>({
+export function MetadataSection<TMetadata extends MetadataValue>({
   availableValues,
   emptyLabel,
   onAttach,

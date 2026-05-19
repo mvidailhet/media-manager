@@ -2,7 +2,7 @@ import { AppShell } from "@mantine/core";
 
 import type { CatalogModuleProps } from "./CatalogModule";
 import { useSelectedVideoDetailActions } from "./useSelectedVideoDetailActions";
-import { VideoDetailPanel } from "./VideoDetailPanel/VideoDetailPanel";
+import { VideoDetailPanel } from "./VideoDetailPanel";
 
 export function CatalogModuleDetailAside({
   availablePerformers,

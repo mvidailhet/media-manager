@@ -1,31 +1,17 @@
-import { useEffect, useState } from "react";
-import {
-  ActionIcon,
-  Badge,
-  Box,
-  Button,
-  Group,
-  Stack,
-  Text,
-  TextInput,
-  Title,
-  Tooltip,
-} from "@mantine/core";
-import { IconCheck, IconPencil, IconX } from "@tabler/icons-react";
+import { Box, Stack, Text } from "@mantine/core";
 
 import type {
   CatalogPerformer,
   CatalogTag,
   CatalogVideo,
 } from "../../../tauriCommands";
-import { WrappingCode } from "../../../shared/components/WrappingCode";
-import { formatFileSize } from "../../../shared/formatting/videoFormatting";
 import { VideoPreview } from "../components/VideoPreview/VideoPreview";
 import type { SelectedVideoDetailActions } from "../useSelectedVideoDetailActions";
-import { VideoMetadataSection } from "./components/VideoMetadataSection";
+import { ActionButtons } from "./components/ActionButtons";
+import { FileLocationsSection } from "./components/FileLocationsSection";
+import { MetadataSection } from "./components/MetadataSection";
+import { TitleEditor } from "./components/TitleEditor";
 import styles from "../VideoDetailPanel.module.css";
-
-const titleEditIconSize = 18;
 
 export function VideoDetailPanel({
   actions,
@@ -44,29 +30,7 @@ export function VideoDetailPanel({
   tags: CatalogTag[];
   video: CatalogVideo;
 }) {
-  const [editedTitle, setEditedTitle] = useState(video.title);
-  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const fileLocations = video.fileLocations;
-
-  useEffect(() => {
-    setEditedTitle(video.title);
-    setIsEditingTitle(false);
-  }, [video.id, video.title]);
-
-  function startTitleEdit() {
-    setEditedTitle(video.title);
-    setIsEditingTitle(true);
-  }
-
-  function saveTitle() {
-    void actions.saveTitle(editedTitle);
-    setIsEditingTitle(false);
-  }
-
-  function cancelTitleEdit() {
-    setEditedTitle(video.title);
-    setIsEditingTitle(false);
-  }
 
   return (
     <Box
@@ -76,81 +40,23 @@ export function VideoDetailPanel({
     >
       <Stack gap="md">
         {detailStatusMessage ? <Text>{detailStatusMessage}</Text> : null}
-        {isEditingTitle ? (
-          <Group align="end" wrap="nowrap">
-            <TextInput
-              className={styles.titleInput}
-              label="Title"
-              value={editedTitle}
-              w="100%"
-              onChange={(event) => setEditedTitle(event.currentTarget.value)}
-            />
-            <Tooltip label="Save title">
-              <ActionIcon
-                aria-label="Save title"
-                color="green"
-                size="lg"
-                type="button"
-                onClick={saveTitle}
-              >
-                <IconCheck size={titleEditIconSize} />
-              </ActionIcon>
-            </Tooltip>
-            <Tooltip label="Cancel title edit">
-              <ActionIcon
-                aria-label="Cancel title edit"
-                color="gray"
-                size="lg"
-                type="button"
-                variant="default"
-                onClick={cancelTitleEdit}
-              >
-                <IconX size={titleEditIconSize} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        ) : (
-          <Group align="start" wrap="nowrap">
-            <Title className={styles.title} order={2} size="h3">
-              {video.title}
-            </Title>
-            <Tooltip label="Edit title">
-              <ActionIcon
-                aria-label="Edit title"
-                size="lg"
-                type="button"
-                variant="default"
-                onClick={startTitleEdit}
-              >
-                <IconPencil size={titleEditIconSize} />
-              </ActionIcon>
-            </Tooltip>
-          </Group>
-        )}
+        <TitleEditor
+          title={video.title}
+          videoId={video.id}
+          onSaveTitle={(title) => void actions.saveTitle(title)}
+        />
         <VideoPreview
           catalogVideo={video}
           isLarge
           onFavoriteChange={actions.setFavorite}
         />
-        <Group gap="xs">
-          <Button
-            type="button"
-            disabled={!video.isAvailable}
-            onClick={() => void actions.openVideo()}
-          >
-            Open
-          </Button>
-          <Button
-            type="button"
-            disabled={!video.isAvailable}
-            variant="default"
-            onClick={() => void actions.openContainingFolder()}
-          >
-            Open in finder
-          </Button>
-        </Group>
+        <ActionButtons
+          isAvailable={video.isAvailable}
+          onOpenVideo={() => void actions.openVideo()}
+          onOpenContainingFolder={() => void actions.openContainingFolder()}
+        />
 
-        <VideoMetadataSection
+        <MetadataSection
           availableValues={availableTags}
           emptyLabel="No tags"
           onAttach={actions.attachTag}
@@ -161,7 +67,7 @@ export function VideoDetailPanel({
           title="Tags"
           videoId={video.id}
         />
-        <VideoMetadataSection
+        <MetadataSection
           availableValues={availablePerformers}
           emptyLabel="No performers"
           onAttach={actions.attachPerformer}
@@ -173,26 +79,7 @@ export function VideoDetailPanel({
           videoId={video.id}
         />
 
-        <Stack gap="xs">
-          <Title order={3} size="h4">
-            File Locations
-          </Title>
-          {fileLocations.length > 0 ? (
-            fileLocations.map((fileLocation) => (
-              <Group key={fileLocation.path} gap="xs" align="center">
-                <WrappingCode>{fileLocation.path}</WrappingCode>
-                <Text c="dimmed">
-                  {formatFileSize(fileLocation.fileSizeBytes)}
-                </Text>
-                {fileLocation.isPreferred ? (
-                  <Badge>Preferred File Location</Badge>
-                ) : null}
-              </Group>
-            ))
-          ) : (
-            <Text c="dimmed">Missing</Text>
-          )}
-        </Stack>
+        <FileLocationsSection fileLocations={fileLocations} />
       </Stack>
     </Box>
   );
