@@ -18,9 +18,10 @@ export function CatalogToolbar({
       <Button
         type="button"
         variant="light"
+        aria-label={`Metadata Suggestions, ${metadataSuggestionGroupCount} groups`}
         onClick={onOpenMetadataSuggestionsReview}
         rightSection={
-          <Badge aria-hidden="true" size="sm" variant="filled">
+          <Badge size="sm" variant="filled">
             {metadataSuggestionGroupCount}
           </Badge>
         }

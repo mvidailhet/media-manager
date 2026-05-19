@@ -116,7 +116,7 @@ describe("Catalog module", () => {
     renderApp();
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Metadata Suggestions" }),
+      await screen.findByRole("button", { name: /^Metadata Suggestions/ }),
     );
 
     const metadataSuggestions = await screen.findByRole("region", {
@@ -164,7 +164,7 @@ describe("Catalog module", () => {
     renderApp();
 
     fireEvent.click(
-      await screen.findByRole("button", { name: "Metadata Suggestions" }),
+      await screen.findByRole("button", { name: /^Metadata Suggestions/ }),
     );
     expect(
       await screen.findByRole("region", { name: "Metadata Suggestions" }),
@@ -188,7 +188,7 @@ describe("Catalog module", () => {
     });
 
     expect(
-      screen.queryByRole("button", { name: "Metadata Suggestions" }),
+      screen.queryByRole("button", { name: /^Metadata Suggestions/ }),
     ).not.toBeInTheDocument();
     expect(catalogVideos).toBeInTheDocument();
   });
@@ -239,11 +239,11 @@ describe("Catalog module", () => {
     renderApp();
 
     const metadataSuggestionsButton = await screen.findByRole("button", {
-      name: "Metadata Suggestions",
+      name: "Metadata Suggestions, 2 groups",
     });
 
     expect(metadataSuggestionsButton).toBeInTheDocument();
-    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(within(metadataSuggestionsButton).getByText("2")).toBeInTheDocument();
     expect(screen.queryByText("3")).not.toBeInTheDocument();
   });
 
@@ -423,6 +423,21 @@ describe("Catalog module", () => {
         },
       ])
       .mockResolvedValueOnce([]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
 
     renderApp();
     await openMetadataSuggestionsView();
@@ -430,6 +445,13 @@ describe("Catalog module", () => {
     const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
+    fireEvent.click(
+      getMetadataSuggestionTreeLabel(metadataSuggestions, "/Volumes/Archive"),
+    );
+    fireEvent.click(within(metadataSuggestions).getByText("Trips/family-trip.mp4"));
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
     fireEvent.click(
       within(metadataSuggestions).getByRole("button", {
         name: "Accept",
@@ -443,6 +465,9 @@ describe("Catalog module", () => {
     });
     expect(
       screen.queryByRole("region", { name: "Metadata Suggestions" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
     ).not.toBeInTheDocument();
   });
 
