@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import appSource from "../../App.tsx?raw";
-import batchMetadataEditPanelSource from "./BatchMetadataEditPanel.tsx?raw";
 import catalogModuleEntryPointSource from "./index.ts?raw";
 import catalogModuleSource from "./CatalogModule.tsx?raw";
 import metadataBadgesSource from "./components/MetadataBadges.tsx?raw";
@@ -190,22 +189,53 @@ describe("Catalog module boundaries", () => {
   });
 
   it("keeps Batch Metadata Edit actions in a focused file", () => {
-    const batchMetadataActionsSource = rawSource(
+    const batchMetadataEditPanelSource = rawSource(
       batchMetadataEditPanelFiles,
-      "./BatchMetadataEditPanel/components/BatchMetadataActions.tsx",
+      "./BatchMetadataEditPanel/BatchMetadataEditPanel.tsx",
+    );
+    const favoriteActionsSource = rawSource(
+      batchMetadataEditPanelFiles,
+      "./BatchMetadataEditPanel/components/FavoriteActions.tsx",
+    );
+    const metadataActionsSource = rawSource(
+      batchMetadataEditPanelFiles,
+      "./BatchMetadataEditPanel/components/MetadataActions.tsx",
     );
 
-    expect(batchMetadataActionsSource).not.toBe("");
-    expect(batchMetadataActionsSource).toMatch(/function BatchMetadataActions/);
-    expect(batchMetadataActionsSource).toMatch(/findMetadataByName/);
-    expect(batchMetadataActionsSource).toMatch(/findNearMetadataMatch/);
+    expect(batchMetadataEditPanelSource).not.toBe("");
+    expect(favoriteActionsSource).not.toBe("");
+    expect(metadataActionsSource).not.toBe("");
     expect(batchMetadataEditPanelSource).toMatch(
-      /".\/BatchMetadataEditPanel\/components\/BatchMetadataActions"/,
+      /function BatchMetadataEditPanel/,
     );
+    expect(favoriteActionsSource).toMatch(/function FavoriteActions/);
+    expect(favoriteActionsSource).toMatch(/onSetFavorite/);
+    expect(metadataActionsSource).toMatch(/function MetadataActions/);
+    expect(metadataActionsSource).toMatch(/findMetadataByName/);
+    expect(metadataActionsSource).toMatch(/findNearMetadataMatch/);
+    expect(batchMetadataEditPanelSource).toMatch(
+      /from "\.\/components\/FavoriteActions"/,
+    );
+    expect(batchMetadataEditPanelSource).toMatch(
+      /from "\.\/components\/MetadataActions"/,
+    );
+    expect(batchMetadataEditPanelSource).not.toMatch(
+      /function FavoriteActions/,
+    );
+    expect(batchMetadataEditPanelSource).not.toMatch(/function MetadataActions/);
     expect(batchMetadataEditPanelSource).not.toMatch(
       /function BatchMetadataActions/,
     );
-    expect(Object.keys(batchMetadataEditPanelBarrelFiles)).toHaveLength(0);
+    expect(metadataActionsSource).not.toMatch(/BatchMetadataActions/);
+    expect(catalogModuleSource).toMatch(
+      /from "\.\/BatchMetadataEditPanel"/,
+    );
+    expect(catalogModuleSource).not.toMatch(
+      /from "\.\/BatchMetadataEditPanel\.tsx"/,
+    );
+    expect(Object.keys(batchMetadataEditPanelBarrelFiles)).toEqual([
+      "./BatchMetadataEditPanel/index.ts",
+    ]);
   });
 
   it("keeps the Catalog detail aside in a focused file imported directly by App", () => {
