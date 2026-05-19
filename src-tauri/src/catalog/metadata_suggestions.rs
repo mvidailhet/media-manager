@@ -13,7 +13,8 @@ impl Catalog {
                         metadata_suggestions.video_id,
                         videos.title,
                         file_locations.path,
-                        scan_roots.suggest_tags_from_child_folders,
+                        scan_roots.suggest_tags_from_folder_names,
+                        scan_roots.suggest_tags_from_filename_brackets,
                         scan_roots.ignored_folder_names,
                         scan_roots.ignored_exact_year_start,
                         scan_roots.ignored_exact_year_end
@@ -47,11 +48,12 @@ impl Catalog {
                     title: row.get(6)?,
                     file_location_path: row.get(7)?,
                     inference_rules: ScanRootInferenceRules {
-                        suggest_tags_from_child_folders: row.get::<_, i64>(8)? == 1,
-                        ignored_folder_names: ignored_folder_names_from_json(row.get(9)?)?,
+                        suggest_tags_from_folder_names: row.get::<_, i64>(8)? == 1,
+                        suggest_tags_from_filename_brackets: row.get::<_, i64>(9)? == 1,
+                        ignored_folder_names: ignored_folder_names_from_json(row.get(10)?)?,
                         ignored_exact_year_range: ExactYearRange {
-                            start_year: row.get(10)?,
-                            end_year: row.get(11)?,
+                            start_year: row.get(11)?,
+                            end_year: row.get(12)?,
                         },
                     },
                 })
@@ -296,20 +298,22 @@ impl Catalog {
         let video_count_by_folder = video_count_by_folder(&file_locations);
 
         for (video_id, video_path) in file_locations {
-            for folder_segment in metadata_suggestion_segments(
+            for suggestion_source in metadata_suggestion_sources_for_path(
                 scan_root_path,
                 &video_path,
                 &scan_root.inference_rules,
             ) {
                 if is_single_video_leaf_folder_suggestion(
                     &video_path,
-                    &folder_segment,
+                    &suggestion_source.source_path_segment,
                     &video_count_by_folder,
                 ) {
                     continue;
                 }
 
-                let suggested_value = metadata_suggestion_display_value(&folder_segment);
+                let suggested_value = suggestion_source.suggested_value;
+                let source_path_segment = suggestion_source.source_path_segment;
+                let normalized_suggested_value = suggested_value.to_lowercase();
                 let has_source_rejection = transaction
                     .query_row(
                         "SELECT 1
@@ -319,7 +323,7 @@ impl Catalog {
                            AND normalized_suggested_value = lower(?3)
                            AND suggestion_kind = 'tag'
                          LIMIT 1",
-                        params![scan_root_id, folder_segment, suggested_value],
+                        params![scan_root_id, source_path_segment, suggested_value],
                         |_| Ok(()),
                     )
                     .optional()
@@ -333,7 +337,7 @@ impl Catalog {
                 if let Some(suggestion_mapping) = mapped_metadata_suggestion(
                     &transaction,
                     scan_root_id,
-                    &folder_segment,
+                    &source_path_segment,
                     &suggested_value,
                     "tag",
                 )? {
@@ -349,17 +353,24 @@ impl Catalog {
                                 video_id,
                                 source_path_segment,
                                 suggested_value,
+                                normalized_suggested_value,
                                 suggestion_kind,
                                 accepted_at
                              )
-                             VALUES (?1, ?2, ?3, ?4, 'tag', CURRENT_TIMESTAMP)
-                             ON CONFLICT(scan_root_id, video_id, source_path_segment, suggestion_kind)
+                             VALUES (?1, ?2, ?3, ?4, ?5, 'tag', CURRENT_TIMESTAMP)
+                             ON CONFLICT(scan_root_id, video_id, source_path_segment, normalized_suggested_value, suggestion_kind)
                              DO UPDATE SET
                                 suggested_value = excluded.suggested_value,
                                 accepted_at = CURRENT_TIMESTAMP,
                                 rejected_at = NULL,
                                 updated_at = CURRENT_TIMESTAMP",
-                            params![scan_root_id, video_id, folder_segment, suggested_value],
+                            params![
+                                scan_root_id,
+                                video_id,
+                                source_path_segment,
+                                suggested_value,
+                                normalized_suggested_value
+                            ],
                         )
                         .map_err(|error| error.to_string())?;
                     continue;
@@ -372,14 +383,21 @@ impl Catalog {
                             video_id,
                             source_path_segment,
                             suggested_value,
+                            normalized_suggested_value,
                             suggestion_kind
                          )
-                         VALUES (?1, ?2, ?3, ?4, 'tag')
-                         ON CONFLICT(scan_root_id, video_id, source_path_segment, suggestion_kind)
+                         VALUES (?1, ?2, ?3, ?4, ?5, 'tag')
+                         ON CONFLICT(scan_root_id, video_id, source_path_segment, normalized_suggested_value, suggestion_kind)
                          DO UPDATE SET
                             suggested_value = excluded.suggested_value,
                             updated_at = CURRENT_TIMESTAMP",
-                        params![scan_root_id, video_id, folder_segment, suggested_value],
+                        params![
+                            scan_root_id,
+                            video_id,
+                            source_path_segment,
+                            suggested_value,
+                            normalized_suggested_value
+                        ],
                     )
                     .map_err(|error| error.to_string())?;
             }

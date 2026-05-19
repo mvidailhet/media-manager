@@ -27,7 +27,8 @@ impl Catalog {
             .prepare(
                 "SELECT path,
                         is_available,
-                        suggest_tags_from_child_folders,
+                        suggest_tags_from_folder_names,
+                        suggest_tags_from_filename_brackets,
                         ignored_folder_names,
                         ignored_exact_year_start,
                         ignored_exact_year_end
@@ -63,14 +64,16 @@ impl Catalog {
             .database
             .execute(
                 "UPDATE scan_roots
-                 SET suggest_tags_from_child_folders = ?1,
-                     ignored_folder_names = ?2,
-                     ignored_exact_year_start = ?3,
-                     ignored_exact_year_end = ?4,
+                 SET suggest_tags_from_folder_names = ?1,
+                     suggest_tags_from_filename_brackets = ?2,
+                     ignored_folder_names = ?3,
+                     ignored_exact_year_start = ?4,
+                     ignored_exact_year_end = ?5,
                      updated_at = CURRENT_TIMESTAMP
-                 WHERE path = ?5",
+                 WHERE path = ?6",
                 params![
-                    i64::from(inference_rules.suggest_tags_from_child_folders),
+                    i64::from(inference_rules.suggest_tags_from_folder_names),
+                    i64::from(inference_rules.suggest_tags_from_filename_brackets),
                     ignored_folder_names,
                     inference_rules.ignored_exact_year_range.start_year,
                     inference_rules.ignored_exact_year_range.end_year,
@@ -176,7 +179,8 @@ impl Catalog {
             .query_row(
                 "SELECT path,
                         is_available,
-                        suggest_tags_from_child_folders,
+                        suggest_tags_from_folder_names,
+                        suggest_tags_from_filename_brackets,
                         ignored_folder_names,
                         ignored_exact_year_start,
                         ignored_exact_year_end

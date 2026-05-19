@@ -198,7 +198,8 @@ export const defaultInferenceRules = {
     "Downloads",
     "Videos",
   ],
-  suggestTagsFromChildFolders: true,
+  suggestTagsFromFilenameBrackets: true,
+  suggestTagsFromFolderNames: true,
 };
 
 export function deferredPromise<T>() {

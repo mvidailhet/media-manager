@@ -16,7 +16,8 @@ fn new_scan_roots_store_default_inference_rules_for_child_folder_tags_only() {
     assert_eq!(
         scan_root.inference_rules,
         crate::catalog::ScanRootInferenceRules {
-            suggest_tags_from_child_folders: true,
+            suggest_tags_from_folder_names: true,
+            suggest_tags_from_filename_brackets: true,
             ignored_folder_names: vec![
                 "Misc".to_string(),
                 "Unsorted".to_string(),
@@ -67,7 +68,8 @@ fn scan_root_inference_rules_can_be_changed_without_changing_accepted_local_meta
         .attach_tag_to_video(tag.id, video_id)
         .expect("tag attaches");
     let changed_inference_rules = crate::catalog::ScanRootInferenceRules {
-        suggest_tags_from_child_folders: true,
+        suggest_tags_from_folder_names: true,
+        suggest_tags_from_filename_brackets: true,
         ignored_folder_names: vec!["Extras".to_string(), "Temp".to_string()],
         ignored_exact_year_range: crate::catalog::ExactYearRange {
             start_year: 1900,
@@ -233,7 +235,8 @@ fn metadata_suggestion_display_normalization_controls_ignored_segments() {
         .update_scan_root_inference_rules(
             &scan_root.path,
             crate::catalog::ScanRootInferenceRules {
-                suggest_tags_from_child_folders: true,
+                suggest_tags_from_folder_names: true,
+                suggest_tags_from_filename_brackets: true,
                 ignored_folder_names: vec!["Extras".to_string()],
                 ignored_exact_year_range: crate::catalog::ExactYearRange {
                     start_year: 1900,
@@ -258,6 +261,126 @@ fn metadata_suggestion_display_normalization_controls_ignored_segments() {
             ("Family".to_string(), "tag".to_string())
         ]
     );
+}
+
+#[test]
+fn filename_bracket_tag_parser_extracts_split_values_and_filters_technical_values() {
+    let inference_rules = crate::catalog::ScanRootInferenceRules::default();
+
+    assert_eq!(
+        crate::catalog::suggested_tags_from_filename_brackets(
+            "Family Trip [Summer - 1080p] [HD] [  Road Trip  ].mp4",
+            &inference_rules,
+        ),
+        vec![
+            crate::catalog::FilenameBracketTagSuggestion {
+                source: "Summer - 1080p".to_string(),
+                suggested_value: "Summer".to_string(),
+            },
+            crate::catalog::FilenameBracketTagSuggestion {
+                source: "  Road Trip  ".to_string(),
+                suggested_value: "Road Trip".to_string(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn filename_bracket_tag_parser_ignores_empty_malformed_ignored_and_year_values() {
+    let inference_rules = crate::catalog::ScanRootInferenceRules {
+        ignored_folder_names: vec!["Extras".to_string()],
+        ..crate::catalog::ScanRootInferenceRules::default()
+    };
+
+    assert_eq!(
+        crate::catalog::suggested_tags_from_filename_brackets(
+            "Movie [] [ - Family - ] [Extras] [2024] [1280X720] [4K] [1080] [Open.mp4",
+            &inference_rules,
+        ),
+        vec![
+            crate::catalog::FilenameBracketTagSuggestion {
+                source: " - Family - ".to_string(),
+                suggested_value: "Family".to_string(),
+            },
+            crate::catalog::FilenameBracketTagSuggestion {
+                source: "1080".to_string(),
+                suggested_value: "1080".to_string(),
+            },
+        ]
+    );
+}
+
+#[test]
+fn scan_root_refresh_generates_tag_suggestions_from_filename_brackets() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    std::fs::write(
+        movies_root.join("family-trip [Family - Vacation] [1920x1080].mp4"),
+        "valid video bytes",
+    )
+    .expect("family video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert_eq!(
+        metadata_suggestion_sources(&catalog.database),
+        vec![
+            (
+                "Family - Vacation".to_string(),
+                "Family".to_string(),
+                "tag".to_string(),
+            ),
+            (
+                "Family - Vacation".to_string(),
+                "Vacation".to_string(),
+                "tag".to_string(),
+            ),
+        ]
+    );
+}
+
+#[test]
+fn disabled_filename_bracket_rule_suppresses_filename_suggestions() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    std::fs::write(
+        movies_root.join("family-trip [Family].mp4"),
+        "valid video bytes",
+    )
+    .expect("family video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+    catalog
+        .update_scan_root_inference_rules(
+            &scan_root.path,
+            crate::catalog::ScanRootInferenceRules {
+                suggest_tags_from_filename_brackets: false,
+                ..crate::catalog::ScanRootInferenceRules::default()
+            },
+        )
+        .expect("inference rules update");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert!(metadata_suggestion_sources(&catalog.database).is_empty());
 }
 
 #[test]
@@ -292,7 +415,8 @@ fn changing_scan_root_inference_rules_regenerates_unaccepted_suggestions_only() 
         .update_scan_root_inference_rules(
             &scan_root.path,
             crate::catalog::ScanRootInferenceRules {
-                suggest_tags_from_child_folders: true,
+                suggest_tags_from_folder_names: true,
+                suggest_tags_from_filename_brackets: true,
                 ignored_folder_names: vec![" Family ".to_string(), "family".to_string()],
                 ignored_exact_year_range: crate::catalog::ExactYearRange {
                     start_year: 1900,
@@ -916,9 +1040,10 @@ fn accepting_one_metadata_suggestion_kind_keeps_other_pending_kinds_with_the_sam
                     video_id,
                     source_path_segment,
                     suggested_value,
+                    normalized_suggested_value,
                     suggestion_kind
                  )
-                 VALUES (?1, ?2, 'Family', 'Family', 'performer')",
+                 VALUES (?1, ?2, 'Family', 'Family', 'family', 'performer')",
             params![scan_root_id, video_id],
         )
         .expect("performer suggestion inserts");
@@ -1093,7 +1218,8 @@ fn invalid_scan_root_inference_rules_are_rejected() {
         .update_scan_root_inference_rules(
             &scan_root.path,
             crate::catalog::ScanRootInferenceRules {
-                suggest_tags_from_child_folders: true,
+                suggest_tags_from_folder_names: true,
+                suggest_tags_from_filename_brackets: true,
                 ignored_folder_names: vec![" ".to_string()],
                 ignored_exact_year_range: crate::catalog::ExactYearRange {
                     start_year: 2100,

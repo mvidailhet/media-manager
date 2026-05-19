@@ -101,7 +101,8 @@ pub struct ScanRoot {
 #[derive(Debug, PartialEq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ScanRootInferenceRules {
-    pub suggest_tags_from_child_folders: bool,
+    pub suggest_tags_from_folder_names: bool,
+    pub suggest_tags_from_filename_brackets: bool,
     pub ignored_folder_names: Vec<String>,
     pub ignored_exact_year_range: ExactYearRange,
 }
@@ -116,7 +117,8 @@ pub struct ExactYearRange {
 impl Default for ScanRootInferenceRules {
     fn default() -> Self {
         ScanRootInferenceRules {
-            suggest_tags_from_child_folders: true,
+            suggest_tags_from_folder_names: true,
+            suggest_tags_from_filename_brackets: true,
             ignored_folder_names: default_ignored_folder_names(),
             ignored_exact_year_range: ExactYearRange {
                 start_year: DEFAULT_IGNORED_EXACT_YEAR_START,
@@ -912,15 +914,16 @@ fn default_ignored_folder_names() -> Vec<String> {
 }
 
 fn scan_root_inference_rules_from_row(row: &Row<'_>) -> rusqlite::Result<ScanRootInferenceRules> {
-    let ignored_folder_names_text: String = row.get(3)?;
+    let ignored_folder_names_text: String = row.get(4)?;
     let ignored_folder_names = ignored_folder_names_from_json(ignored_folder_names_text)?;
 
     Ok(ScanRootInferenceRules {
-        suggest_tags_from_child_folders: row.get::<_, i64>(2)? == 1,
+        suggest_tags_from_folder_names: row.get::<_, i64>(2)? == 1,
+        suggest_tags_from_filename_brackets: row.get::<_, i64>(3)? == 1,
         ignored_folder_names,
         ignored_exact_year_range: ExactYearRange {
-            start_year: row.get(4)?,
-            end_year: row.get(5)?,
+            start_year: row.get(5)?,
+            end_year: row.get(6)?,
         },
     })
 }
@@ -949,18 +952,25 @@ struct MetadataSuggestionRow {
     inference_rules: ScanRootInferenceRules,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct FilenameBracketTagSuggestion {
+    pub source: String,
+    pub suggested_value: String,
+}
+
 fn group_metadata_suggestions(
     suggestion_rows: Vec<MetadataSuggestionRow>,
 ) -> Vec<MetadataSuggestionGroup> {
     let mut suggestion_groups = Vec::new();
 
     for suggestion_row in suggestion_rows {
-        if !metadata_suggestion_segments(
+        if !metadata_suggestion_sources_for_path(
             &suggestion_row.scan_root_path,
             &suggestion_row.file_location_path,
             &suggestion_row.inference_rules,
         )
-        .contains(&suggestion_row.source_path_segment)
+        .iter()
+        .any(|source| source.source_path_segment == suggestion_row.source_path_segment)
         {
             continue;
         }
@@ -1021,12 +1031,51 @@ fn group_metadata_suggestions(
     suggestion_groups
 }
 
+struct MetadataSuggestionSource {
+    source_path_segment: String,
+    suggested_value: String,
+}
+
+fn metadata_suggestion_sources_for_path(
+    scan_root_path: &str,
+    video_path: &str,
+    inference_rules: &ScanRootInferenceRules,
+) -> Vec<MetadataSuggestionSource> {
+    let mut suggestion_sources = Vec::new();
+
+    suggestion_sources.extend(
+        metadata_suggestion_segments(scan_root_path, video_path, inference_rules)
+            .into_iter()
+            .map(|folder_segment| MetadataSuggestionSource {
+                suggested_value: metadata_suggestion_display_value(&folder_segment),
+                source_path_segment: folder_segment,
+            }),
+    );
+
+    if inference_rules.suggest_tags_from_filename_brackets {
+        let filename = Path::new(video_path)
+            .file_name()
+            .and_then(|filename| filename.to_str())
+            .unwrap_or_default();
+        suggestion_sources.extend(
+            suggested_tags_from_filename_brackets(filename, inference_rules)
+                .into_iter()
+                .map(|suggestion| MetadataSuggestionSource {
+                    source_path_segment: suggestion.source,
+                    suggested_value: suggestion.suggested_value,
+                }),
+        );
+    }
+
+    suggestion_sources
+}
+
 fn metadata_suggestion_segments(
     scan_root_path: &str,
     video_path: &str,
     inference_rules: &ScanRootInferenceRules,
 ) -> Vec<String> {
-    if !inference_rules.suggest_tags_from_child_folders {
+    if !inference_rules.suggest_tags_from_folder_names {
         return Vec::new();
     }
 
@@ -1060,6 +1109,103 @@ fn metadata_suggestion_segments(
         })
         .map(|folder_name| folder_name.to_string())
         .collect()
+}
+
+pub(crate) fn suggested_tags_from_filename_brackets(
+    filename: &str,
+    inference_rules: &ScanRootInferenceRules,
+) -> Vec<FilenameBracketTagSuggestion> {
+    let file_stem = Path::new(filename)
+        .file_stem()
+        .and_then(|file_stem| file_stem.to_str())
+        .unwrap_or(filename);
+    let ignored_folder_names = inference_rules
+        .ignored_folder_names
+        .iter()
+        .map(|folder_name| folder_name.to_lowercase())
+        .collect::<HashSet<_>>();
+    let mut suggestions = Vec::new();
+    let mut remaining_stem = file_stem;
+
+    while let Some(open_index) = remaining_stem.find('[') {
+        let bracket_content_start = open_index + 1;
+        let after_open_bracket = &remaining_stem[bracket_content_start..];
+        let close_index = match after_open_bracket.find(']') {
+            Some(close_index) => close_index,
+            None => break,
+        };
+        let source = &after_open_bracket[..close_index];
+
+        if is_allowed_filename_bracket_source(source, &ignored_folder_names, inference_rules) {
+            for suggested_value in source.split(" - ").map(metadata_suggestion_display_value) {
+                if is_allowed_filename_bracket_value(
+                    &suggested_value,
+                    &ignored_folder_names,
+                    inference_rules,
+                ) {
+                    suggestions.push(FilenameBracketTagSuggestion {
+                        source: source.to_string(),
+                        suggested_value,
+                    });
+                }
+            }
+        }
+
+        remaining_stem = &after_open_bracket[close_index + 1..];
+    }
+
+    suggestions
+}
+
+fn is_allowed_filename_bracket_source(
+    source: &str,
+    ignored_folder_names: &HashSet<String>,
+    inference_rules: &ScanRootInferenceRules,
+) -> bool {
+    is_allowed_filename_bracket_value(
+        &metadata_suggestion_display_value(source),
+        ignored_folder_names,
+        inference_rules,
+    )
+}
+
+fn is_allowed_filename_bracket_value(
+    suggested_value: &str,
+    ignored_folder_names: &HashSet<String>,
+    inference_rules: &ScanRootInferenceRules,
+) -> bool {
+    !suggested_value.is_empty()
+        && !ignored_folder_names.contains(&suggested_value.to_lowercase())
+        && !is_ignored_exact_year(suggested_value, &inference_rules.ignored_exact_year_range)
+        && !is_technical_filename_token(suggested_value)
+}
+
+fn is_technical_filename_token(suggested_value: &str) -> bool {
+    let normalized_value = suggested_value.trim().to_ascii_lowercase();
+    let quality_labels = ["hd", "fhd", "uhd", "4k", "8k"];
+
+    quality_labels.contains(&normalized_value.as_str())
+        || is_resolution_dimensions(&normalized_value)
+        || is_vertical_resolution_token(&normalized_value)
+}
+
+fn is_resolution_dimensions(suggested_value: &str) -> bool {
+    let Some((width, height)) = suggested_value.split_once('x') else {
+        return false;
+    };
+
+    !width.is_empty()
+        && !height.is_empty()
+        && width.chars().all(|character| character.is_ascii_digit())
+        && height.chars().all(|character| character.is_ascii_digit())
+}
+
+fn is_vertical_resolution_token(suggested_value: &str) -> bool {
+    let Some(number) = suggested_value.strip_suffix('p') else {
+        return false;
+    };
+
+    (3..=4).contains(&number.len()) && number.chars().all(|character| character.is_ascii_digit())
 }
 
 fn metadata_suggestion_display_value(source_path_segment: &str) -> String {

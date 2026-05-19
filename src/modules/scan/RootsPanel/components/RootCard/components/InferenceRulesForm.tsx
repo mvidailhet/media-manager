@@ -15,8 +15,13 @@ export function InferenceRulesForm({
   ) => void;
   scanRoot: ScanRoot;
 }) {
-  const [suggestTagsFromChildFolders, setSuggestTagsFromChildFolders] =
-    useState(scanRoot.inferenceRules.suggestTagsFromChildFolders);
+  const [suggestTagsFromFolderNames, setSuggestTagsFromFolderNames] = useState(
+    scanRoot.inferenceRules.suggestTagsFromFolderNames,
+  );
+  const [
+    suggestTagsFromFilenameBrackets,
+    setSuggestTagsFromFilenameBrackets,
+  ] = useState(scanRoot.inferenceRules.suggestTagsFromFilenameBrackets);
   const [ignoredFolderNames, setIgnoredFolderNames] = useState(
     scanRoot.inferenceRules.ignoredFolderNames.join(", "),
   );
@@ -37,7 +42,8 @@ export function InferenceRulesForm({
         .split(",")
         .map((ignoredFolderName) => ignoredFolderName.trim())
         .filter((ignoredFolderName) => ignoredFolderName.length > 0),
-      suggestTagsFromChildFolders,
+      suggestTagsFromFilenameBrackets,
+      suggestTagsFromFolderNames,
     });
   }
 
@@ -45,10 +51,17 @@ export function InferenceRulesForm({
     <Stack gap={4}>
       <Group align="end" gap="sm">
         <Checkbox
-          checked={suggestTagsFromChildFolders}
-          label="Suggest Tags"
+          checked={suggestTagsFromFolderNames}
+          label="Suggest tags from folder names"
           onChange={(event) =>
-            setSuggestTagsFromChildFolders(event.currentTarget.checked)
+            setSuggestTagsFromFolderNames(event.currentTarget.checked)
+          }
+        />
+        <Checkbox
+          checked={suggestTagsFromFilenameBrackets}
+          label="Suggest tags from filename brackets"
+          onChange={(event) =>
+            setSuggestTagsFromFilenameBrackets(event.currentTarget.checked)
           }
         />
       </Group>
