@@ -4,21 +4,27 @@ import appSource from "../../App.tsx?raw";
 import batchMetadataEditPanelSource from "./BatchMetadataEditPanel.tsx?raw";
 import catalogModuleEntryPointSource from "./index.ts?raw";
 import catalogModuleSource from "./CatalogModule.tsx?raw";
-import catalogVideoCardSource from "./CatalogVideosPanel/components/CatalogVideoCard.tsx?raw";
-import catalogVideoDurationFiltersSource from "./CatalogVideosPanel/catalogVideoDurationFilters.ts?raw";
-import catalogVideoFiltersPanelSource from "./CatalogVideosPanel/components/CatalogVideoFiltersPanel.tsx?raw";
 import metadataBadgesSource from "./components/MetadataBadges.tsx?raw";
-import catalogVideosPanelSource from "./CatalogVideosPanel.tsx?raw";
 import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel.tsx?raw";
 import metadataSuggestionSourceSource from "./MetadataSuggestionsPanel/components/MetadataSuggestionSource.tsx?raw";
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
 
-const catalogVideosPanelBarrelFiles = import.meta.glob(
-  "./CatalogVideosPanel/index.*",
+const videosPanelFiles = import.meta.glob("./VideosPanel/**/*.{ts,tsx,css}", {
+  eager: true,
+  query: "?raw",
+  import: "default",
+});
+const videosPanelBarrelFiles = import.meta.glob("./VideosPanel/**/index.*", {
+  eager: true,
+  query: "?raw",
+});
+const legacyCatalogVideosPanelFiles = import.meta.glob(
+  "./CatalogVideosPanel*/**/*.{ts,tsx,css}",
   {
     eager: true,
     query: "?raw",
+    import: "default",
   },
 );
 const batchMetadataEditPanelBarrelFiles = import.meta.glob(
@@ -95,8 +101,8 @@ describe("Catalog module boundaries", () => {
   });
 
   it("keeps Catalog panels owned by the Catalog module", () => {
-    expect(appSource).not.toMatch(/CatalogVideosPanel/);
-    expect(catalogModuleSource).toMatch(/CatalogVideosPanel/);
+    expect(appSource).not.toMatch(/VideosPanel/);
+    expect(catalogModuleSource).toMatch(/VideosPanel/);
   });
 
   it("keeps Metadata Suggestions panel, source, and tree helpers in focused files", () => {
@@ -118,27 +124,60 @@ describe("Catalog module boundaries", () => {
     expect(metadataSuggestionTreeSource).toMatch(/getSelectedVideoIds/);
   });
 
-  it("keeps Catalog Videos panel pieces in focused files", () => {
-    expect(catalogVideoFiltersPanelSource).toMatch(
-      /function CatalogVideoFiltersPanel/,
+  it("keeps the Videos panel folder-owned with focused children", () => {
+    const videosPanelSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/VideosPanel.tsx",
     );
-    expect(catalogVideoCardSource).toMatch(/function CatalogVideoCard/);
+    const filtersPanelSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/FiltersPanel.tsx",
+    );
+    const sortSelectSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/SortSelect.tsx",
+    );
+    const statusMessagesSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/StatusMessages.tsx",
+    );
+    const videoGridSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/VideoGrid.tsx",
+    );
+    const videoCardSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/VideoCard.tsx",
+    );
+    const durationFiltersSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/catalogVideoDurationFilters.ts",
+    );
+
+    expect(videosPanelSource).toMatch(/function VideosPanel/);
+    expect(filtersPanelSource).toMatch(/function FiltersPanel/);
+    expect(sortSelectSource).toMatch(/function SortSelect/);
+    expect(statusMessagesSource).toMatch(/function StatusMessages/);
+    expect(videoGridSource).toMatch(/function VideoGrid/);
+    expect(videoCardSource).toMatch(/function VideoCard/);
     expect(metadataBadgesSource).toMatch(/function MetadataBadges/);
-    expect(catalogVideoDurationFiltersSource).toMatch(
-      /function formatDurationRange/,
+    expect(durationFiltersSource).toMatch(/function formatDurationRange/);
+    expect(videosPanelSource).not.toMatch(/function FiltersPanel/);
+    expect(videosPanelSource).not.toMatch(/function SortSelect/);
+    expect(videosPanelSource).not.toMatch(/function StatusMessages/);
+    expect(videosPanelSource).not.toMatch(/function VideoGrid/);
+    expect(videosPanelSource).not.toMatch(/function VideoCard/);
+    expect(videosPanelSource).not.toMatch(/function MetadataBadges/);
+    expect(videosPanelSource).not.toMatch(/function formatDurationRange/);
+    expect(videosPanelSource).not.toMatch(/function formatDurationFilterValue/);
+    expect(filtersPanelSource).toMatch(
+      /from "\.\.\/catalogVideoDurationFilters"/,
     );
-    expect(catalogVideosPanelSource).not.toMatch(
-      /function CatalogVideoFiltersPanel/,
-    );
-    expect(catalogVideosPanelSource).not.toMatch(/function CatalogVideoCard/);
-    expect(catalogVideosPanelSource).not.toMatch(/function MetadataBadges/);
-    expect(catalogVideosPanelSource).not.toMatch(
-      /function formatDurationRange/,
-    );
-    expect(catalogVideosPanelSource).not.toMatch(
-      /function formatDurationFilterValue/,
-    );
-    expect(Object.keys(catalogVideosPanelBarrelFiles)).toHaveLength(0);
+    expect(videoGridSource).toMatch(/".\/VideoCard"/);
+    expect(Object.keys(videosPanelBarrelFiles)).toEqual([
+      "./VideosPanel/index.ts",
+    ]);
+    expect(Object.keys(legacyCatalogVideosPanelFiles)).toHaveLength(0);
   });
 
   it("keeps Batch Metadata Edit actions in a focused file", () => {
