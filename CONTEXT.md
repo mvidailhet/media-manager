@@ -65,7 +65,7 @@ A stable identifier for the storage volume behind a **Scan Root** when available
 _Avoid_: Folder path
 
 **Missing Video**:
-A **Video** whose every known **File Location** has been invalidated by a successful **Refresh** of an available **Scan Root**.
+A **Video** with no known **File Locations** because a **Refresh** invalidated them or a **Scan Root** removal preserved the **Video** in the **Catalog**.
 _Avoid_: Deleted video, removed video
 
 **Unavailable Video**:
@@ -77,8 +77,12 @@ A **Scan Root** that cannot currently be reached by the app.
 _Avoid_: Missing video
 
 **Refresh**:
-A user-initiated or startup check that updates **Scan Root** availability and reconciles discovered **Videos**.
+A user-initiated check that updates **Scan Root** availability and reconciles discovered **Videos**.
 _Avoid_: Live watch
+
+**Initial Scan**:
+The automatic first scan that indexes **Videos** after adding a **Scan Root**.
+_Avoid_: Refresh
 
 **Availability Check**:
 A lightweight check that updates whether **Scan Roots** are reachable without reconciling **Videos**.
@@ -164,12 +168,12 @@ _Avoid_: Deleted metadata
 A remembered choice that maps a **Metadata Suggestion** source and value to an accepted **Tag** or **Performer**.
 _Avoid_: Alias
 
-**Scan Issue**:
-A missing **Video** condition that needs user attention outside normal **Video** browsing.
-_Avoid_: Review queue, search result
+**Missing Videos View**:
+The scanning workspace for reviewing **Missing Videos** outside normal **Video** browsing.
+_Avoid_: Scan Issues, review queue
 
 **Forget From Catalog**:
-An explicit action that removes an unavailable **Video** and its local metadata from the **Catalog** without touching the filesystem.
+An explicit action that removes a **Missing Video** and its local metadata from the **Catalog** without touching the filesystem.
 _Avoid_: Delete, trash
 
 **Videos View**:
@@ -213,7 +217,9 @@ _Avoid_: Metadata suggestion
 - A **Catalog** has one or more **Scan Roots**.
 - **Scan Roots** are added through a folder picker, with manual path entry as an advanced fallback.
 - Adding a **Scan Root** indexes files in place and does not copy **Videos**.
+- Adding a **Scan Root** starts an **Initial Scan** automatically.
 - Removing a **Scan Root** asks whether to preserve affected **Videos** as **Missing Videos** or **Forget From Catalog**.
+- Preserving affected **Videos** during **Scan Root** removal creates **Missing Videos** immediately.
 - v1 rejects nested or overlapping **Scan Roots**.
 - Adding a **Scan Root** lightly configures **Inference Rules** with safe defaults.
 - A **Scan Root** can have a **Drive Identity** in addition to its folder path.
@@ -221,10 +227,13 @@ _Avoid_: Metadata suggestion
 - An **Unavailable Scan Root** keeps its last-known **File Locations** in the **Catalog**.
 - An **Availability Check** can run at startup without turning absent files into **Missing Videos**.
 - An **Unavailable Scan Root** can run an **Availability Check** but cannot run a **Refresh** until reachable again.
+- When an **Availability Check** makes an **Unavailable Scan Root** reachable again, **Refresh** becomes available but does not start automatically.
 - An **Unavailable Video** is only a **Missing Video** when no last-known **File Location** remains.
 - A **Scan Root** is searched for files matching the **Video Extension Allowlist** before video probing validates them.
-- An **Unprocessable Video Candidate** belongs in a review list instead of normal **Video** search results.
-- An **Unprocessable Video Candidate** is retried when its file changes or when manually retried from review.
+- An **Unprocessable Video Candidate** belongs with its **Scan Root** instead of normal **Video** search results.
+- An **Unprocessable Video Candidate** is retried when its file changes or when manually retried from its **Scan Root**.
+- An **Initial Scan** creates the first **Catalog** entries for a new **Scan Root**.
+- An **Initial Scan** cannot create **Missing Videos** because it has no previous **File Locations** to invalidate.
 - A **Refresh** can run for one **Scan Root** or all **Scan Roots**.
 - A **Background Job** commits completed file work incrementally.
 - v1 rebuilds **Background Jobs** from persisted item state instead of storing a durable job queue.
@@ -244,8 +253,10 @@ _Avoid_: Metadata suggestion
 - A **Video** can have one **Preferred File Location**.
 - A **Duplicate Location** belongs to one **Video**.
 - **Duplicate Locations** are created only from exact **Video Fingerprint** matches in v1.
+- Invalidating one **File Location** does not make a **Missing Video** while another known **File Location** remains.
 - Trash actions target **File Locations** when a **Video** has more than one **File Location**.
 - A **Missing Video** keeps its metadata and can be reconnected when a matching **Video Fingerprint** appears again.
+- Re-adding a removed **Scan Root** can reconnect **Missing Videos** when matching **Video Fingerprints** are found.
 - A **Video** can have many **Tags**.
 - A **Tag** can belong to many **Videos**.
 - A **Video** can have many **Performers**.
@@ -314,13 +325,19 @@ _Avoid_: Metadata suggestion
 - Accepted **Metadata Suggestions** can keep lightweight provenance without changing their status as **Local Metadata**.
 - **Metadata Suggestions** are reviewed in the **Catalog** with access to affected **Videos** and their **Preview Strips**.
 - **Metadata Suggestion** review shows source path groups under each suggested value.
-- **Scan Issues** include **Missing Videos**.
-- **Failed Preview Strips** are handled with **Preview Strip** generation controls instead of **Scan Issues**.
+- **Metadata Suggestions** are loaded with **Catalog** review state, not **Missing Videos** state.
+- **Missing Videos View** includes **Missing Videos**.
+- **Missing Videos View** excludes **Unavailable Videos** that still have known **File Locations**.
+- **Missing Videos View** belongs with scanning work rather than **Catalog** browsing.
+- **Failed Preview Strips** are handled with **Preview Strip** generation controls instead of **Missing Videos View**.
 - **Preview Strip** generation controls belong with scanning work, while the **Catalog** shows each **Video**'s **Preview Strip** state in context.
 - The **Catalog** owns **Preview Strip** state because a **Preview Strip** belongs to a **Video**, while **Preview Strip** generation is operational background work.
-- **Forget From Catalog** is available for **Missing Videos** from **Scan Issues**.
+- **Missing Videos** naming should not be used for metadata suggestions, failed preview strips, or unprocessable candidates.
+- **Unprocessable Video Candidates** are loaded with **Scan Roots** because they are reviewed from their **Scan Root**.
+- **Failed Preview Strips** are loaded with **Preview Strip** generation because they are reviewed from generation controls.
+- **Forget From Catalog** is available for **Missing Videos** from **Missing Videos View**.
 - **Forget From Catalog** requires confirmation and is final in v1.
-- v1 has **Videos View**, **Favorites View**, **Recently Opened View**, **Scan Issues**, and **Preview Strip** generation as workspaces.
+- v1 has **Videos View**, **Favorites View**, **Recently Opened View**, **Missing Videos View**, and **Preview Strip** generation as workspaces.
 - **Favorites View** and **Recently Opened View** reuse the same **Video** result model as **Videos View**.
 - **Videos View**, **Favorites View**, **Recently Opened View**, and **Metadata Suggestions** are **Catalog** views rather than separate catalogs.
 - The **Video Detail Panel** is reset when changing **Catalog** views.
@@ -335,6 +352,7 @@ _Avoid_: Metadata suggestion
 - Moving a **Video** can create new **Metadata Suggestions** but never removes or replaces accepted **Local Metadata**.
 - Changing **Inference Rules** can regenerate unaccepted **Metadata Suggestions** for that **Scan Root** but never changes accepted **Local Metadata**.
 - Normal **Search Filters** exclude **Unavailable Videos** by default and can include them when requested.
+- **Missing Videos** appear in normal **Videos View** only when unavailable **Videos** are included.
 - Normal **Search Filters** exclude **Trashed Videos** by default.
 - **Tag** and **Performer** search is case-insensitive while display names can preserve title casing.
 - Editing **Local Metadata** changes the **Catalog** only and does not rename or move files.
@@ -438,14 +456,14 @@ _Avoid_: Metadata suggestion
 > **Dev:** "Should failed files be probed on every scan forever?"
 > **Domain expert:** "No. Retry an **Unprocessable Video Candidate** when its file changes or when manually requested."
 >
-> **Dev:** "Where do scan issues appear?"
-> **Domain expert:** "In **Scan Issues**, not mixed into normal **Video** search results."
+> **Dev:** "Where do **Unprocessable Video Candidates** appear?"
+> **Domain expert:** "With their **Scan Root**, not mixed into normal **Video** search results."
 >
 > **Dev:** "Where do failed preview generations appear?"
 > **Domain expert:** "With **Preview Strip** generation controls, with retry or ignore-for-now actions."
 >
 > **Dev:** "What are the main v1 workspaces?"
-> **Domain expert:** "**Videos View**, **Favorites View**, **Recently Opened View**, **Scan Issues**, and **Preview Strip** generation."
+> **Domain expert:** "**Videos View**, **Favorites View**, **Recently Opened View**, **Missing Videos View**, and **Preview Strip** generation."
 >
 > **Dev:** "Are **Favorites View** and **Recently Opened View** separate catalogs?"
 > **Domain expert:** "No. They are shortcut workspaces over the same **Video** results."
@@ -469,7 +487,7 @@ _Avoid_: Metadata suggestion
 > **Domain expert:** "No. It requires confirmation and is final."
 >
 > **Dev:** "Does v1 need live filesystem watching?"
-> **Domain expert:** "No. v1 uses **Refresh** at startup and on demand."
+> **Domain expert:** "No. v1 uses **Availability Check** at startup and **Refresh** on demand."
 >
 > **Dev:** "If I cancel a scan, is all progress lost?"
 > **Domain expert:** "No. A **Background Job** keeps completed file work and future **Refresh** runs skip unchanged files."
