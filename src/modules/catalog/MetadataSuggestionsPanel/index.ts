@@ -1,0 +1,1 @@
+export { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel";

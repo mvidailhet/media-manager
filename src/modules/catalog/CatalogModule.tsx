@@ -17,7 +17,7 @@ import type {
   CatalogVideoSort,
   CatalogView,
 } from "./catalogTypes";
-import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel";
+import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel";
 
 export type CatalogModuleProps = {
   availablePerformers: CatalogPerformer[];
