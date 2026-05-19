@@ -49,6 +49,7 @@ impl Catalog {
         }
         self.remove_stale_scan_root_entries(scan_root_id, &seen_video_candidate_paths)?;
         self.regenerate_unaccepted_metadata_suggestions(scan_root_id, scan_root_path)?;
+        self.record_completed_scan_root_refresh(scan_root_id)?;
 
         Ok(ScanRootRefreshSummary {
             scanned_video_count,
@@ -182,6 +183,7 @@ impl Catalog {
             message: None,
         });
         self.regenerate_unaccepted_metadata_suggestions(scan_root_id, scan_root_path)?;
+        self.record_completed_scan_root_refresh(scan_root_id)?;
 
         let refresh_summary = ScanRootRefreshSummary {
             scanned_video_count,
@@ -198,6 +200,20 @@ impl Catalog {
         });
 
         Ok(refresh_summary)
+    }
+
+    fn record_completed_scan_root_refresh(&self, scan_root_id: i64) -> Result<(), String> {
+        self.database
+            .execute(
+                "UPDATE scan_roots
+                 SET last_scan_completed_at = CURRENT_TIMESTAMP,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?1",
+                params![scan_root_id],
+            )
+            .map_err(|error| error.to_string())?;
+
+        Ok(())
     }
 
     #[cfg(test)]
@@ -257,6 +273,7 @@ impl Catalog {
         let scan_root_id = self.scan_root_id(scan_root_path)?;
         self.mark_scan_root_availability(scan_root_id, false)?;
         self.remove_stale_scan_root_entries(scan_root_id, &HashSet::new())?;
+        self.record_completed_scan_root_refresh(scan_root_id)?;
 
         Ok(Some(ScanRootRefreshSummary {
             scanned_video_count: 0,

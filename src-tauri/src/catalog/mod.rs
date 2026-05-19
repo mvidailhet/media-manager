@@ -95,6 +95,7 @@ pub enum PreviewStripStatus {
 pub struct ScanRoot {
     pub path: String,
     pub is_available: bool,
+    pub last_scan_completed_at: Option<String>,
     pub inference_rules: ScanRootInferenceRules,
 }
 

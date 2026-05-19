@@ -37,14 +37,11 @@ fn refreshing_an_unreachable_scan_root_marks_it_unavailable_without_discarding_c
             unprocessable_candidate_count: 0,
         }
     );
-    assert_eq!(
-        catalog.list_scan_roots().expect("scan roots list"),
-        vec![crate::catalog::ScanRoot {
-            inference_rules: crate::catalog::ScanRootInferenceRules::default(),
-            is_available: false,
-            path: scan_root.path,
-        }]
-    );
+    let scan_roots = catalog.list_scan_roots().expect("scan roots list");
+    assert_eq!(scan_roots.len(), 1);
+    assert_eq!(scan_roots[0].path, scan_root.path);
+    assert!(!scan_roots[0].is_available);
+    assert!(scan_roots[0].last_scan_completed_at.is_some());
     assert_eq!(
         catalog.listed_videos().expect("stored videos list"),
         vec![crate::catalog::CatalogVideo {

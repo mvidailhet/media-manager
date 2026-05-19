@@ -326,6 +326,33 @@ describe("Scan module", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows how long ago each Scan Root was last scanned", async () => {
+    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1_000).toISOString();
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1_000).toISOString();
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        lastScanCompletedAt: tenMinutesAgo,
+        path: "/Volumes/Archive/Videos",
+      },
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        lastScanCompletedAt: oneDayAgo,
+        path: "/Volumes/Documentaries",
+      },
+    ]);
+
+    renderApp();
+    await openScanModule();
+
+    expect(
+      await screen.findByText("Last scan done 10 minutes ago"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Last scan done 1 day ago")).toBeInTheDocument();
+  });
+
   it("routes Scan attention badges to Scan Roots, Scan Issues, and Preview Generation", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {

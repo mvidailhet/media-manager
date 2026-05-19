@@ -8,6 +8,7 @@ import type {
 } from "../../../../../tauriCommands";
 import { Header } from "./components/Header";
 import { InferenceRulesForm } from "./components/InferenceRulesForm";
+import { LastScanStatus } from "./components/LastScanStatus";
 import { RefreshProgress } from "./components/RefreshProgress";
 import { UnprocessableCandidatesSection } from "./components/UnprocessableCandidatesSection";
 
@@ -54,6 +55,7 @@ export function RootCard({
           }
           scanRoot={scanRoot}
         />
+        <LastScanStatus scanRoot={scanRoot} />
         {rootRefresh ? (
           <RefreshProgress
             onCancelRefresh={onCancelScanRootRefresh}

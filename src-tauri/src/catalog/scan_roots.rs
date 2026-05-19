@@ -7,6 +7,7 @@ impl Catalog {
         let scan_root = ScanRoot {
             inference_rules: ScanRootInferenceRules::default(),
             is_available: true,
+            last_scan_completed_at: None,
             path: canonical_scan_root_path.to_string_lossy().into_owned(),
         };
 
@@ -31,7 +32,8 @@ impl Catalog {
                         suggest_tags_from_filename_brackets,
                         ignored_folder_names,
                         ignored_exact_year_start,
-                        ignored_exact_year_end
+                        ignored_exact_year_end,
+                        last_scan_completed_at
                  FROM scan_roots
                  ORDER BY path",
             )
@@ -42,6 +44,7 @@ impl Catalog {
                 Ok(ScanRoot {
                     path: row.get(0)?,
                     is_available: row.get::<_, i64>(1)? == 1,
+                    last_scan_completed_at: row.get(7)?,
                     inference_rules: scan_root_inference_rules_from_row(row)?,
                 })
             })
@@ -183,7 +186,8 @@ impl Catalog {
                         suggest_tags_from_filename_brackets,
                         ignored_folder_names,
                         ignored_exact_year_start,
-                        ignored_exact_year_end
+                        ignored_exact_year_end,
+                        last_scan_completed_at
                  FROM scan_roots
                  WHERE path = ?1",
                 params![scan_root_path],
@@ -191,6 +195,7 @@ impl Catalog {
                     Ok(ScanRoot {
                         path: row.get(0)?,
                         is_available: row.get::<_, i64>(1)? == 1,
+                        last_scan_completed_at: row.get(7)?,
                         inference_rules: scan_root_inference_rules_from_row(row)?,
                     })
                 },

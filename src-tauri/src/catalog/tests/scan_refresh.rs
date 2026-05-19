@@ -24,6 +24,7 @@ fn catalog_persists_scan_roots_and_rejects_overlapping_paths() {
             crate::catalog::ScanRoot {
                 inference_rules: crate::catalog::ScanRootInferenceRules::default(),
                 is_available: true,
+                last_scan_completed_at: None,
                 path: documentaries_root
                     .canonicalize()
                     .expect("documentaries path canonicalizes")
@@ -33,6 +34,7 @@ fn catalog_persists_scan_roots_and_rejects_overlapping_paths() {
             crate::catalog::ScanRoot {
                 inference_rules: crate::catalog::ScanRootInferenceRules::default(),
                 is_available: true,
+                last_scan_completed_at: None,
                 path: movies_root
                     .canonicalize()
                     .expect("movies path canonicalizes")
@@ -51,6 +53,39 @@ fn catalog_persists_scan_roots_and_rejects_overlapping_paths() {
     assert_eq!(
         add_nested_root_error,
         "Scan Root overlaps with an existing Scan Root"
+    );
+}
+
+#[test]
+fn completed_scan_root_refresh_records_when_the_scan_finished() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let family_trip_path = movies_root.join("family-trip.mp4");
+    std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+
+    assert_eq!(
+        catalog.list_scan_roots().expect("scan roots list")[0].last_scan_completed_at,
+        None
+    );
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert!(
+        catalog.list_scan_roots().expect("scan roots list")[0]
+            .last_scan_completed_at
+            .is_some()
     );
 }
 
@@ -124,14 +159,11 @@ fn unreachable_scan_root_refresh_can_complete_without_a_video_file_probe() {
             unprocessable_candidate_count: 0,
         })
     );
-    assert_eq!(
-        catalog.list_scan_roots().expect("scan roots list"),
-        vec![crate::catalog::ScanRoot {
-            inference_rules: crate::catalog::ScanRootInferenceRules::default(),
-            is_available: false,
-            path: scan_root.path,
-        }]
-    );
+    let scan_roots = catalog.list_scan_roots().expect("scan roots list");
+    assert_eq!(scan_roots.len(), 1);
+    assert_eq!(scan_roots[0].path, scan_root.path);
+    assert!(!scan_roots[0].is_available);
+    assert!(scan_roots[0].last_scan_completed_at.is_some());
 }
 
 #[test]
@@ -176,21 +208,14 @@ fn refreshing_all_scan_roots_updates_each_root_and_marks_missing_videos() {
             unprocessable_candidate_count: 0,
         }
     );
-    assert_eq!(
-        catalog.list_scan_roots().expect("scan roots list"),
-        vec![
-            crate::catalog::ScanRoot {
-                inference_rules: crate::catalog::ScanRootInferenceRules::default(),
-                is_available: true,
-                path: available_scan_root.path,
-            },
-            crate::catalog::ScanRoot {
-                inference_rules: crate::catalog::ScanRootInferenceRules::default(),
-                is_available: false,
-                path: unavailable_scan_root.path,
-            },
-        ]
-    );
+    let scan_roots = catalog.list_scan_roots().expect("scan roots list");
+    assert_eq!(scan_roots.len(), 2);
+    assert_eq!(scan_roots[0].path, available_scan_root.path);
+    assert!(scan_roots[0].is_available);
+    assert!(scan_roots[0].last_scan_completed_at.is_some());
+    assert_eq!(scan_roots[1].path, unavailable_scan_root.path);
+    assert!(!scan_roots[1].is_available);
+    assert!(scan_roots[1].last_scan_completed_at.is_some());
     assert_eq!(
         catalog.listed_videos().expect("stored videos list"),
         vec![

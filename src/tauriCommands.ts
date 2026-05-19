@@ -85,6 +85,7 @@ export type PreviewStripStatus =
 export interface ScanRoot {
   path: string;
   isAvailable: boolean;
+  lastScanCompletedAt?: string | null;
   inferenceRules: ScanRootInferenceRules;
 }
 

@@ -24,6 +24,7 @@ const CREATE_SCAN_ROOTS_TABLE: &str = concat!(
     "',
         ignored_exact_year_start INTEGER NOT NULL DEFAULT 1900,
         ignored_exact_year_end INTEGER NOT NULL DEFAULT 2099,
+        last_scan_completed_at TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -248,6 +249,7 @@ pub(super) fn run_migrations(database: &Connection) -> Result<(), String> {
         .map_err(|error| error.to_string())?;
     add_scan_root_availability_column_if_missing(database)?;
     add_scan_root_inference_rule_columns_if_missing(database)?;
+    add_scan_root_last_scan_completed_at_column_if_missing(database)?;
     add_metadata_suggestion_normalized_value_column_if_missing(database)?;
     add_failed_preview_strip_ignored_at_column_if_missing(database)?;
     add_video_favorite_column_if_missing(database)?;
@@ -320,6 +322,24 @@ fn add_scan_root_inference_rule_columns_if_missing(database: &Connection) -> Res
             )
             .map_err(|error| error.to_string())?;
     }
+
+    Ok(())
+}
+
+fn add_scan_root_last_scan_completed_at_column_if_missing(
+    database: &Connection,
+) -> Result<(), String> {
+    if catalog_table_has_column(database, "scan_roots", "last_scan_completed_at")? {
+        return Ok(());
+    }
+
+    database
+        .execute(
+            "ALTER TABLE scan_roots
+             ADD COLUMN last_scan_completed_at TEXT",
+            [],
+        )
+        .map_err(|error| error.to_string())?;
 
     Ok(())
 }

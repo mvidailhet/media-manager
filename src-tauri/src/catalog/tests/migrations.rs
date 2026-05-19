@@ -98,6 +98,7 @@ fn catalog_migration_adds_scan_root_availability_to_existing_databases() {
         vec![crate::catalog::ScanRoot {
             inference_rules: crate::catalog::ScanRootInferenceRules::default(),
             is_available: true,
+            last_scan_completed_at: None,
             path: "/Volumes/Archive/Videos".to_string(),
         }]
     );
@@ -286,6 +287,7 @@ fn catalog_schema_preserves_the_first_vertical_slice_contract() {
             "ignored_folder_names TEXT required",
             "ignored_exact_year_start INTEGER required",
             "ignored_exact_year_end INTEGER required",
+            "last_scan_completed_at TEXT optional",
             "created_at TEXT required",
             "updated_at TEXT required",
         ]
