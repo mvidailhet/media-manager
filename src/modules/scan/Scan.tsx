@@ -41,11 +41,11 @@ export type ScanProps = {
   previewGenerationAttentionCount: number;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
   scanIssuesAttentionCount: number;
+  scanRootsAttentionCount: number;
   scanIssuesStatusMessage: string;
   scanRoots: ScanRoot[];
   scanRootsStatusMessage: string;
   scanTab: string | null;
-  unavailableScanRoots: ScanRoot[];
   unprocessableVideoCandidateGroups: UnprocessableVideoCandidateGroup[];
 };
 
@@ -69,17 +69,18 @@ export function Scan({
   previewGenerationAttentionCount,
   previewStripQueueStatus,
   scanIssuesAttentionCount,
+  scanRootsAttentionCount,
   scanIssuesStatusMessage,
   scanRoots,
   scanRootsStatusMessage,
   scanTab,
-  unavailableScanRoots,
   unprocessableVideoCandidateGroups,
 }: ScanProps) {
   return (
     <Tabs value={scanTab} onChange={onScanTabChange} keepMounted={false}>
       <TabsList
         previewGenerationAttentionCount={previewGenerationAttentionCount}
+        scanRootsAttentionCount={scanRootsAttentionCount}
         scanIssuesAttentionCount={scanIssuesAttentionCount}
       />
 
@@ -101,7 +102,6 @@ export function Scan({
         <ScanIssuesPanel
           missingVideos={missingVideos}
           scanIssuesStatusMessage={scanIssuesStatusMessage}
-          unavailableScanRoots={unavailableScanRoots}
           onRequestMissingVideoForget={onRequestMissingVideoForget}
         />
       </Tabs.Panel>

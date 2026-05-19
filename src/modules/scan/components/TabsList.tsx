@@ -9,16 +9,23 @@ import { AttentionTabLabel } from "./AttentionTabLabel";
 
 type TabsListProps = {
   previewGenerationAttentionCount: number;
+  scanRootsAttentionCount: number;
   scanIssuesAttentionCount: number;
 };
 
 export function TabsList({
   previewGenerationAttentionCount,
+  scanRootsAttentionCount,
   scanIssuesAttentionCount,
 }: TabsListProps) {
   return (
     <Tabs.List aria-label="Scan module tabs">
-      <Tabs.Tab value={scanRootsTab}>Scan Roots</Tabs.Tab>
+      <Tabs.Tab value={scanRootsTab}>
+        <AttentionTabLabel
+          attentionCount={scanRootsAttentionCount}
+          label="Scan Roots"
+        />
+      </Tabs.Tab>
       <Tabs.Tab value={scanIssuesTab}>
         <AttentionTabLabel
           attentionCount={scanIssuesAttentionCount}

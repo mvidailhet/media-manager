@@ -10,7 +10,6 @@ import scanSource from "./Scan.tsx?raw";
 import scanTabsSource from "./scanTabs.ts?raw";
 import scanIssuesPanelSource from "./ScanIssuesPanel/ScanIssuesPanel.tsx?raw";
 import missingVideosPanelSource from "./ScanIssuesPanel/components/MissingVideosPanel.tsx?raw";
-import unavailableScanRootsPanelSource from "./ScanIssuesPanel/components/UnavailableScanRootsPanel.tsx?raw";
 import rootsPanelSource from "./RootsPanel/RootsPanel.tsx?raw";
 import rootsPanelIndexSource from "./RootsPanel/index.ts?raw";
 import rootCardSource from "./RootsPanel/components/RootCard/RootCard.tsx?raw";
@@ -46,15 +45,10 @@ describe("Scan module file structure", () => {
     expectComponentFileToOwnOnly(attentionTabLabelSource, "AttentionTabLabel");
   });
 
-  it("keeps each Scan Issues panel in its focused component file", () => {
+  it("keeps Scan Issues focused on Missing Videos", () => {
     expect(missingVideosPanelSource).toContain("function MissingVideosPanel");
-    expect(unavailableScanRootsPanelSource).toContain(
-      "function UnavailableScanRootsPanel",
-    );
     expect(scanIssuesPanelSource).toContain('./components/MissingVideosPanel"');
-    expect(scanIssuesPanelSource).toContain(
-      './components/UnavailableScanRootsPanel"',
-    );
+    expect(scanIssuesPanelSource).not.toContain("UnavailableScanRootsPanel");
     expect(scanIssuesPanelSource).not.toContain(
       './components/UnprocessableCandidatesPanel"',
     );

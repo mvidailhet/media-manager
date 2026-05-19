@@ -63,8 +63,8 @@ export function useScanModuleController({
         candidateCount + candidateGroup.candidateCount,
       0,
     );
-  const scanIssuesAttentionCount =
-    missingVideos.length + unavailableScanRoots.length;
+  const scanRootsAttentionCount = unavailableScanRoots.length;
+  const scanIssuesAttentionCount = missingVideos.length;
   const previewGenerationAttentionCount = scanIssues.failedPreviewStrips.length;
   const generatedPreviewStripCount = catalogVideos.filter(
     (catalogVideo) => catalogVideo.previewStrip.status === "generated",
@@ -74,6 +74,7 @@ export function useScanModuleController({
       catalogVideo.id === previewGeneration.previewStripQueueStatus?.runningVideoId,
   );
   const scanAttentionCount =
+    scanRootsAttentionCount +
     scanIssuesAttentionCount +
     unprocessableVideoCandidateCount +
     previewGenerationAttentionCount;
@@ -103,11 +104,11 @@ export function useScanModuleController({
       previewGenerationAttentionCount,
       previewStripQueueStatus: previewGeneration.previewStripQueueStatus,
       scanIssuesAttentionCount,
+      scanRootsAttentionCount,
       scanIssuesStatusMessage: scanIssues.scanIssuesStatusMessage,
       scanRoots: scanRootsState.scanRoots,
       scanRootsStatusMessage: scanRootsState.scanRootsStatusMessage,
       scanTab,
-      unavailableScanRoots,
       unprocessableVideoCandidateGroups:
         scanIssues.unprocessableVideoCandidateGroups,
     },

@@ -326,7 +326,7 @@ describe("Scan module", () => {
     ).toBeInTheDocument();
   });
 
-  it("routes Scan attention badges to Scan Issues and Preview Generation", async () => {
+  it("routes Scan attention badges to Scan Roots, Scan Issues, and Preview Generation", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -413,23 +413,23 @@ describe("Scan module", () => {
     await openScanModule();
 
     expect(
-      await screen.findByRole("tab", { name: "Scan Roots" }),
+      await screen.findByRole("tab", { name: "Scan Roots 1" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Scan 4" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Scan Issues 2" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Scan Issues 1" })).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: "Preview Generation 1" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Scan Issues 2" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Scan Issues 1" }));
 
     const scanIssues = await screen.findByRole("tabpanel", {
-      name: "Scan Issues 2",
+      name: "Scan Issues 1",
     });
     expect(within(scanIssues).getByText("Missing Trip")).toBeInTheDocument();
     expect(
-      within(scanIssues).getByText("/Volumes/Archive/Videos"),
-    ).toBeInTheDocument();
+      within(scanIssues).queryByText("/Volumes/Archive/Videos"),
+    ).not.toBeInTheDocument();
     expect(
       within(scanIssues).queryByText("/Volumes/Archive/Videos/broken.mov"),
     ).not.toBeInTheDocument();
@@ -820,7 +820,7 @@ describe("Scan module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("lists only Missing Videos and Unavailable Scan Roots in Scan Issues", async () => {
+  it("lists only Missing Videos in Scan Issues", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -898,8 +898,11 @@ describe("Scan module", () => {
       within(scanIssues).queryByText("Available Trip"),
     ).not.toBeInTheDocument();
     expect(
-      within(scanIssues).getByText("/Volumes/Missing/Videos"),
-    ).toBeInTheDocument();
+      within(scanIssues).queryByText("/Volumes/Missing/Videos"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(scanIssues).queryByText("Unavailable Scan Roots"),
+    ).not.toBeInTheDocument();
     expect(
       within(scanIssues).queryByText("Unprocessable Video Candidates"),
     ).not.toBeInTheDocument();
