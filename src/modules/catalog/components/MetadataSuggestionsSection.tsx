@@ -1,4 +1,4 @@
-import { Box } from "@mantine/core";
+import { Box, Button, Group } from "@mantine/core";
 
 import type {
   CatalogPerformer,
@@ -20,6 +20,7 @@ type MetadataSuggestionsSectionProps = {
     request: RejectMetadataSuggestionSourceRequest,
   ) => void;
   onReviewVideo: (videoId: number) => void;
+  onReturnToVideosView: () => void;
 };
 
 export function MetadataSuggestionsSection({
@@ -29,6 +30,7 @@ export function MetadataSuggestionsSection({
   onAcceptMetadataSuggestionVideos,
   onRejectMetadataSuggestionSource,
   onReviewVideo,
+  onReturnToVideosView,
 }: MetadataSuggestionsSectionProps) {
   return (
     <Box
@@ -37,6 +39,11 @@ export function MetadataSuggestionsSection({
       p="md"
       maw={760}
     >
+      <Group justify="flex-start" mb="md">
+        <Button type="button" variant="subtle" onClick={onReturnToVideosView}>
+          Back to Videos View
+        </Button>
+      </Group>
       <MetadataSuggestionsPanel
         availablePerformers={availablePerformers}
         availableTags={availableTags}

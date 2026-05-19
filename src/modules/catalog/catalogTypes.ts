@@ -25,8 +25,7 @@ export type CatalogVideoSort =
   | "fileSizeDescending"
   | "lastOpenedDescending"
   | "openCountDescending";
-export type CatalogVideoWorkspace = "videos" | "favorites";
-export type CatalogView = "allVideos" | "favorites" | "metadataSuggestions";
+export type CatalogView = "videos" | "metadataSuggestions";
 
 export type CatalogMetadataSuggestionAcceptanceRequest =
   AcceptMetadataSuggestionForVideosRequest & {

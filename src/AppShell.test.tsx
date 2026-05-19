@@ -129,7 +129,7 @@ describe("App shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("resets Video Detail and Batch Metadata Edit when changing Catalog views", async () => {
+  it("keeps Video Detail and Batch Metadata Edit when applying the Favorite Search Filter", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -178,17 +178,21 @@ describe("App shell", () => {
       await screen.findByRole("region", { name: "Batch Metadata Edit" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Favorites" }));
+    fireEvent.click(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Favorite Search Filter",
+      }),
+    );
 
     expect(
-      screen.queryByRole("region", { name: "Video Detail Panel" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
     expect(
-      screen.queryByRole("region", { name: "Batch Metadata Edit" }),
-    ).not.toBeInTheDocument();
+      screen.getByRole("region", { name: "Batch Metadata Edit" }),
+    ).toBeInTheDocument();
   });
 
-  it("keeps Video Detail and Batch Metadata Edit when clicking the active Catalog view", async () => {
+  it("does not render main Catalog tabs for Videos View controls", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -207,30 +211,17 @@ describe("App shell", () => {
 
     renderApp();
 
-    const catalogVideos = await screen.findByRole("region", {
-      name: "Catalog Videos",
-    });
-    fireEvent.click(
-      await within(catalogVideos).findByRole("article", {
-        name: "Family Trip",
-      }),
-    );
-    fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
+    await screen.findByRole("region", { name: "Catalog Videos" });
 
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
     expect(
-      await screen.findByRole("region", { name: "Video Detail Panel" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("tab", { name: "All Videos" }),
+    ).not.toBeInTheDocument();
     expect(
-      await screen.findByRole("region", { name: "Batch Metadata Edit" }),
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("tab", { name: "All Videos" }));
-
+      screen.queryByRole("tab", { name: "Favorites" }),
+    ).not.toBeInTheDocument();
     expect(
-      screen.getByRole("region", { name: "Video Detail Panel" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "Batch Metadata Edit" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("tab", { name: "Metadata Suggestions" }),
+    ).not.toBeInTheDocument();
   });
 });

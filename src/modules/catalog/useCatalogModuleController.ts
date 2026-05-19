@@ -56,7 +56,7 @@ function uniqueMetadataNames(metadataNames: string[]) {
 }
 
 export function useCatalogModuleController(): CatalogController {
-  const [catalogView, setCatalogView] = useState<CatalogView>("allVideos");
+  const [catalogView, setCatalogView] = useState<CatalogView>("videos");
   const {
     catalogVideoActionStatusMessage,
     catalogVideos,
@@ -91,12 +91,11 @@ export function useCatalogModuleController(): CatalogController {
     loadVideoTags,
   } = useCatalogMetadata({ catalogVideos });
   const {
-    activeCatalogVideoFilters,
+    catalogVideoFilters,
     catalogVideoSort,
     filteredCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
-    setCatalogVideoWorkspace,
   } = useVideosPanelController({
     catalogVideoMetadataById,
     catalogVideos,
@@ -245,11 +244,6 @@ export function useCatalogModuleController(): CatalogController {
     }
 
     setCatalogView(nextCatalogView);
-    if (nextCatalogView === "favorites") {
-      setCatalogVideoWorkspace("favorites");
-    } else {
-      setCatalogVideoWorkspace("videos");
-    }
     resetCatalogSelection();
   }
 
@@ -792,7 +786,7 @@ export function useCatalogModuleController(): CatalogController {
       batchRemovableTags,
       batchSelectedVideoCount: batchSelectedVideos.length,
       catalogVideoActionStatusMessage,
-      catalogVideoFilters: activeCatalogVideoFilters,
+      catalogVideoFilters,
       catalogVideoMetadataById,
       catalogVideoSort,
       catalogVideos: filteredCatalogVideos,

@@ -46,6 +46,13 @@ export function FiltersPanel({
           updateFilters({ searchText: event.currentTarget.value })
         }
       />
+      <Checkbox
+        label="Favorite Search Filter"
+        checked={filters.favoritesOnly}
+        onChange={(event) =>
+          updateFilters({ favoritesOnly: event.currentTarget.checked })
+        }
+      />
       <Button
         type="button"
         variant="subtle"
