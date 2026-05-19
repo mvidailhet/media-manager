@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { ActionIcon, Group, TextInput, Title, Tooltip } from "@mantine/core";
 import { IconCheck, IconPencil, IconX } from "@tabler/icons-react";
 
-import styles from "../../VideoDetailPanel.module.css";
+import styles from "../VideoDetailPanel.module.css";
 
 const titleEditIconSize = 18;
 

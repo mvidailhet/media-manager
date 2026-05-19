@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 
 import {
   appendUniqueMetadata,
   findMetadataByName,
-  uniqueMetadataValues,
 } from "../../shared/metadata/metadataHelpers";
 import { errorMessage } from "../../shared/errors/errorMessage";
 import type {
@@ -16,22 +15,14 @@ import { useCatalogMetadata } from "./useCatalogMetadata";
 import { useCatalogVideos } from "./useCatalogVideos";
 import type {
   CatalogMetadataSuggestionAcceptanceRequest,
-  CatalogVideoFilters,
   CatalogVideoMetadata,
-  CatalogVideoSort,
-  CatalogVideoWorkspace,
   CatalogView,
 } from "./catalogTypes";
-import { defaultCatalogVideoFilters } from "./catalogTypes";
-import {
-  catalogVideoMatchesFilters,
-  sortedCatalogVideos,
-} from "./catalogVideoFiltering";
 import type { CatalogProps } from "./Catalog";
-import {
-  listMetadataSuggestionGroups,
-  type MetadataSuggestionGroup,
-} from "../../tauriCommands";
+import { useBatchMetadataController } from "./BatchMetadataEditPanel/useBatchMetadataController";
+import { useSelectedVideoController } from "./CatalogDetailAside/useSelectedVideoController";
+import { useMetadataSuggestionsController } from "./MetadataSuggestionsPanel/useMetadataSuggestionsController";
+import { useVideosPanelController } from "./VideosPanel/useVideosPanelController";
 
 export type { CatalogVideo };
 
@@ -65,27 +56,7 @@ function uniqueMetadataNames(metadataNames: string[]) {
 }
 
 export function useCatalogModuleController(): CatalogController {
-  const [selectedVideo, setSelectedVideo] = useState<CatalogVideo | null>(null);
-  const [selectedVideoTags, setSelectedVideoTags] = useState<CatalogTag[]>([]);
-  const [selectedVideoPerformers, setSelectedVideoPerformers] = useState<
-    CatalogPerformer[]
-  >([]);
-  const [batchSelectedVideoIds, setBatchSelectedVideoIds] = useState<number[]>(
-    [],
-  );
-  const [catalogVideoFilters, setCatalogVideoFilters] =
-    useState<CatalogVideoFilters>(defaultCatalogVideoFilters);
-  const [catalogVideoSort, setCatalogVideoSort] =
-    useState<CatalogVideoSort>("titleAscending");
-  const [catalogVideoWorkspace, setCatalogVideoWorkspace] =
-    useState<CatalogVideoWorkspace>("videos");
   const [catalogView, setCatalogView] = useState<CatalogView>("allVideos");
-  const [detailStatusMessage, setDetailStatusMessage] = useState("");
-  const [metadataSuggestionGroups, setMetadataSuggestionGroups] = useState<
-    MetadataSuggestionGroup[]
-  >([]);
-  const selectedVideoRequestId = useRef(0);
-  const selectedVideoId = useRef<number | null>(null);
   const {
     catalogVideoActionStatusMessage,
     catalogVideos,
@@ -119,35 +90,53 @@ export function useCatalogModuleController(): CatalogController {
     setCatalogVideoMetadataById,
     loadVideoTags,
   } = useCatalogMetadata({ catalogVideos });
-
-  async function refreshMetadataSuggestionGroups() {
-    setMetadataSuggestionGroups(await listMetadataSuggestionGroups());
-  }
-
-  useEffect(() => {
-    let canUpdateMetadataSuggestionGroups = true;
-
-    async function loadMetadataSuggestionGroups() {
-      try {
-        const storedMetadataSuggestionGroups =
-          await listMetadataSuggestionGroups();
-
-        if (canUpdateMetadataSuggestionGroups) {
-          setMetadataSuggestionGroups(storedMetadataSuggestionGroups);
-        }
-      } catch {
-        if (canUpdateMetadataSuggestionGroups) {
-          setMetadataSuggestionGroups([]);
-        }
-      }
-    }
-
-    void loadMetadataSuggestionGroups();
-
-    return () => {
-      canUpdateMetadataSuggestionGroups = false;
-    };
-  }, []);
+  const {
+    activeCatalogVideoFilters,
+    catalogVideoSort,
+    filteredCatalogVideos,
+    setCatalogVideoFilters,
+    setCatalogVideoSort,
+    setCatalogVideoWorkspace,
+  } = useVideosPanelController({
+    catalogVideoMetadataById,
+    catalogVideos,
+  });
+  const {
+    batchRemovablePerformers,
+    batchRemovableTags,
+    batchSelectedVideoIds,
+    batchSelectedVideos,
+    resetBatchSelection,
+    setBatchVideoSelected,
+  } = useBatchMetadataController({
+    catalogVideoMetadataById,
+    catalogVideos,
+  });
+  const {
+    detailStatusMessage,
+    selectedVideo,
+    selectedVideoId,
+    selectedVideoPerformers,
+    selectedVideoTags,
+    selectVideoForDetail,
+    setDetailStatusMessage,
+    setSelectedVideo,
+    setSelectedVideoPerformers,
+    setSelectedVideoTags,
+    resetSelectedVideo,
+  } = useSelectedVideoController({
+    loadAvailablePerformers,
+    loadAvailableTags,
+    loadVideoPerformers,
+    loadVideoTags,
+    setAvailablePerformers,
+    setAvailableTags,
+    setCatalogVideoMetadataById,
+  });
+  const {
+    metadataSuggestionGroups,
+    refreshMetadataSuggestionGroups,
+  } = useMetadataSuggestionsController();
 
   async function acceptSelectedMetadataSuggestionVideos({
     acceptedMetadataKind,
@@ -250,42 +239,6 @@ export function useCatalogModuleController(): CatalogController {
     }
   }
 
-  async function selectVideoForDetail(catalogVideo: CatalogVideo) {
-    const requestId = selectedVideoRequestId.current + 1;
-    selectedVideoRequestId.current = requestId;
-    selectedVideoId.current = catalogVideo.id;
-    setSelectedVideo(catalogVideo);
-    setDetailStatusMessage("");
-
-    try {
-      const [storedTags, storedPerformers, videoTags, videoPerformers] =
-        await Promise.all([
-          loadAvailableTags(),
-          loadAvailablePerformers(),
-          loadVideoTags(catalogVideo.id),
-          loadVideoPerformers(catalogVideo.id),
-        ]);
-
-      if (selectedVideoRequestId.current === requestId) {
-        setAvailableTags(storedTags);
-        setAvailablePerformers(storedPerformers);
-        setSelectedVideoTags(videoTags);
-        setSelectedVideoPerformers(videoPerformers);
-        setCatalogVideoMetadataById((currentMetadataById) => ({
-          ...currentMetadataById,
-          [catalogVideo.id]: {
-            tags: videoTags,
-            performers: videoPerformers,
-          },
-        }));
-      }
-    } catch (error) {
-      if (selectedVideoRequestId.current === requestId) {
-        setDetailStatusMessage(errorMessage(error));
-      }
-    }
-  }
-
   function selectCatalogView(nextCatalogView: CatalogView) {
     if (nextCatalogView === catalogView) {
       return;
@@ -301,13 +254,8 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function resetCatalogSelection() {
-    selectedVideoRequestId.current += 1;
-    selectedVideoId.current = null;
-    setSelectedVideo(null);
-    setSelectedVideoTags([]);
-    setSelectedVideoPerformers([]);
-    setBatchSelectedVideoIds([]);
-    setDetailStatusMessage("");
+    resetSelectedVideo();
+    resetBatchSelection();
   }
 
   function reviewMetadataSuggestionVideo(videoId: number) {
@@ -389,20 +337,6 @@ export function useCatalogModuleController(): CatalogController {
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
     }
-  }
-
-  function setBatchVideoSelected(videoId: number, isSelected: boolean) {
-    setBatchSelectedVideoIds((currentVideoIds) => {
-      if (isSelected) {
-        return currentVideoIds.includes(videoId)
-          ? currentVideoIds
-          : [...currentVideoIds, videoId];
-      }
-
-      return currentVideoIds.filter(
-        (currentVideoId) => currentVideoId !== videoId,
-      );
-    });
   }
 
   async function appendTagToBatchSelectedVideos(tag: CatalogTag) {
@@ -846,35 +780,6 @@ export function useCatalogModuleController(): CatalogController {
     });
   }
 
-  const activeCatalogVideoFilters =
-    catalogVideoWorkspace === "favorites"
-      ? { ...catalogVideoFilters, favoritesOnly: true }
-      : catalogVideoFilters;
-  const filteredCatalogVideos = sortedCatalogVideos(
-    catalogVideos.filter(
-      (catalogVideo) =>
-        catalogVideoMatchesFilters(
-          catalogVideo,
-          catalogVideoMetadataById[catalogVideo.id],
-          activeCatalogVideoFilters,
-        ),
-    ),
-    catalogVideoSort,
-  );
-  const batchSelectedVideos = catalogVideos.filter((catalogVideo) =>
-    batchSelectedVideoIds.includes(catalogVideo.id),
-  );
-  const batchSelectedVideoMetadata = batchSelectedVideos.map(
-    (catalogVideo) => catalogVideoMetadataById[catalogVideo.id],
-  );
-  const batchRemovableTags = uniqueMetadataValues(
-    batchSelectedVideoMetadata.flatMap((metadata) => metadata?.tags ?? []),
-  );
-  const batchRemovablePerformers = uniqueMetadataValues(
-    batchSelectedVideoMetadata.flatMap(
-      (metadata) => metadata?.performers ?? [],
-    ),
-  );
   const missingVideos = catalogVideos.filter(
     (catalogVideo) => catalogVideo.fileLocations.length === 0,
   );

@@ -11,7 +11,7 @@ import { ActionButtons } from "./components/ActionButtons";
 import { FileLocationsSection } from "./components/FileLocationsSection";
 import { MetadataSection } from "./components/MetadataSection";
 import { TitleEditor } from "./components/TitleEditor";
-import styles from "../VideoDetailPanel.module.css";
+import styles from "./VideoDetailPanel.module.css";
 
 export function VideoDetailPanel({
   actions,

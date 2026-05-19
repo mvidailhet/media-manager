@@ -9,6 +9,10 @@ import navigationTabsSource from "./components/NavigationTabs.tsx?raw";
 import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel.tsx?raw";
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
+import videosPanelControllerSource from "./VideosPanel/useVideosPanelController.ts?raw";
+import batchMetadataControllerSource from "./BatchMetadataEditPanel/useBatchMetadataController.ts?raw";
+import selectedVideoControllerSource from "./CatalogDetailAside/useSelectedVideoController.ts?raw";
+import metadataSuggestionsControllerSource from "./MetadataSuggestionsPanel/useMetadataSuggestionsController.ts?raw";
 
 const videosPanelFiles = import.meta.glob("./VideosPanel/**/*.{ts,tsx,css}", {
   eager: true,
@@ -114,7 +118,36 @@ describe("Catalog module boundaries", () => {
     expect(appSource).not.toMatch(/useCatalogMetadata/);
     expect(catalogControllerSource).toMatch(/useCatalogVideos/);
     expect(catalogControllerSource).toMatch(/useCatalogMetadata/);
-    expect(catalogControllerSource).toMatch(/listMetadataSuggestionGroups/);
+    expect(metadataSuggestionsControllerSource).toMatch(
+      /listMetadataSuggestionGroups/,
+    );
+  });
+
+  it("keeps Catalog controller workflows near the feature panels that use them", () => {
+    expect(videosPanelControllerSource).toMatch(/useVideosPanelController/);
+    expect(videosPanelControllerSource).toMatch(/catalogVideoMatchesFilters/);
+    expect(videosPanelControllerSource).toMatch(/sortedCatalogVideos/);
+    expect(catalogControllerSource).not.toMatch(/catalogVideoMatchesFilters/);
+    expect(catalogControllerSource).not.toMatch(/sortedCatalogVideos/);
+
+    expect(batchMetadataControllerSource).toMatch(/useBatchMetadataController/);
+    expect(batchMetadataControllerSource).toMatch(
+      /setBatchVideoSelected/,
+    );
+    expect(batchMetadataControllerSource).toMatch(
+      /batchRemovablePerformers/,
+    );
+    expect(selectedVideoControllerSource).toMatch(/useSelectedVideoController/);
+    expect(selectedVideoControllerSource).toMatch(/selectVideoForDetail/);
+    expect(selectedVideoControllerSource).toMatch(
+      /resetSelectedVideo/,
+    );
+    expect(metadataSuggestionsControllerSource).toMatch(
+      /useMetadataSuggestionsController/,
+    );
+    expect(metadataSuggestionsControllerSource).toMatch(
+      /listMetadataSuggestionGroups/,
+    );
   });
 
   it("keeps Catalog panels owned by the Catalog module", () => {
