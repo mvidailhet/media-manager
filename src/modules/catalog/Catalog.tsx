@@ -19,7 +19,7 @@ import type {
 } from "./catalogTypes";
 import { MetadataSuggestionsPanel } from "./MetadataSuggestionsPanel";
 
-export type CatalogModuleProps = {
+export type CatalogProps = {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
   batchRemovablePerformers: CatalogPerformer[];
@@ -72,7 +72,7 @@ export type CatalogModuleProps = {
 
 const navigationIconSize = 20;
 
-export function CatalogModule({
+export function Catalog({
   availablePerformers,
   availableTags,
   batchRemovablePerformers,
@@ -103,7 +103,7 @@ export function CatalogModule({
   onSetBatchVideoSelected,
   onSetFavorite,
   selectedVideoIds,
-}: CatalogModuleProps) {
+}: CatalogProps) {
   const isCatalogVideoListView = catalogView !== "metadataSuggestions";
   return (
     <>

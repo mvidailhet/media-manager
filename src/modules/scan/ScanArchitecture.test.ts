@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import appSource from "../../App.tsx?raw";
 import previewGenerationHookSource from "./usePreviewGeneration.ts?raw";
 import scanControllerSource from "./useScanModuleController.ts?raw";
-import scanModuleSource from "./ScanModule.tsx?raw";
+import scanModuleEntryPointSource from "./index.ts?raw";
+import scanSource from "./Scan.tsx?raw";
 
 describe("Scan module boundaries", () => {
   it("keeps Scan hooks behind the Scan module boundary", () => {
@@ -19,7 +20,7 @@ describe("Scan module boundaries", () => {
     expect(appSource).not.toMatch(/RootsPanel/);
     expect(appSource).not.toMatch(/ScanIssuesPanel/);
     expect(appSource).not.toMatch(/PreviewGenerationView/);
-    expect(scanModuleSource).toMatch(/RootsPanel/);
+    expect(scanSource).toMatch(/RootsPanel/);
   });
 
   it("keeps Preview Generation polling independent from parent renders", () => {
@@ -27,5 +28,12 @@ describe("Scan module boundaries", () => {
     expect(previewGenerationHookSource).not.toMatch(
       /\}, \[previewStripQueueStatus, refreshCatalogVideos, refreshScanIssues\]\)/,
     );
+  });
+
+  it("uses the module folder context for the Scan entry name", () => {
+    expect(scanModuleEntryPointSource).toContain('export { Scan } from "./Scan"');
+    expect(scanSource).toMatch(/function Scan\(/);
+    expect(scanModuleEntryPointSource).not.toMatch(/export \{ ScanModule/);
+    expect(scanSource).not.toMatch(/function ScanModule|ScanModuleProps/);
   });
 });

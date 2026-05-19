@@ -1,14 +1,14 @@
 import { useState } from "react";
 
 import type { CatalogVideo } from "../catalog/useCatalogModuleController";
-import type { ScanModuleProps } from "./ScanModule";
-import { scanRootsTab } from "./ScanModule";
+import type { ScanProps } from "./Scan";
+import { scanRootsTab } from "./Scan";
 import { usePreviewGeneration } from "./usePreviewGeneration";
 import { useScanIssues } from "./useScanIssues";
 import type { ScanRoot, ScanRootRemovalPolicy } from "./useScanRoots";
 import { useScanRoots } from "./useScanRoots";
 
-type ScanModuleController = {
+type ScanController = {
   metadataSuggestionGroups: ReturnType<
     typeof useScanIssues
   >["metadataSuggestionGroups"];
@@ -17,7 +17,7 @@ type ScanModuleController = {
     typeof useScanRoots
   >["removeSelectedScanRoot"];
   scanAttentionCount: number;
-  scanModuleProps: ScanModuleProps;
+  scanProps: ScanProps;
   setScanIssuesStatusMessage: ReturnType<
     typeof useScanIssues
   >["setScanIssuesStatusMessage"];
@@ -35,7 +35,7 @@ export function useScanModuleController({
   refreshCatalogVideos: () => Promise<void>;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
-}): ScanModuleController {
+}): ScanController {
   const [scanTab, setScanTab] = useState<string | null>(scanRootsTab);
   const previewGeneration = usePreviewGeneration({
     refreshCatalogVideos,
@@ -83,7 +83,7 @@ export function useScanModuleController({
     refreshScanIssues: scanIssues.refreshScanIssues,
     removeSelectedScanRoot: scanRootsState.removeSelectedScanRoot,
     scanAttentionCount,
-    scanModuleProps: {
+    scanProps: {
       failedPreviewStrips: scanIssues.failedPreviewStrips,
       generatedPreviewStripCount,
       generatingPreviewStripTitle: generatingPreviewStripVideo?.title,

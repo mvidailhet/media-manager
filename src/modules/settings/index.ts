@@ -1,2 +1,2 @@
-export { SettingsModule } from "./SettingsModule";
+export { Settings } from "./Settings";
 export { useSettingsModuleController } from "./useSettingsModuleController";

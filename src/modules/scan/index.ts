@@ -1,4 +1,4 @@
-export { ScanModule } from "./ScanModule";
+export { Scan } from "./Scan";
 export {
   useScanModuleController,
   type ScanRoot,

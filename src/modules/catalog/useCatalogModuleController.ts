@@ -27,14 +27,14 @@ import {
   catalogVideoMatchesFilters,
   sortedCatalogVideos,
 } from "./catalogVideoFiltering";
-import type { CatalogModuleProps } from "./CatalogModule";
+import type { CatalogProps } from "./Catalog";
 
 export type { CatalogVideo };
 
 const emptyMetadataInputMessage = "Enter a name first.";
 
-type CatalogModuleController = {
-  catalogModuleProps: CatalogModuleProps;
+type CatalogController = {
+  catalogProps: CatalogProps;
   catalogVideos: CatalogVideo[];
   forgetMissingVideo: (videoId: number) => Promise<void>;
   missingVideos: CatalogVideo[];
@@ -66,7 +66,7 @@ export function useCatalogModuleController({
 }: {
   refreshScanIssues: (shouldClearStatusMessage?: boolean) => Promise<void>;
   setScanIssuesStatusMessage: (message: string) => void;
-}): CatalogModuleController {
+}): CatalogController {
   const [selectedVideo, setSelectedVideo] = useState<CatalogVideo | null>(null);
   const [selectedVideoTags, setSelectedVideoTags] = useState<CatalogTag[]>([]);
   const [selectedVideoPerformers, setSelectedVideoPerformers] = useState<
@@ -850,7 +850,7 @@ export function useCatalogModuleController({
   );
 
   return {
-    catalogModuleProps: {
+    catalogProps: {
       availablePerformers,
       availableTags,
       batchRemovablePerformers,
