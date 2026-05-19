@@ -74,7 +74,7 @@ export function CatalogVideoCard({
           </Box>
         </Box>
 
-        <Text className={styles.title} fw={500}>
+        <Text className={styles.title} fw={500} size='sm'>
           {catalogVideo.title}
         </Text>
 
