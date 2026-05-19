@@ -8,8 +8,8 @@ import type {
   UnprocessableVideoCandidateGroup,
 } from "../../tauriCommands";
 import { PreviewGenerationView } from "./PreviewGenerationView/PreviewGenerationView";
+import { RootsPanel } from "./RootsPanel";
 import { ScanIssuesPanel } from "./ScanIssuesPanel/ScanIssuesPanel";
-import { ScanRootsPanel } from "./ScanRootsPanel/ScanRootsPanel";
 import type { ScanRoot } from "./useScanRoots";
 
 export type ScanModuleProps = {
@@ -101,7 +101,7 @@ export function ScanModule({
       </Tabs.List>
 
       <Tabs.Panel value={scanRootsTab}>
-        <ScanRootsPanel
+        <RootsPanel
           scanRoots={scanRoots}
           scanRootsStatusMessage={scanRootsStatusMessage}
           unprocessableVideoCandidateGroups={unprocessableVideoCandidateGroups}
