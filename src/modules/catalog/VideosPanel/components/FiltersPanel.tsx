@@ -58,31 +58,42 @@ export function FiltersPanel({
         Advanced search
       </Button>
       {advancedSearchOpened ? (
-        <Box>
-          <Group justify="space-between" gap="sm" mb="xs">
-            <Text size="sm" fw={500}>
-              Duration
-            </Text>
-            <Text size="sm" c="dimmed">
-              {formatDurationRange(durationRangeValue)}
-            </Text>
-          </Group>
-          <RangeSlider
-            min={minimumDurationMinutes}
-            max={maximumDurationMinutes}
-            step={durationSliderStepMinutes}
-            value={durationRangeValue}
-            label={formatDurationFilterValue}
-            thumbFromLabel="Minimum duration"
-            thumbToLabel="Maximum duration"
-            onChange={([minimumDuration, maximumDuration]) =>
+        <Stack gap="sm">
+          <Box>
+            <Group justify="space-between" gap="sm" mb="xs">
+              <Text size="sm" fw={500}>
+                Duration
+              </Text>
+              <Text size="sm" c="dimmed">
+                {formatDurationRange(durationRangeValue)}
+              </Text>
+            </Group>
+            <RangeSlider
+              min={minimumDurationMinutes}
+              max={maximumDurationMinutes}
+              step={durationSliderStepMinutes}
+              value={durationRangeValue}
+              label={formatDurationFilterValue}
+              thumbFromLabel="Minimum duration"
+              thumbToLabel="Maximum duration"
+              onChange={([minimumDuration, maximumDuration]) =>
+                updateFilters({
+                  minimumDurationMinutes: minimumDuration,
+                  maximumDurationMinutes: maximumDuration,
+                })
+              }
+            />
+          </Box>
+          <Checkbox
+            label="Show unavailable videos"
+            checked={filters.showUnavailableVideos}
+            onChange={(event) =>
               updateFilters({
-                minimumDurationMinutes: minimumDuration,
-                maximumDurationMinutes: maximumDuration,
+                showUnavailableVideos: event.currentTarget.checked,
               })
             }
           />
-        </Box>
+        </Stack>
       ) : null}
       {availableTags.length > 0 ? (
         <Checkbox.Group

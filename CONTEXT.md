@@ -65,7 +65,7 @@ A stable identifier for the storage volume behind a **Scan Root** when available
 _Avoid_: Folder path
 
 **Missing Video**:
-A **Video** whose known **File Locations** are not currently available.
+A **Video** whose every known **File Location** has been invalidated by a successful **Refresh** of an available **Scan Root**.
 _Avoid_: Deleted video, removed video
 
 **Unavailable Video**:
@@ -165,7 +165,7 @@ A remembered choice that maps a **Metadata Suggestion** source and value to an a
 _Avoid_: Alias
 
 **Scan Issue**:
-A scanning or reconciliation condition that needs user attention outside normal **Video** browsing.
+A missing **Video** condition that needs user attention outside normal **Video** browsing.
 _Avoid_: Review queue, search result
 
 **Forget From Catalog**:
@@ -314,7 +314,7 @@ _Avoid_: Metadata suggestion
 - Accepted **Metadata Suggestions** can keep lightweight provenance without changing their status as **Local Metadata**.
 - **Metadata Suggestions** are reviewed in the **Catalog** with access to affected **Videos** and their **Preview Strips**.
 - **Metadata Suggestion** review shows source path groups under each suggested value.
-- **Scan Issues** include **Missing Videos**, **Unavailable Scan Roots**, and **Unprocessable Video Candidates**.
+- **Scan Issues** include **Missing Videos**.
 - **Failed Preview Strips** are handled with **Preview Strip** generation controls instead of **Scan Issues**.
 - **Preview Strip** generation controls belong with scanning work, while the **Catalog** shows each **Video**'s **Preview Strip** state in context.
 - The **Catalog** owns **Preview Strip** state because a **Preview Strip** belongs to a **Video**, while **Preview Strip** generation is operational background work.
@@ -334,7 +334,7 @@ _Avoid_: Metadata suggestion
 - Normal **Search Filters** use accepted **Local Metadata**, not unaccepted **Inferred Metadata**.
 - Moving a **Video** can create new **Metadata Suggestions** but never removes or replaces accepted **Local Metadata**.
 - Changing **Inference Rules** can regenerate unaccepted **Metadata Suggestions** for that **Scan Root** but never changes accepted **Local Metadata**.
-- Normal **Search Filters** include **Missing Videos** by default, clearly marked as unavailable.
+- Normal **Search Filters** exclude **Unavailable Videos** by default and can include them when requested.
 - Normal **Search Filters** exclude **Trashed Videos** by default.
 - **Tag** and **Performer** search is case-insensitive while display names can preserve title casing.
 - Editing **Local Metadata** changes the **Catalog** only and does not rename or move files.

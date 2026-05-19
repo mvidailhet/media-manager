@@ -192,7 +192,7 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("filters Catalog Videos by text and duration while keeping Missing Videos visible", async () => {
+  it("filters Catalog Videos by text and duration while hiding Unavailable Videos by default", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -297,6 +297,19 @@ describe("Catalog module", () => {
     });
 
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Archive Family Cut"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Show unavailable videos",
+      }),
+    ).not.toBeChecked();
+    fireEvent.click(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Show unavailable videos",
+      }),
+    );
     expect(
       within(catalogVideos).getByText("Archive Family Cut"),
     ).toBeInTheDocument();
@@ -1792,7 +1805,7 @@ describe("Catalog module", () => {
     expect(titleHeading.closest("section")).toBe(detailPanel);
   });
 
-  it("marks Missing Videos unavailable in the normal Videos list", async () => {
+  it("can show Missing Videos as unavailable in the normal Videos list", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -1814,6 +1827,16 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    fireEvent.click(
+      within(catalogVideos).getByRole("button", {
+        name: "Advanced search",
+      }),
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Show unavailable videos",
+      }),
+    );
 
     expect(
       await within(catalogVideos).findByText("Family Trip"),

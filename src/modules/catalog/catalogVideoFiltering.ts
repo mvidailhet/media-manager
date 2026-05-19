@@ -10,6 +10,10 @@ export function catalogVideoMatchesFilters(
   return (
     catalogVideoMatchesSearchText(catalogVideo, filters.searchText) &&
     catalogVideoMatchesFavoriteFilter(catalogVideo, filters.favoritesOnly) &&
+    catalogVideoMatchesAvailabilityFilter(
+      catalogVideo,
+      filters.showUnavailableVideos,
+    ) &&
     catalogVideoMatchesDurationFilter(catalogVideo, filters) &&
     catalogVideoMatchesTagFilter(metadata, filters.selectedTagIds) &&
     catalogVideoMatchesPerformerFilter(metadata, filters.selectedPerformerIds)
@@ -49,6 +53,13 @@ export function catalogVideoMatchesFavoriteFilter(
   favoritesOnly: boolean,
 ) {
   return !favoritesOnly || catalogVideo.isFavorite;
+}
+
+export function catalogVideoMatchesAvailabilityFilter(
+  catalogVideo: CatalogVideo,
+  showUnavailableVideos: boolean,
+) {
+  return showUnavailableVideos || catalogVideo.isAvailable;
 }
 
 const millisecondsPerSecond = 1000;

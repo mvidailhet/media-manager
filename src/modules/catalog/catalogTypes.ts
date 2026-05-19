@@ -14,6 +14,7 @@ export interface CatalogVideoFilters {
   selectedTagIds: number[];
   selectedPerformerIds: number[];
   favoritesOnly: boolean;
+  showUnavailableVideos: boolean;
   minimumDurationMinutes: number | "";
   maximumDurationMinutes: number | "";
 }
@@ -37,6 +38,7 @@ export const defaultCatalogVideoFilters: CatalogVideoFilters = {
   selectedTagIds: [],
   selectedPerformerIds: [],
   favoritesOnly: false,
+  showUnavailableVideos: false,
   minimumDurationMinutes: "",
   maximumDurationMinutes: "",
 };
