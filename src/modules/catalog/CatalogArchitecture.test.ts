@@ -6,7 +6,6 @@ import catalogModuleEntryPointSource from "./index.ts?raw";
 import catalogModuleSource from "./CatalogModule.tsx?raw";
 import metadataBadgesSource from "./components/MetadataBadges.tsx?raw";
 import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataSuggestionsPanel.tsx?raw";
-import metadataSuggestionSourceSource from "./MetadataSuggestionsPanel/components/MetadataSuggestionSource.tsx?raw";
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
 
@@ -65,6 +64,14 @@ const metadataSuggestionsPanelBarrelFiles = import.meta.glob(
     query: "?raw",
   },
 );
+const metadataSuggestionsPanelFiles = import.meta.glob(
+  "./MetadataSuggestionsPanel/**/*.tsx",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
 const videoDetailPanelBarrelFiles = import.meta.glob(
   "./VideoDetailPanel/**/index.*",
   {
@@ -113,7 +120,7 @@ describe("Catalog module boundaries", () => {
     expect(catalogModuleSource).toMatch(/VideosPanel/);
   });
 
-  it("keeps Metadata Suggestions panel, source, and tree helpers in focused files", () => {
+  it("keeps Metadata Suggestions panel, group, source, and tree helpers in focused files", () => {
     const metadataSuggestionsPanelFolder = new URL(
       "./MetadataSuggestionsPanel/",
       import.meta.url,
@@ -122,12 +129,38 @@ describe("Catalog module boundaries", () => {
     expect(metadataSuggestionsPanelFolder.pathname).toContain(
       "/src/modules/catalog/MetadataSuggestionsPanel",
     );
-    expect(Object.keys(metadataSuggestionsPanelBarrelFiles)).toHaveLength(0);
-    expect(metadataSuggestionsPanelSource).toMatch(/MetadataSuggestionSource/);
+    const suggestionGroupSource = rawSource(
+      metadataSuggestionsPanelFiles,
+      "./MetadataSuggestionsPanel/components/SuggestionGroup.tsx",
+    );
+    const suggestionSourceSource = rawSource(
+      metadataSuggestionsPanelFiles,
+      "./MetadataSuggestionsPanel/components/SuggestionSource.tsx",
+    );
+
+    expect(Object.keys(metadataSuggestionsPanelBarrelFiles)).toEqual([
+      "./MetadataSuggestionsPanel/index.ts",
+    ]);
+    expect(metadataSuggestionsPanelSource).toMatch(/SuggestionGroup/);
+    expect(metadataSuggestionsPanelSource).not.toMatch(/function SuggestionGroup/);
+    expect(metadataSuggestionsPanelSource).not.toMatch(
+      /function MetadataSuggestionSource|<MetadataSuggestionSource|components\/MetadataSuggestionSource/,
+    );
+    expect(metadataSuggestionsPanelSource).not.toMatch(/suggestionGroup\.sources/);
     expect(metadataSuggestionsPanelSource).not.toMatch(/useTree/);
     expect(metadataSuggestionsPanelSource).not.toMatch(/Tree\.NodeData/);
-    expect(metadataSuggestionSourceSource).toMatch(/useTree/);
-    expect(metadataSuggestionSourceSource).toMatch(/buildSuggestionVideoTree/);
+    expect(suggestionGroupSource).toMatch(/function SuggestionGroup/);
+    expect(suggestionGroupSource).toMatch(/SuggestionSource/);
+    expect(suggestionGroupSource).not.toMatch(/useTree/);
+    expect(suggestionGroupSource).not.toMatch(
+      /function MetadataSuggestionSource|<MetadataSuggestionSource|components\/MetadataSuggestionSource/,
+    );
+    expect(suggestionSourceSource).toMatch(/function SuggestionSource/);
+    expect(suggestionSourceSource).toMatch(/useTree/);
+    expect(suggestionSourceSource).toMatch(/buildSuggestionVideoTree/);
+    expect(suggestionSourceSource).not.toMatch(
+      /function MetadataSuggestionSource/,
+    );
     expect(metadataSuggestionTreeSource).toMatch(/Tree\.NodeData/);
     expect(metadataSuggestionTreeSource).toMatch(/getSelectedVideoIds/);
   });

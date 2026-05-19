@@ -1,4 +1,4 @@
-import { Badge, Divider, Stack, Text } from "@mantine/core";
+import { Stack, Text } from "@mantine/core";
 
 import type {
   CatalogPerformer,
@@ -7,7 +7,7 @@ import type {
   RejectMetadataSuggestionSourceRequest,
 } from "../../../tauriCommands";
 import type { CatalogMetadataSuggestionAcceptanceRequest } from "../catalogTypes";
-import { MetadataSuggestionSource } from "./components/MetadataSuggestionSource";
+import { SuggestionGroup } from "./components/SuggestionGroup";
 
 type AcceptMetadataSuggestionVideos = (
   request: CatalogMetadataSuggestionAcceptanceRequest,
@@ -40,35 +40,15 @@ export function MetadataSuggestionsPanel({
       {metadataSuggestionGroups.length > 0 ? (
         <Stack gap="xl">
           {metadataSuggestionGroups.map((suggestionGroup) => (
-            <Stack
-              component="article"
-              gap="xs"
+            <SuggestionGroup
+              availablePerformers={availablePerformers}
+              availableTags={availableTags}
               key={`${suggestionGroup.suggestionKind}:${suggestionGroup.suggestedValue}`}
-            >
-              <Divider />
-              <Badge variant="light" w="fit-content" size="xl" mt="lg" mb="md">
-                {suggestionGroup.suggestedValue}
-              </Badge>
-              <Stack gap="xl">
-                {suggestionGroup.sources.map((sourceGroup) => (
-                  <MetadataSuggestionSource
-                    availablePerformers={availablePerformers}
-                    availableTags={availableTags}
-                    key={`${sourceGroup.scanRootPath}:${sourceGroup.sourcePathSegment}`}
-                    sourceGroup={sourceGroup}
-                    suggestionKind={suggestionGroup.suggestionKind}
-                    suggestedValue={suggestionGroup.suggestedValue}
-                    onAcceptMetadataSuggestionVideos={
-                      onAcceptMetadataSuggestionVideos
-                    }
-                    onRejectMetadataSuggestionSource={
-                      onRejectMetadataSuggestionSource
-                    }
-                    onReviewVideo={onReviewVideo}
-                  />
-                ))}
-              </Stack>
-            </Stack>
+              suggestionGroup={suggestionGroup}
+              onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
+              onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
+              onReviewVideo={onReviewVideo}
+            />
           ))}
         </Stack>
       ) : (

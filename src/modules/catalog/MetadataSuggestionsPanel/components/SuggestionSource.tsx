@@ -41,7 +41,7 @@ const metadataSuggestionTreeIconSize = 14;
 const metadataSuggestionTreeCaretSize = 12;
 const videoTitleActivationKeys = new Set(["Enter", " "]);
 
-export function MetadataSuggestionSource({
+export function SuggestionSource({
   availablePerformers,
   availableTags,
   onAcceptMetadataSuggestionVideos,
