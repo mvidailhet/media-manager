@@ -431,6 +431,7 @@ describe("Catalog module boundaries", () => {
     expect(videoPreviewSource).toMatch(/".\/VideoPreview\.module\.css"/);
     expect(videoPreviewSource).not.toMatch(/function PreviewStripSurface/);
     expect(previewStripSurfaceSource).toMatch(/function PreviewStripSurface/);
+    expect(previewStripSurfaceSource).toMatch(/styles\.pendingStrip/);
     expect(previewStripSurfaceSource).toMatch(/previewStripFramePosition/);
     expect(previewStripFrameSource).toMatch(
       /function previewStripFrameIndexFromPointer/,

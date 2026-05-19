@@ -62,7 +62,7 @@ export function PreviewStripSurface({
   }
 
   return (
-    <Box className={`${styles.strip} ${styles.placeholderStrip}`}>
+    <Box className={`${styles.strip} ${styles.pendingStrip}`}>
       <Badge color="gray" variant="light">
         Pending Preview Strip
       </Badge>
