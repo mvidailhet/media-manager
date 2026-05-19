@@ -16,6 +16,7 @@ export function RootCard({
   activeScanRootRefresh,
   isScanRootRefreshRunning,
   onCancelScanRootRefresh,
+  onCheckScanRootAvailability,
   onRefreshSelectedScanRoot,
   onRequestScanRootRemoval,
   onSaveScanRootInferenceRules,
@@ -25,6 +26,7 @@ export function RootCard({
   activeScanRootRefresh: ScanRootRefreshJobProgress | null;
   isScanRootRefreshRunning: boolean;
   onCancelScanRootRefresh: (scanRoot: ScanRoot) => void;
+  onCheckScanRootAvailability: (scanRoot: ScanRoot) => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
   onSaveScanRootInferenceRules: (
@@ -46,6 +48,7 @@ export function RootCard({
         <Header
           areInferenceRulesOpen={areInferenceRulesOpen}
           isScanRootRefreshRunning={isScanRootRefreshRunning}
+          onCheckScanRootAvailability={onCheckScanRootAvailability}
           onRefreshSelectedRoot={onRefreshSelectedScanRoot}
           onRemoveRoot={onRequestScanRootRemoval}
           onToggleInferenceRules={() =>

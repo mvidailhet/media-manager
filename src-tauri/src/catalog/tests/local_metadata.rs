@@ -12,6 +12,11 @@ fn refreshing_an_unreachable_scan_root_marks_it_unavailable_without_discarding_c
         .expect("movies scan root adds");
     let family_trip_path = movies_root.join("family-trip.mp4");
     std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+    let canonical_family_trip_path = family_trip_path
+        .canonicalize()
+        .expect("family trip path canonicalizes")
+        .to_string_lossy()
+        .into_owned();
     let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
     catalog
         .refresh_scan_root(
@@ -50,9 +55,13 @@ fn refreshing_an_unreachable_scan_root_marks_it_unavailable_without_discarding_c
             preview_strip: crate::catalog::PreviewStripStatus::Pending,
             title: "family-trip".to_string(),
             duration_milliseconds: 1_000,
-            file_size_bytes: None,
-            file_location_path: None,
-            file_locations: Vec::new(),
+            file_size_bytes: Some(17),
+            file_location_path: Some(canonical_family_trip_path.clone()),
+            file_locations: vec![crate::catalog::CatalogVideoFileLocation {
+                path: canonical_family_trip_path,
+                file_size_bytes: 17,
+                is_preferred: true,
+            }],
             is_favorite: false,
             last_opened_at: None,
             open_count: 0,

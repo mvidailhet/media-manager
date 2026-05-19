@@ -82,11 +82,9 @@ fn completed_scan_root_refresh_records_when_the_scan_finished() {
         )
         .expect("scan root refreshes");
 
-    assert!(
-        catalog.list_scan_roots().expect("scan roots list")[0]
-            .last_scan_completed_at
-            .is_some()
-    );
+    assert!(catalog.list_scan_roots().expect("scan roots list")[0]
+        .last_scan_completed_at
+        .is_some());
 }
 
 #[test]
@@ -167,7 +165,117 @@ fn unreachable_scan_root_refresh_can_complete_without_a_video_file_probe() {
 }
 
 #[test]
-fn refreshing_all_scan_roots_updates_each_root_and_marks_missing_videos() {
+fn unreachable_scan_root_refresh_preserves_file_locations_without_listing_missing_videos() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let family_trip_path = movies_root.join("family-trip.mp4");
+    std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("initial scan root refreshes");
+    let canonical_family_trip_path = family_trip_path
+        .canonicalize()
+        .expect("family trip path canonicalizes")
+        .to_string_lossy()
+        .into_owned();
+    std::fs::remove_dir_all(&movies_root).expect("scan root becomes unreachable");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("unreachable scan root refresh completes");
+
+    assert_eq!(
+        catalog.listed_videos().expect("stored videos list"),
+        vec![crate::catalog::CatalogVideo {
+            id: 1,
+            is_available: false,
+            preview_strip: crate::catalog::PreviewStripStatus::Pending,
+            title: "family-trip".to_string(),
+            duration_milliseconds: 1_000,
+            file_size_bytes: Some(17),
+            file_location_path: Some(canonical_family_trip_path.clone()),
+            file_locations: vec![crate::catalog::CatalogVideoFileLocation {
+                path: canonical_family_trip_path,
+                file_size_bytes: 17,
+                is_preferred: true,
+            }],
+            is_favorite: false,
+            last_opened_at: None,
+            open_count: 0,
+        }]
+    );
+}
+
+#[test]
+fn availability_check_updates_root_reachability_without_refreshing_videos() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let family_trip_path = movies_root.join("family-trip.mp4");
+    std::fs::write(&family_trip_path, "valid video bytes").expect("video file exists");
+    let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &video_file_probe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("initial scan root refreshes");
+    let last_scan_completed_at = catalog.list_scan_roots().expect("scan roots list")[0]
+        .last_scan_completed_at
+        .clone();
+    std::fs::remove_dir_all(&movies_root).expect("scan root becomes unreachable");
+
+    let unavailable_scan_root = catalog
+        .check_scan_root_availability(&scan_root.path)
+        .expect("scan root availability checks");
+
+    assert!(!unavailable_scan_root.is_available);
+    assert_eq!(
+        unavailable_scan_root.last_scan_completed_at,
+        last_scan_completed_at
+    );
+    assert_eq!(
+        catalog.listed_videos().expect("stored videos list")[0]
+            .file_locations
+            .len(),
+        1
+    );
+    std::fs::create_dir_all(&movies_root).expect("scan root becomes reachable again");
+
+    let available_scan_root = catalog
+        .check_scan_root_availability(&scan_root.path)
+        .expect("scan root availability checks again");
+
+    assert!(available_scan_root.is_available);
+    assert_eq!(
+        available_scan_root.last_scan_completed_at,
+        last_scan_completed_at
+    );
+}
+
+#[test]
+fn refreshing_all_scan_roots_updates_each_root_and_preserves_unavailable_locations() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
@@ -185,6 +293,11 @@ fn refreshing_all_scan_roots_updates_each_root_and_marks_missing_videos() {
     let archived_trip_path = unavailable_root.join("archived-trip.mp4");
     std::fs::write(&family_trip_path, "valid video bytes").expect("family video exists");
     std::fs::write(&archived_trip_path, "archived video bytes").expect("archived video exists");
+    let canonical_archived_trip_path = archived_trip_path
+        .canonicalize()
+        .expect("archived trip path canonicalizes")
+        .to_string_lossy()
+        .into_owned();
     let video_file_probe = FakeVideoFileProbe::with_duration(1_000);
     catalog
         .refresh_all_scan_roots(
@@ -225,9 +338,13 @@ fn refreshing_all_scan_roots_updates_each_root_and_marks_missing_videos() {
                 preview_strip: crate::catalog::PreviewStripStatus::Pending,
                 title: "archived-trip".to_string(),
                 duration_milliseconds: 1_000,
-                file_size_bytes: None,
-                file_location_path: None,
-                file_locations: Vec::new(),
+                file_size_bytes: Some(20),
+                file_location_path: Some(canonical_archived_trip_path.clone()),
+                file_locations: vec![crate::catalog::CatalogVideoFileLocation {
+                    path: canonical_archived_trip_path,
+                    file_size_bytes: 20,
+                    is_preferred: true,
+                }],
                 is_favorite: false,
                 last_opened_at: None,
                 open_count: 0,

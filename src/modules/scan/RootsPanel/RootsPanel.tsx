@@ -18,9 +18,11 @@ export function RootsPanel({
   scanRootsStatusMessage,
   unprocessableVideoCandidateGroups,
   activeScanRootRefresh,
+  onCheckScanRootAvailability,
 }: {
   activeScanRootRefresh: ScanRootRefreshJobProgress | null;
   onCancelScanRootRefresh: (scanRoot: ScanRoot) => void;
+  onCheckScanRootAvailability: (scanRoot: ScanRoot) => void;
   onChooseScanRootFolder: () => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
@@ -63,6 +65,7 @@ export function RootsPanel({
                 activeScanRootRefresh={activeScanRootRefresh}
                 isScanRootRefreshRunning={isScanRootRefreshRunning}
                 onCancelScanRootRefresh={onCancelScanRootRefresh}
+                onCheckScanRootAvailability={onCheckScanRootAvailability}
                 onRefreshSelectedScanRoot={onRefreshSelectedScanRoot}
                 onRequestScanRootRemoval={onRequestScanRootRemoval}
                 onSaveScanRootInferenceRules={onSaveScanRootInferenceRules}

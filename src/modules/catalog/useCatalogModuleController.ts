@@ -846,7 +846,7 @@ export function useCatalogModuleController({
     ),
   );
   const missingVideos = catalogVideos.filter(
-    (catalogVideo) => !catalogVideo.isAvailable,
+    (catalogVideo) => catalogVideo.fileLocations.length === 0,
   );
 
   return {

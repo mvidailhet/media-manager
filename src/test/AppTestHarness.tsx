@@ -14,6 +14,7 @@ import {
   acceptMetadataSuggestionForVideos,
   addScanRoot,
   cancelScanRootRefreshJob,
+  checkScanRootAvailability,
   attachPerformerToVideo,
   attachTagToVideo,
   createPerformer,
@@ -65,6 +66,7 @@ vi.mock("../tauriCommands", () => ({
   acceptMetadataSuggestionForVideos: vi.fn(),
   addScanRoot: vi.fn(),
   cancelScanRootRefreshJob: vi.fn(),
+  checkScanRootAvailability: vi.fn(),
   attachPerformerToVideo: vi.fn(),
   attachTagToVideo: vi.fn(),
   createPerformer: vi.fn(),
@@ -140,6 +142,7 @@ export const mockedListUnprocessableVideoCandidatesByScanRoot = vi.mocked(
 );
 export const mockedListScanRoots = vi.mocked(listScanRoots);
 export const mockedAddScanRoot = vi.mocked(addScanRoot);
+export const mockedCheckScanRootAvailability = vi.mocked(checkScanRootAvailability);
 export const mockedCancelScanRootRefreshJob = vi.mocked(cancelScanRootRefreshJob);
 export const mockedForgetCatalogVideo = vi.mocked(forgetCatalogVideo);
 export const mockedGetPreviewStripQueueStatus = vi.mocked(getPreviewStripQueueStatus);
@@ -294,6 +297,11 @@ export function resetAppTestHarness() {
     mockedAddScanRoot.mockImplementation(async (path) => ({
       inferenceRules: defaultInferenceRules,
       isAvailable: true,
+      path,
+    }));
+    mockedCheckScanRootAvailability.mockImplementation(async (path) => ({
+      inferenceRules: defaultInferenceRules,
+      isAvailable: !path.includes("Missing"),
       path,
     }));
     mockedForgetCatalogVideo.mockResolvedValue(undefined);

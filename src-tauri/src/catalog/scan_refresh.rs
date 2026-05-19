@@ -272,7 +272,6 @@ impl Catalog {
 
         let scan_root_id = self.scan_root_id(scan_root_path)?;
         self.mark_scan_root_availability(scan_root_id, false)?;
-        self.remove_stale_scan_root_entries(scan_root_id, &HashSet::new())?;
         self.record_completed_scan_root_refresh(scan_root_id)?;
 
         Ok(Some(ScanRootRefreshSummary {

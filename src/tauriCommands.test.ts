@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   acceptMetadataSuggestionForVideos,
   addScanRoot,
+  checkScanRootAvailability,
   forgetCatalogVideo,
   getPreviewStripQueueStatus,
   getFfmpegToolsStatus,
@@ -154,6 +155,14 @@ describe("Tauri commands", () => {
     await addScanRoot("/Volumes/Archive/Videos");
 
     expect(mockedInvoke).toHaveBeenCalledWith("add_scan_root", {
+      path: "/Volumes/Archive/Videos",
+    });
+  });
+
+  it("checks one Scan Root availability through the Rust command", async () => {
+    await checkScanRootAvailability("/Volumes/Archive/Videos");
+
+    expect(mockedInvoke).toHaveBeenCalledWith("check_scan_root_availability", {
       path: "/Volumes/Archive/Videos",
     });
   });

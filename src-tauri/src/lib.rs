@@ -170,6 +170,19 @@ fn add_scan_root(
 }
 
 #[tauri::command]
+fn check_scan_root_availability(
+    catalog_state: tauri::State<'_, CatalogState>,
+    path: String,
+) -> Result<ScanRoot, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.check_scan_root_availability(&path)
+}
+
+#[tauri::command]
 fn update_scan_root_inference_rules(
     catalog_state: tauri::State<'_, CatalogState>,
     path: String,
@@ -918,6 +931,7 @@ pub fn run() {
             list_catalog_videos,
             list_scan_roots,
             add_scan_root,
+            check_scan_root_availability,
             update_scan_root_inference_rules,
             remove_scan_root,
             forget_catalog_video,

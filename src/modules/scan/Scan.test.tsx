@@ -30,6 +30,7 @@ import {
   mockedListUnprocessableVideoCandidatesByScanRoot,
   mockedListScanRoots,
   mockedAddScanRoot,
+  mockedCheckScanRootAvailability,
   mockedForgetCatalogVideo,
   mockedGetPreviewStripQueueStatus,
   mockedPausePreviewStripQueue,
@@ -359,8 +360,8 @@ describe("Scan module", () => {
         id: 1,
         title: "Missing Trip",
         durationMilliseconds: 3723000,
-        fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/missing-trip.mp4",
+        fileSizeBytes: null,
+        fileLocationPath: null,
         isAvailable: false,
         fileLocations: [],
         isFavorite: false,
@@ -375,7 +376,13 @@ describe("Scan module", () => {
         fileSizeBytes: 4096,
         fileLocationPath: "/Volumes/Archive/Videos/generated-trip.mp4",
         isAvailable: true,
-        fileLocations: [],
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/generated-trip.mp4",
+            fileSizeBytes: 4096,
+            isPreferred: true,
+          },
+        ],
         isFavorite: false,
         lastOpenedAt: null,
         openCount: 0,
@@ -394,7 +401,13 @@ describe("Scan module", () => {
         fileSizeBytes: 2048,
         fileLocationPath: "/Volumes/Archive/Videos/generating-trip.mp4",
         isAvailable: true,
-        fileLocations: [],
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/generating-trip.mp4",
+            fileSizeBytes: 2048,
+            isPreferred: true,
+          },
+        ],
         isFavorite: false,
         lastOpenedAt: null,
         openCount: 0,
@@ -415,6 +428,11 @@ describe("Scan module", () => {
         path: "/Volumes/Archive/Videos",
       },
     ]);
+    mockedCheckScanRootAvailability.mockResolvedValue({
+      inferenceRules: defaultInferenceRules,
+      isAvailable: false,
+      path: "/Volumes/Archive/Videos",
+    });
     mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
       {
         scanRootPath: "/Volumes/Archive/Videos",
@@ -847,6 +865,89 @@ describe("Scan module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("checks Scan Root availability at startup", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: false,
+        path: "/Volumes/Offline/Videos",
+      },
+    ]);
+    mockedCheckScanRootAvailability.mockImplementation(async (path) => ({
+      inferenceRules: defaultInferenceRules,
+      isAvailable: path === "/Volumes/Archive/Videos",
+      path,
+    }));
+
+    renderApp();
+    await openScanModule();
+
+    await waitFor(() => {
+      expect(mockedCheckScanRootAvailability).toHaveBeenCalledWith(
+        "/Volumes/Archive/Videos",
+      );
+      expect(mockedCheckScanRootAvailability).toHaveBeenCalledWith(
+        "/Volumes/Offline/Videos",
+      );
+    });
+  });
+
+  it("lets unavailable Scan Roots check availability instead of refreshing", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: false,
+        path: "/Volumes/Offline/Videos",
+      },
+    ]);
+    mockedCheckScanRootAvailability
+      .mockResolvedValueOnce({
+        inferenceRules: defaultInferenceRules,
+        isAvailable: false,
+        path: "/Volumes/Offline/Videos",
+      })
+      .mockResolvedValueOnce({
+      inferenceRules: defaultInferenceRules,
+      isAvailable: true,
+      path: "/Volumes/Offline/Videos",
+    });
+
+    renderApp();
+    await openScanModule();
+
+    const scanRoots = await screen.findByRole("region", {
+      name: "Scan Root management",
+    });
+    expect(
+      within(scanRoots).queryByRole("button", {
+        name: "Refresh Scan Root /Volumes/Offline/Videos",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(scanRoots).getByRole("button", {
+        name: "Check availability for Scan Root /Volumes/Offline/Videos",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedCheckScanRootAvailability).toHaveBeenCalledWith(
+        "/Volumes/Offline/Videos",
+      );
+    });
+    expect(mockedStartScanRootRefreshJob).not.toHaveBeenCalled();
+    expect(
+      await within(scanRoots).findByRole("button", {
+        name: "Refresh Scan Root /Volumes/Offline/Videos",
+      }),
+    ).toBeInTheDocument();
+  });
+
   it("lists only Missing Videos in Scan Issues", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -863,13 +964,38 @@ describe("Scan module", () => {
         previewStrip: pendingPreviewStrip,
       },
       {
+        id: 3,
+        title: "Offline Trip",
+        durationMilliseconds: 240000,
+        fileSizeBytes: 2048,
+        fileLocationPath: "/Volumes/Missing/Videos/offline-trip.mp4",
+        isAvailable: false,
+        fileLocations: [
+          {
+            path: "/Volumes/Missing/Videos/offline-trip.mp4",
+            fileSizeBytes: 2048,
+            isPreferred: true,
+          },
+        ],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
         id: 2,
         title: "Available Trip",
         durationMilliseconds: 120000,
         fileSizeBytes: 1024,
         fileLocationPath: "/Volumes/Archive/Videos/available-trip.mp4",
         isAvailable: true,
-        fileLocations: [],
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/available-trip.mp4",
+            fileSizeBytes: 1024,
+            isPreferred: true,
+          },
+        ],
         isFavorite: false,
         lastOpenedAt: null,
         openCount: 0,
@@ -923,6 +1049,9 @@ describe("Scan module", () => {
     ).toBeInTheDocument();
     expect(
       within(scanIssues).queryByText("Available Trip"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(scanIssues).queryByText("Offline Trip"),
     ).not.toBeInTheDocument();
     expect(
       within(scanIssues).queryByText("/Volumes/Missing/Videos"),

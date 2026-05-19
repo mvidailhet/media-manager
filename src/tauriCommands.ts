@@ -4,6 +4,7 @@ const localDesktopAppStatusCommand = "get_local_desktop_app_status";
 const listCatalogVideosCommand = "list_catalog_videos";
 const listScanRootsCommand = "list_scan_roots";
 const addScanRootCommand = "add_scan_root";
+const checkScanRootAvailabilityCommand = "check_scan_root_availability";
 const updateScanRootInferenceRulesCommand = "update_scan_root_inference_rules";
 const removeScanRootCommand = "remove_scan_root";
 const forgetCatalogVideoCommand = "forget_catalog_video";
@@ -240,6 +241,10 @@ export async function listScanRoots(): Promise<ScanRoot[]> {
 
 export async function addScanRoot(path: string): Promise<ScanRoot> {
   return invoke<ScanRoot>(addScanRootCommand, { path });
+}
+
+export async function checkScanRootAvailability(path: string): Promise<ScanRoot> {
+  return invoke<ScanRoot>(checkScanRootAvailabilityCommand, { path });
 }
 
 export async function updateScanRootInferenceRules(

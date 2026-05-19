@@ -8,6 +8,7 @@ import { WrappingCode } from "../../../../../../shared/components/WrappingCode";
 export function Header({
   areInferenceRulesOpen,
   isScanRootRefreshRunning,
+  onCheckScanRootAvailability,
   onRefreshSelectedRoot,
   onRemoveRoot,
   onToggleInferenceRules,
@@ -15,6 +16,7 @@ export function Header({
 }: {
   areInferenceRulesOpen: boolean;
   isScanRootRefreshRunning: boolean;
+  onCheckScanRootAvailability: (scanRoot: ScanRoot) => void;
   onRefreshSelectedRoot: (scanRoot: ScanRoot) => void;
   onRemoveRoot: (scanRoot: ScanRoot) => void;
   onToggleInferenceRules: () => void;
@@ -40,16 +42,29 @@ export function Header({
         >
           <IconSettings size={16} />
         </ActionIcon>
-        <Button
-          type="button"
-          size="xs"
-          variant="default"
-          aria-label={`Refresh Scan Root ${scanRoot.path}`}
-          onClick={() => void onRefreshSelectedRoot(scanRoot)}
-          disabled={isScanRootRefreshRunning}
-        >
-          Refresh
-        </Button>
+        {scanRoot.isAvailable ? (
+          <Button
+            type="button"
+            size="xs"
+            variant="default"
+            aria-label={`Refresh Scan Root ${scanRoot.path}`}
+            onClick={() => void onRefreshSelectedRoot(scanRoot)}
+            disabled={isScanRootRefreshRunning}
+          >
+            Refresh
+          </Button>
+        ) : (
+          <Button
+            type="button"
+            size="xs"
+            variant="default"
+            aria-label={`Check availability for Scan Root ${scanRoot.path}`}
+            onClick={() => void onCheckScanRootAvailability(scanRoot)}
+            disabled={isScanRootRefreshRunning}
+          >
+            Check availability
+          </Button>
+        )}
         <Button
           type="button"
           size="xs"

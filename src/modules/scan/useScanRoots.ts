@@ -10,6 +10,7 @@ import type {
 import {
   addScanRoot,
   cancelScanRootRefreshJob,
+  checkScanRootAvailability,
   listScanRoots,
   removeScanRoot,
   startScanRootRefreshJob,
@@ -19,6 +20,7 @@ import { errorMessage } from "../../shared/errors/errorMessage";
 
 const scanRootsLoadingMessage = "Loading Scan Roots...";
 const scanRootsErrorMessage = "Scan Roots unavailable";
+const scanRootAvailabilityCheckMessage = "Checking Scan Root availability...";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
 const scanRootRefreshEventName = "scan-root-refresh-progress";
 
@@ -63,16 +65,60 @@ export function useScanRoots({
     }
   }
 
+  async function checkSelectedScanRootAvailability(scanRoot: ScanRoot) {
+    try {
+      setScanRootsStatusMessage(scanRootAvailabilityCheckMessage);
+      const checkedScanRoot = await checkScanRootAvailability(scanRoot.path);
+
+      setScanRoots((currentScanRoots) =>
+        currentScanRoots.map((currentScanRoot) =>
+          currentScanRoot.path === checkedScanRoot.path
+            ? {
+                ...currentScanRoot,
+                isAvailable: checkedScanRoot.isAvailable,
+              }
+            : currentScanRoot,
+        ),
+      );
+      setScanRootsStatusMessage("");
+      await refreshCatalogVideos();
+    } catch (error) {
+      setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
+
   useEffect(() => {
     let canUpdateScanRoots = true;
 
     async function loadInitialScanRoots() {
       try {
         const storedScanRoots = await listScanRoots();
+        const checkedScanRoots = await Promise.all(
+          storedScanRoots.map((scanRoot) =>
+            checkScanRootAvailability(scanRoot.path),
+          ),
+        );
 
         if (canUpdateScanRoots) {
-          setScanRoots(storedScanRoots);
+          setScanRoots(
+            storedScanRoots.map((scanRoot) => {
+              const checkedScanRoot = checkedScanRoots.find(
+                (currentCheckedScanRoot) =>
+                  currentCheckedScanRoot.path === scanRoot.path,
+              );
+
+              return checkedScanRoot
+                ? {
+                    ...scanRoot,
+                    isAvailable: checkedScanRoot.isAvailable,
+                  }
+                : scanRoot;
+            }),
+          );
           setScanRootsStatusMessage("");
+          if (storedScanRoots.length > 0) {
+            void latestRefreshCatalogVideos.current();
+          }
         }
       } catch {
         if (canUpdateScanRoots) {
@@ -227,6 +273,7 @@ export function useScanRoots({
   return {
     activeScanRootRefresh,
     cancelSelectedScanRootRefresh,
+    checkSelectedScanRootAvailability,
     chooseScanRootFolder,
     refreshScanRoots,
     refreshSelectedScanRoot,

@@ -13,7 +13,13 @@ impl Catalog {
                         videos.open_count,
                         preferred_file_locations.file_size_bytes,
                         preferred_file_locations.path,
-                        preferred_file_locations.path IS NOT NULL,
+                        EXISTS (
+                            SELECT 1
+                            FROM file_locations
+                            JOIN scan_roots ON scan_roots.id = file_locations.scan_root_id
+                            WHERE file_locations.video_id = videos.id
+                              AND scan_roots.is_available = 1
+                        ),
                         preview_strips.path,
                         preview_strips.frame_count,
                         preview_strips.column_count,

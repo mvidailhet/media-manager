@@ -25,6 +25,7 @@ export type ScanProps = {
   missingVideos: CatalogVideo[];
   activeScanRootRefresh: ScanRootRefreshJobProgress | null;
   onCancelScanRootRefresh: (scanRoot: ScanRoot) => void;
+  onCheckScanRootAvailability: (scanRoot: ScanRoot) => void;
   onChooseScanRootFolder: () => void;
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   onPausePreviewStripQueue: () => void;
@@ -56,6 +57,7 @@ export function Scan({
   missingVideos,
   activeScanRootRefresh,
   onCancelScanRootRefresh,
+  onCheckScanRootAvailability,
   onChooseScanRootFolder,
   onIgnoreFailedPreview,
   onPausePreviewStripQueue,
@@ -91,6 +93,7 @@ export function Scan({
           unprocessableVideoCandidateGroups={unprocessableVideoCandidateGroups}
           activeScanRootRefresh={activeScanRootRefresh}
           onCancelScanRootRefresh={onCancelScanRootRefresh}
+          onCheckScanRootAvailability={onCheckScanRootAvailability}
           onChooseScanRootFolder={onChooseScanRootFolder}
           onRefreshSelectedScanRoot={onRefreshSelectedScanRoot}
           onRequestScanRootRemoval={onRequestScanRootRemoval}

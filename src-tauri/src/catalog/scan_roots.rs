@@ -55,6 +55,14 @@ impl Catalog {
         Ok(scan_roots)
     }
 
+    pub fn check_scan_root_availability(&self, scan_root_path: &str) -> Result<ScanRoot, String> {
+        let scan_root_id = self.scan_root_id(scan_root_path)?;
+        let is_available = Path::new(scan_root_path).is_dir();
+
+        self.mark_scan_root_availability(scan_root_id, is_available)?;
+        self.scan_root(scan_root_path)
+    }
+
     pub fn update_scan_root_inference_rules(
         &self,
         scan_root_path: &str,

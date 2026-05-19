@@ -68,6 +68,10 @@ _Avoid_: Folder path
 A **Video** whose known **File Locations** are not currently available.
 _Avoid_: Deleted video, removed video
 
+**Unavailable Video**:
+A **Video** that cannot currently be opened from any reachable **File Location**.
+_Avoid_: Missing video
+
 **Unavailable Scan Root**:
 A **Scan Root** that cannot currently be reached by the app.
 _Avoid_: Missing video
@@ -75,6 +79,10 @@ _Avoid_: Missing video
 **Refresh**:
 A user-initiated or startup check that updates **Scan Root** availability and reconciles discovered **Videos**.
 _Avoid_: Live watch
+
+**Availability Check**:
+A lightweight check that updates whether **Scan Roots** are reachable without reconciling **Videos**.
+_Avoid_: Refresh, scan
 
 **Background Job**:
 Cancelable local work such as scanning, fingerprinting, or generating **Preview Strips**.
@@ -210,6 +218,10 @@ _Avoid_: Metadata suggestion
 - Adding a **Scan Root** lightly configures **Inference Rules** with safe defaults.
 - A **Scan Root** can have a **Drive Identity** in addition to its folder path.
 - A **Scan Root** can become an **Unavailable Scan Root** when its drive or folder is not reachable.
+- An **Unavailable Scan Root** keeps its last-known **File Locations** in the **Catalog**.
+- An **Availability Check** can run at startup without turning absent files into **Missing Videos**.
+- An **Unavailable Scan Root** can run an **Availability Check** but cannot run a **Refresh** until reachable again.
+- An **Unavailable Video** is only a **Missing Video** when no last-known **File Location** remains.
 - A **Scan Root** is searched for files matching the **Video Extension Allowlist** before video probing validates them.
 - An **Unprocessable Video Candidate** belongs in a review list instead of normal **Video** search results.
 - An **Unprocessable Video Candidate** is retried when its file changes or when manually retried from review.
@@ -696,7 +708,7 @@ _Avoid_: Metadata suggestion
 - **Title** is not the filename; the filename can seed it, but the **Title** belongs to the **Video**.
 - A duplicate file is not a duplicate **Video** when it has the same **Video Fingerprint**; it is a **Duplicate Location**.
 - The **Catalog** is not the source of truth for folder organization; it records metadata and reconciles file movement.
-- **Missing Video** does not mean deleted; it often means the drive or folder containing the file is temporarily unavailable.
+- **Missing Video** does not mean deleted; it means an available **Scan Root** no longer contains a known **File Location**.
 - **Unavailable Scan Root** is different from **Missing Video**: it describes a folder tree that cannot currently be reached, not an individual **Video** whose file is absent.
 - **Trashed Video** is different from **Missing Video** because the app intentionally moved it to Trash and can offer restore while possible.
 - A trash action should not silently affect every **File Location** of a **Video** when duplicate locations exist.

@@ -91,6 +91,7 @@ export function useScanModuleController({
       missingVideos,
       activeScanRootRefresh: scanRootsState.activeScanRootRefresh,
       onCancelScanRootRefresh: scanRootsState.cancelSelectedScanRootRefresh,
+      onCheckScanRootAvailability: scanRootsState.checkSelectedScanRootAvailability,
       onChooseScanRootFolder: scanRootsState.chooseScanRootFolder,
       onIgnoreFailedPreview: scanIssues.ignoreFailedPreview,
       onPausePreviewStripQueue: previewGeneration.pausePreviewStripQueueAction,
