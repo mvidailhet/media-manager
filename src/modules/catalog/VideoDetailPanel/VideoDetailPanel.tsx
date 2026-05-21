@@ -46,6 +46,7 @@ export function VideoDetailPanel({
           onSaveTitle={(title) => void actions.saveTitle(title)}
         />
         <VideoPreview
+          autoPlay
           catalogVideo={video}
           isLarge
           onOpenAtPreviewTime={(startAtSeconds) =>

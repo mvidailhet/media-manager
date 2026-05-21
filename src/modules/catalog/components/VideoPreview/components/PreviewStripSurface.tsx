@@ -1,5 +1,5 @@
 import type { MouseEvent, PointerEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { Badge, Box } from "@mantine/core";
 
@@ -8,6 +8,7 @@ import { formatPlaybackTime } from "../../../../../shared/formatting/videoFormat
 import {
   firstPreviewStripFrameIndex,
   percentageMultiplier,
+  previewStripAutoplayFrameIntervalMilliseconds,
   previewStripFrameIndexFromPointer,
   previewStripFramePosition,
   previewStripPointerRatioFromPointer,
@@ -19,9 +20,11 @@ const hoverBadgeMinimumLeftPercentage = 6;
 const hoverBadgeMaximumLeftPercentage = 94;
 
 export function PreviewStripSurface({
+  autoPlay = false,
   catalogVideo,
   onOpenAtPreviewTime,
 }: {
+  autoPlay?: boolean;
   catalogVideo: CatalogVideo;
   onOpenAtPreviewTime?: (startAtSeconds: number) => void;
 }) {
@@ -33,9 +36,26 @@ export function PreviewStripSurface({
   );
   const [hoverBadgeLeftPercentage, setHoverBadgeLeftPercentage] =
     useState<number>(0);
+  const [isPointerHovering, setIsPointerHovering] = useState(false);
   const previewStrip = catalogVideo.previewStrip;
   const canOpenAtPreviewTime =
     Boolean(onOpenAtPreviewTime) && catalogVideo.isAvailable;
+  const shouldAutoPlayPreviewStrip =
+    autoPlay && previewStrip.status === "generated" && !isPointerHovering;
+
+  useEffect(() => {
+    if (!shouldAutoPlayPreviewStrip || previewStrip.status !== "generated") {
+      return;
+    }
+
+    const autoplayTimer = window.setInterval(() => {
+      setSelectedFrameIndex((currentFrameIndex) =>
+        (currentFrameIndex + 1) % previewStrip.frameCount,
+      );
+    }, previewStripAutoplayFrameIntervalMilliseconds);
+
+    return () => window.clearInterval(autoplayTimer);
+  }, [previewStrip, shouldAutoPlayPreviewStrip]);
 
   function previewStripStartSecondsFromPointer(
     event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>,
@@ -49,6 +69,7 @@ export function PreviewStripSurface({
   }
 
   function updateSelectedPreviewTime(event: PointerEvent<HTMLElement>) {
+    setIsPointerHovering(true);
     const pointerRatio = previewStripPointerRatioFromPointer(event);
 
     if (previewStrip.status === "generated") {
@@ -79,7 +100,10 @@ export function PreviewStripSurface({
   }
 
   function clearSelectedPreviewTime() {
-    setSelectedFrameIndex(firstPreviewStripFrameIndex);
+    setIsPointerHovering(false);
+    if (!autoPlay) {
+      setSelectedFrameIndex(firstPreviewStripFrameIndex);
+    }
     setHoveredStartSeconds(null);
   }
 
@@ -116,6 +140,7 @@ export function PreviewStripSurface({
             backgroundSize: `${previewStrip.columnCount * percentageMultiplier}% ${previewStrip.rowCount * percentageMultiplier}%`,
           }}
           onClick={openAtPreviewTime}
+          onPointerEnter={() => setIsPointerHovering(true)}
           onPointerLeave={clearSelectedPreviewTime}
           onPointerMove={updateSelectedPreviewTime}
         />

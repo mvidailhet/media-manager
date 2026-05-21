@@ -49,6 +49,7 @@ import {
   openMissingVideosTab,
   openPreviewGenerationTab,
 } from "../../test/AppTestHarness";
+import { previewStripAutoplayFrameIntervalMilliseconds } from "./components/VideoPreview/previewStripFrame";
 
 describe("Catalog module", () => {
   beforeEach(resetAppTestHarness);
@@ -1407,6 +1408,112 @@ describe("Catalog module", () => {
         name: "Video Detail Panel",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("autoplays generated Preview Strips only in the Video Detail Panel when not hovering", async () => {
+    const waitForAutoplayFrame = () =>
+      new Promise((resolve) =>
+        setTimeout(resolve, previewStripAutoplayFrameIntervalMilliseconds + 50),
+      );
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 600000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: {
+          status: "generated",
+          path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
+          frameCount: 40,
+          columnCount: 5,
+          rowCount: 8,
+        },
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const gridPreviewStrip = within(catalogVideos).getByRole("img", {
+      name: "Preview Strip for Family Trip",
+    });
+
+    fireEvent.click(
+      await screen.findByRole("article", {
+        name: "Family Trip",
+      }),
+    );
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const detailPreviewStrip = within(detailPanel).getByRole("img", {
+      name: "Preview Strip for Family Trip",
+    });
+    detailPreviewStrip.getBoundingClientRect = vi.fn(
+      () =>
+        ({
+          left: 0,
+          width: 400,
+          right: 400,
+          top: 0,
+          bottom: 225,
+          height: 225,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+
+    expect(gridPreviewStrip).toHaveStyle({
+      backgroundPosition: "0% 57.14285714285714%",
+    });
+    expect(detailPreviewStrip).toHaveStyle({
+      backgroundPosition: "0% 57.14285714285714%",
+    });
+
+    await waitForAutoplayFrame();
+
+    expect(gridPreviewStrip).toHaveStyle({
+      backgroundPosition: "0% 57.14285714285714%",
+    });
+    expect(detailPreviewStrip).toHaveStyle({
+      backgroundPosition: "25% 57.14285714285714%",
+    });
+
+    fireEvent(
+      detailPreviewStrip,
+      new MouseEvent("pointermove", {
+        bubbles: true,
+        clientX: 100,
+      }),
+    );
+
+    expect(detailPreviewStrip).toHaveStyle({
+      backgroundPosition: "0% 28.57142857142857%",
+    });
+
+    await waitForAutoplayFrame();
+
+    expect(detailPreviewStrip).toHaveStyle({
+      backgroundPosition: "0% 28.57142857142857%",
+    });
+
+    fireEvent.pointerLeave(detailPreviewStrip);
+
+    await waitForAutoplayFrame();
+
+    expect(detailPreviewStrip).toHaveStyle({
+      backgroundPosition: "25% 28.57142857142857%",
+    });
   });
 
   it("does not show a Recently Opened tab because Last Opened is a sort option", async () => {

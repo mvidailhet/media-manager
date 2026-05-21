@@ -1,6 +1,7 @@
 import type { MouseEvent, PointerEvent } from "react";
 
-export const firstPreviewStripFrameIndex = 0;
+export const firstPreviewStripFrameIndex = 20;
+export const previewStripAutoplayFrameIntervalMilliseconds = 500;
 export const percentageMultiplier = 100;
 export const millisecondsPerPreviewSecond = 1000;
 

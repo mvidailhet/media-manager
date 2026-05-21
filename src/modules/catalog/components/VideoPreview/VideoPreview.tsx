@@ -13,11 +13,13 @@ import styles from "./VideoPreview.module.css";
 const favoriteIconSize = 18;
 
 export function VideoPreview({
+  autoPlay = false,
   catalogVideo,
   isLarge = false,
   onOpenAtPreviewTime,
   onFavoriteChange,
 }: {
+  autoPlay?: boolean;
   catalogVideo: CatalogVideo;
   isLarge?: boolean;
   onOpenAtPreviewTime?: (startAtSeconds: number) => void;
@@ -37,6 +39,7 @@ export function VideoPreview({
       className={isLarge ? `${styles.preview} ${styles.large}` : styles.preview}
     >
       <PreviewStripSurface
+        autoPlay={autoPlay}
         catalogVideo={catalogVideo}
         onOpenAtPreviewTime={onOpenAtPreviewTime}
       />
