@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import appSource from "../../App.tsx?raw";
@@ -12,6 +14,11 @@ import videosPanelControllerSource from "./VideosPanel/useVideosPanelController.
 import batchMetadataControllerSource from "./BatchMetadataEditPanel/useBatchMetadataController.ts?raw";
 import selectedVideoControllerSource from "./CatalogDetailAside/useSelectedVideoController.ts?raw";
 import metadataSuggestionsControllerSource from "./MetadataSuggestionsPanel/useMetadataSuggestionsController.ts?raw";
+
+const videoPreviewStylesSource = readFileSync(
+  "src/modules/catalog/components/VideoPreview/VideoPreview.module.css",
+  "utf8",
+);
 
 const videosPanelFiles = import.meta.glob("./VideosPanel/**/*.{ts,tsx,css}", {
   eager: true,
@@ -444,6 +451,9 @@ describe("Catalog module boundaries", () => {
     expect(videoPreviewSource).toMatch(/".\/components\/PreviewStripSurface"/);
     expect(videoPreviewSource).toMatch(/".\/VideoPreview\.module\.css"/);
     expect(videoPreviewSource).not.toMatch(/function PreviewStripSurface/);
+    expect(videoPreviewStylesSource).toMatch(/\.large/);
+    expect(videoPreviewStylesSource).toMatch(/width: 100%/);
+    expect(videoPreviewStylesSource).not.toMatch(/max-width: 520px/);
     expect(previewStripSurfaceSource).toMatch(/function PreviewStripSurface/);
     expect(previewStripSurfaceSource).toMatch(/styles\.pendingStrip/);
     expect(previewStripSurfaceSource).toMatch(/previewStripFramePosition/);
