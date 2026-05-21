@@ -121,7 +121,7 @@ describe("App shell", () => {
 
     const appAside = screen.getByRole("complementary");
     const expandButton = await within(appAside).findByRole("button", {
-      name: "Expand",
+      name: "Expand Panel",
     });
 
     expect(getVideoDetailAsideWidth(false)).toBe(videoDetailAsideWidth);
@@ -131,12 +131,12 @@ describe("App shell", () => {
     expect(getVideoDetailAsideWidth(true)).toBe(expandedVideoDetailAsideWidth);
     expect(
       within(appAside).getByRole("button", {
-        name: "Retract",
+        name: "Retract Panel",
       }),
     ).toBeInTheDocument();
     expect(
       within(appAside).queryByRole("button", {
-        name: "Expand",
+        name: "Expand Panel",
       }),
     ).not.toBeInTheDocument();
   });

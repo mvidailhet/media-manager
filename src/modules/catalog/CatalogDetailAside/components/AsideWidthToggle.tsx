@@ -12,22 +12,23 @@ export function AsideWidthToggle({
   isExpanded: boolean;
   onToggle: () => void;
 }) {
-  const label = isExpanded ? 'Retract' : 'Expand';
+  const label = isExpanded ? 'Retract Panel' : 'Expand Panel';
   const Icon = isExpanded ? IconChevronsRight : IconChevronsLeft;
 
   return (
-    <Tooltip label={label}>
-      <ActionIcon
-        aria-label={label}
-        className={styles.toggle}
-        radius="xl"
-        size="lg"
-        variant="filled"
-        onClick={onToggle}
-      >
-        <Icon size={asideWidthToggleIconSize} />
-      </ActionIcon>
-    </Tooltip>
+    <div className={styles.container}>
+      <Tooltip label={label}>
+        <ActionIcon
+          aria-label={label}
+          radius="xl"
+          size="lg"
+          variant="default"
+          onClick={onToggle}
+        >
+          <Icon size={asideWidthToggleIconSize} />
+        </ActionIcon>
+      </Tooltip>
+    </div>
   );
 }
 
