@@ -3,8 +3,11 @@ import type { CatalogVideo } from "../../tauriCommands";
 const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
 const minutesPerHour = 60;
+const secondsPerHour = secondsPerMinute * minutesPerHour;
 const bytesPerMegabyte = 1_000_000;
 const bytesPerGigabyte = 1_000_000_000;
+const twoDigitTimePartLength = 2;
+const twoDigitTimePartPadding = "0";
 
 export function formatOpenHistory(catalogVideo: CatalogVideo) {
   if (catalogVideo.openCount === 0) {
@@ -51,6 +54,28 @@ export function formatDuration(durationMilliseconds: number) {
   }
 
   return `${minutes}m`;
+}
+
+export function formatPlaybackTime(playbackSeconds: number) {
+  const totalSeconds = Math.max(0, Math.round(playbackSeconds));
+  const hours = Math.floor(totalSeconds / secondsPerHour);
+  const minutes = Math.floor(
+    (totalSeconds % secondsPerHour) / secondsPerMinute,
+  );
+  const seconds = totalSeconds % secondsPerMinute;
+  const paddedSeconds = seconds
+    .toString()
+    .padStart(twoDigitTimePartLength, twoDigitTimePartPadding);
+
+  if (hours > 0) {
+    const paddedMinutes = minutes
+      .toString()
+      .padStart(twoDigitTimePartLength, twoDigitTimePartPadding);
+
+    return `${hours}:${paddedMinutes}:${paddedSeconds}`;
+  }
+
+  return `${minutes}:${paddedSeconds}`;
 }
 
 export function formatFileSize(fileSizeBytes: number | null) {

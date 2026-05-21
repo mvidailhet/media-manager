@@ -505,7 +505,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    const videoCard = within(catalogVideos).getByRole("article", {
+    const videoCard = await within(catalogVideos).findByRole("article", {
       name: "Family Trip",
     });
 
@@ -1180,7 +1180,7 @@ describe("Catalog module", () => {
     ).toEqual(["Small Clip", "Large Archive"]);
   });
 
-  it("opens a Video from the grid and refreshes Catalog Videos", async () => {
+  it("opens a Video from the start and refreshes Catalog Videos", async () => {
     mockedListCatalogVideos
       .mockResolvedValueOnce([
         {
@@ -1226,20 +1226,134 @@ describe("Catalog module", () => {
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
-    fireEvent.change(within(detailPanel).getByLabelText("Start time"), {
-      target: { value: "1:23" },
-    });
     fireEvent.click(
       within(detailPanel).getByRole("button", { name: "Open" }),
     );
 
     await waitFor(() => {
-      expect(mockedOpenCatalogVideo).toHaveBeenCalledWith(1, 83);
+      expect(mockedOpenCatalogVideo).toHaveBeenCalledWith(1, 0);
     });
     await waitFor(() => {
       expect(mockedListCatalogVideos).toHaveBeenCalledTimes(2);
     });
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+  });
+
+  it("opens selected Video at the hovered Preview Strip time", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 600000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: {
+          status: "generated",
+          path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
+          frameCount: 40,
+          columnCount: 5,
+          rowCount: 8,
+        },
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("article", {
+        name: "Family Trip",
+      }),
+    );
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const previewStrip = within(detailPanel).getByRole("img", {
+      name: "Preview Strip for Family Trip",
+    });
+    previewStrip.getBoundingClientRect = vi.fn(
+      () =>
+        ({
+          left: 0,
+          width: 400,
+          right: 400,
+          top: 0,
+          bottom: 225,
+          height: 225,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    );
+
+    fireEvent(
+      previewStrip,
+      new MouseEvent("pointermove", {
+        bubbles: true,
+        clientX: 100,
+      }),
+    );
+
+    expect(within(detailPanel).getByText("2:30")).toBeInTheDocument();
+
+    fireEvent(
+      previewStrip,
+      new MouseEvent("click", {
+        bubbles: true,
+        clientX: 100,
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedOpenCatalogVideo).toHaveBeenCalledWith(1, 150);
+    });
+  });
+
+  it("keeps grid Preview Strip clicks as card selection by default", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 600000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: {
+          status: "generated",
+          path: "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
+          frameCount: 40,
+          columnCount: 5,
+          rowCount: 8,
+        },
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const previewStrip = within(catalogVideos).getByRole("img", {
+      name: "Preview Strip for Family Trip",
+    });
+
+    fireEvent.click(previewStrip);
+
+    expect(mockedOpenCatalogVideo).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole("region", {
+        name: "Video Detail Panel",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("does not show a Recently Opened tab because Last Opened is a sort option", async () => {

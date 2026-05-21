@@ -48,6 +48,9 @@ export function VideoDetailPanel({
         <VideoPreview
           catalogVideo={video}
           isLarge
+          onOpenAtPreviewTime={(startAtSeconds) =>
+            void actions.openVideo(startAtSeconds)
+          }
           onFavoriteChange={actions.setFavorite}
         />
         <ActionButtons

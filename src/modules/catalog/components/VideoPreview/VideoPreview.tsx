@@ -15,10 +15,12 @@ const favoriteIconSize = 18;
 export function VideoPreview({
   catalogVideo,
   isLarge = false,
+  onOpenAtPreviewTime,
   onFavoriteChange,
 }: {
   catalogVideo: CatalogVideo;
   isLarge?: boolean;
+  onOpenAtPreviewTime?: (startAtSeconds: number) => void;
   onFavoriteChange: (isFavorite: boolean) => void;
 }) {
   const favoriteButtonLabel = catalogVideo.isFavorite
@@ -34,7 +36,10 @@ export function VideoPreview({
     <Box
       className={isLarge ? `${styles.preview} ${styles.large}` : styles.preview}
     >
-      <PreviewStripSurface catalogVideo={catalogVideo} />
+      <PreviewStripSurface
+        catalogVideo={catalogVideo}
+        onOpenAtPreviewTime={onOpenAtPreviewTime}
+      />
       <button
         aria-label={favoriteButtonLabel}
         className={`${styles.badge} ${styles.favoriteButton}`}

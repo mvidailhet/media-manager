@@ -1,25 +1,96 @@
+import type { MouseEvent, PointerEvent } from "react";
 import { useState } from "react";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { Badge, Box } from "@mantine/core";
 
 import type { CatalogVideo } from "../../../../../tauriCommands";
+import { formatPlaybackTime } from "../../../../../shared/formatting/videoFormatting";
 import {
   firstPreviewStripFrameIndex,
   percentageMultiplier,
   previewStripFrameIndexFromPointer,
   previewStripFramePosition,
+  previewStripPointerRatioFromPointer,
+  previewStripStartSecondsFromPointerRatio,
 } from "../previewStripFrame";
 import styles from "../VideoPreview.module.css";
 
+const hoverBadgeMinimumLeftPercentage = 6;
+const hoverBadgeMaximumLeftPercentage = 94;
+
 export function PreviewStripSurface({
   catalogVideo,
+  onOpenAtPreviewTime,
 }: {
   catalogVideo: CatalogVideo;
+  onOpenAtPreviewTime?: (startAtSeconds: number) => void;
 }) {
   const [selectedFrameIndex, setSelectedFrameIndex] = useState(
     firstPreviewStripFrameIndex,
   );
+  const [hoveredStartSeconds, setHoveredStartSeconds] = useState<number | null>(
+    null,
+  );
+  const [hoverBadgeLeftPercentage, setHoverBadgeLeftPercentage] =
+    useState<number>(0);
   const previewStrip = catalogVideo.previewStrip;
+  const canOpenAtPreviewTime =
+    Boolean(onOpenAtPreviewTime) && catalogVideo.isAvailable;
+
+  function previewStripStartSecondsFromPointer(
+    event: MouseEvent<HTMLElement> | PointerEvent<HTMLElement>,
+  ) {
+    const pointerRatio = previewStripPointerRatioFromPointer(event);
+
+    return previewStripStartSecondsFromPointerRatio(
+      pointerRatio,
+      catalogVideo.durationMilliseconds,
+    );
+  }
+
+  function updateSelectedPreviewTime(event: PointerEvent<HTMLElement>) {
+    const pointerRatio = previewStripPointerRatioFromPointer(event);
+
+    if (previewStrip.status === "generated") {
+      setSelectedFrameIndex(
+        previewStripFrameIndexFromPointer(event, previewStrip.frameCount),
+      );
+    }
+
+    if (!canOpenAtPreviewTime) {
+      return;
+    }
+
+    setHoveredStartSeconds(
+      previewStripStartSecondsFromPointerRatio(
+        pointerRatio,
+        catalogVideo.durationMilliseconds,
+      ),
+    );
+    setHoverBadgeLeftPercentage(
+      Math.min(
+        hoverBadgeMaximumLeftPercentage,
+        Math.max(
+          hoverBadgeMinimumLeftPercentage,
+          pointerRatio * percentageMultiplier,
+        ),
+      ),
+    );
+  }
+
+  function clearSelectedPreviewTime() {
+    setSelectedFrameIndex(firstPreviewStripFrameIndex);
+    setHoveredStartSeconds(null);
+  }
+
+  function openAtPreviewTime(event: MouseEvent<HTMLElement>) {
+    if (!canOpenAtPreviewTime) {
+      return;
+    }
+
+    event.stopPropagation();
+    onOpenAtPreviewTime?.(previewStripStartSecondsFromPointer(event));
+  }
 
   if (previewStrip.status === "generated") {
     const previewStripUrl = convertFileSrc(previewStrip.path);
@@ -30,24 +101,35 @@ export function PreviewStripSurface({
     );
 
     return (
-      <Box
-        aria-label={`Preview Strip for ${catalogVideo.title}`}
-        className={`${styles.strip} ${styles.generatedStrip}`}
-        role="img"
-        style={{
-          backgroundImage: `url(${previewStripUrl})`,
-          backgroundPosition: `${framePosition.x}% ${framePosition.y}%`,
-          backgroundSize: `${previewStrip.columnCount * percentageMultiplier}% ${previewStrip.rowCount * percentageMultiplier}%`,
-        }}
-        onPointerLeave={() =>
-          setSelectedFrameIndex(firstPreviewStripFrameIndex)
-        }
-        onPointerMove={(event) =>
-          setSelectedFrameIndex(
-            previewStripFrameIndexFromPointer(event, previewStrip.frameCount),
-          )
-        }
-      />
+      <Box className={styles.stripFrame}>
+        <Box
+          aria-label={`Preview Strip for ${catalogVideo.title}`}
+          className={
+            canOpenAtPreviewTime
+              ? `${styles.strip} ${styles.generatedStrip} ${styles.openableStrip}`
+              : `${styles.strip} ${styles.generatedStrip}`
+          }
+          role="img"
+          style={{
+            backgroundImage: `url(${previewStripUrl})`,
+            backgroundPosition: `${framePosition.x}% ${framePosition.y}%`,
+            backgroundSize: `${previewStrip.columnCount * percentageMultiplier}% ${previewStrip.rowCount * percentageMultiplier}%`,
+          }}
+          onClick={openAtPreviewTime}
+          onPointerLeave={clearSelectedPreviewTime}
+          onPointerMove={updateSelectedPreviewTime}
+        />
+        {canOpenAtPreviewTime && hoveredStartSeconds !== null ? (
+          <Badge
+            className={styles.hoverTimeBadge}
+            color="dark"
+            variant="filled"
+            style={{ left: `${hoverBadgeLeftPercentage}%` }}
+          >
+            {formatPlaybackTime(hoveredStartSeconds)}
+          </Badge>
+        ) : null}
+      </Box>
     );
   }
 

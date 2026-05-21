@@ -18,6 +18,25 @@
   width: 100%;
 }
 
+.stripFrame {
+  position: relative;
+}
+
+.openableStrip {
+  cursor: pointer;
+}
+
+.hoverTimeBadge {
+  bottom: 36px;
+  max-width: none;
+  min-width: max-content;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  z-index: 2;
+}
+
 .badge {
   position: absolute;
   z-index: 1;
