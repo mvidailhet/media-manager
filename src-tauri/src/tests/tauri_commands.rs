@@ -39,3 +39,27 @@ fn file_location_open_command_uses_the_platform_launcher() {
         vec!["/C", "start", "", "/Volumes/Archive/Videos/family trip.mp4"]
     );
 }
+
+#[test]
+fn video_start_time_open_command_uses_vlc() {
+    let video_path = std::path::Path::new("/Volumes/Archive/Videos/family trip.mp4");
+
+    let macos_command = video_start_time_open_command_for_platform(video_path, 83, "macos");
+    let linux_command = video_start_time_open_command_for_platform(video_path, 83, "linux");
+
+    assert_eq!(
+        macos_command.program,
+        "/Applications/VLC.app/Contents/MacOS/VLC"
+    );
+    assert_eq!(
+        macos_command.arguments,
+        vec!["--start-time=83", "/Volumes/Archive/Videos/family trip.mp4"]
+    );
+    assert_eq!(linux_command.program, "vlc");
+    assert_eq!(
+        linux_command.arguments,
+        vec!["--start-time=83", "/Volumes/Archive/Videos/family trip.mp4"]
+    );
+    assert!(macos_command.should_detach);
+    assert!(linux_command.should_detach);
+}

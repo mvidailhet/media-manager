@@ -48,7 +48,7 @@ export type CatalogProps = {
   onCreateOrAttachTag: (tagName: string) => void;
   onDetachPerformer: (performer: CatalogPerformer) => void;
   onDetachTag: (tag: CatalogTag) => void;
-  onOpenVideo: (catalogVideo: CatalogVideo) => void;
+  onOpenVideo: (catalogVideo: CatalogVideo, startAtSeconds: number) => void;
   onOpenVideoContainingFolder: (catalogVideo: CatalogVideo) => void;
   onRejectMetadataSuggestionSource: (
     request: RejectMetadataSuggestionSourceRequest,

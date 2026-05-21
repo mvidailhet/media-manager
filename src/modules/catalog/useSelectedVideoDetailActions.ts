@@ -12,7 +12,7 @@ export type SelectedVideoDetailActions = {
   detachPerformer: (performer: CatalogPerformer) => void;
   detachTag: (tag: CatalogTag) => void;
   openContainingFolder: () => void;
-  openVideo: () => void;
+  openVideo: (startAtSeconds: number) => void;
   saveTitle: (title: string) => void;
   setFavorite: (isFavorite: boolean) => void;
 };
@@ -36,7 +36,7 @@ export function useSelectedVideoDetailActions({
   onCreateOrAttachTag: (tagName: string) => void;
   onDetachPerformer: (performer: CatalogPerformer) => void;
   onDetachTag: (tag: CatalogTag) => void;
-  onOpenVideo: (catalogVideo: CatalogVideo) => void;
+  onOpenVideo: (catalogVideo: CatalogVideo, startAtSeconds: number) => void;
   onOpenVideoContainingFolder: (catalogVideo: CatalogVideo) => void;
   onSaveTitle: (title: string) => void;
   onSetSelectedFavorite: (isFavorite: boolean) => void;
@@ -54,9 +54,9 @@ export function useSelectedVideoDetailActions({
         onOpenVideoContainingFolder(selectedVideo);
       }
     },
-    openVideo: () => {
+    openVideo: (startAtSeconds: number) => {
       if (selectedVideo) {
-        onOpenVideo(selectedVideo);
+        onOpenVideo(selectedVideo, startAtSeconds);
       }
     },
     saveTitle: onSaveTitle,

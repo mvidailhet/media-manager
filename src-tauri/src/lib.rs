@@ -5,7 +5,7 @@ mod tooling;
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Stdio},
     sync::{Arc, Mutex},
     thread,
 };
@@ -25,6 +25,7 @@ use tauri::{Emitter, Manager, WindowEvent};
 use tooling::{FfmpegConfiguration, FfmpegToolsStatus};
 
 const LOCAL_DESKTOP_APP_STATUS: &str = "Rust command online";
+const MACOS_VLC_APP_BINARY: &str = "/Applications/VLC.app/Contents/MacOS/VLC";
 const CATALOG_DATABASE_FILENAME: &str = "catalog.sqlite3";
 const PREVIEW_STRIP_CACHE_FOLDER_NAME: &str = "preview-strips";
 
@@ -443,6 +444,7 @@ fn set_video_favorite(
 fn open_catalog_video(
     catalog_state: tauri::State<'_, CatalogState>,
     video_id: i64,
+    start_at_seconds: u64,
 ) -> Result<(), String> {
     let catalog = catalog_state
         .catalog
@@ -450,7 +452,7 @@ fn open_catalog_video(
         .map_err(|error| error.to_string())?;
     let file_location_path = catalog.preferred_file_location_path(video_id)?;
 
-    open_file_location(&file_location_path)?;
+    open_video_file_location(&file_location_path, start_at_seconds)?;
     catalog.record_video_opened(video_id)
 }
 
@@ -473,6 +475,30 @@ fn open_catalog_video_containing_folder(
 
 fn open_file_location(file_location_path: &Path) -> Result<(), String> {
     let open_command = file_location_open_command(file_location_path);
+    run_open_command(&open_command)
+}
+
+fn open_video_file_location(
+    file_location_path: &Path,
+    start_at_seconds: u64,
+) -> Result<(), String> {
+    let open_command = video_start_time_open_command(file_location_path, start_at_seconds);
+    run_open_command(&open_command)
+}
+
+fn run_open_command(open_command: &FileLocationOpenCommand) -> Result<(), String> {
+    if open_command.should_detach {
+        Command::new(&open_command.program)
+            .args(&open_command.arguments)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|error| error.to_string())?;
+
+        return Ok(());
+    }
+
     let output = Command::new(&open_command.program)
         .args(&open_command.arguments)
         .output()
@@ -493,10 +519,49 @@ fn open_file_location(file_location_path: &Path) -> Result<(), String> {
 struct FileLocationOpenCommand {
     program: String,
     arguments: Vec<String>,
+    should_detach: bool,
 }
 
 fn file_location_open_command(file_location_path: &Path) -> FileLocationOpenCommand {
     file_location_open_command_for_platform(file_location_path, std::env::consts::OS)
+}
+
+fn video_start_time_open_command(
+    file_location_path: &Path,
+    start_at_seconds: u64,
+) -> FileLocationOpenCommand {
+    video_start_time_open_command_for_platform(
+        file_location_path,
+        start_at_seconds,
+        std::env::consts::OS,
+    )
+}
+
+fn video_start_time_open_command_for_platform(
+    file_location_path: &Path,
+    start_at_seconds: u64,
+    operating_system: &str,
+) -> FileLocationOpenCommand {
+    let file_location_path_text = file_location_path.to_string_lossy().into_owned();
+
+    match operating_system {
+        "macos" => FileLocationOpenCommand {
+            program: MACOS_VLC_APP_BINARY.to_string(),
+            arguments: vec![
+                format!("--start-time={start_at_seconds}"),
+                file_location_path_text,
+            ],
+            should_detach: true,
+        },
+        _ => FileLocationOpenCommand {
+            program: "vlc".to_string(),
+            arguments: vec![
+                format!("--start-time={start_at_seconds}"),
+                file_location_path_text,
+            ],
+            should_detach: true,
+        },
+    }
 }
 
 fn file_location_open_command_for_platform(
@@ -509,6 +574,7 @@ fn file_location_open_command_for_platform(
         "macos" => FileLocationOpenCommand {
             program: "open".to_string(),
             arguments: vec![file_location_path_text],
+            should_detach: false,
         },
         "windows" => FileLocationOpenCommand {
             program: "cmd".to_string(),
@@ -518,10 +584,12 @@ fn file_location_open_command_for_platform(
                 "".to_string(),
                 file_location_path_text,
             ],
+            should_detach: false,
         },
         _ => FileLocationOpenCommand {
             program: "xdg-open".to_string(),
             arguments: vec![file_location_path_text],
+            should_detach: false,
         },
     }
 }

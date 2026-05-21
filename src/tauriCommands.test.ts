@@ -96,9 +96,10 @@ describe("Tauri commands", () => {
   });
 
   it("calls the typed Rust command for opening a Catalog Video", async () => {
-    await openCatalogVideo(7);
+    await openCatalogVideo(7, 83);
 
     expect(mockedInvoke).toHaveBeenCalledWith("open_catalog_video", {
+      startAtSeconds: 83,
       videoId: 7,
     });
   });

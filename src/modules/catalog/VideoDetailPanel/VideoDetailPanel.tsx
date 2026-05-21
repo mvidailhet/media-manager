@@ -52,7 +52,7 @@ export function VideoDetailPanel({
         />
         <ActionButtons
           isAvailable={video.isAvailable}
-          onOpenVideo={() => void actions.openVideo()}
+          onOpenVideo={(startAtSeconds) => void actions.openVideo(startAtSeconds)}
           onOpenContainingFolder={() => void actions.openContainingFolder()}
         />
 

@@ -7,7 +7,8 @@ use crate::tooling::{
     save_ffmpeg_configuration_to_path, FfmpegConfiguration,
 };
 use crate::{
-    file_location_open_command_for_platform, local_desktop_app_status, CATALOG_DATABASE_FILENAME,
+    file_location_open_command_for_platform, local_desktop_app_status,
+    video_start_time_open_command_for_platform, CATALOG_DATABASE_FILENAME,
     PREVIEW_STRIP_CACHE_FOLDER_NAME,
 };
 

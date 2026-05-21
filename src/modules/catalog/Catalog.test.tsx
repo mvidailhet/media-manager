@@ -1226,12 +1226,15 @@ describe("Catalog module", () => {
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
+    fireEvent.change(within(detailPanel).getByLabelText("Start time"), {
+      target: { value: "1:23" },
+    });
     fireEvent.click(
       within(detailPanel).getByRole("button", { name: "Open" }),
     );
 
     await waitFor(() => {
-      expect(mockedOpenCatalogVideo).toHaveBeenCalledWith(1);
+      expect(mockedOpenCatalogVideo).toHaveBeenCalledWith(1, 83);
     });
     await waitFor(() => {
       expect(mockedListCatalogVideos).toHaveBeenCalledTimes(2);

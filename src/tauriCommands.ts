@@ -364,8 +364,11 @@ export async function setVideoFavorite(
   return invoke<void>(setVideoFavoriteCommand, { videoId, isFavorite });
 }
 
-export async function openCatalogVideo(videoId: number): Promise<void> {
-  return invoke<void>(openCatalogVideoCommand, { videoId });
+export async function openCatalogVideo(
+  videoId: number,
+  startAtSeconds = 0,
+): Promise<void> {
+  return invoke<void>(openCatalogVideoCommand, { startAtSeconds, videoId });
 }
 
 export async function openCatalogVideoContainingFolder(

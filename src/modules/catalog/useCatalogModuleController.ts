@@ -328,9 +328,9 @@ export function useCatalogModuleController(): CatalogController {
     }
   }
 
-  async function openVideoFromCatalog(video: CatalogVideo) {
+  async function openVideoFromCatalog(video: CatalogVideo, startAtSeconds: number) {
     try {
-      await openVideo(video.id);
+      await openVideo(video.id, startAtSeconds);
       await refreshCatalogVideos();
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
