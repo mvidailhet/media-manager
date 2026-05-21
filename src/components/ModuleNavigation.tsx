@@ -29,6 +29,7 @@ export function ModuleNavigation({
       aria-label="Module navigation"
       className={styles.moduleNavigation}
       gap="xs"
+      pr="md"
     >
       <Box className={styles.moduleNavigationStart}>
         {activeAppModule !== "catalog" ? (

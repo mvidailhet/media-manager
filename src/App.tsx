@@ -5,7 +5,7 @@ import {
   type CatalogVideo,
   useCatalogModuleController,
 } from "./modules/catalog";
-import { CatalogDetailAside } from "./modules/catalog/CatalogDetailAside";
+import { CatalogDetailAside } from "./modules/catalog/CatalogDetailAside/index";
 import {
   Scan,
   type ScanRoot,
@@ -20,6 +20,12 @@ import { RemoveScanRootConfirmation } from "./components/RemoveScanRootConfirmat
 import { errorMessage } from "./shared/errors/errorMessage";
 
 export const videoDetailAsideWidth = 560;
+export const expandedVideoDetailAsideWidth = 840;
+export const videoDetailAsideBreakpoint = 0;
+
+export function getVideoDetailAsideWidth(isExpanded: boolean) {
+  return isExpanded ? expandedVideoDetailAsideWidth : videoDetailAsideWidth;
+}
 
 export type AppModule = "catalog" | "scan" | "settings";
 
@@ -53,6 +59,11 @@ export default function App() {
   const { settingsAttentionCount, settingsProps } = settings;
   const isVideoDetailAsideVisible =
     activeAppModule === "catalog" && catalogProps.selectedVideo !== null;
+  const [isVideoDetailAsideExpanded, setIsVideoDetailAsideExpanded] =
+    useState(false);
+  const videoDetailAsideCurrentWidth = getVideoDetailAsideWidth(
+    isVideoDetailAsideExpanded,
+  );
 
   async function confirmScanRootRemoval(removalPolicy: ScanRootRemovalPolicy) {
     if (!scanRootPendingRemoval) {
@@ -89,8 +100,8 @@ export default function App() {
   return (
     <AppShell
       aside={{
-        width: videoDetailAsideWidth,
-        breakpoint: "md",
+        width: videoDetailAsideCurrentWidth,
+        breakpoint: videoDetailAsideBreakpoint,
         collapsed: {
           mobile: !isVideoDetailAsideVisible,
           desktop: !isVideoDetailAsideVisible,
@@ -131,7 +142,11 @@ export default function App() {
         ) : null}
       </AppShell.Main>
       {activeAppModule === "catalog" ? (
-        <CatalogDetailAside {...catalogProps} />
+        <CatalogDetailAside
+          {...catalogProps}
+          isExpanded={isVideoDetailAsideExpanded}
+          onExpandedChange={setIsVideoDetailAsideExpanded}
+        />
       ) : null}
     </AppShell>
   );

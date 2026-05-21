@@ -1,8 +1,10 @@
 import { AppShell } from "@mantine/core";
 
-import type { CatalogProps } from "./Catalog";
-import { useSelectedVideoDetailActions } from "./useSelectedVideoDetailActions";
-import { VideoDetailPanel } from "./VideoDetailPanel";
+import type { CatalogProps } from "../Catalog";
+import { useSelectedVideoDetailActions } from "../useSelectedVideoDetailActions";
+import { VideoDetailPanel } from "../VideoDetailPanel";
+import { AsideWidthToggle } from "./components/AsideWidthToggle";
+import styles from "./CatalogDetailAside.module.css";
 
 export function CatalogDetailAside({
   availablePerformers,
@@ -18,10 +20,15 @@ export function CatalogDetailAside({
   onOpenVideoContainingFolder,
   onSaveTitle,
   onSetSelectedFavorite,
+  isExpanded,
+  onExpandedChange,
   selectedPerformers,
   selectedTags,
   selectedVideo,
-}: CatalogProps) {
+}: CatalogProps & {
+  isExpanded: boolean;
+  onExpandedChange: (isExpanded: boolean) => void;
+}) {
   const selectedVideoDetailActions = useSelectedVideoDetailActions({
     onAttachPerformer,
     onAttachTag,
@@ -41,7 +48,11 @@ export function CatalogDetailAside({
   }
 
   return (
-    <AppShell.Aside p="md">
+    <AppShell.Aside className={styles.aside} p="md">
+      <AsideWidthToggle
+        isExpanded={isExpanded}
+        onToggle={() => onExpandedChange(!isExpanded)}
+      />
       <VideoDetailPanel
         actions={selectedVideoDetailActions}
         availablePerformers={availablePerformers}

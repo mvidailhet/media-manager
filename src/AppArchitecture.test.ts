@@ -75,10 +75,10 @@ describe("App module boundaries", () => {
     expect(appSource).not.toMatch(/from "\.\/modules\/settings\//);
     expect(appSource).toMatch(/from "\.\/modules\/catalog"/);
     expect(appSource).toMatch(
-      /from "\.\/modules\/catalog\/CatalogDetailAside"/,
+      /from "\.\/modules\/catalog\/CatalogDetailAside\/index"/,
     );
     expect(appSource).not.toMatch(
-      /from "\.\/modules\/catalog\/(?!CatalogDetailAside")/,
+      /from "\.\/modules\/catalog\/(?!CatalogDetailAside\/index")/,
     );
     expect(appSource).toMatch(/from "\.\/modules\/scan"/);
     expect(appSource).not.toMatch(/from "\.\/modules\/scan\//);

@@ -54,7 +54,7 @@ const batchMetadataEditPanelFiles = import.meta.glob(
   },
 );
 const catalogModuleDetailAsideFiles = import.meta.glob(
-  "./CatalogDetailAside.tsx",
+  "./CatalogDetailAside/**/*.{ts,tsx,css}",
   {
     eager: true,
     query: "?raw",
@@ -329,7 +329,15 @@ describe("Catalog module boundaries", () => {
   it("keeps the Catalog detail aside in a focused file imported directly by App", () => {
     const catalogModuleDetailAsideSource = rawSource(
       catalogModuleDetailAsideFiles,
-      "./CatalogDetailAside.tsx",
+      "./CatalogDetailAside/CatalogDetailAside.tsx",
+    );
+    const catalogModuleDetailAsideBarrelSource = rawSource(
+      catalogModuleDetailAsideFiles,
+      "./CatalogDetailAside/index.ts",
+    );
+    const asideWidthToggleSource = rawSource(
+      catalogModuleDetailAsideFiles,
+      "./CatalogDetailAside/components/AsideWidthToggle.tsx",
     );
 
     expect(catalogModuleDetailAsideSource).not.toBe("");
@@ -344,8 +352,14 @@ describe("Catalog module boundaries", () => {
     expect(catalogModuleEntryPointSource).not.toMatch(
       /CatalogDetailAside/,
     );
+    expect(catalogModuleDetailAsideBarrelSource).toContain(
+      'export { CatalogDetailAside } from "./CatalogDetailAside"',
+    );
+    expect(asideWidthToggleSource).toMatch(/function AsideWidthToggle/);
+    expect(asideWidthToggleSource).toMatch(/IconChevronsLeft/);
+    expect(asideWidthToggleSource).toMatch(/IconChevronsRight/);
     expect(appSource).toMatch(
-      /from "\.\/modules\/catalog\/CatalogDetailAside"/,
+      /from "\.\/modules\/catalog\/CatalogDetailAside\/index"/,
     );
   });
 

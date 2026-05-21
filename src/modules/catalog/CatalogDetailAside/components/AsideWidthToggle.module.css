@@ -1,0 +1,7 @@
+.toggle {
+  left: 0;
+  position: absolute;
+  top: var(--mantine-spacing-md);
+  transform: translateX(-50%);
+  z-index: 1;
+}

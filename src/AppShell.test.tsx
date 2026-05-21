@@ -9,7 +9,12 @@ import {
   openScanModule,
   openSettingsModule,
 } from "./test/AppTestHarness";
-import { videoDetailAsideWidth } from "./App";
+import {
+  expandedVideoDetailAsideWidth,
+  getVideoDetailAsideWidth,
+  videoDetailAsideBreakpoint,
+  videoDetailAsideWidth,
+} from "./App";
 
 describe("App shell", () => {
   beforeEach(resetAppTestHarness);
@@ -79,6 +84,61 @@ describe("App shell", () => {
     expect(
       await within(appAside).findByRole("heading", { name: "City Walk" }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps the Video Detail aside in desktop side-panel mode at narrow app widths", () => {
+    expect(videoDetailAsideBreakpoint).toBe(0);
+  });
+
+  it("expands and retracts the selected Video Detail aside between two widths", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+    );
+
+    const appAside = screen.getByRole("complementary");
+    const expandButton = await within(appAside).findByRole("button", {
+      name: "Expand",
+    });
+
+    expect(getVideoDetailAsideWidth(false)).toBe(videoDetailAsideWidth);
+
+    fireEvent.click(expandButton);
+
+    expect(getVideoDetailAsideWidth(true)).toBe(expandedVideoDetailAsideWidth);
+    expect(
+      within(appAside).getByRole("button", {
+        name: "Retract",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(appAside).queryByRole("button", {
+        name: "Expand",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("renders Catalog as the initial module workspace", async () => {
