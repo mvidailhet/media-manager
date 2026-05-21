@@ -41,25 +41,34 @@ fn file_location_open_command_uses_the_platform_launcher() {
 }
 
 #[test]
-fn video_start_time_open_command_uses_vlc() {
+fn video_start_time_open_command_reuses_the_macos_vlc_player() {
     let video_path = std::path::Path::new("/Volumes/Archive/Videos/family trip.mp4");
 
     let macos_command = video_start_time_open_command_for_platform(video_path, 83, "macos");
+
+    assert_eq!(macos_command.program, "osascript");
+    assert_eq!(macos_command.arguments[0], "-e");
+    assert!(macos_command.arguments[1].contains("tell application \"VLC\""));
+    assert!(macos_command.arguments[1]
+        .contains("OpenURL \"file:///Volumes/Archive/Videos/family%20trip.mp4\""));
+    assert!(macos_command.arguments[1].contains("set current time to 83"));
+    assert!(macos_command.arguments[1].contains("if playing is false then play"));
+    assert!(!macos_command.arguments[1].contains("Media Manager"));
+    assert_eq!(macos_command.arguments[1].matches("end tell").count(), 1);
+    assert!(!macos_command.arguments[1].contains("\n            play\n"));
+    assert!(!macos_command.should_detach);
+}
+
+#[test]
+fn video_start_time_open_command_uses_vlc_on_linux() {
+    let video_path = std::path::Path::new("/Volumes/Archive/Videos/family trip.mp4");
+
     let linux_command = video_start_time_open_command_for_platform(video_path, 83, "linux");
 
-    assert_eq!(
-        macos_command.program,
-        "/Applications/VLC.app/Contents/MacOS/VLC"
-    );
-    assert_eq!(
-        macos_command.arguments,
-        vec!["--start-time=83", "/Volumes/Archive/Videos/family trip.mp4"]
-    );
-    assert_eq!(linux_command.program, "vlc");
     assert_eq!(
         linux_command.arguments,
         vec!["--start-time=83", "/Volumes/Archive/Videos/family trip.mp4"]
     );
-    assert!(macos_command.should_detach);
+    assert_eq!(linux_command.program, "vlc");
     assert!(linux_command.should_detach);
 }

@@ -21,13 +21,13 @@ use preview_generation::{
     PreviewGenerationStart, PreviewGenerationStatus,
 };
 use serde::Deserialize;
-use tauri::{Emitter, Manager, WindowEvent};
+use tauri::{Emitter, Manager, WebviewWindow, WindowEvent};
 use tooling::{FfmpegConfiguration, FfmpegToolsStatus};
 
 const LOCAL_DESKTOP_APP_STATUS: &str = "Rust command online";
-const MACOS_VLC_APP_BINARY: &str = "/Applications/VLC.app/Contents/MacOS/VLC";
 const CATALOG_DATABASE_FILENAME: &str = "catalog.sqlite3";
 const PREVIEW_STRIP_CACHE_FOLDER_NAME: &str = "preview-strips";
+const VLC_PLAYBACK_READY_DELAY_SECONDS: f32 = 0.2;
 
 struct CatalogState {
     catalog: Arc<Mutex<Catalog>>,
@@ -442,6 +442,7 @@ fn set_video_favorite(
 
 #[tauri::command]
 fn open_catalog_video(
+    window: WebviewWindow,
     catalog_state: tauri::State<'_, CatalogState>,
     video_id: i64,
     start_at_seconds: u64,
@@ -453,6 +454,7 @@ fn open_catalog_video(
     let file_location_path = catalog.preferred_file_location_path(video_id)?;
 
     open_video_file_location(&file_location_path, start_at_seconds)?;
+    window.set_focus().map_err(|error| error.to_string())?;
     catalog.record_video_opened(video_id)
 }
 
@@ -546,12 +548,12 @@ fn video_start_time_open_command_for_platform(
 
     match operating_system {
         "macos" => FileLocationOpenCommand {
-            program: MACOS_VLC_APP_BINARY.to_string(),
+            program: "osascript".to_string(),
             arguments: vec![
-                format!("--start-time={start_at_seconds}"),
-                file_location_path_text,
+                "-e".to_string(),
+                vlc_applescript(file_location_path, start_at_seconds),
             ],
-            should_detach: true,
+            should_detach: false,
         },
         _ => FileLocationOpenCommand {
             program: "vlc".to_string(),
@@ -562,6 +564,41 @@ fn video_start_time_open_command_for_platform(
             should_detach: true,
         },
     }
+}
+
+fn vlc_applescript(file_location_path: &Path, start_at_seconds: u64) -> String {
+    let file_location_url = file_url_for_path(file_location_path);
+
+    format!(
+        "tell application \"VLC\"\n\
+            activate\n\
+            OpenURL \"{file_location_url}\"\n\
+            delay {VLC_PLAYBACK_READY_DELAY_SECONDS}\n\
+            set current time to {start_at_seconds}\n\
+            if playing is false then play\n\
+        end tell"
+    )
+}
+
+fn file_url_for_path(file_location_path: &Path) -> String {
+    let file_location_path_text = file_location_path.to_string_lossy();
+    let encoded_path = file_location_path_text
+        .bytes()
+        .map(percent_encode_file_url_byte)
+        .collect::<String>();
+
+    format!("file://{encoded_path}")
+}
+
+fn percent_encode_file_url_byte(byte: u8) -> String {
+    let is_unreserved_letter = byte.is_ascii_alphanumeric();
+    let is_unreserved_symbol = matches!(byte, b'-' | b'.' | b'_' | b'~' | b'/');
+
+    if is_unreserved_letter || is_unreserved_symbol {
+        return char::from(byte).to_string();
+    }
+
+    format!("%{byte:02X}")
 }
 
 fn file_location_open_command_for_platform(
