@@ -11,6 +11,7 @@ export function VideoGrid({
   onSelectVideo,
   onSetFavorite,
   onSetBatchVideoSelected,
+  selectedDetailVideoId,
   selectedVideoIds,
 }: {
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
@@ -18,6 +19,7 @@ export function VideoGrid({
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
+  selectedDetailVideoId: number | null;
   selectedVideoIds: number[];
 }) {
   if (catalogVideos.length === 0) {
@@ -34,6 +36,7 @@ export function VideoGrid({
           onSelectVideo={onSelectVideo}
           onSetFavorite={onSetFavorite}
           onSetBatchVideoSelected={onSetBatchVideoSelected}
+          isSelectedForDetail={catalogVideo.id === selectedDetailVideoId}
           isSelectedForBatch={selectedVideoIds.includes(catalogVideo.id)}
         />
       ))}

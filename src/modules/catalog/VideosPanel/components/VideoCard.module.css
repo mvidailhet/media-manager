@@ -1,0 +1,34 @@
+.card {
+  cursor: pointer;
+  min-width: 0;
+}
+
+.selectedCard {
+  border-color: #228be6;
+  box-shadow: 0 0 0 1px #228be6;
+}
+
+.card:focus-visible {
+  outline: 2px solid #228be6;
+  outline-offset: 2px;
+}
+
+.cardPreview {
+  position: relative;
+}
+
+.title {
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.batchCheckbox {
+  left: 8px;
+  position: absolute;
+  top: 8px;
+  z-index: 1;
+}
+
+.batchCheckbox :global(.mantine-Checkbox-input) {
+  background: rgba(255, 255, 255, 0.86);
+}

@@ -98,9 +98,12 @@ export function Catalog({
   onSetBatchFavorite,
   onSetBatchVideoSelected,
   onSetFavorite,
+  selectedVideo,
   selectedVideoIds,
 }: CatalogProps) {
   const isVideosView = catalogView === "videos";
+  const selectedDetailVideoId = selectedVideo?.id ?? null;
+
   return (
     <>
       {isVideosView ? (
@@ -125,6 +128,7 @@ export function Catalog({
             onSetFavorite={onSetFavorite}
             onSetBatchVideoSelected={onSetBatchVideoSelected}
             onSelectVideo={onSelectVideo}
+            selectedDetailVideoId={selectedDetailVideoId}
             selectedVideoIds={selectedVideoIds}
           />
         </>

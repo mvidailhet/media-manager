@@ -401,6 +401,59 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("marks the Video with the opened Detail Panel as selected in the Videos list", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Trips/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1840000,
+        fileSizeBytes: 40740352,
+        fileLocationPath: "/Volumes/Archive/Trips/city-walk.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const familyTripCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+    const cityWalkCard = within(catalogVideos).getByRole("article", {
+      name: "City Walk",
+    });
+
+    expect(familyTripCard).not.toHaveAttribute("aria-selected");
+
+    fireEvent.click(familyTripCard);
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+    expect(familyTripCard).toHaveAttribute("aria-selected", "true");
+    expect(cityWalkCard).not.toHaveAttribute("aria-selected");
+  });
+
   it("automatically returns to Catalog when the last Metadata Suggestion is resolved", async () => {
     mockedListMetadataSuggestionGroups
       .mockResolvedValueOnce([

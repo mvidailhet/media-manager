@@ -25,6 +25,7 @@ export function VideosPanel({
   onSetFavorite,
   onSetBatchVideoSelected,
   onSelectVideo,
+  selectedDetailVideoId,
   selectedVideoIds,
 }: {
   availablePerformers: CatalogPerformer[];
@@ -40,6 +41,7 @@ export function VideosPanel({
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
   onSelectVideo: (catalogVideo: CatalogVideo) => void;
+  selectedDetailVideoId: number | null;
   selectedVideoIds: number[];
 }) {
   return (
@@ -69,6 +71,7 @@ export function VideosPanel({
           onSelectVideo={onSelectVideo}
           onSetFavorite={onSetFavorite}
           onSetBatchVideoSelected={onSetBatchVideoSelected}
+          selectedDetailVideoId={selectedDetailVideoId}
           selectedVideoIds={selectedVideoIds}
         />
       </Stack>
