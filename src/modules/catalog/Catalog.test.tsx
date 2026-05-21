@@ -2098,6 +2098,7 @@ describe("Catalog module", () => {
     fireEvent.pointerDown(familyTripCard, { button: 0, clientX: 10, clientY: 10 });
     fireEvent.pointerMove(videoGrid, { clientX: 210, clientY: 80 });
 
+    expect(document.body.style.userSelect).toBe("none");
     expect(videoGrid.querySelector('[class*="selectionRectangle"]')).not.toBeNull();
     expect(familyTripCard.className).toContain("batchSelectedCard");
     expect(cityWalkCard.className).toContain("batchSelectedCard");
@@ -2106,6 +2107,8 @@ describe("Catalog module", () => {
     fireEvent.pointerUp(cityWalkCard, { clientX: 210, clientY: 80 });
     fireEvent.click(cityWalkCard);
 
+    expect(document.body.style.userSelect).toBe("");
+    expect(window.getSelection()?.toString()).toBe("");
     expect(
       await screen.findByRole("region", { name: "Batch Edit Panel" }),
     ).toHaveTextContent("2 selected");

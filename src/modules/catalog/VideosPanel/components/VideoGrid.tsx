@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
 import { Box } from "@mantine/core";
 
@@ -40,12 +40,17 @@ export function VideoGrid({
   const gridElement = useRef<HTMLDivElement | null>(null);
   const dragSelectionStart = useRef<DragPoint | null>(null);
   const isDragSelecting = useRef(false);
+  const previousBodyUserSelect = useRef<string | null>(null);
   const shouldSuppressNextCardClick = useRef(false);
   const suppressCardClickTimeoutId = useRef<number | null>(null);
   const [dragSelectionEnd, setDragSelectionEnd] = useState<DragPoint | null>(
     null,
   );
   const [dragSelectedVideoIds, setDragSelectedVideoIds] = useState<number[]>([]);
+
+  useEffect(() => {
+    return () => restoreDocumentTextSelection();
+  }, []);
 
   if (catalogVideos.length === 0) {
     return null;
@@ -56,10 +61,12 @@ export function VideoGrid({
       return;
     }
 
+    event.preventDefault();
     dragSelectionStart.current = {
       x: event.clientX,
       y: event.clientY,
     };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
     clearSuppressedCardClick();
     isDragSelecting.current = false;
     setDragSelectionEnd(null);
@@ -82,6 +89,8 @@ export function VideoGrid({
     ) {
       isDragSelecting.current = true;
       event.preventDefault();
+      disableDocumentTextSelection();
+      window.getSelection()?.removeAllRanges();
       const nextDragSelectionEnd = {
         x: event.clientX,
         y: event.clientY,
@@ -107,6 +116,7 @@ export function VideoGrid({
     }
 
     if (!isDragSelecting.current) {
+      restoreDocumentTextSelection();
       setDragSelectionEnd(null);
       setDragSelectedVideoIds([]);
       if (event.target === event.currentTarget) {
@@ -117,14 +127,42 @@ export function VideoGrid({
     }
 
     isDragSelecting.current = false;
+    restoreDocumentTextSelection();
     suppressNextCardClickIfDragEndedOnCard(event.target !== event.currentTarget);
     event.preventDefault();
+    window.getSelection()?.removeAllRanges();
     setDragSelectionEnd(null);
     setDragSelectedVideoIds([]);
     onReplaceSelectedVideos(videoIdsInsideDragRectangle(startPoint, {
       x: event.clientX,
       y: event.clientY,
     }));
+  }
+
+  function cancelDragSelection() {
+    dragSelectionStart.current = null;
+    isDragSelecting.current = false;
+    restoreDocumentTextSelection();
+    setDragSelectionEnd(null);
+    setDragSelectedVideoIds([]);
+  }
+
+  function disableDocumentTextSelection() {
+    if (previousBodyUserSelect.current !== null) {
+      return;
+    }
+
+    previousBodyUserSelect.current = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+  }
+
+  function restoreDocumentTextSelection() {
+    if (previousBodyUserSelect.current === null) {
+      return;
+    }
+
+    document.body.style.userSelect = previousBodyUserSelect.current;
+    previousBodyUserSelect.current = null;
   }
 
   function suppressNextCardClickIfDragEndedOnCard(shouldSuppress: boolean) {
@@ -224,6 +262,7 @@ export function VideoGrid({
       onKeyDown={clearSelectionFromKeyboard}
       onPointerDown={startDragSelection}
       onPointerMove={trackDragSelection}
+      onPointerCancel={cancelDragSelection}
       onPointerUp={finishDragSelection}
       ref={gridElement}
     >
