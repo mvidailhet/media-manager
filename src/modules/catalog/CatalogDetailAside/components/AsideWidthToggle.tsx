@@ -1,4 +1,4 @@
-import { ActionIcon, Tooltip } from '@mantine/core';
+import { ActionIcon } from '@mantine/core';
 import { IconChevronsLeft, IconChevronsRight } from '@tabler/icons-react';
 
 import styles from './AsideWidthToggle.module.css';
@@ -17,17 +17,15 @@ export function AsideWidthToggle({
 
   return (
     <div className={styles.container}>
-      <Tooltip label={label}>
-        <ActionIcon
-          aria-label={label}
-          radius="xl"
-          size="lg"
-          variant="default"
-          onClick={onToggle}
-        >
-          <Icon size={asideWidthToggleIconSize} />
-        </ActionIcon>
-      </Tooltip>
+      <ActionIcon
+        aria-label={label}
+        radius="xl"
+        size="lg"
+        variant="default"
+        onClick={onToggle}
+      >
+        <Icon size={asideWidthToggleIconSize} />
+      </ActionIcon>
     </div>
   );
 }
