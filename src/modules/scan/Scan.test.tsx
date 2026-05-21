@@ -53,6 +53,10 @@ import {
   openMissingVideosTab,
   openPreviewGenerationTab,
 } from "../../test/AppTestHarness";
+import {
+  firstPreviewStripFrameIndex,
+  previewStripFramePosition,
+} from "../catalog/components/VideoPreview/previewStripFrame";
 
 describe("Scan module", () => {
   beforeEach(resetAppTestHarness);
@@ -220,10 +224,17 @@ describe("Scan module", () => {
     expect(mockedConvertFileSrc).toHaveBeenCalledWith(
       "/Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg",
     );
+    const columnCount = 5;
+    const rowCount = 8;
+    const initialPosition = previewStripFramePosition(
+      firstPreviewStripFrameIndex,
+      columnCount,
+      rowCount,
+    );
     expect(previewStrip).toHaveStyle({
       backgroundImage:
         "url(asset:///Users/michel/Library/Caches/preview-strips/video-1-preview-strip.jpg)",
-      backgroundPosition: "0% 0%",
+      backgroundPosition: `${initialPosition.x}% ${initialPosition.y}%`,
     });
 
     Object.defineProperty(previewStrip, "clientWidth", {
