@@ -33,7 +33,7 @@ export function buildSuggestionVideoTree(
       sourceGroup.scanRootPath,
       video.fileLocationPath,
     );
-    const videoNodeValue = `video:${video.videoId}`;
+    const videoNodeValue = `video:${video.videoId}:${video.fileLocationPath}`;
     const fileName = getFileName(video.fileLocationPath);
     const folderNode = findOrCreateFolderNode(
       rootFolderNode,
@@ -60,10 +60,13 @@ export function getSelectedVideoIds(
   checkedNodeValues: string[],
   videoValueToVideoId: Map<string, number>,
 ) {
-  return checkedNodeValues
+  const selectedVideoIds = checkedNodeValues
     .map((nodeValue) => videoValueToVideoId.get(nodeValue))
-    .filter((videoId): videoId is number => videoId !== undefined)
-    .sort((leftVideoId, rightVideoId) => leftVideoId - rightVideoId);
+    .filter((videoId): videoId is number => videoId !== undefined);
+
+  return Array.from(new Set(selectedVideoIds)).sort(
+    (leftVideoId, rightVideoId) => leftVideoId - rightVideoId,
+  );
 }
 
 function findOrCreateFolderNode(
