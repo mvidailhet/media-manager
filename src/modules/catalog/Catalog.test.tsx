@@ -575,7 +575,12 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    const videoCard = await within(catalogVideos).findByRole("article", {
+    await waitFor(() => {
+      expect(within(catalogVideos).getAllByText("Blair").length).toBeGreaterThan(
+        0,
+      );
+    });
+    const videoCard = within(catalogVideos).getByRole("article", {
       name: "Family Trip",
     });
 
@@ -1295,6 +1300,107 @@ describe("Catalog module", () => {
     ).toEqual(["Small Clip", "Large Archive"]);
   });
 
+  it("groups Catalog Videos by first Performer and keeps unassigned Videos visible", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Solo Clip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/solo-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Shared Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/shared-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 3,
+        title: "Loose Clip",
+        durationMilliseconds: 240000,
+        fileSizeBytes: 24000000,
+        fileLocationPath: "/Volumes/Archive/Videos/loose-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+    mockedPerformersForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 1) {
+        return [{ id: 9, name: "Blair" }];
+      }
+
+      if (videoId === 2) {
+        return [
+          { id: 7, name: "Alex" },
+          { id: 9, name: "Blair" },
+        ];
+      }
+
+      return [];
+    });
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await within(catalogVideos).findByRole("article", {
+      name: "Shared Clip",
+    });
+    const alexHeading = within(catalogVideos).getAllByText("Alex")[0];
+    const blairHeading = within(catalogVideos).getAllByText("Blair")[0];
+    const unassignedHeading = within(catalogVideos).getByText("Unassigned");
+    const sharedClipCard = within(catalogVideos).getByRole("article", {
+      name: "Shared Clip",
+    });
+    const soloClipCard = within(catalogVideos).getByRole("article", {
+      name: "Solo Clip",
+    });
+    const looseClipCard = within(catalogVideos).getByRole("article", {
+      name: "Loose Clip",
+    });
+
+    expect(sharedClipCard).toBeInTheDocument();
+    expect(soloClipCard).toBeInTheDocument();
+    expect(looseClipCard).toBeInTheDocument();
+    expect(
+      Boolean(
+        alexHeading.compareDocumentPosition(sharedClipCard) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    expect(
+      Boolean(
+        blairHeading.compareDocumentPosition(soloClipCard) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+    expect(
+      Boolean(
+        unassignedHeading.compareDocumentPosition(looseClipCard) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
+    ).toBe(true);
+  });
+
   it("opens a Video from the start and refreshes Catalog Videos", async () => {
     mockedListCatalogVideos
       .mockResolvedValueOnce([
@@ -1748,10 +1854,9 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    await within(catalogVideos).findByText("Blair");
     fireEvent.click(
-      await within(catalogVideos).findByRole("article", {
-        name: "Family Trip",
-      }),
+      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
       { metaKey: true },
     );
     fireEvent.click(
@@ -1887,23 +1992,23 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    const familyTripCard = await within(catalogVideos).findByRole("article", {
-      name: "Family Trip",
-    });
-    const cityWalkCard = within(catalogVideos).getByRole("article", {
-      name: "City Walk",
-    });
+    await within(catalogVideos).findByText("Blair");
 
     expect(
       within(catalogVideos).queryByLabelText("Select Family Trip"),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(familyTripCard);
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
+    );
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
 
-    fireEvent.click(cityWalkCard, { metaKey: true });
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
     const batchEditPanel = await screen.findByRole("region", {
       name: "Batch Edit Panel",
     });
@@ -1912,7 +2017,10 @@ describe("Catalog module", () => {
       screen.queryByRole("region", { name: "Video Detail Panel" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(cityWalkCard, { metaKey: true });
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
     ).toBeInTheDocument();
@@ -2164,7 +2272,8 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+    await screen.findByText("Blair");
+    fireEvent.click(screen.getByRole("article", { name: "Family Trip" }));
 
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
@@ -2240,7 +2349,8 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+    await screen.findByText("Blair");
+    fireEvent.click(screen.getByRole("article", { name: "Family Trip" }));
 
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",

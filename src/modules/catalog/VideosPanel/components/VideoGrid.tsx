@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
-import { Box } from "@mantine/core";
+import { Badge, Box } from "@mantine/core";
 
 import type { CatalogVideo } from "../../../../tauriCommands";
 import type { CatalogVideoMetadata } from "../../catalogTypes";
+import { metadataBadgeColorForKind } from "../../components/metadataBadgeStyles";
 import type { VideoSelectionModifiers } from "../../useCatalogModuleController";
+import { groupCatalogVideosByFirstPerformer } from "../catalogVideoPerformerGroups";
 import styles from "../VideosPanel.module.css";
 import { VideoCard } from "./VideoCard";
 
@@ -14,6 +16,9 @@ type DragPoint = {
   x: number;
   y: number;
 };
+
+const unassignedGroupLabel = "Unassigned";
+const unassignedGroupBadgeColor = "gray";
 
 export function VideoGrid({
   catalogVideoMetadataById,
@@ -254,6 +259,10 @@ export function VideoGrid({
   }
 
   const selectionRectangleStyle = dragSelectionRectangleStyle();
+  const performerGroups = groupCatalogVideosByFirstPerformer({
+    catalogVideoMetadataById,
+    catalogVideos,
+  });
 
   return (
     <Box
@@ -269,20 +278,37 @@ export function VideoGrid({
       {selectionRectangleStyle ? (
         <Box className={styles.selectionRectangle} style={selectionRectangleStyle} />
       ) : null}
-      {catalogVideos.map((catalogVideo) => (
-        <VideoCard
-          catalogVideo={catalogVideo}
-          catalogVideoMetadata={catalogVideoMetadataById[catalogVideo.id]}
-          key={catalogVideo.id}
-          onSelectVideo={onSelectVideo}
-          onSetFavorite={onSetFavorite}
-          onShouldIgnoreClick={consumeSuppressedCardClick}
-          isSelectedForDetail={catalogVideo.id === selectedDetailVideoId}
-          isSelectedForBatch={
-            selectedVideoIds.includes(catalogVideo.id) ||
-            dragSelectedVideoIds.includes(catalogVideo.id)
-          }
-        />
+      {performerGroups.map((performerGroup) => (
+        <Fragment key={performerGroup.performer?.id ?? "unassigned"}>
+          <Box className={styles.performerGroup}>
+            <Badge
+             size='xl'
+              color={
+                performerGroup.performer
+                  ? metadataBadgeColorForKind("performer")
+                  : unassignedGroupBadgeColor
+              }
+              variant="light"
+            >
+              {performerGroup.performer?.name ?? unassignedGroupLabel}
+            </Badge>
+          </Box>
+          {performerGroup.videos.map((catalogVideo) => (
+            <VideoCard
+              catalogVideo={catalogVideo}
+              catalogVideoMetadata={catalogVideoMetadataById[catalogVideo.id]}
+              key={catalogVideo.id}
+              onSelectVideo={onSelectVideo}
+              onSetFavorite={onSetFavorite}
+              onShouldIgnoreClick={consumeSuppressedCardClick}
+              isSelectedForDetail={catalogVideo.id === selectedDetailVideoId}
+              isSelectedForBatch={
+                selectedVideoIds.includes(catalogVideo.id) ||
+                dragSelectedVideoIds.includes(catalogVideo.id)
+              }
+            />
+          ))}
+        </Fragment>
       ))}
     </Box>
   );

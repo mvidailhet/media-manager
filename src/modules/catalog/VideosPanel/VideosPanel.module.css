@@ -6,6 +6,10 @@
   user-select: none;
 }
 
+.performerGroup {
+  grid-column: 1 / -1;
+}
+
 .selectionRectangle {
   background: rgba(34, 139, 230, 0.16);
   border: 1px solid #228be6;
