@@ -638,6 +638,88 @@ describe("Scan module", () => {
     );
   });
 
+  it("updates the Metadata Suggestions toolbar badge after the Initial Scan creates suggestions", async () => {
+    let scanRootRefreshEvent:
+      | ((event: {
+          payload: {
+            scanRootPath: string;
+            status: string;
+            processedVideoCandidateCount: number;
+            totalVideoCandidateCount: number | null;
+            scannedVideoCount: number;
+            unprocessableCandidateCount: number;
+            message: string | null;
+          };
+        }) => void)
+      | undefined;
+    mockedListen.mockImplementation(async (_eventName, eventHandler) => {
+      scanRootRefreshEvent = eventHandler as typeof scanRootRefreshEvent;
+      return () => undefined;
+    });
+    mockedOpen.mockResolvedValue("/Volumes/Archive/Videos");
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([
+        {
+          suggestionKind: "tag",
+          suggestedValue: "Trips",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Trips",
+              videos: [
+                {
+                  videoId: 1,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Trips/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+
+    renderApp();
+
+    expect(
+      screen.queryByRole("button", { name: /^Metadata Suggestions/ }),
+    ).not.toBeInTheDocument();
+
+    await openScanModule();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Choose folder" }),
+    );
+    await waitFor(() => {
+      expect(mockedStartScanRootRefreshJob).toHaveBeenCalledWith(
+        "/Volumes/Archive/Videos",
+      );
+    });
+
+    scanRootRefreshEvent?.({
+      payload: {
+        scanRootPath: "/Volumes/Archive/Videos",
+        status: "complete",
+        processedVideoCandidateCount: 1,
+        totalVideoCandidateCount: 1,
+        scannedVideoCount: 1,
+        unprocessableCandidateCount: 0,
+        message: null,
+      },
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Back to Catalog" }),
+    );
+
+    const metadataSuggestionsButton = await screen.findByRole("button", {
+      name: "Metadata Suggestions, 1 groups",
+    });
+
+    expect(metadataSuggestionsButton).toBeInTheDocument();
+    expect(within(metadataSuggestionsButton).getByText("1")).toBeInTheDocument();
+  });
+
   it("shows live Scan Root refresh progress and disables conflicting actions", async () => {
     let scanRootRefreshEvent:
       | ((event: {
@@ -782,6 +864,68 @@ describe("Scan module", () => {
       "/Volumes/Archive/Videos",
       "preserveMissingVideos",
     );
+  });
+
+  it("removes Metadata Suggestions for a removed Scan Root from the Catalog entry point", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+    ]);
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestionKind: "tag",
+          suggestedValue: "Trips",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Trips",
+              videos: [
+                {
+                  videoId: 1,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Trips/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    renderApp();
+
+    expect(
+      await screen.findByRole("button", {
+        name: "Metadata Suggestions, 1 groups",
+      }),
+    ).toBeInTheDocument();
+
+    await openScanModule();
+    fireEvent.click(await screen.findByRole("button", { name: "Remove" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Preserve as Missing Videos" }),
+    );
+    await waitFor(() => {
+      expect(mockedRemoveScanRoot).toHaveBeenCalledWith(
+        "/Volumes/Archive/Videos",
+        "preserveMissingVideos",
+      );
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Back to Catalog" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("button", { name: /^Metadata Suggestions/ }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("keeps the Scan Root removal confirmation open when removal fails", async () => {

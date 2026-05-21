@@ -34,6 +34,7 @@ type CatalogController = {
   forgetMissingVideo: (videoId: number) => Promise<void>;
   missingVideos: CatalogVideo[];
   refreshCatalogVideos: () => Promise<void>;
+  refreshMetadataSuggestionGroups: () => Promise<void>;
 };
 
 function uniqueMetadataNames(metadataNames: string[]) {
@@ -842,6 +843,7 @@ export function useCatalogModuleController(): CatalogController {
     forgetMissingVideo,
     missingVideos,
     refreshCatalogVideos,
+    refreshMetadataSuggestionGroups,
   };
 }
 

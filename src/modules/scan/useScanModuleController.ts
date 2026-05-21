@@ -24,12 +24,14 @@ export function useScanModuleController({
   catalogVideos,
   missingVideos,
   refreshCatalogVideos,
+  refreshMetadataSuggestionGroups,
   onRequestMissingVideoForget,
   onRequestScanRootRemoval,
 }: {
   catalogVideos: CatalogVideo[];
   missingVideos: CatalogVideo[];
   refreshCatalogVideos: () => Promise<void>;
+  refreshMetadataSuggestionGroups: () => Promise<void>;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
 }): ScanController {
@@ -42,6 +44,7 @@ export function useScanModuleController({
   });
   const scanRootsState = useScanRoots({
     refreshCatalogVideos,
+    refreshMetadataSuggestionGroups,
     refreshPreviewStripQueueStatus:
       previewGeneration.refreshPreviewStripQueueStatus,
   });

@@ -36,6 +36,7 @@ export default function App() {
     forgetMissingVideo,
     missingVideos,
     refreshCatalogVideos,
+    refreshMetadataSuggestionGroups,
   } = catalog;
   const scan = useScanModuleController({
     catalogVideos,
@@ -43,6 +44,7 @@ export default function App() {
     onRequestMissingVideoForget: setMissingVideoPendingForget,
     onRequestScanRootRemoval: setScanRootPendingRemoval,
     refreshCatalogVideos,
+    refreshMetadataSuggestionGroups,
   });
   const settings = useSettingsModuleController({
     refreshMissingVideos: async () => scan.refreshMissingVideos(false),

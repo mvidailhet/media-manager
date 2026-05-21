@@ -28,9 +28,11 @@ const scanRootRefreshEventName = "scan-root-refresh-progress";
 
 export function useScanRoots({
   refreshCatalogVideos,
+  refreshMetadataSuggestionGroups,
   refreshPreviewStripQueueStatus,
 }: {
   refreshCatalogVideos: () => Promise<void>;
+  refreshMetadataSuggestionGroups: () => Promise<void>;
   refreshPreviewStripQueueStatus: () => Promise<void>;
 }) {
   const [scanRoots, setScanRoots] = useState<ScanRoot[]>([]);
@@ -47,12 +49,21 @@ export function useScanRoots({
   const latestRefreshPreviewStripQueueStatus = useRef(
     refreshPreviewStripQueueStatus,
   );
+  const latestRefreshMetadataSuggestionGroups = useRef(
+    refreshMetadataSuggestionGroups,
+  );
 
   useEffect(() => {
     latestRefreshCatalogVideos.current = refreshCatalogVideos;
+    latestRefreshMetadataSuggestionGroups.current =
+      refreshMetadataSuggestionGroups;
     latestRefreshPreviewStripQueueStatus.current =
       refreshPreviewStripQueueStatus;
-  }, [refreshCatalogVideos, refreshPreviewStripQueueStatus]);
+  }, [
+    refreshCatalogVideos,
+    refreshMetadataSuggestionGroups,
+    refreshPreviewStripQueueStatus,
+  ]);
 
   async function refreshUnprocessableVideoCandidates() {
     const candidateGroups = await listUnprocessableVideoCandidatesByScanRoot();
@@ -168,6 +179,7 @@ export function useScanRoots({
           if (isFinishedScanRootRefresh(event.payload.status)) {
             void refreshScanRoots(false);
             void latestRefreshCatalogVideos.current();
+            void latestRefreshMetadataSuggestionGroups.current();
             void latestRefreshPreviewStripQueueStatus.current();
           }
         },
@@ -237,6 +249,7 @@ export function useScanRoots({
       );
       setScanRootsStatusMessage("");
       await refreshCatalogVideos();
+      await refreshMetadataSuggestionGroups();
       await refreshUnprocessableVideoCandidates();
       return true;
     } catch (error) {
