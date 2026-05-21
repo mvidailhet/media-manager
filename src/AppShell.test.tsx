@@ -189,7 +189,7 @@ describe("App shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps Video Detail and Batch Metadata Edit when applying the Favorite Search Filter", async () => {
+  it("keeps Batch Edit when applying the Favorite Search Filter", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -230,13 +230,14 @@ describe("App shell", () => {
       }),
     );
     fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
+    fireEvent.click(within(catalogVideos).getByLabelText("Select City Walk"));
 
     expect(
-      await screen.findByRole("region", { name: "Video Detail Panel" }),
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
     ).toBeInTheDocument();
     expect(
-      await screen.findByRole("region", { name: "Batch Metadata Edit" }),
-    ).toBeInTheDocument();
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
       within(catalogVideos).getByRole("checkbox", {
@@ -245,10 +246,7 @@ describe("App shell", () => {
     );
 
     expect(
-      screen.getByRole("region", { name: "Video Detail Panel" }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("region", { name: "Batch Metadata Edit" }),
+      screen.getByRole("region", { name: "Batch Edit Panel" }),
     ).toBeInTheDocument();
   });
 

@@ -5,7 +5,7 @@ import type {
   MetadataSuggestionGroup,
   RejectMetadataSuggestionSourceRequest,
 } from "../../tauriCommands";
-import { BatchMetadataEditPanel } from "./BatchMetadataEditPanel";
+import type { BatchMetadataValue } from "./BatchEditPanel";
 import type {
   CatalogMetadataSuggestionAcceptanceRequest,
   CatalogVideoMetadata,
@@ -20,8 +20,8 @@ import { VideosPanel } from "./VideosPanel";
 export type CatalogProps = {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
-  batchRemovablePerformers: CatalogPerformer[];
-  batchRemovableTags: CatalogTag[];
+  batchRemovablePerformers: BatchMetadataValue<CatalogPerformer>[];
+  batchRemovableTags: BatchMetadataValue<CatalogTag>[];
   batchSelectedVideoCount: number;
   catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
@@ -71,9 +71,6 @@ export type CatalogProps = {
 export function Catalog({
   availablePerformers,
   availableTags,
-  batchRemovablePerformers,
-  batchRemovableTags,
-  batchSelectedVideoCount,
   catalogVideoActionStatusMessage,
   catalogVideoFilters,
   catalogVideoMetadataById,
@@ -83,19 +80,12 @@ export function Catalog({
   catalogView,
   metadataSuggestionGroups,
   onAcceptMetadataSuggestionVideos,
-  onAppendPerformer,
-  onAppendTag,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
   onCatalogViewChange,
-  onCreateOrAppendPerformer,
-  onCreateOrAppendTag,
   onRejectMetadataSuggestionSource,
-  onRemovePerformer,
-  onRemoveTag,
   onReviewVideo,
   onSelectVideo,
-  onSetBatchFavorite,
   onSetBatchVideoSelected,
   onSetFavorite,
   selectedVideo,
@@ -143,22 +133,6 @@ export function Catalog({
           onReturnToVideosView={() => onCatalogViewChange("videos")}
         />
       )}
-      {batchSelectedVideoCount > 0 ? (
-        <BatchMetadataEditPanel
-          availablePerformers={availablePerformers}
-          availableTags={availableTags}
-          onAppendPerformer={onAppendPerformer}
-          onAppendTag={onAppendTag}
-          onCreateOrAppendPerformer={onCreateOrAppendPerformer}
-          onCreateOrAppendTag={onCreateOrAppendTag}
-          onRemovePerformer={onRemovePerformer}
-          onRemoveTag={onRemoveTag}
-          onSetFavorite={onSetBatchFavorite}
-          removablePerformers={batchRemovablePerformers}
-          removableTags={batchRemovableTags}
-          selectedVideoCount={batchSelectedVideoCount}
-        />
-      ) : null}
     </>
   );
 }

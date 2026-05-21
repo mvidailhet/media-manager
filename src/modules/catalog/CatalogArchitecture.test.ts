@@ -11,7 +11,7 @@ import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataS
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
 import videosPanelControllerSource from "./VideosPanel/useVideosPanelController.ts?raw";
-import batchMetadataControllerSource from "./BatchMetadataEditPanel/useBatchMetadataController.ts?raw";
+import batchMetadataControllerSource from "./BatchEditPanel/useBatchMetadataController.ts?raw";
 import selectedVideoControllerSource from "./CatalogDetailAside/useSelectedVideoController.ts?raw";
 import metadataSuggestionsControllerSource from "./MetadataSuggestionsPanel/useMetadataSuggestionsController.ts?raw";
 
@@ -45,15 +45,15 @@ const legacyCatalogVideosPanelTopLevelFiles = import.meta.glob(
     import: "default",
   },
 );
-const batchMetadataEditPanelBarrelFiles = import.meta.glob(
-  "./BatchMetadataEditPanel/**/index.*",
+const batchEditPanelBarrelFiles = import.meta.glob(
+  "./BatchEditPanel/**/index.*",
   {
     eager: true,
     query: "?raw",
   },
 );
-const batchMetadataEditPanelFiles = import.meta.glob(
-  "./BatchMetadataEditPanel/**/*.tsx",
+const batchEditPanelFiles = import.meta.glob(
+  "./BatchEditPanel/**/*.tsx",
   {
     eager: true,
     query: "?raw",
@@ -283,53 +283,44 @@ describe("Catalog module boundaries", () => {
     expect(Object.keys(legacyCatalogVideosPanelTopLevelFiles)).toHaveLength(0);
   });
 
-  it("keeps Batch Metadata Edit actions in a focused file", () => {
-    const batchMetadataEditPanelSource = rawSource(
-      batchMetadataEditPanelFiles,
-      "./BatchMetadataEditPanel/BatchMetadataEditPanel.tsx",
+  it("keeps Batch Edit actions in focused files", () => {
+    const batchEditPanelSource = rawSource(
+      batchEditPanelFiles,
+      "./BatchEditPanel/BatchEditPanel.tsx",
     );
     const favoriteActionsSource = rawSource(
-      batchMetadataEditPanelFiles,
-      "./BatchMetadataEditPanel/components/FavoriteActions.tsx",
+      batchEditPanelFiles,
+      "./BatchEditPanel/components/FavoriteActions.tsx",
     );
-    const metadataActionsSource = rawSource(
-      batchMetadataEditPanelFiles,
-      "./BatchMetadataEditPanel/components/MetadataActions.tsx",
+    const batchMetadataSectionSource = rawSource(
+      batchEditPanelFiles,
+      "./BatchEditPanel/components/BatchMetadataSection.tsx",
     );
 
-    expect(batchMetadataEditPanelSource).not.toBe("");
+    expect(batchEditPanelSource).not.toBe("");
     expect(favoriteActionsSource).not.toBe("");
-    expect(metadataActionsSource).not.toBe("");
-    expect(batchMetadataEditPanelSource).toMatch(
-      /function BatchMetadataEditPanel/,
-    );
+    expect(batchMetadataSectionSource).not.toBe("");
+    expect(batchEditPanelSource).toMatch(/function BatchEditPanel/);
     expect(favoriteActionsSource).toMatch(/function FavoriteActions/);
     expect(favoriteActionsSource).toMatch(/onSetFavorite/);
-    expect(metadataActionsSource).toMatch(/function MetadataActions/);
-    expect(metadataActionsSource).toMatch(/findMetadataByName/);
-    expect(metadataActionsSource).toMatch(/findNearMetadataMatch/);
-    expect(batchMetadataEditPanelSource).toMatch(
+    expect(batchMetadataSectionSource).toMatch(/function BatchMetadataSection/);
+    expect(batchMetadataSectionSource).toMatch(/findMetadataByName/);
+    expect(batchMetadataSectionSource).toMatch(/on some selected Videos/);
+    expect(batchEditPanelSource).toMatch(
       /from "\.\/components\/FavoriteActions"/,
     );
-    expect(batchMetadataEditPanelSource).toMatch(
-      /from "\.\/components\/MetadataActions"/,
+    expect(batchEditPanelSource).toMatch(
+      /from "\.\/components\/BatchMetadataSection"/,
     );
-    expect(batchMetadataEditPanelSource).not.toMatch(
-      /function FavoriteActions/,
-    );
-    expect(batchMetadataEditPanelSource).not.toMatch(/function MetadataActions/);
-    expect(batchMetadataEditPanelSource).not.toMatch(
-      /function BatchMetadataActions/,
-    );
-    expect(metadataActionsSource).not.toMatch(/BatchMetadataActions/);
-    expect(catalogSource).toMatch(
-      /from "\.\/BatchMetadataEditPanel"/,
-    );
+    expect(batchEditPanelSource).not.toMatch(/function FavoriteActions/);
+    expect(batchEditPanelSource).not.toMatch(/function BatchMetadataSection/);
+    expect(catalogSource).not.toMatch(/import \{ BatchEditPanel \}/);
+    expect(catalogSource).not.toMatch(/<BatchEditPanel/);
     expect(catalogSource).not.toMatch(
-      /from "\.\/BatchMetadataEditPanel\.tsx"/,
+      /from "\.\/BatchEditPanel\.tsx"/,
     );
-    expect(Object.keys(batchMetadataEditPanelBarrelFiles)).toEqual([
-      "./BatchMetadataEditPanel/index.ts",
+    expect(Object.keys(batchEditPanelBarrelFiles)).toEqual([
+      "./BatchEditPanel/index.ts",
     ]);
   });
 
@@ -355,6 +346,7 @@ describe("Catalog module boundaries", () => {
       /useSelectedVideoDetailActions/,
     );
     expect(catalogModuleDetailAsideSource).toMatch(/VideoDetailPanel/);
+    expect(catalogModuleDetailAsideSource).toMatch(/BatchEditPanel/);
     expect(catalogSource).not.toMatch(/function CatalogDetailAside/);
     expect(catalogModuleEntryPointSource).not.toMatch(
       /CatalogDetailAside/,

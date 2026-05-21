@@ -208,9 +208,13 @@ _Avoid_: Favorites view, tag view
 An action that combines duplicate **Tags** or duplicate **Performers** into one accepted value.
 _Avoid_: Alias
 
+**Batch Edit**:
+An action that applies or removes **Tags**, **Performers**, or **Favorite** across multiple **Videos** at once.
+_Avoid_: Metadata suggestion, video detail edit
+
 **Batch Metadata Edit**:
 An action that applies or removes accepted metadata across multiple **Videos** at once.
-_Avoid_: Metadata suggestion
+_Avoid_: Favorite edit, metadata suggestion
 
 ## Relationships
 
@@ -364,7 +368,8 @@ _Avoid_: Metadata suggestion
 - **Tag** and **Performer** search is case-insensitive while display names can preserve title casing.
 - Editing **Local Metadata** changes the **Catalog** only and does not rename or move files.
 - Editing **Title** does not rename any **File Location**.
-- A **Batch Metadata Edit** can apply or remove **Tags**, **Performers**, or **Favorite** across selected **Videos**.
+- A **Batch Edit** can apply or remove **Tags**, **Performers**, or **Favorite** across selected **Videos**.
+- A **Batch Metadata Edit** is the metadata part of a **Batch Edit**.
 - v1 **Batch Metadata Edit** appends or removes metadata but does not replace all metadata at once.
 - v1 **Batch Metadata Edit** does not edit **Title**.
 - Batch **Favorite** edits use explicit mark/unmark actions, not toggle.

@@ -1633,7 +1633,7 @@ describe("Catalog module", () => {
     ).toEqual(["Large Archive", "Missing Size"]);
   });
 
-  it("applies Batch Metadata Edit append and remove actions to selected Videos", async () => {
+  it("applies Batch Edit metadata and Favorite actions from the aside to selected Videos", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },
       { id: 5, name: "Archive" },
@@ -1692,70 +1692,55 @@ describe("Catalog module", () => {
     );
     fireEvent.click(within(catalogVideos).getByLabelText("Select City Walk"));
 
-    const batchMetadataEdit = await screen.findByRole("region", {
-      name: "Batch Metadata Edit",
+    const batchEditPanel = await screen.findByRole("region", {
+      name: "Batch Edit Panel",
     });
 
-    expect(within(batchMetadataEdit).queryByLabelText("Title")).toBeNull();
     expect(
-      within(batchMetadataEdit).queryByRole("button", {
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+    expect(within(batchEditPanel).queryByLabelText("Title")).toBeNull();
+    expect(
+      within(batchEditPanel).queryByRole("button", {
         name: /Replace/,
       }),
     ).toBeNull();
+    expect(within(batchEditPanel).getByText("Travel on some selected Videos"))
+      .toBeInTheDocument();
+    expect(within(batchEditPanel).getByText("Archive on some selected Videos"))
+      .toBeInTheDocument();
+    expect(within(batchEditPanel).getByText("Blair on all selected Videos"))
+      .toBeInTheDocument();
+
+    const tagsInput = within(batchEditPanel).getByRole("combobox", {
+      name: "Tags",
+    });
+    fireEvent.change(tagsInput, { target: { value: "Unused" } });
+    fireEvent.keyDown(tagsInput, { key: "Enter" });
+    fireEvent.change(tagsInput, { target: { value: "Road Trip" } });
+    fireEvent.keyDown(tagsInput, { key: "Enter" });
+
+    const performersInput = within(batchEditPanel).getByRole("combobox", {
+      name: "Performers",
+    });
+    fireEvent.keyDown(performersInput, { key: "Backspace" });
+    fireEvent.change(performersInput, { target: { value: "Casey" } });
+    fireEvent.keyDown(performersInput, { key: "Enter" });
 
     fireEvent.click(
-      within(batchMetadataEdit).getByRole("button", {
-        name: "Append Travel to selected Videos",
-      }),
-    );
-    fireEvent.change(within(batchMetadataEdit).getByLabelText("New Tag"), {
-      target: { value: "Road Trip" },
-    });
-    fireEvent.click(
-      within(batchMetadataEdit).getByRole("button", {
-        name: "Create and append Tag to selected Videos",
-      }),
-    );
-    fireEvent.change(
-      within(batchMetadataEdit).getByLabelText("New Performer"),
-      {
-        target: { value: "Casey" },
-      },
-    );
-    fireEvent.click(
-      within(batchMetadataEdit).getByRole("button", {
-        name: "Create and append Performer to selected Videos",
-      }),
-    );
-    expect(
-      within(batchMetadataEdit).queryByRole("button", {
-        name: "Remove Unused from selected Videos",
-      }),
-    ).toBeNull();
-    expect(
-      within(batchMetadataEdit).queryByRole("button", {
-        name: "Remove Alex from selected Videos",
-      }),
-    ).toBeNull();
-    fireEvent.click(
-      within(batchMetadataEdit).getByRole("button", {
-        name: "Remove Blair from selected Videos",
-      }),
-    );
-    fireEvent.click(
-      within(batchMetadataEdit).getByRole("button", {
+      within(batchEditPanel).getByRole("button", {
         name: "Mark selected Videos as Favorite",
       }),
     );
     fireEvent.click(
-      within(batchMetadataEdit).getByRole("button", {
+      within(batchEditPanel).getByRole("button", {
         name: "Unmark selected Videos as Favorite",
       }),
     );
 
     await waitFor(() => {
-      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 1);
-      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(4, 2);
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(7, 1);
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(7, 2);
     });
     expect(mockedCreateTag).toHaveBeenCalledWith("Road Trip");
     expect(mockedAttachTagToVideo).toHaveBeenCalledWith(6, 1);
@@ -1772,7 +1757,7 @@ describe("Catalog module", () => {
     expect(mockedUpdateVideoTitle).not.toHaveBeenCalled();
   });
 
-  it("keeps the Video Detail Panel current after Batch Metadata Edit touches the selected Video", async () => {
+  it("uses the Batch Edit Panel instead of the Video Detail Panel when multiple Videos are selected", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },
       { id: 5, name: "Archive" },
@@ -1781,7 +1766,13 @@ describe("Catalog module", () => {
       { id: 9, name: "Blair" },
       { id: 10, name: "Alex" },
     ]);
-    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedTagsForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 1) {
+        return [{ id: 4, name: "Travel" }];
+      }
+
+      return [{ id: 5, name: "Archive" }];
+    });
     mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -1790,6 +1781,19 @@ describe("Catalog module", () => {
         durationMilliseconds: 3723000,
         fileSizeBytes: 80740352,
         fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 50740352,
+        fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
         fileLocations: [],
         isAvailable: true,
         isFavorite: false,
@@ -1809,23 +1813,35 @@ describe("Catalog module", () => {
       name: "Video Detail Panel",
     });
     fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
-    const batchMetadataEdit = await screen.findByRole("region", {
-      name: "Batch Metadata Edit",
+    expect(detailPanel).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Batch Edit Panel" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(catalogVideos).getByLabelText("Select City Walk"));
+    const batchEditPanel = await screen.findByRole("region", {
+      name: "Batch Edit Panel",
     });
+    expect(batchEditPanel).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(batchMetadataEdit).getByRole("button", {
-        name: "Append Archive to selected Videos",
-      }),
+      within(catalogVideos).getByLabelText("Select City Walk"),
     );
-    await within(detailPanel).findByRole("heading", { name: "Family Trip" });
-
-    fireEvent.click(
-      within(batchMetadataEdit).getByRole("button", {
-        name: "Remove Travel from selected Videos",
-      }),
-    );
-    await within(detailPanel).findByRole("heading", { name: "Family Trip" });
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "Batch Edit Panel" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Family Trip" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "City Walk" }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {

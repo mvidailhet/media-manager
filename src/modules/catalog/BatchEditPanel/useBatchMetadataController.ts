@@ -1,8 +1,13 @@
 import { useState } from "react";
 
 import { uniqueMetadataValues } from "../../../shared/metadata/metadataHelpers";
-import type { CatalogVideo } from "../../../tauriCommands";
+import type {
+  CatalogPerformer,
+  CatalogTag,
+  CatalogVideo,
+} from "../../../tauriCommands";
 import type { CatalogVideoMetadata } from "../catalogTypes";
+import type { BatchMetadataValue } from "./BatchEditPanel";
 
 export function useBatchMetadataController({
   catalogVideoMetadataById,
@@ -39,13 +44,11 @@ export function useBatchMetadataController({
   const batchSelectedVideoMetadata = batchSelectedVideos.map(
     (catalogVideo) => catalogVideoMetadataById[catalogVideo.id],
   );
-  const batchRemovableTags = uniqueMetadataValues(
+  const batchRemovableTags = countBatchMetadataValues(
     batchSelectedVideoMetadata.flatMap((metadata) => metadata?.tags ?? []),
   );
-  const batchRemovablePerformers = uniqueMetadataValues(
-    batchSelectedVideoMetadata.flatMap(
-      (metadata) => metadata?.performers ?? [],
-    ),
+  const batchRemovablePerformers = countBatchMetadataValues(
+    batchSelectedVideoMetadata.flatMap((metadata) => metadata?.performers ?? []),
   );
 
   return {
@@ -57,4 +60,15 @@ export function useBatchMetadataController({
     setBatchSelectedVideoIds,
     setBatchVideoSelected,
   };
+}
+
+function countBatchMetadataValues<
+  TMetadata extends CatalogTag | CatalogPerformer,
+>(metadataValues: TMetadata[]): BatchMetadataValue<TMetadata>[] {
+  return uniqueMetadataValues(metadataValues).map((metadata) => ({
+    metadata,
+    selectedVideoCount: metadataValues.filter(
+      (value) => value.id === metadata.id,
+    ).length,
+  }));
 }

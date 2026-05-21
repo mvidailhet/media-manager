@@ -19,7 +19,7 @@ import type {
   CatalogView,
 } from "./catalogTypes";
 import type { CatalogProps } from "./Catalog";
-import { useBatchMetadataController } from "./BatchMetadataEditPanel/useBatchMetadataController";
+import { useBatchMetadataController } from "./BatchEditPanel/useBatchMetadataController";
 import { useSelectedVideoController } from "./CatalogDetailAside/useSelectedVideoController";
 import { useMetadataSuggestionsController } from "./MetadataSuggestionsPanel/useMetadataSuggestionsController";
 import { useVideosPanelController } from "./VideosPanel/useVideosPanelController";
