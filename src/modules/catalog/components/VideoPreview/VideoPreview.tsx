@@ -10,7 +10,8 @@ import {
 import { PreviewStripSurface } from "./components/PreviewStripSurface";
 import styles from "./VideoPreview.module.css";
 
-const favoriteIconSize = 18;
+const defaultFavoriteIconSize = 18;
+const largeFavoriteIconSize = 28;
 
 export function VideoPreview({
   autoPlay = false,
@@ -28,6 +29,9 @@ export function VideoPreview({
   const favoriteButtonLabel = catalogVideo.isFavorite
     ? `Unmark ${catalogVideo.title} as Favorite`
     : `Mark ${catalogVideo.title} as Favorite`;
+  const favoriteIconSize = isLarge
+    ? largeFavoriteIconSize
+    : defaultFavoriteIconSize;
 
   function toggleFavorite(event: MouseEvent<HTMLButtonElement>) {
     event.stopPropagation();

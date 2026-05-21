@@ -897,6 +897,51 @@ describe("Catalog module", () => {
     );
   });
 
+  it("shows a larger Favorite star in the Video Detail Panel than in the Videos View", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const videoCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+    const videosViewFavoriteStar = within(videoCard)
+      .getByRole("button", { name: "Mark Family Trip as Favorite" })
+      .querySelector("svg");
+
+    fireEvent.click(videoCard);
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    const detailFavoriteStar = within(detailPanel)
+      .getByRole("button", { name: "Mark Family Trip as Favorite" })
+      .querySelector("svg");
+
+    expect(detailFavoriteStar).not.toBeNull();
+    expect(videosViewFavoriteStar).not.toBeNull();
+    expect(Number(detailFavoriteStar?.getAttribute("width"))).toBeGreaterThan(
+      Number(videosViewFavoriteStar?.getAttribute("width")),
+    );
+  });
+
   it("shows a Catalog Videos error when a Videos View Favorite update fails", async () => {
     mockedSetVideoFavorite.mockRejectedValue(new Error("Favorite unavailable"));
     mockedListCatalogVideos.mockResolvedValue([
