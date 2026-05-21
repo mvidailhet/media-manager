@@ -1,26 +1,36 @@
-import { Button, Group } from "@mantine/core";
+import { ActionIcon, Tooltip } from "@mantine/core";
+import { IconStar, IconStarFilled } from "@tabler/icons-react";
+
+const favoriteIconSize = 18;
 
 export function FavoriteActions({
   onSetFavorite,
+  selectedVideosAllFavorite,
 }: {
   onSetFavorite: (isFavorite: boolean) => void;
+  selectedVideosAllFavorite: boolean;
 }) {
+  const favoriteButtonLabel = selectedVideosAllFavorite
+    ? "Unmark selected Videos as Favorite"
+    : "Mark selected Videos as Favorite";
+  const nextFavoriteState = !selectedVideosAllFavorite;
+
   return (
-    <Group gap="xs">
-      <Button
+    <Tooltip label={favoriteButtonLabel}>
+      <ActionIcon
+        aria-label={favoriteButtonLabel}
+        color="yellow"
+        onClick={() => void onSetFavorite(nextFavoriteState)}
+        size="lg"
         type="button"
         variant="default"
-        onClick={() => void onSetFavorite(true)}
       >
-        Mark selected Videos as Favorite
-      </Button>
-      <Button
-        type="button"
-        variant="default"
-        onClick={() => void onSetFavorite(false)}
-      >
-        Unmark selected Videos as Favorite
-      </Button>
-    </Group>
+        {selectedVideosAllFavorite ? (
+          <IconStarFilled size={favoriteIconSize} />
+        ) : (
+          <IconStar size={favoriteIconSize} />
+        )}
+      </ActionIcon>
+    </Tooltip>
   );
 }

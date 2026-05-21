@@ -189,7 +189,7 @@ describe("App shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("keeps Batch Edit when applying the Favorite Search Filter", async () => {
+  it("clears Batch Edit when applying the Favorite Search Filter", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -229,8 +229,10 @@ describe("App shell", () => {
         name: "Family Trip",
       }),
     );
-    fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
-    fireEvent.click(within(catalogVideos).getByLabelText("Select City Walk"));
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
 
     expect(
       await screen.findByRole("region", { name: "Batch Edit Panel" }),
@@ -246,7 +248,57 @@ describe("App shell", () => {
     );
 
     expect(
-      screen.getByRole("region", { name: "Batch Edit Panel" }),
+      screen.queryByRole("region", { name: "Batch Edit Panel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the aside when multiple Videos are selected for Batch Edit", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "City Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: 50740352,
+        fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
     ).toBeInTheDocument();
   });
 

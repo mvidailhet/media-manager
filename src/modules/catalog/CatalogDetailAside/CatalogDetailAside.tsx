@@ -12,6 +12,7 @@ export function CatalogDetailAside({
   availableTags,
   batchRemovablePerformers,
   batchRemovableTags,
+  batchSelectedVideosAllFavorite,
   batchSelectedVideoCount,
   detailStatusMessage,
   onAppendPerformer,
@@ -78,6 +79,7 @@ export function CatalogDetailAside({
           onSetFavorite={onSetBatchFavorite}
           removablePerformers={batchRemovablePerformers}
           removableTags={batchRemovableTags}
+          selectedVideosAllFavorite={batchSelectedVideosAllFavorite}
           selectedVideoCount={batchSelectedVideoCount}
         />
       ) : selectedVideo ? (

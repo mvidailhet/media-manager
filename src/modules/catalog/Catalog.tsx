@@ -6,6 +6,7 @@ import type {
   RejectMetadataSuggestionSourceRequest,
 } from "../../tauriCommands";
 import type { BatchMetadataValue } from "./BatchEditPanel";
+import type { VideoSelectionModifiers } from "./useCatalogModuleController";
 import type {
   CatalogMetadataSuggestionAcceptanceRequest,
   CatalogVideoMetadata,
@@ -22,6 +23,7 @@ export type CatalogProps = {
   availableTags: CatalogTag[];
   batchRemovablePerformers: BatchMetadataValue<CatalogPerformer>[];
   batchRemovableTags: BatchMetadataValue<CatalogTag>[];
+  batchSelectedVideosAllFavorite: boolean;
   batchSelectedVideoCount: number;
   catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
@@ -42,6 +44,7 @@ export type CatalogProps = {
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onCatalogViewChange: (catalogView: CatalogView) => void;
+  onClearVideoSelection: () => void;
   onCreateOrAppendPerformer: (performerName: string) => void;
   onCreateOrAppendTag: (tagName: string) => void;
   onCreateOrAttachPerformer: (performerName: string) => void;
@@ -53,11 +56,15 @@ export type CatalogProps = {
   onRejectMetadataSuggestionSource: (
     request: RejectMetadataSuggestionSourceRequest,
   ) => void;
+  onReplaceSelectedVideos: (videoIds: number[]) => void;
   onRemovePerformer: (performer: CatalogPerformer) => void;
   onRemoveTag: (tag: CatalogTag) => void;
   onReviewVideo: (videoId: number) => void;
   onSaveTitle: (title: string) => void;
-  onSelectVideo: (catalogVideo: CatalogVideo) => void;
+  onSelectVideo: (
+    catalogVideo: CatalogVideo,
+    modifiers: VideoSelectionModifiers,
+  ) => void;
   onSetBatchFavorite: (isFavorite: boolean) => void;
   onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
@@ -83,7 +90,9 @@ export function Catalog({
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
   onCatalogViewChange,
+  onClearVideoSelection,
   onRejectMetadataSuggestionSource,
+  onReplaceSelectedVideos,
   onReviewVideo,
   onSelectVideo,
   onSetBatchVideoSelected,
@@ -116,7 +125,8 @@ export function Catalog({
             onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
             onCatalogVideoSortChange={onCatalogVideoSortChange}
             onSetFavorite={onSetFavorite}
-            onSetBatchVideoSelected={onSetBatchVideoSelected}
+            onClearVideoSelection={onClearVideoSelection}
+            onReplaceSelectedVideos={onReplaceSelectedVideos}
             onSelectVideo={onSelectVideo}
             selectedDetailVideoId={selectedDetailVideoId}
             selectedVideoIds={selectedVideoIds}

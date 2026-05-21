@@ -2,4 +2,14 @@
   display: grid;
   gap: 12px;
   grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 18vw, 400px), 1fr));
+  position: relative;
+  user-select: none;
+}
+
+.selectionRectangle {
+  background: rgba(34, 139, 230, 0.16);
+  border: 1px solid #228be6;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
 }

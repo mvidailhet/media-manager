@@ -78,6 +78,22 @@ describe("Catalog module", () => {
     });
   }
 
+  function catalogVideoFixture(id: number, title: string) {
+    return {
+      id,
+      title,
+      durationMilliseconds: 1800000,
+      fileSizeBytes: 50740352,
+      fileLocationPath: `/Volumes/Archive/Videos/${title.toLowerCase().replace(/ /g, "-")}.mp4`,
+      fileLocations: [],
+      isAvailable: true,
+      isFavorite: false,
+      lastOpenedAt: null,
+      openCount: 0,
+      previewStrip: pendingPreviewStrip,
+    };
+  }
+
   it("reviews Metadata Suggestions inside Catalog with selectable affected Video context", async () => {
     mockedListMetadataSuggestionGroups.mockResolvedValue([
       {
@@ -1688,9 +1704,15 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     fireEvent.click(
-      await within(catalogVideos).findByLabelText("Select Family Trip"),
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+      { metaKey: true },
     );
-    fireEvent.click(within(catalogVideos).getByLabelText("Select City Walk"));
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
 
     const batchEditPanel = await screen.findByRole("region", {
       name: "Batch Edit Panel",
@@ -1727,11 +1749,23 @@ describe("Catalog module", () => {
     fireEvent.change(performersInput, { target: { value: "Casey" } });
     fireEvent.keyDown(performersInput, { key: "Enter" });
 
+    expect(
+      within(batchEditPanel).queryByRole("button", {
+        name: "Unmark selected Videos as Favorite",
+      }),
+    ).not.toBeInTheDocument();
     fireEvent.click(
       within(batchEditPanel).getByRole("button", {
         name: "Mark selected Videos as Favorite",
       }),
     );
+    await waitFor(() => {
+      expect(
+        within(batchEditPanel).getByRole("button", {
+          name: "Unmark selected Videos as Favorite",
+        }),
+      ).toBeInTheDocument();
+    });
     fireEvent.click(
       within(batchEditPanel).getByRole("button", {
         name: "Unmark selected Videos as Favorite",
@@ -1757,7 +1791,7 @@ describe("Catalog module", () => {
     expect(mockedUpdateVideoTitle).not.toHaveBeenCalled();
   });
 
-  it("uses the Batch Edit Panel instead of the Video Detail Panel when multiple Videos are selected", async () => {
+  it("uses file-explorer gestures to switch between Video Detail and Batch Edit selection", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },
       { id: 5, name: "Archive" },
@@ -1808,17 +1842,23 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+    const familyTripCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+    const cityWalkCard = within(catalogVideos).getByRole("article", {
+      name: "City Walk",
+    });
+
+    expect(
+      within(catalogVideos).queryByLabelText("Select Family Trip"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(familyTripCard);
     const detailPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
-    fireEvent.click(within(catalogVideos).getByLabelText("Select Family Trip"));
-    expect(detailPanel).toBeInTheDocument();
-    expect(
-      screen.queryByRole("region", { name: "Batch Edit Panel" }),
-    ).not.toBeInTheDocument();
 
-    fireEvent.click(within(catalogVideos).getByLabelText("Select City Walk"));
+    fireEvent.click(cityWalkCard, { metaKey: true });
     const batchEditPanel = await screen.findByRole("region", {
       name: "Batch Edit Panel",
     });
@@ -1827,9 +1867,7 @@ describe("Catalog module", () => {
       screen.queryByRole("region", { name: "Video Detail Panel" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(
-      within(catalogVideos).getByLabelText("Select City Walk"),
-    );
+    fireEvent.click(cityWalkCard, { metaKey: true });
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
     ).toBeInTheDocument();
@@ -1841,6 +1879,200 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("heading", { name: "City Walk" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("selects visible Video ranges with shift-click and command-shift-click", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Alpha Clip"),
+      catalogVideoFixture(2, "Beta Clip"),
+      catalogVideoFixture(3, "Gamma Clip"),
+      catalogVideoFixture(4, "Omega Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const alphaClipCard = await within(catalogVideos).findByRole("article", {
+      name: "Alpha Clip",
+    });
+    const betaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Beta Clip",
+    });
+    const gammaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Gamma Clip",
+    });
+    const omegaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Omega Clip",
+    });
+
+    fireEvent.click(alphaClipCard);
+    fireEvent.click(gammaClipCard, { shiftKey: true });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("3 selected");
+
+    fireEvent.click(betaClipCard);
+    fireEvent.click(omegaClipCard, { metaKey: true, shiftKey: true });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("3 selected");
+  });
+
+  it("supports keyboard selection and Escape clearing in the Videos View", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Alpha Clip"),
+      catalogVideoFixture(2, "Beta Clip"),
+      catalogVideoFixture(3, "Gamma Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const alphaClipCard = await within(catalogVideos).findByRole("article", {
+      name: "Alpha Clip",
+    });
+    const gammaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Gamma Clip",
+    });
+
+    fireEvent.keyDown(alphaClipCard, { key: "Enter" });
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(gammaClipCard, { key: " ", shiftKey: true });
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("3 selected");
+
+    fireEvent.keyDown(gammaClipCard, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("region", { name: "Batch Edit Panel" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("clears Video selection when filters change", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      catalogVideoFixture(2, "City Walk"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+    );
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
+      target: { value: "City" },
+    });
+
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("selects Videos touched by a drag rectangle", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      catalogVideoFixture(2, "City Walk"),
+      catalogVideoFixture(3, "Studio Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const videoGrid = within(catalogVideos).getByLabelText("Video grid");
+    const familyTripCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+    const cityWalkCard = within(catalogVideos).getByRole("article", {
+      name: "City Walk",
+    });
+    const studioClipCard = within(catalogVideos).getByRole("article", {
+      name: "Studio Clip",
+    });
+
+    vi.spyOn(familyTripCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(cityWalkCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 120,
+      right: 220,
+      top: 0,
+      width: 100,
+      x: 120,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(studioClipCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 240,
+      right: 340,
+      top: 0,
+      width: 100,
+      x: 240,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.pointerDown(familyTripCard, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(videoGrid, { clientX: 210, clientY: 80 });
+
+    expect(videoGrid.querySelector('[class*="selectionRectangle"]')).not.toBeNull();
+    expect(familyTripCard.className).toContain("batchSelectedCard");
+    expect(cityWalkCard.className).toContain("batchSelectedCard");
+    expect(studioClipCard.className).not.toContain("batchSelectedCard");
+
+    fireEvent.pointerUp(cityWalkCard, { clientX: 210, clientY: 80 });
+    fireEvent.click(cityWalkCard);
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.click(cityWalkCard);
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("City Walk");
+    expect(
+      screen.queryByRole("region", { name: "Batch Edit Panel" }),
     ).not.toBeInTheDocument();
   });
 

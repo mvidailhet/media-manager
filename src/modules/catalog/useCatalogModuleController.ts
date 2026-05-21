@@ -37,6 +37,11 @@ type CatalogController = {
   refreshMetadataSuggestionGroups: () => Promise<void>;
 };
 
+export type VideoSelectionModifiers = {
+  isCommandPressed: boolean;
+  isShiftPressed: boolean;
+};
+
 function uniqueMetadataNames(metadataNames: string[]) {
   const normalizedNames = new Set<string>();
   const uniqueNames: string[] = [];
@@ -107,6 +112,7 @@ export function useCatalogModuleController(): CatalogController {
     batchSelectedVideoIds,
     batchSelectedVideos,
     resetBatchSelection,
+    setBatchSelectedVideoIds,
     setBatchVideoSelected,
   } = useBatchMetadataController({
     catalogVideoMetadataById,
@@ -137,6 +143,9 @@ export function useCatalogModuleController(): CatalogController {
     metadataSuggestionGroups,
     refreshMetadataSuggestionGroups,
   } = useMetadataSuggestionsController();
+  const [selectionAnchorVideoId, setSelectionAnchorVideoId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     if (catalogView !== "metadataSuggestions") {
@@ -262,8 +271,125 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function resetCatalogSelection() {
+    setSelectionAnchorVideoId(null);
     resetSelectedVideo();
     resetBatchSelection();
+  }
+
+  function clearCatalogSelection() {
+    resetCatalogSelection();
+  }
+
+  function selectVideoForDetailOnly(catalogVideo: CatalogVideo) {
+    resetBatchSelection();
+    setSelectionAnchorVideoId(catalogVideo.id);
+    void selectVideoForDetail(catalogVideo);
+  }
+
+  function selectVideosForBatchOnly(videoIds: number[], anchorVideoId: number) {
+    resetSelectedVideo();
+    setBatchSelectedVideoIds(videoIds);
+    setSelectionAnchorVideoId(anchorVideoId);
+  }
+
+  function resolveVideoSelection(videoIds: number[], anchorVideoId: number) {
+    const uniqueVideoIds = Array.from(new Set(videoIds));
+
+    if (uniqueVideoIds.length === 0) {
+      resetCatalogSelection();
+      return;
+    }
+
+    const singleSelectedVideo = catalogVideos.find(
+      (catalogVideo) => catalogVideo.id === uniqueVideoIds[0],
+    );
+
+    if (uniqueVideoIds.length === 1 && singleSelectedVideo) {
+      selectVideoForDetailOnly(singleSelectedVideo);
+      return;
+    }
+
+    selectVideosForBatchOnly(uniqueVideoIds, anchorVideoId);
+  }
+
+  function selectVideoFromVideosView(
+    catalogVideo: CatalogVideo,
+    modifiers: VideoSelectionModifiers,
+  ) {
+    if (modifiers.isShiftPressed) {
+      const rangeVideoIds = videoSelectionRange(catalogVideo.id);
+      const nextVideoIds = modifiers.isCommandPressed
+        ? [...currentSelectedVideoIds(), ...rangeVideoIds]
+        : rangeVideoIds;
+
+      resolveVideoSelection(nextVideoIds, catalogVideo.id);
+      return;
+    }
+
+    if (modifiers.isCommandPressed) {
+      toggleVideoFromVideosView(catalogVideo);
+      return;
+    }
+
+    selectVideoForDetailOnly(catalogVideo);
+  }
+
+  function toggleVideoFromVideosView(catalogVideo: CatalogVideo) {
+    const currentVideoIds = currentSelectedVideoIds();
+    const isAlreadySelected = currentVideoIds.includes(catalogVideo.id);
+    const nextVideoIds = isAlreadySelected
+      ? currentVideoIds.filter((videoId) => videoId !== catalogVideo.id)
+      : [...currentVideoIds, catalogVideo.id];
+
+    resolveVideoSelection(nextVideoIds, catalogVideo.id);
+  }
+
+  function replaceSelectedVideosFromDrag(videoIds: number[]) {
+    const anchorVideoId = videoIds[videoIds.length - 1] ?? selectionAnchorVideoId;
+
+    if (anchorVideoId === null) {
+      resetCatalogSelection();
+      return;
+    }
+
+    resolveVideoSelection(videoIds, anchorVideoId);
+  }
+
+  function currentSelectedVideoIds() {
+    if (batchSelectedVideoIds.length > 0) {
+      return batchSelectedVideoIds;
+    }
+
+    return selectedVideo ? [selectedVideo.id] : [];
+  }
+
+  function videoSelectionRange(targetVideoId: number) {
+    const visibleVideoIds = filteredCatalogVideos.map(
+      (catalogVideo) => catalogVideo.id,
+    );
+    const fallbackAnchorVideoId =
+      selectionAnchorVideoId ?? selectedVideo?.id ?? targetVideoId;
+    const anchorIndex = visibleVideoIds.indexOf(fallbackAnchorVideoId);
+    const targetIndex = visibleVideoIds.indexOf(targetVideoId);
+
+    if (anchorIndex === -1 || targetIndex === -1) {
+      return [targetVideoId];
+    }
+
+    const rangeStartIndex = Math.min(anchorIndex, targetIndex);
+    const rangeEndIndex = Math.max(anchorIndex, targetIndex);
+
+    return visibleVideoIds.slice(rangeStartIndex, rangeEndIndex + 1);
+  }
+
+  function changeCatalogVideoFilters(filters: typeof catalogVideoFilters) {
+    resetCatalogSelection();
+    setCatalogVideoFilters(filters);
+  }
+
+  function changeCatalogVideoSort(sort: typeof catalogVideoSort) {
+    resetCatalogSelection();
+    setCatalogVideoSort(sort);
   }
 
   function reviewMetadataSuggestionVideo(videoId: number) {
@@ -791,6 +917,9 @@ export function useCatalogModuleController(): CatalogController {
   const missingVideos = catalogVideos.filter(
     (catalogVideo) => catalogVideo.fileLocations.length === 0,
   );
+  const batchSelectedVideosAllFavorite =
+    batchSelectedVideos.length > 0 &&
+    batchSelectedVideos.every((catalogVideo) => catalogVideo.isFavorite);
 
   return {
     catalogProps: {
@@ -798,6 +927,7 @@ export function useCatalogModuleController(): CatalogController {
       availableTags,
       batchRemovablePerformers,
       batchRemovableTags,
+      batchSelectedVideosAllFavorite,
       batchSelectedVideoCount: batchSelectedVideos.length,
       catalogVideoActionStatusMessage,
       catalogVideoFilters,
@@ -813,8 +943,8 @@ export function useCatalogModuleController(): CatalogController {
       onAppendTag: appendTagToBatchSelectedVideos,
       onAttachPerformer: attachPerformerToSelectedVideo,
       onAttachTag: attachTagToSelectedVideo,
-      onCatalogVideoFiltersChange: setCatalogVideoFilters,
-      onCatalogVideoSortChange: setCatalogVideoSort,
+      onCatalogVideoFiltersChange: changeCatalogVideoFilters,
+      onCatalogVideoSortChange: changeCatalogVideoSort,
       onCatalogViewChange: selectCatalogView,
       onCreateOrAppendPerformer: createOrAppendPerformerToBatchSelectedVideos,
       onCreateOrAppendTag: createOrAppendTagToBatchSelectedVideos,
@@ -829,7 +959,9 @@ export function useCatalogModuleController(): CatalogController {
       onRemoveTag: removeTagFromBatchSelectedVideos,
       onReviewVideo: reviewMetadataSuggestionVideo,
       onSaveTitle: saveSelectedVideoTitle,
-      onSelectVideo: selectVideoForDetail,
+      onClearVideoSelection: clearCatalogSelection,
+      onReplaceSelectedVideos: replaceSelectedVideosFromDrag,
+      onSelectVideo: selectVideoFromVideosView,
       onSetBatchFavorite: setBatchSelectedVideosFavorite,
       onSetBatchVideoSelected: setBatchVideoSelected,
       onSetFavorite: setCatalogVideoFavorite,

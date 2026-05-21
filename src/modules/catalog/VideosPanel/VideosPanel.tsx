@@ -6,6 +6,7 @@ import type {
   CatalogVideoMetadata,
   CatalogVideoSort,
 } from "../catalogTypes";
+import type { VideoSelectionModifiers } from "../useCatalogModuleController";
 import { FiltersPanel } from "./components/FiltersPanel";
 import { SortSelect } from "./components/SortSelect";
 import { StatusMessages } from "./components/StatusMessages";
@@ -22,8 +23,9 @@ export function VideosPanel({
   catalogVideosStatusMessage,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
+  onClearVideoSelection,
+  onReplaceSelectedVideos,
   onSetFavorite,
-  onSetBatchVideoSelected,
   onSelectVideo,
   selectedDetailVideoId,
   selectedVideoIds,
@@ -38,9 +40,13 @@ export function VideosPanel({
   catalogVideosStatusMessage: string;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
+  onClearVideoSelection: () => void;
+  onReplaceSelectedVideos: (videoIds: number[]) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
-  onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
-  onSelectVideo: (catalogVideo: CatalogVideo) => void;
+  onSelectVideo: (
+    catalogVideo: CatalogVideo,
+    modifiers: VideoSelectionModifiers,
+  ) => void;
   selectedDetailVideoId: number | null;
   selectedVideoIds: number[];
 }) {
@@ -68,9 +74,10 @@ export function VideosPanel({
         <VideoGrid
           catalogVideoMetadataById={catalogVideoMetadataById}
           catalogVideos={catalogVideos}
+          onClearVideoSelection={onClearVideoSelection}
           onSelectVideo={onSelectVideo}
           onSetFavorite={onSetFavorite}
-          onSetBatchVideoSelected={onSetBatchVideoSelected}
+          onReplaceSelectedVideos={onReplaceSelectedVideos}
           selectedDetailVideoId={selectedDetailVideoId}
           selectedVideoIds={selectedVideoIds}
         />

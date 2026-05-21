@@ -1,8 +1,9 @@
-import type { KeyboardEvent } from 'react';
-import { Box, Checkbox, Paper, Stack, Text } from '@mantine/core';
+import type { KeyboardEvent, MouseEvent } from 'react';
+import { Box, Paper, Stack, Text } from '@mantine/core';
 
 import type { CatalogVideo } from '../../../../tauriCommands';
 import type { CatalogVideoMetadata } from '../../catalogTypes';
+import type { VideoSelectionModifiers } from '../../useCatalogModuleController';
 import { VideoPreview } from '../../components/VideoPreview/VideoPreview';
 import { MetadataBadges } from '../../components/MetadataBadges';
 import styles from './VideoCard.module.css';
@@ -14,21 +15,35 @@ export function VideoCard({
   isSelectedForDetail,
   onSelectVideo,
   onSetFavorite,
-  onSetBatchVideoSelected,
+  onShouldIgnoreClick,
 }: {
   catalogVideo: CatalogVideo;
   catalogVideoMetadata: CatalogVideoMetadata | undefined;
   isSelectedForBatch: boolean;
   isSelectedForDetail: boolean;
-  onSelectVideo: (catalogVideo: CatalogVideo) => void;
+  onSelectVideo: (
+    catalogVideo: CatalogVideo,
+    modifiers: VideoSelectionModifiers,
+  ) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
-  onSetBatchVideoSelected: (videoId: number, isSelected: boolean) => void;
+  onShouldIgnoreClick: () => boolean;
 }) {
   const tags = catalogVideoMetadata?.tags ?? [];
   const performers = catalogVideoMetadata?.performers ?? [];
 
-  function selectCatalogVideo() {
-    onSelectVideo(catalogVideo);
+  function selectCatalogVideo(modifiers: VideoSelectionModifiers) {
+    onSelectVideo(catalogVideo, modifiers);
+  }
+
+  function selectCatalogVideoFromPointer(event: MouseEvent<HTMLElement>) {
+    if (onShouldIgnoreClick()) {
+      return;
+    }
+
+    selectCatalogVideo({
+      isCommandPressed: event.metaKey || event.ctrlKey,
+      isShiftPressed: event.shiftKey,
+    });
   }
 
   function selectCatalogVideoFromKeyboard(event: KeyboardEvent<HTMLElement>) {
@@ -37,7 +52,10 @@ export function VideoCard({
     }
 
     event.preventDefault();
-    selectCatalogVideo();
+    selectCatalogVideo({
+      isCommandPressed: event.metaKey || event.ctrlKey,
+      isShiftPressed: event.shiftKey,
+    });
   }
 
   return (
@@ -45,8 +63,10 @@ export function VideoCard({
       component="article"
       aria-selected={isSelectedForDetail ? true : undefined}
       aria-label={catalogVideo.title}
-      className={`${styles.card} ${isSelectedForDetail ? styles.selectedCard : ''}`}
-      onClick={selectCatalogVideo}
+      className={`${styles.card} ${isSelectedForDetail ? styles.selectedCard : ''} ${isSelectedForBatch ? styles.batchSelectedCard : ''}`}
+      data-video-id={catalogVideo.id}
+      draggable={false}
+      onClick={selectCatalogVideoFromPointer}
       onKeyDown={selectCatalogVideoFromKeyboard}
       radius="md"
       tabIndex={0}
@@ -61,21 +81,6 @@ export function VideoCard({
               onSetFavorite(catalogVideo, isFavorite)
             }
           />
-          <Box
-            className={styles.batchCheckbox}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <Checkbox
-              aria-label={`Select ${catalogVideo.title}`}
-              checked={isSelectedForBatch}
-              onChange={(event) =>
-                onSetBatchVideoSelected(
-                  catalogVideo.id,
-                  event.currentTarget.checked,
-                )
-              }
-            />
-          </Box>
         </Box>
 
         <Stack px="xs" gap="xs">
@@ -100,4 +105,3 @@ export function VideoCard({
     </Paper>
   );
 }
-

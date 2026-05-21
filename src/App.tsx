@@ -57,8 +57,10 @@ export default function App() {
   });
   const { scanAttentionCount, scanProps } = scan;
   const { settingsAttentionCount, settingsProps } = settings;
-  const isVideoDetailAsideVisible =
-    activeAppModule === "catalog" && catalogProps.selectedVideo !== null;
+  const isCatalogAsideVisible =
+    activeAppModule === "catalog" &&
+    (catalogProps.selectedVideo !== null ||
+      catalogProps.batchSelectedVideoCount >= 2);
   const [isVideoDetailAsideExpanded, setIsVideoDetailAsideExpanded] =
     useState(false);
   const videoDetailAsideCurrentWidth = getVideoDetailAsideWidth(
@@ -103,8 +105,8 @@ export default function App() {
         width: videoDetailAsideCurrentWidth,
         breakpoint: videoDetailAsideBreakpoint,
         collapsed: {
-          mobile: !isVideoDetailAsideVisible,
-          desktop: !isVideoDetailAsideVisible,
+          mobile: !isCatalogAsideVisible,
+          desktop: !isCatalogAsideVisible,
         },
       }}
       padding="md"

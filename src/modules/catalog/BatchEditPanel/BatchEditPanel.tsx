@@ -22,6 +22,7 @@ export function BatchEditPanel({
   onSetFavorite,
   removablePerformers,
   removableTags,
+  selectedVideosAllFavorite,
   selectedVideoCount,
 }: {
   availablePerformers: CatalogPerformer[];
@@ -35,6 +36,7 @@ export function BatchEditPanel({
   onSetFavorite: (isFavorite: boolean) => void;
   removablePerformers: BatchMetadataValue<CatalogPerformer>[];
   removableTags: BatchMetadataValue<CatalogTag>[];
+  selectedVideosAllFavorite: boolean;
   selectedVideoCount: number;
 }) {
   return (
@@ -49,7 +51,10 @@ export function BatchEditPanel({
           label={`${selectedVideoCount} selected`}
           title="Batch Edit"
         />
-        <FavoriteActions onSetFavorite={onSetFavorite} />
+        <FavoriteActions
+          onSetFavorite={onSetFavorite}
+          selectedVideosAllFavorite={selectedVideosAllFavorite}
+        />
         <BatchMetadataSection
           availableValues={availableTags}
           emptyLabel="No selected Videos have tags"
