@@ -72,6 +72,7 @@ describe("MoveToTrashConfirmation", () => {
       "3 Preferred File Locations will be moved to Trash.",
     );
     expect(locations).toHaveStyle({ overflowY: "auto" });
+    expect(locations).toHaveStyle({ maxHeight: "240px" });
     expect(within(locations).getAllByRole("listitem")).toHaveLength(3);
     expect(locations).toHaveTextContent("/Volumes/Archive/Videos/City Walk.mov");
     expect(confirmation).not.toHaveTextContent(/delete/i);
