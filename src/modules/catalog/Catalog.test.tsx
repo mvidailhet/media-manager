@@ -2037,6 +2037,174 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("moves selected Videos' reachable Preferred File Locations to Trash and clears Batch Edit", async () => {
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+            {
+              path: "/Volumes/Backup/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: false,
+              isReachable: true,
+            },
+          ],
+          isAvailable: true,
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+        {
+          id: 2,
+          title: "City Walk",
+          durationMilliseconds: 1800000,
+          fileSizeBytes: 50740352,
+          fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/city-walk.mp4",
+              fileSizeBytes: 50740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+          ],
+          isAvailable: true,
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+        {
+          id: 3,
+          title: "Missing Trip",
+          durationMilliseconds: 1200000,
+          fileSizeBytes: null,
+          fileLocationPath: null,
+          fileLocations: [
+            {
+              path: "/Volumes/Missing/Videos/missing-trip.mp4",
+              fileSizeBytes: 30740352,
+              isPreferred: true,
+              isReachable: false,
+            },
+          ],
+          isAvailable: true,
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Backup/Videos/family-trip.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Backup/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+          ],
+          isAvailable: true,
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+      ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "Missing Trip" }),
+      { metaKey: true },
+    );
+
+    const batchEditPanel = await screen.findByRole("region", {
+      name: "Batch Edit Panel",
+    });
+    fireEvent.click(
+      within(batchEditPanel).getByRole("button", {
+        name: "Move selected Videos to Trash",
+      }),
+    );
+
+    const confirmation = await screen.findByRole("dialog", {
+      name: "Move 2 files to Trash?",
+    });
+    expect(confirmation).toHaveTextContent("3 selected Videos");
+    expect(
+      within(confirmation).getByText("/Volumes/Archive/Videos/family-trip.mp4"),
+    ).toBeInTheDocument();
+    expect(
+      within(confirmation).getByText("/Volumes/Archive/Videos/city-walk.mp4"),
+    ).toBeInTheDocument();
+    expect(
+      within(confirmation).queryByText("/Volumes/Backup/Videos/family-trip.mp4"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(confirmation).queryByText("/Volumes/Missing/Videos/missing-trip.mp4"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(confirmation).getByRole("button", { name: "Move to Trash" }),
+    );
+
+    await waitFor(() => {
+      expect(mockedMoveCatalogVideoFileLocationToTrash).toHaveBeenCalledWith(
+        1,
+        "/Volumes/Archive/Videos/family-trip.mp4",
+      );
+      expect(mockedMoveCatalogVideoFileLocationToTrash).toHaveBeenCalledWith(
+        2,
+        "/Volumes/Archive/Videos/city-walk.mp4",
+      );
+    });
+    expect(mockedMoveCatalogVideoFileLocationToTrash).toHaveBeenCalledTimes(2);
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("region", { name: "Batch Edit Panel" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(
+      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
+    ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByRole("article", { name: "City Walk" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("selects visible Video ranges with shift-click and command-shift-click", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Alpha Clip"),

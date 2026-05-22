@@ -26,6 +26,7 @@ export function CatalogDetailAside({
   onDetachPerformer,
   onDetachTag,
   onMoveSelectedVideoFileLocationToTrash,
+  onMoveBatchPreferredFileLocationsToTrash,
   onOpenVideo,
   onOpenVideoContainingFolder,
   onRemovePerformer,
@@ -38,6 +39,7 @@ export function CatalogDetailAside({
   selectedPerformers,
   selectedTags,
   selectedVideo,
+  batchTrashTargets,
 }: CatalogProps & {
   isExpanded: boolean;
   onExpandedChange: (isExpanded: boolean) => void;
@@ -78,11 +80,13 @@ export function CatalogDetailAside({
           onCreateOrAppendTag={onCreateOrAppendTag}
           onRemovePerformer={onRemovePerformer}
           onRemoveTag={onRemoveTag}
+          onMoveToTrash={onMoveBatchPreferredFileLocationsToTrash}
           onSetFavorite={onSetBatchFavorite}
           removablePerformers={batchRemovablePerformers}
           removableTags={batchRemovableTags}
           selectedVideosAllFavorite={batchSelectedVideosAllFavorite}
           selectedVideoCount={batchSelectedVideoCount}
+          trashTargets={batchTrashTargets}
         />
       ) : selectedVideo ? (
         <VideoDetailPanel

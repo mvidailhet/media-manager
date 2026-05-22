@@ -7,6 +7,7 @@ type MoveToTrashConfirmationProps = {
   isOpen: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  selectedVideoCount?: number;
 };
 
 export function MoveToTrashConfirmation({
@@ -14,6 +15,7 @@ export function MoveToTrashConfirmation({
   isOpen,
   onCancel,
   onConfirm,
+  selectedVideoCount,
 }: MoveToTrashConfirmationProps) {
   const affectedFileLocationCount = affectedFileLocations.length;
   const title = moveToTrashConfirmationTitle(affectedFileLocationCount);
@@ -25,6 +27,9 @@ export function MoveToTrashConfirmation({
   return (
     <Modal opened={isOpen} onClose={onCancel} title={title} centered>
       <Stack gap="md">
+        {selectedVideoCount ? (
+          <Text>{selectedVideoCount} selected Videos</Text>
+        ) : null}
         <Text>{affectedFileLocationSummary}</Text>
         <PreferredFileLocationList
           fileLocations={affectedFileLocations}

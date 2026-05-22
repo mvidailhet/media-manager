@@ -6,6 +6,7 @@ import type {
   RejectMetadataSuggestionSourceRequest,
 } from "../../tauriCommands";
 import type { BatchMetadataValue } from "./BatchEditPanel";
+import type { BatchTrashTarget } from "./BatchEditPanel/batchTrashTypes";
 import type { VideoSelectionModifiers } from "./useCatalogModuleController";
 import type {
   CatalogMetadataSuggestionAcceptanceRequest,
@@ -25,6 +26,7 @@ export type CatalogProps = {
   batchRemovableTags: BatchMetadataValue<CatalogTag>[];
   batchSelectedVideosAllFavorite: boolean;
   batchSelectedVideoCount: number;
+  batchTrashTargets: BatchTrashTarget[];
   catalogVideoActionStatusMessage: string;
   catalogVideoFilters: CatalogVideoFilters;
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
@@ -54,6 +56,7 @@ export type CatalogProps = {
   onOpenVideo: (catalogVideo: CatalogVideo, startAtSeconds: number) => void;
   onOpenVideoContainingFolder: (catalogVideo: CatalogVideo) => void;
   onMoveSelectedVideoFileLocationToTrash: (path: string) => void;
+  onMoveBatchPreferredFileLocationsToTrash: () => void;
   onRejectMetadataSuggestionSource: (
     request: RejectMetadataSuggestionSourceRequest,
   ) => void;

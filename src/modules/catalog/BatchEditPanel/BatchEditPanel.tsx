@@ -4,6 +4,8 @@ import type { CatalogPerformer, CatalogTag } from "../../../tauriCommands";
 import { SectionHeader } from "../../../shared/components/SectionHeader";
 import { FavoriteActions } from "./components/FavoriteActions";
 import { BatchMetadataSection } from "./components/BatchMetadataSection";
+import { BatchTrashActions } from "./components/BatchTrashActions";
+import type { BatchTrashTarget } from "./batchTrashTypes";
 
 export type BatchMetadataValue<TMetadata> = {
   metadata: TMetadata;
@@ -19,11 +21,13 @@ export function BatchEditPanel({
   onCreateOrAppendTag,
   onRemovePerformer,
   onRemoveTag,
+  onMoveToTrash,
   onSetFavorite,
   removablePerformers,
   removableTags,
   selectedVideosAllFavorite,
   selectedVideoCount,
+  trashTargets,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
@@ -33,11 +37,13 @@ export function BatchEditPanel({
   onCreateOrAppendTag: (name: string) => void;
   onRemovePerformer: (performer: CatalogPerformer) => void;
   onRemoveTag: (tag: CatalogTag) => void;
+  onMoveToTrash: () => void;
   onSetFavorite: (isFavorite: boolean) => void;
   removablePerformers: BatchMetadataValue<CatalogPerformer>[];
   removableTags: BatchMetadataValue<CatalogTag>[];
   selectedVideosAllFavorite: boolean;
   selectedVideoCount: number;
+  trashTargets: BatchTrashTarget[];
 }) {
   return (
     <Paper
@@ -54,6 +60,11 @@ export function BatchEditPanel({
         <FavoriteActions
           onSetFavorite={onSetFavorite}
           selectedVideosAllFavorite={selectedVideosAllFavorite}
+        />
+        <BatchTrashActions
+          onMoveToTrash={onMoveToTrash}
+          selectedVideoCount={selectedVideoCount}
+          trashTargets={trashTargets}
         />
         <BatchMetadataSection
           availableValues={availableTags}

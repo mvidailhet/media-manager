@@ -19,6 +19,7 @@ import type {
   CatalogView,
 } from "./catalogTypes";
 import type { CatalogProps } from "./Catalog";
+import type { BatchTrashTarget } from "./BatchEditPanel/batchTrashTypes";
 import { useBatchMetadataController } from "./BatchEditPanel/useBatchMetadataController";
 import { useSelectedVideoController } from "./CatalogDetailAside/useSelectedVideoController";
 import { useMetadataSuggestionsController } from "./MetadataSuggestionsPanel/useMetadataSuggestionsController";
@@ -59,6 +60,27 @@ function uniqueMetadataNames(metadataNames: string[]) {
   }
 
   return uniqueNames;
+}
+
+function preferredFileLocationTrashTargets(
+  catalogVideos: CatalogVideo[],
+): BatchTrashTarget[] {
+  return catalogVideos.flatMap((catalogVideo) => {
+    const preferredFileLocation = catalogVideo.fileLocations.find(
+      (fileLocation) => fileLocation.isPreferred && fileLocation.isReachable,
+    );
+
+    if (!preferredFileLocation) {
+      return [];
+    }
+
+    return [
+      {
+        path: preferredFileLocation.path,
+        videoId: catalogVideo.id,
+      },
+    ];
+  });
 }
 
 export function useCatalogModuleController(): CatalogController {
@@ -499,6 +521,36 @@ export function useCatalogModuleController(): CatalogController {
     } catch (error) {
       setDetailStatusMessage(errorMessage(error));
       setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function moveBatchPreferredFileLocationsToTrash() {
+    const trashTargets = batchPreferredFileLocationTrashTargets;
+
+    try {
+      const trashResults = await Promise.allSettled(
+        trashTargets.map((target) =>
+          moveVideoFileLocationToTrash(target.videoId, target.path),
+        ),
+      );
+      const rejectedResult = trashResults.find(
+        (result) => result.status === "rejected",
+      );
+
+      await refreshCatalogVideos();
+      resetCatalogSelection();
+
+      if (rejectedResult?.status === "rejected") {
+        setCatalogVideoActionStatusMessage(errorMessage(rejectedResult.reason));
+        setDetailStatusMessage(errorMessage(rejectedResult.reason));
+        return;
+      }
+
+      setCatalogVideoActionStatusMessage("");
+      setDetailStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+      setDetailStatusMessage(errorMessage(error));
     }
   }
 
@@ -949,6 +1001,8 @@ export function useCatalogModuleController(): CatalogController {
   const batchSelectedVideosAllFavorite =
     batchSelectedVideos.length > 0 &&
     batchSelectedVideos.every((catalogVideo) => catalogVideo.isFavorite);
+  const batchPreferredFileLocationTrashTargets =
+    preferredFileLocationTrashTargets(batchSelectedVideos);
 
   return {
     catalogProps: {
@@ -958,6 +1012,7 @@ export function useCatalogModuleController(): CatalogController {
       batchRemovableTags,
       batchSelectedVideosAllFavorite,
       batchSelectedVideoCount: batchSelectedVideos.length,
+      batchTrashTargets: batchPreferredFileLocationTrashTargets,
       catalogVideoActionStatusMessage,
       catalogVideoFilters,
       catalogVideoMetadataById,
@@ -985,6 +1040,8 @@ export function useCatalogModuleController(): CatalogController {
       onOpenVideoContainingFolder: openVideoContainingFolderFromCatalog,
       onMoveSelectedVideoFileLocationToTrash:
         moveSelectedVideoFileLocationToTrash,
+      onMoveBatchPreferredFileLocationsToTrash:
+        moveBatchPreferredFileLocationsToTrash,
       onRejectMetadataSuggestionSource: rejectMetadataSuggestionForSource,
       onRemovePerformer: removePerformerFromBatchSelectedVideos,
       onRemoveTag: removeTagFromBatchSelectedVideos,
