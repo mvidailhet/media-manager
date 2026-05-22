@@ -2205,6 +2205,98 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("skips selected Videos without reachable Preferred File Locations and clears Batch Edit", async () => {
+    const unavailableVideos = [
+      {
+        id: 1,
+        title: "Missing Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: null,
+        fileLocationPath: null,
+        fileLocations: [
+          {
+            path: "/Volumes/Missing/Videos/missing-trip.mp4",
+            fileSizeBytes: 80740352,
+            isPreferred: true,
+            isReachable: false,
+          },
+        ],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Offline Walk",
+        durationMilliseconds: 1800000,
+        fileSizeBytes: null,
+        fileLocationPath: null,
+        fileLocations: [
+          {
+            path: "/Volumes/Offline/Videos/offline-walk.mp4",
+            fileSizeBytes: 50740352,
+            isPreferred: true,
+            isReachable: false,
+          },
+        ],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ];
+    mockedListCatalogVideos
+      .mockResolvedValueOnce(unavailableVideos)
+      .mockResolvedValueOnce(unavailableVideos);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Missing Trip",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "Offline Walk" }),
+      { metaKey: true },
+    );
+
+    const batchEditPanel = await screen.findByRole("region", {
+      name: "Batch Edit Panel",
+    });
+    fireEvent.click(
+      within(batchEditPanel).getByRole("button", {
+        name: "Move selected Videos to Trash",
+      }),
+    );
+
+    const confirmation = await screen.findByRole("dialog", {
+      name: "Move selected Videos to Trash?",
+    });
+    expect(confirmation).toHaveTextContent("2 selected Videos");
+    expect(confirmation).toHaveTextContent(
+      "No reachable Preferred File Locations will be moved to Trash.",
+    );
+
+    fireEvent.click(
+      within(confirmation).getByRole("button", { name: "Move to Trash" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("region", { name: "Batch Edit Panel" }),
+      ).not.toBeInTheDocument();
+    });
+    expect(mockedMoveCatalogVideoFileLocationToTrash).not.toHaveBeenCalled();
+  });
+
   it("selects visible Video ranges with shift-click and command-shift-click", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Alpha Clip"),

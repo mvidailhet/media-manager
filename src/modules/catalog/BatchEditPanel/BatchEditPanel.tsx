@@ -37,7 +37,7 @@ export function BatchEditPanel({
   onCreateOrAppendTag: (name: string) => void;
   onRemovePerformer: (performer: CatalogPerformer) => void;
   onRemoveTag: (tag: CatalogTag) => void;
-  onMoveToTrash: () => void;
+  onMoveToTrash: () => Promise<void>;
   onSetFavorite: (isFavorite: boolean) => void;
   removablePerformers: BatchMetadataValue<CatalogPerformer>[];
   removableTags: BatchMetadataValue<CatalogTag>[];

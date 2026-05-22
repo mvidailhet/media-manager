@@ -56,7 +56,7 @@ export type CatalogProps = {
   onOpenVideo: (catalogVideo: CatalogVideo, startAtSeconds: number) => void;
   onOpenVideoContainingFolder: (catalogVideo: CatalogVideo) => void;
   onMoveSelectedVideoFileLocationToTrash: (path: string) => void;
-  onMoveBatchPreferredFileLocationsToTrash: () => void;
+  onMoveBatchPreferredFileLocationsToTrash: () => Promise<void>;
   onRejectMetadataSuggestionSource: (
     request: RejectMetadataSuggestionSourceRequest,
   ) => void;

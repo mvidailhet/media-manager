@@ -9,7 +9,7 @@ export function BatchTrashActions({
   selectedVideoCount,
   trashTargets,
 }: {
-  onMoveToTrash: () => void;
+  onMoveToTrash: () => Promise<void>;
   selectedVideoCount: number;
   trashTargets: BatchTrashTarget[];
 }) {
@@ -17,7 +17,7 @@ export function BatchTrashActions({
   const affectedFileLocations = trashTargets.map((target) => target.path);
 
   function confirmMoveToTrash() {
-    onMoveToTrash();
+    void onMoveToTrash();
     setIsConfirmingTrash(false);
   }
 
@@ -25,7 +25,6 @@ export function BatchTrashActions({
     <Stack gap="xs">
       <Button
         color="red"
-        disabled={trashTargets.length === 0}
         onClick={() => setIsConfirmingTrash(true)}
         type="button"
         variant="subtle"

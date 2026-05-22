@@ -19,15 +19,14 @@ export function MoveToTrashConfirmation({
 }: MoveToTrashConfirmationProps) {
   const affectedFileLocationCount = affectedFileLocations.length;
   const title = moveToTrashConfirmationTitle(affectedFileLocationCount);
-  const affectedFileLocationSummary =
-    affectedFileLocationCount === 1
-      ? "This File Location will be moved to Trash."
-      : `${affectedFileLocationCount} File Locations will be moved to Trash.`;
+  const affectedFileLocationSummary = moveToTrashConfirmationSummary(
+    affectedFileLocationCount,
+  );
 
   return (
     <Modal opened={isOpen} onClose={onCancel} title={title} centered>
       <Stack gap="md">
-        {selectedVideoCount ? (
+        {selectedVideoCount !== undefined ? (
           <Text>{selectedVideoCount} selected Videos</Text>
         ) : null}
         <Text>{affectedFileLocationSummary}</Text>
@@ -51,9 +50,27 @@ export function MoveToTrashConfirmation({
 function moveToTrashConfirmationTitle(
   affectedFileLocationCount: number,
 ) {
+  if (affectedFileLocationCount === 0) {
+    return "Move selected Videos to Trash?";
+  }
+
   if (affectedFileLocationCount === 1) {
     return "Move this file to Trash?";
   }
 
   return `Move ${affectedFileLocationCount} files to Trash?`;
+}
+
+function moveToTrashConfirmationSummary(
+  affectedFileLocationCount: number,
+) {
+  if (affectedFileLocationCount === 0) {
+    return "No reachable Preferred File Locations will be moved to Trash.";
+  }
+
+  if (affectedFileLocationCount === 1) {
+    return "This File Location will be moved to Trash.";
+  }
+
+  return `${affectedFileLocationCount} File Locations will be moved to Trash.`;
 }
