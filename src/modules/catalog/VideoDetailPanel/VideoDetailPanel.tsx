@@ -103,7 +103,7 @@ export function VideoDetailPanel({
         />
       </Stack>
       <MoveToTrashConfirmation
-        affectedPreferredFileLocations={
+        affectedFileLocations={
           fileLocationPendingTrash ? [fileLocationPendingTrash] : []
         }
         isOpen={fileLocationPendingTrash !== null}

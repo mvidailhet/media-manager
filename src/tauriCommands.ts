@@ -67,7 +67,7 @@ export interface CatalogVideoFileLocation {
   path: string;
   fileSizeBytes: number;
   isPreferred: boolean;
-  isReachable?: boolean;
+  isReachable: boolean;
 }
 
 export type PreviewStripStatus =

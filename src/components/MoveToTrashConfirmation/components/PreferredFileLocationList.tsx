@@ -2,27 +2,27 @@ import { List } from "@mantine/core";
 
 import { WrappingCode } from "../../../shared/components/WrappingCode";
 
-const maximumPreferredFileLocationListHeight = 240;
+const maximumFileLocationListHeight = 240;
 
 export function PreferredFileLocationList({
-  preferredFileLocations,
+  fileLocations,
 }: {
-  preferredFileLocations: string[];
+  fileLocations: string[];
 }) {
   return (
     <List
-      aria-label="Preferred File Locations to move to Trash"
+      aria-label="File Locations to move to Trash"
       spacing="xs"
       styles={{
         root: {
-          maxHeight: maximumPreferredFileLocationListHeight,
+          maxHeight: maximumFileLocationListHeight,
           overflowY: "auto",
         },
       }}
     >
-      {preferredFileLocations.map((preferredFileLocation) => (
-        <List.Item key={preferredFileLocation}>
-          <WrappingCode>{preferredFileLocation}</WrappingCode>
+      {fileLocations.map((fileLocation) => (
+        <List.Item key={fileLocation}>
+          <WrappingCode>{fileLocation}</WrappingCode>
         </List.Item>
       ))}
     </List>

@@ -189,7 +189,9 @@ impl Catalog {
                    AND NOT EXISTS (
                     SELECT 1
                     FROM file_locations
+                    JOIN scan_roots ON scan_roots.id = file_locations.scan_root_id
                     WHERE file_locations.video_id = videos.id
+                      AND scan_roots.is_available = 1
                    )",
                 params![video_id],
             )

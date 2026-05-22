@@ -26,7 +26,7 @@ export function FileLocationsSection({
             {fileLocation.isPreferred ? (
               <Badge>Preferred File Location</Badge>
             ) : null}
-            {fileLocation.isReachable !== false ? (
+            {fileLocation.isReachable ? (
               <Button
                 type="button"
                 aria-label={`Move ${fileLocation.path} to Trash`}

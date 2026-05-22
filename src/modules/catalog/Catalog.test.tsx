@@ -1366,9 +1366,10 @@ describe("Catalog module", () => {
     await within(catalogVideos).findByRole("article", {
       name: "Shared Clip",
     });
-    const alexHeading = within(catalogVideos).getAllByText("Alex")[0];
-    const blairHeading = within(catalogVideos).getAllByText("Blair")[0];
-    const unassignedHeading = within(catalogVideos).getByText("Unassigned");
+    const alexHeading = (await within(catalogVideos).findAllByText("Alex"))[0];
+    const blairHeading = (await within(catalogVideos).findAllByText("Blair"))[0];
+    const unassignedHeading =
+      await within(catalogVideos).findByText("Unassigned");
     const sharedClipCard = within(catalogVideos).getByRole("article", {
       name: "Shared Clip",
     });
@@ -2256,11 +2257,13 @@ describe("Catalog module", () => {
             path: "/Volumes/Archive/Videos/family-trip.mp4",
             fileSizeBytes: 80740352,
             isPreferred: true,
+            isReachable: true,
           },
           {
             path: "/Volumes/Backup/Videos/family-trip.mp4",
             fileSizeBytes: 80740352,
             isPreferred: false,
+            isReachable: true,
           },
         ],
         isAvailable: true,
@@ -2334,6 +2337,7 @@ describe("Catalog module", () => {
             path: "/Volumes/Archive/Videos/family-trip.mp4",
             fileSizeBytes: 80740352,
             isPreferred: true,
+            isReachable: true,
           },
         ],
         isAvailable: true,
@@ -2407,11 +2411,13 @@ describe("Catalog module", () => {
               path: "/Volumes/Archive/Videos/family-trip.mp4",
               fileSizeBytes: 80740352,
               isPreferred: true,
+              isReachable: true,
             },
             {
               path: "/Volumes/Backup/Videos/family-trip.mp4",
               fileSizeBytes: 80740352,
               isPreferred: false,
+              isReachable: true,
             },
           ],
           isAvailable: true,
@@ -2433,6 +2439,7 @@ describe("Catalog module", () => {
               path: "/Volumes/Backup/Videos/family-trip.mp4",
               fileSizeBytes: 80740352,
               isPreferred: true,
+              isReachable: true,
             },
           ],
           isAvailable: true,
@@ -2486,6 +2493,13 @@ describe("Catalog module", () => {
               path: "/Volumes/Archive/Videos/family-trip.mp4",
               fileSizeBytes: 80740352,
               isPreferred: true,
+              isReachable: true,
+            },
+            {
+              path: "/Volumes/Missing/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: false,
+              isReachable: false,
             },
           ],
           isAvailable: true,

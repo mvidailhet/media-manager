@@ -143,6 +143,50 @@ fn moving_the_last_file_location_to_trash_forgets_video_from_catalog_results() {
     assert_eq!(count_rows(&database, "videos"), 0);
 }
 
+#[test]
+fn moving_the_last_reachable_file_location_to_trash_forgets_video_with_unreachable_locations() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let database = catalog_test_database(&catalog_path);
+    let movies_root = temporary_folder.path().join("Movies");
+    let backup_root = temporary_folder.path().join("Backup");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    std::fs::create_dir_all(&backup_root).expect("backup root exists");
+    catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    catalog
+        .add_scan_root(&backup_root)
+        .expect("backup scan root adds");
+    let backup_scan_root_path = backup_root
+        .canonicalize()
+        .expect("backup root canonicalizes")
+        .to_string_lossy()
+        .into_owned();
+    catalog
+        .check_scan_root_availability(&backup_scan_root_path)
+        .expect("backup scan root availability updates");
+    std::fs::remove_dir_all(&backup_root).expect("backup root becomes unreachable");
+    catalog
+        .check_scan_root_availability(&backup_scan_root_path)
+        .expect("backup scan root unavailability updates");
+    store_test_video(&database, "fingerprint-one", "Family Trip");
+    let movies_location_path = movies_root.join("family-trip.mp4");
+    let backup_location_path = backup_root.join("family-trip.mp4");
+    std::fs::write(&movies_location_path, "valid video bytes").expect("movies file exists");
+    store_file_location(&database, 1, 1, &movies_location_path, 17);
+    store_file_location(&database, 1, 2, &backup_location_path, 17);
+
+    catalog
+        .remove_trashed_file_location(1, &movies_location_path)
+        .expect("last reachable location removes");
+
+    assert!(catalog.listed_videos().expect("videos list").is_empty());
+    assert_eq!(count_rows(&database, "file_locations"), 0);
+    assert_eq!(count_rows(&database, "videos"), 0);
+}
+
 fn store_file_location(
     database: &Connection,
     video_id: i64,
