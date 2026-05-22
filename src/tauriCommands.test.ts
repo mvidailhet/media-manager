@@ -37,6 +37,7 @@ import {
   setVideoFavorite,
   openCatalogVideoContainingFolder,
   openCatalogVideo,
+  moveCatalogVideoFileLocationToTrash,
   updatePerformer,
   updateScanRootInferenceRules,
   tagsForVideo,
@@ -110,6 +111,21 @@ describe("Tauri commands", () => {
     expect(mockedInvoke).toHaveBeenCalledWith(
       "open_catalog_video_containing_folder",
       {
+        videoId: 7,
+      },
+    );
+  });
+
+  it("calls the typed Rust command for moving one Catalog Video File Location to Trash", async () => {
+    await moveCatalogVideoFileLocationToTrash(
+      7,
+      "/Volumes/Archive/Videos/family-trip.mp4",
+    );
+
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "move_catalog_video_file_location_to_trash",
+      {
+        path: "/Volumes/Archive/Videos/family-trip.mp4",
         videoId: 7,
       },
     );

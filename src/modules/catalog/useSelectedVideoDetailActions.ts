@@ -11,6 +11,7 @@ export type SelectedVideoDetailActions = {
   createOrAttachTag: (tagName: string) => void;
   detachPerformer: (performer: CatalogPerformer) => void;
   detachTag: (tag: CatalogTag) => void;
+  moveFileLocationToTrash: (path: string) => void;
   openContainingFolder: () => void;
   openVideo: (startAtSeconds: number) => void;
   saveTitle: (title: string) => void;
@@ -24,6 +25,7 @@ export function useSelectedVideoDetailActions({
   onCreateOrAttachTag,
   onDetachPerformer,
   onDetachTag,
+  onMoveFileLocationToTrash,
   onOpenVideo,
   onOpenVideoContainingFolder,
   onSaveTitle,
@@ -36,6 +38,7 @@ export function useSelectedVideoDetailActions({
   onCreateOrAttachTag: (tagName: string) => void;
   onDetachPerformer: (performer: CatalogPerformer) => void;
   onDetachTag: (tag: CatalogTag) => void;
+  onMoveFileLocationToTrash: (path: string) => void;
   onOpenVideo: (catalogVideo: CatalogVideo, startAtSeconds: number) => void;
   onOpenVideoContainingFolder: (catalogVideo: CatalogVideo) => void;
   onSaveTitle: (title: string) => void;
@@ -49,6 +52,7 @@ export function useSelectedVideoDetailActions({
     createOrAttachTag: onCreateOrAttachTag,
     detachPerformer: onDetachPerformer,
     detachTag: onDetachTag,
+    moveFileLocationToTrash: onMoveFileLocationToTrash,
     openContainingFolder: () => {
       if (selectedVideo) {
         onOpenVideoContainingFolder(selectedVideo);

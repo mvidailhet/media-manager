@@ -164,6 +164,57 @@ impl Catalog {
         transaction.commit().map_err(|error| error.to_string())
     }
 
+    pub fn remove_trashed_file_location(&self, video_id: i64, path: &Path) -> Result<(), String> {
+        let file_location_path = path.to_string_lossy().into_owned();
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+        let deleted_file_location_count = transaction
+            .execute(
+                "DELETE FROM file_locations
+                 WHERE video_id = ?1
+                   AND path = ?2",
+                params![video_id, file_location_path],
+            )
+            .map_err(|error| error.to_string())?;
+        if deleted_file_location_count == 0 {
+            return Err("File Location is not in the Catalog".to_string());
+        }
+
+        transaction
+            .execute(
+                "DELETE FROM videos
+                 WHERE id = ?1
+                   AND NOT EXISTS (
+                    SELECT 1
+                    FROM file_locations
+                    WHERE file_locations.video_id = videos.id
+                   )",
+                params![video_id],
+            )
+            .map_err(|error| error.to_string())?;
+
+        transaction.commit().map_err(|error| error.to_string())
+    }
+
+    pub fn has_file_location(&self, video_id: i64, path: &Path) -> Result<bool, String> {
+        let file_location_path = path.to_string_lossy().into_owned();
+        self.database
+            .query_row(
+                "SELECT EXISTS (
+                    SELECT 1
+                    FROM file_locations
+                    WHERE video_id = ?1
+                      AND path = ?2
+                 )",
+                params![video_id, file_location_path],
+                |row| row.get::<_, i64>(0),
+            )
+            .map(|exists| exists == 1)
+            .map_err(|error| error.to_string())
+    }
+
     fn file_locations_for_video(
         &self,
         video_id: i64,
@@ -181,10 +232,13 @@ impl Catalog {
             )
             .optional()?;
         let mut statement = self.database.prepare(
-            "SELECT path, file_size_bytes
+            "SELECT file_locations.path,
+                    file_locations.file_size_bytes,
+                    scan_roots.is_available
              FROM file_locations
-             WHERE video_id = ?1
-             ORDER BY path",
+             JOIN scan_roots ON scan_roots.id = file_locations.scan_root_id
+             WHERE file_locations.video_id = ?1
+             ORDER BY file_locations.path",
         )?;
 
         let file_locations = statement
@@ -192,6 +246,7 @@ impl Catalog {
                 let path: String = row.get(0)?;
                 Ok(CatalogVideoFileLocation {
                     is_preferred: Some(&path) == preferred_path.as_ref(),
+                    is_reachable: row.get::<_, i64>(2)? == 1,
                     path,
                     file_size_bytes: row.get(1)?,
                 })

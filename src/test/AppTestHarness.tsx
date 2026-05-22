@@ -45,6 +45,7 @@ import {
   setVideoFavorite,
   openCatalogVideoContainingFolder,
   openCatalogVideo,
+  moveCatalogVideoFileLocationToTrash,
   tagsForVideo,
   updateScanRootInferenceRules,
   updateVideoTitle,
@@ -97,6 +98,7 @@ vi.mock("../tauriCommands", () => ({
   setVideoFavorite: vi.fn(),
   openCatalogVideoContainingFolder: vi.fn(),
   openCatalogVideo: vi.fn(),
+  moveCatalogVideoFileLocationToTrash: vi.fn(),
   tagsForVideo: vi.fn(),
   updateScanRootInferenceRules: vi.fn(),
   updateVideoTitle: vi.fn(),
@@ -134,6 +136,9 @@ export const mockedOpenCatalogVideoContainingFolder = vi.mocked(
   openCatalogVideoContainingFolder,
 );
 export const mockedOpenCatalogVideo = vi.mocked(openCatalogVideo);
+export const mockedMoveCatalogVideoFileLocationToTrash = vi.mocked(
+  moveCatalogVideoFileLocationToTrash,
+);
 export const mockedRetryFailedPreviewStrip = vi.mocked(retryFailedPreviewStrip);
 export const mockedIgnoreFailedPreviewStrip = vi.mocked(ignoreFailedPreviewStrip);
 export const mockedListCatalogVideos = vi.mocked(listCatalogVideos);

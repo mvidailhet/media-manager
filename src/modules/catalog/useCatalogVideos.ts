@@ -4,6 +4,7 @@ import type { CatalogVideo } from "../../tauriCommands";
 import {
   forgetCatalogVideo,
   listCatalogVideos,
+  moveCatalogVideoFileLocationToTrash,
   openCatalogVideo,
   openCatalogVideoContainingFolder,
   setVideoFavorite,
@@ -28,8 +29,10 @@ export function useCatalogVideos() {
       setCatalogVideos(storedCatalogVideos);
       setCatalogVideosStatusMessage("");
       setCatalogVideoActionStatusMessage("");
+      return storedCatalogVideos;
     } catch {
       setCatalogVideosStatusMessage(catalogVideosErrorMessage);
+      return [];
     }
   }
 
@@ -63,6 +66,7 @@ export function useCatalogVideos() {
     catalogVideos,
     catalogVideosStatusMessage,
     forgetMissingVideo: forgetCatalogVideo,
+    moveVideoFileLocationToTrash: moveCatalogVideoFileLocationToTrash,
     openVideo: openCatalogVideo,
     openVideoContainingFolder: openCatalogVideoContainingFolder,
     refreshCatalogVideos,

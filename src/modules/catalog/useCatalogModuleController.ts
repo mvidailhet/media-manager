@@ -33,7 +33,7 @@ type CatalogController = {
   catalogVideos: CatalogVideo[];
   forgetMissingVideo: (videoId: number) => Promise<void>;
   missingVideos: CatalogVideo[];
-  refreshCatalogVideos: () => Promise<void>;
+  refreshCatalogVideos: () => Promise<CatalogVideo[]>;
   refreshMetadataSuggestionGroups: () => Promise<void>;
 };
 
@@ -68,6 +68,7 @@ export function useCatalogModuleController(): CatalogController {
     catalogVideos,
     catalogVideosStatusMessage,
     forgetMissingVideo,
+    moveVideoFileLocationToTrash,
     openVideo,
     openVideoContainingFolder,
     refreshCatalogVideos,
@@ -469,6 +470,34 @@ export function useCatalogModuleController(): CatalogController {
       await openVideoContainingFolder(video.id);
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function moveSelectedVideoFileLocationToTrash(path: string) {
+    if (!selectedVideo) {
+      return;
+    }
+
+    const videoId = selectedVideo.id;
+
+    try {
+      await moveVideoFileLocationToTrash(videoId, path);
+      const refreshedVideos = await refreshCatalogVideos();
+      const refreshedSelectedVideo = refreshedVideos.find(
+        (catalogVideo) => catalogVideo.id === videoId,
+      );
+
+      if (refreshedSelectedVideo) {
+        setSelectedVideo(refreshedSelectedVideo);
+      } else {
+        resetSelectedVideo();
+      }
+
+      setDetailStatusMessage("");
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setDetailStatusMessage(errorMessage(error));
       setCatalogVideoActionStatusMessage(errorMessage(error));
     }
   }
@@ -954,6 +983,8 @@ export function useCatalogModuleController(): CatalogController {
       onDetachTag: detachTagFromSelectedVideo,
       onOpenVideo: openVideoFromCatalog,
       onOpenVideoContainingFolder: openVideoContainingFolderFromCatalog,
+      onMoveSelectedVideoFileLocationToTrash:
+        moveSelectedVideoFileLocationToTrash,
       onRejectMetadataSuggestionSource: rejectMetadataSuggestionForSource,
       onRemovePerformer: removePerformerFromBatchSelectedVideos,
       onRemoveTag: removeTagFromBatchSelectedVideos,

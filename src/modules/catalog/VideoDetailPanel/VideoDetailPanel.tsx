@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Box, Stack, Text } from "@mantine/core";
 
+import { MoveToTrashConfirmation } from "../../../components/MoveToTrashConfirmation";
 import type {
   CatalogPerformer,
   CatalogTag,
@@ -31,6 +33,18 @@ export function VideoDetailPanel({
   video: CatalogVideo;
 }) {
   const fileLocations = video.fileLocations;
+  const [fileLocationPendingTrash, setFileLocationPendingTrash] = useState<
+    string | null
+  >(null);
+
+  function confirmMoveToTrash() {
+    if (!fileLocationPendingTrash) {
+      return;
+    }
+
+    actions.moveFileLocationToTrash(fileLocationPendingTrash);
+    setFileLocationPendingTrash(null);
+  }
 
   return (
     <Box
@@ -83,8 +97,19 @@ export function VideoDetailPanel({
           videoId={video.id}
         />
 
-        <FileLocationsSection fileLocations={fileLocations} />
+        <FileLocationsSection
+          fileLocations={fileLocations}
+          onRequestMoveToTrash={setFileLocationPendingTrash}
+        />
       </Stack>
+      <MoveToTrashConfirmation
+        affectedPreferredFileLocations={
+          fileLocationPendingTrash ? [fileLocationPendingTrash] : []
+        }
+        isOpen={fileLocationPendingTrash !== null}
+        onCancel={() => setFileLocationPendingTrash(null)}
+        onConfirm={confirmMoveToTrash}
+      />
     </Box>
   );
 }

@@ -27,6 +27,8 @@ const setVideoFavoriteCommand = "set_video_favorite";
 const openCatalogVideoCommand = "open_catalog_video";
 const openCatalogVideoContainingFolderCommand =
   "open_catalog_video_containing_folder";
+const moveCatalogVideoFileLocationToTrashCommand =
+  "move_catalog_video_file_location_to_trash";
 const startScanRootRefreshJobCommand = "start_scan_root_refresh_job";
 const cancelScanRootRefreshJobCommand = "cancel_scan_root_refresh_job";
 const listUnprocessableVideoCandidatesByScanRootCommand =
@@ -65,6 +67,7 @@ export interface CatalogVideoFileLocation {
   path: string;
   fileSizeBytes: number;
   isPreferred: boolean;
+  isReachable?: boolean;
 }
 
 export type PreviewStripStatus =
@@ -375,6 +378,16 @@ export async function openCatalogVideoContainingFolder(
   videoId: number,
 ): Promise<void> {
   return invoke<void>(openCatalogVideoContainingFolderCommand, { videoId });
+}
+
+export async function moveCatalogVideoFileLocationToTrash(
+  videoId: number,
+  path: string,
+): Promise<void> {
+  return invoke<void>(moveCatalogVideoFileLocationToTrashCommand, {
+    path,
+    videoId,
+  });
 }
 
 export async function startScanRootRefreshJob(

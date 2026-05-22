@@ -30,7 +30,7 @@ export function useScanModuleController({
 }: {
   catalogVideos: CatalogVideo[];
   missingVideos: CatalogVideo[];
-  refreshCatalogVideos: () => Promise<void>;
+  refreshCatalogVideos: () => Promise<unknown>;
   refreshMetadataSuggestionGroups: () => Promise<void>;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
