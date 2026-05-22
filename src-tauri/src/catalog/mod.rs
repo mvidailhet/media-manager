@@ -459,7 +459,6 @@ impl AcceptedMetadataSuggestionMapping {
         metadata_kind: &str,
         metadata_value_id: i64,
     ) -> Result<Self, String> {
-        let metadata_name = normalized_metadata_input(suggested_value)?;
         let (accepted_tag_id, accepted_performer_id) = match metadata_kind {
             "tag" => (Some(metadata_value_id), None),
             "performer" => (None, Some(metadata_value_id)),
@@ -468,7 +467,7 @@ impl AcceptedMetadataSuggestionMapping {
 
         Ok(Self {
             scan_root_id,
-            normalized_suggested_value: metadata_name.normalized_name,
+            normalized_suggested_value: normalized_metadata_suggestion_value(suggested_value),
             suggestion_kind: suggestion_kind.to_string(),
             accepted_tag_id,
             accepted_performer_id,
@@ -500,6 +499,15 @@ fn normalized_metadata_input(name: &str) -> Result<NormalizedMetadataName, Strin
         normalized_name: display_name.to_lowercase(),
         display_name,
     })
+}
+
+fn normalized_metadata_suggestion_value(suggested_value: &str) -> String {
+    suggested_value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_whitespace())
+        .flat_map(|character| character.to_lowercase())
+        .collect()
 }
 
 fn metadata_value_id_for_suggestion(
@@ -596,13 +604,14 @@ fn pending_metadata_suggestion_source_path_segments(
     source_path_segment: &str,
     suggestion_kind: &str,
 ) -> Result<Vec<String>, String> {
+    let normalized_suggested_value = normalized_metadata_suggestion_value(suggested_value);
     let mut statement = transaction
         .prepare(
             "SELECT source_path_segment
              FROM metadata_suggestions
              WHERE scan_root_id = ?1
                AND video_id = ?2
-               AND lower(suggested_value) = lower(?3)
+               AND normalized_suggested_value = ?3
                AND source_path_segment = ?4
                AND suggestion_kind = ?5
                AND accepted_at IS NULL
@@ -616,7 +625,7 @@ fn pending_metadata_suggestion_source_path_segments(
             params![
                 scan_root_id,
                 video_id,
-                suggested_value,
+                normalized_suggested_value,
                 source_path_segment,
                 suggestion_kind
             ],
@@ -676,7 +685,7 @@ fn mapped_metadata_suggestion(
     suggested_value: &str,
     suggestion_kind: &str,
 ) -> Result<Option<AcceptedMetadataSuggestionMapping>, String> {
-    let metadata_name = normalized_metadata_input(suggested_value)?;
+    let normalized_suggested_value = normalized_metadata_suggestion_value(suggested_value);
     transaction
         .query_row(
             "SELECT accepted_tag_id, accepted_performer_id
@@ -689,13 +698,13 @@ fn mapped_metadata_suggestion(
             params![
                 scan_root_id,
                 source_path_segment,
-                metadata_name.normalized_name,
+                normalized_suggested_value,
                 suggestion_kind
             ],
             |row| {
                 Ok(AcceptedMetadataSuggestionMapping {
                     scan_root_id,
-                    normalized_suggested_value: metadata_name.normalized_name.clone(),
+                    normalized_suggested_value: normalized_suggested_value.clone(),
                     suggestion_kind: suggestion_kind.to_string(),
                     accepted_tag_id: row.get(0)?,
                     accepted_performer_id: row.get(1)?,
@@ -1147,7 +1156,7 @@ fn group_metadata_suggestions(
         let needs_new_group = suggestion_groups
             .last()
             .map(|suggestion_group: &MetadataSuggestionGroup| {
-                suggestion_group.suggested_value.to_lowercase()
+                normalized_metadata_suggestion_value(&suggestion_group.suggested_value)
                     != suggestion_row.normalized_suggested_value
                     || suggestion_group.suggestion_kind != suggestion_row.suggestion_kind
             })
@@ -1164,7 +1173,10 @@ fn group_metadata_suggestions(
         let suggestion_group = suggestion_groups
             .last_mut()
             .expect("metadata suggestion group exists");
-        if suggestion_row.suggested_value < suggestion_group.suggested_value {
+        if metadata_suggestion_display_value_is_preferred(
+            &suggestion_row.suggested_value,
+            &suggestion_group.suggested_value,
+        ) {
             suggestion_group.suggested_value = suggestion_row.suggested_value.clone();
         }
         let needs_new_source = suggestion_group
@@ -1266,7 +1278,7 @@ fn metadata_suggestion_segments(
     let ignored_folder_names = inference_rules
         .ignored_folder_names
         .iter()
-        .map(|folder_name| folder_name.to_lowercase())
+        .map(|folder_name| normalized_metadata_suggestion_value(folder_name))
         .collect::<HashSet<_>>();
 
     child_folder_path
@@ -1275,7 +1287,7 @@ fn metadata_suggestion_segments(
         .filter(|folder_name| !folder_name.is_empty())
         .filter(|folder_name| {
             let suggested_value = metadata_suggestion_display_value(folder_name);
-            let normalized_suggested_value = suggested_value.to_lowercase();
+            let normalized_suggested_value = normalized_metadata_suggestion_value(&suggested_value);
 
             !suggested_value.is_empty()
                 && !ignored_folder_names.contains(&normalized_suggested_value)
@@ -1299,7 +1311,7 @@ pub(crate) fn suggested_tags_from_filename_brackets(
     let ignored_folder_names = inference_rules
         .ignored_folder_names
         .iter()
-        .map(|folder_name| folder_name.to_lowercase())
+        .map(|folder_name| normalized_metadata_suggestion_value(folder_name))
         .collect::<HashSet<_>>();
     let mut suggestions = Vec::new();
     let mut remaining_stem = file_stem;
@@ -1352,7 +1364,7 @@ fn is_allowed_filename_bracket_value(
     inference_rules: &ScanRootInferenceRules,
 ) -> bool {
     !suggested_value.is_empty()
-        && !ignored_folder_names.contains(&suggested_value.to_lowercase())
+        && !ignored_folder_names.contains(&normalized_metadata_suggestion_value(suggested_value))
         && !is_ignored_exact_year(suggested_value, &inference_rules.ignored_exact_year_range)
         && !is_technical_filename_token(suggested_value)
 }
@@ -1386,7 +1398,41 @@ fn is_vertical_resolution_token(suggested_value: &str) -> bool {
 }
 
 fn metadata_suggestion_display_value(source_path_segment: &str) -> String {
-    source_path_segment.trim().to_string()
+    source_path_segment
+        .split_whitespace()
+        .map(metadata_suggestion_display_word)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn metadata_suggestion_display_word(word: &str) -> String {
+    let mut characters = word.chars();
+    let Some(first_character) = characters.next() else {
+        return String::new();
+    };
+
+    first_character
+        .to_uppercase()
+        .chain(characters)
+        .collect::<String>()
+}
+
+fn metadata_suggestion_display_value_is_preferred(candidate: &str, current: &str) -> bool {
+    let candidate_score = metadata_suggestion_display_value_score(candidate);
+    let current_score = metadata_suggestion_display_value_score(current);
+
+    candidate_score > current_score || (candidate_score == current_score && candidate < current)
+}
+
+fn metadata_suggestion_display_value_score(value: &str) -> (usize, usize, usize) {
+    let word_count = value.split_whitespace().count();
+    let uppercase_count = value
+        .chars()
+        .filter(|character| character.is_uppercase())
+        .count();
+    let character_count = value.chars().count();
+
+    (word_count, uppercase_count, character_count)
 }
 
 fn is_ignored_exact_year(folder_name: &str, ignored_exact_year_range: &ExactYearRange) -> bool {

@@ -6,7 +6,7 @@ impl Catalog {
             .database
             .prepare(
                 "SELECT metadata_suggestions.suggested_value,
-                        lower(metadata_suggestions.suggested_value),
+                        metadata_suggestions.normalized_suggested_value,
                         metadata_suggestions.suggestion_kind,
                         scan_roots.path,
                         metadata_suggestions.source_path_segment,
@@ -26,7 +26,7 @@ impl Catalog {
                   AND file_locations.scan_root_id = metadata_suggestions.scan_root_id
                  WHERE metadata_suggestions.accepted_at IS NULL
                    AND metadata_suggestions.rejected_at IS NULL
-                 ORDER BY lower(metadata_suggestions.suggested_value),
+                 ORDER BY metadata_suggestions.normalized_suggested_value,
                           metadata_suggestions.suggestion_kind,
                           scan_roots.path,
                           metadata_suggestions.source_path_segment,
@@ -36,11 +36,14 @@ impl Catalog {
             )
             .map_err(|error| error.to_string())?;
 
-        let suggestion_rows = statement
+        let mut suggestion_rows = statement
             .query_map([], |row| {
+                let suggested_value = row.get::<_, String>(0)?;
                 Ok(MetadataSuggestionRow {
-                    suggested_value: row.get(0)?,
-                    normalized_suggested_value: row.get(1)?,
+                    normalized_suggested_value: normalized_metadata_suggestion_value(
+                        &suggested_value,
+                    ),
+                    suggested_value,
                     suggestion_kind: row.get(2)?,
                     scan_root_path: row.get(3)?,
                     source_path_segment: row.get(4)?,
@@ -61,6 +64,16 @@ impl Catalog {
             .map_err(|error| error.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| error.to_string())?;
+        suggestion_rows.sort_by(|left, right| {
+            left.normalized_suggested_value
+                .cmp(&right.normalized_suggested_value)
+                .then(left.suggestion_kind.cmp(&right.suggestion_kind))
+                .then(left.scan_root_path.cmp(&right.scan_root_path))
+                .then(left.source_path_segment.cmp(&right.source_path_segment))
+                .then(left.title.cmp(&right.title))
+                .then(left.suggested_value.cmp(&right.suggested_value))
+                .then(left.video_id.cmp(&right.video_id))
+        });
 
         Ok(group_metadata_suggestions(suggestion_rows))
     }
@@ -163,7 +176,7 @@ impl Catalog {
     ) -> Result<(), String> {
         self.reject_unknown_suggestion_kind(suggestion_kind)?;
         let scan_root_id = self.scan_root_id(scan_root_path)?;
-        let metadata_name = normalized_metadata_input(suggested_value)?;
+        let normalized_suggested_value = normalized_metadata_suggestion_value(suggested_value);
         let transaction = self
             .database
             .unchecked_transaction()
@@ -188,7 +201,7 @@ impl Catalog {
                 params![
                     scan_root_id,
                     source_path_segment,
-                    metadata_name.normalized_name,
+                    normalized_suggested_value,
                     suggestion_kind
                 ],
             )
@@ -201,14 +214,14 @@ impl Catalog {
                      updated_at = CURRENT_TIMESTAMP
                  WHERE scan_root_id = ?1
                    AND source_path_segment = ?2
-                   AND lower(suggested_value) = lower(?3)
+                   AND normalized_suggested_value = ?3
                    AND suggestion_kind = ?4
                    AND accepted_at IS NULL
                    AND rejected_at IS NULL",
                 params![
                     scan_root_id,
                     source_path_segment,
-                    suggested_value,
+                    normalized_suggested_value,
                     suggestion_kind
                 ],
             )
@@ -246,7 +259,7 @@ impl Catalog {
                      FROM metadata_suggestions
                      WHERE scan_root_id = ?1
                        AND video_id = ?2
-                       AND lower(suggested_value) = lower(?3)
+                       AND normalized_suggested_value = ?3
                        AND source_path_segment = ?4
                        AND suggestion_kind = ?5
                        AND accepted_at IS NULL
@@ -255,7 +268,7 @@ impl Catalog {
                     params![
                         scan_root_id,
                         video_id,
-                        suggested_value,
+                        normalized_metadata_suggestion_value(suggested_value),
                         source_path_segment,
                         suggestion_kind
                     ],
@@ -316,17 +329,22 @@ impl Catalog {
 
                 let suggested_value = suggestion_source.suggested_value;
                 let source_path_segment = suggestion_source.source_path_segment;
-                let normalized_suggested_value = suggested_value.to_lowercase();
+                let normalized_suggested_value =
+                    normalized_metadata_suggestion_value(&suggested_value);
                 let has_source_rejection = transaction
                     .query_row(
                         "SELECT 1
                          FROM metadata_suggestion_rejections
                          WHERE scan_root_id = ?1
                            AND source_path_segment = ?2
-                           AND normalized_suggested_value = lower(?3)
+                           AND normalized_suggested_value = ?3
                            AND suggestion_kind = 'tag'
                          LIMIT 1",
-                        params![scan_root_id, source_path_segment, suggested_value],
+                        params![
+                            scan_root_id,
+                            source_path_segment,
+                            normalized_suggested_value
+                        ],
                         |_| Ok(()),
                     )
                     .optional()

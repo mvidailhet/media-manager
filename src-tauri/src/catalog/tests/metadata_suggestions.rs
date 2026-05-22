@@ -205,6 +205,106 @@ fn metadata_suggestions_normalize_display_text_while_preserving_original_source_
 }
 
 #[test]
+fn metadata_suggestions_prefer_capitalized_display_text_for_case_variants() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let lowercase_folder = movies_root.join("best");
+    let capitalized_folder = movies_root.join("Best");
+    std::fs::create_dir_all(&lowercase_folder).expect("lowercase folder exists");
+    std::fs::create_dir_all(&capitalized_folder).expect("capitalized folder exists");
+    std::fs::write(lowercase_folder.join("first.mp4"), "valid video bytes")
+        .expect("lowercase video exists");
+    std::fs::write(
+        lowercase_folder.join("second.mp4"),
+        "valid second video bytes",
+    )
+    .expect("second lowercase video exists");
+    std::fs::write(
+        capitalized_folder.join("third.mp4"),
+        "valid third video bytes",
+    )
+    .expect("capitalized video exists");
+    std::fs::write(
+        capitalized_folder.join("fourth.mp4"),
+        "valid fourth video bytes",
+    )
+    .expect("second capitalized video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    let suggestion_groups = catalog
+        .list_metadata_suggestion_groups()
+        .expect("metadata suggestion groups list");
+
+    assert_eq!(suggestion_groups.len(), 1);
+    assert_eq!(suggestion_groups[0].suggested_value, "Best");
+    assert_eq!(
+        suggestion_groups[0]
+            .sources
+            .iter()
+            .flat_map(|source| source.videos.iter())
+            .count(),
+        4
+    );
+}
+
+#[test]
+fn metadata_suggestions_group_compact_and_spaced_value_variants() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let compact_folder = movies_root.join("casalfist");
+    let spaced_folder = movies_root.join("Casal Fist");
+    std::fs::create_dir_all(&compact_folder).expect("compact folder exists");
+    std::fs::create_dir_all(&spaced_folder).expect("spaced folder exists");
+    std::fs::write(compact_folder.join("first.mp4"), "valid video bytes")
+        .expect("compact video exists");
+    std::fs::write(
+        compact_folder.join("second.mp4"),
+        "valid second video bytes",
+    )
+    .expect("second compact video exists");
+    std::fs::write(spaced_folder.join("third.mp4"), "valid third video bytes")
+        .expect("spaced video exists");
+    std::fs::write(spaced_folder.join("fourth.mp4"), "valid fourth video bytes")
+        .expect("second spaced video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    let suggestion_groups = catalog
+        .list_metadata_suggestion_groups()
+        .expect("metadata suggestion groups list");
+
+    assert_eq!(suggestion_groups.len(), 1);
+    assert_eq!(suggestion_groups[0].suggested_value, "Casal Fist");
+    assert_eq!(
+        suggestion_groups[0]
+            .sources
+            .iter()
+            .map(|source| source.source_path_segment.as_str())
+            .collect::<Vec<_>>(),
+        vec!["Casal Fist", "casalfist"]
+    );
+}
+
+#[test]
 fn metadata_suggestion_display_normalization_controls_ignored_segments() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
