@@ -48,7 +48,7 @@ export function FiltersPanel({
 
   return (
     <Stack gap="sm" aria-label="Video Search Filters">
-      <Group align="center">
+      <Group align="center" maw={800}>
         <TextInput
           aria-label="Search Videos"
           placeholder="Search Videos"
@@ -65,18 +65,18 @@ export function FiltersPanel({
             updateFilters({ favoritesOnly: event.currentTarget.checked })
           }
         />
+        <Button
+          type="button"
+          variant="subtle"
+          size="xs"
+          px="xs"
+          w="fit-content"
+          aria-expanded={advancedSearchOpened}
+          onClick={() => setAdvancedSearchOpened((isOpened) => !isOpened)}
+        >
+          Advanced search
+        </Button>
       </Group>
-      <Button
-        type="button"
-        variant="subtle"
-        size="xs"
-        px="xs"
-        w="fit-content"
-        aria-expanded={advancedSearchOpened}
-        onClick={() => setAdvancedSearchOpened((isOpened) => !isOpened)}
-      >
-        Advanced search
-      </Button>
       <Collapse expanded={advancedSearchOpened}>
         <Stack gap="sm">
           <Box>
