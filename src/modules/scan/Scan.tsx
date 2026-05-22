@@ -30,8 +30,10 @@ export type ScanProps = {
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   onPausePreviewStripQueue: () => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
+  onRevealUnprocessableVideoCandidate: (path: string) => void;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
+  onRequestUnprocessableVideoCandidateTrash: (path: string) => void;
   onResumePreviewStripQueue: () => void;
   onRetryFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   onSaveScanRootInferenceRules: (
@@ -62,8 +64,10 @@ export function Scan({
   onIgnoreFailedPreview,
   onPausePreviewStripQueue,
   onRefreshSelectedScanRoot,
+  onRevealUnprocessableVideoCandidate,
   onRequestMissingVideoForget,
   onRequestScanRootRemoval,
+  onRequestUnprocessableVideoCandidateTrash,
   onResumePreviewStripQueue,
   onRetryFailedPreview,
   onSaveScanRootInferenceRules,
@@ -96,7 +100,11 @@ export function Scan({
           onCheckScanRootAvailability={onCheckScanRootAvailability}
           onChooseScanRootFolder={onChooseScanRootFolder}
           onRefreshSelectedScanRoot={onRefreshSelectedScanRoot}
+          onRevealUnprocessableVideoCandidate={onRevealUnprocessableVideoCandidate}
           onRequestScanRootRemoval={onRequestScanRootRemoval}
+          onRequestUnprocessableVideoCandidateTrash={
+            onRequestUnprocessableVideoCandidateTrash
+          }
           onSaveScanRootInferenceRules={onSaveScanRootInferenceRules}
         />
       </Tabs.Panel>

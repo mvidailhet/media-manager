@@ -18,7 +18,9 @@ export function RootCard({
   onCancelScanRootRefresh,
   onCheckScanRootAvailability,
   onRefreshSelectedScanRoot,
+  onRevealUnprocessableVideoCandidate,
   onRequestScanRootRemoval,
+  onRequestUnprocessableVideoCandidateTrash,
   onSaveScanRootInferenceRules,
   scanRoot,
   unprocessableVideoCandidateGroup,
@@ -28,7 +30,9 @@ export function RootCard({
   onCancelScanRootRefresh: (scanRoot: ScanRoot) => void;
   onCheckScanRootAvailability: (scanRoot: ScanRoot) => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
+  onRevealUnprocessableVideoCandidate: (path: string) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
+  onRequestUnprocessableVideoCandidateTrash: (path: string) => void;
   onSaveScanRootInferenceRules: (
     scanRoot: ScanRoot,
     inferenceRules: ScanRoot["inferenceRules"],
@@ -67,6 +71,8 @@ export function RootCard({
           />
         ) : null}
         <UnprocessableCandidatesSection
+          onRevealCandidate={onRevealUnprocessableVideoCandidate}
+          onRequestCandidateTrash={onRequestUnprocessableVideoCandidateTrash}
           scanRoot={scanRoot}
           unprocessableVideoCandidateGroup={unprocessableVideoCandidateGroup}
         />

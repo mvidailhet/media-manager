@@ -13,6 +13,8 @@ import {
   cancelScanRootRefreshJob,
   checkScanRootAvailability,
   listUnprocessableVideoCandidatesByScanRoot,
+  moveUnprocessableVideoCandidateToTrash,
+  openUnprocessableVideoCandidateInFinder,
   listScanRoots,
   removeScanRoot,
   startScanRootRefreshJob,
@@ -269,6 +271,25 @@ export function useScanRoots({
     }
   }
 
+  async function revealUnprocessableVideoCandidate(path: string) {
+    try {
+      await openUnprocessableVideoCandidateInFinder(path);
+    } catch (error) {
+      setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function moveUnprocessableVideoCandidatePathToTrash(path: string) {
+    try {
+      await moveUnprocessableVideoCandidateToTrash(path);
+      setUnprocessableVideoCandidateGroups((currentCandidateGroups) =>
+        candidateGroupsWithoutPath(currentCandidateGroups, path),
+      );
+    } catch (error) {
+      setScanRootsStatusMessage(errorMessage(error));
+    }
+  }
+
   async function cancelSelectedScanRootRefresh(scanRoot: ScanRoot) {
     try {
       await cancelScanRootRefreshJob(scanRoot.path);
@@ -306,12 +327,33 @@ export function useScanRoots({
     refreshScanRoots,
     refreshUnprocessableVideoCandidates,
     refreshSelectedScanRoot,
+    revealUnprocessableVideoCandidate,
     removeSelectedScanRoot,
     saveScanRootInferenceRules,
     scanRoots,
     scanRootsStatusMessage,
+    moveUnprocessableVideoCandidatePathToTrash,
     unprocessableVideoCandidateGroups,
   };
+}
+
+function candidateGroupsWithoutPath(
+  candidateGroups: UnprocessableVideoCandidateGroup[],
+  trashedCandidatePath: string,
+) {
+  return candidateGroups
+    .map((candidateGroup) => {
+      const candidates = candidateGroup.candidates.filter(
+        (candidate) => candidate.path !== trashedCandidatePath,
+      );
+
+      return {
+        ...candidateGroup,
+        candidateCount: candidates.length,
+        candidates,
+      };
+    })
+    .filter((candidateGroup) => candidateGroup.candidateCount > 0);
 }
 
 function scanRootRefreshProgressMessage(progress: ScanRootRefreshJobProgress) {

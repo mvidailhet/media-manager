@@ -12,7 +12,9 @@ export function RootsPanel({
   onChooseScanRootFolder,
   onCancelScanRootRefresh,
   onRefreshSelectedScanRoot,
+  onRevealUnprocessableVideoCandidate,
   onRequestScanRootRemoval,
+  onRequestUnprocessableVideoCandidateTrash,
   onSaveScanRootInferenceRules,
   scanRoots,
   scanRootsStatusMessage,
@@ -25,7 +27,9 @@ export function RootsPanel({
   onCheckScanRootAvailability: (scanRoot: ScanRoot) => void;
   onChooseScanRootFolder: () => void;
   onRefreshSelectedScanRoot: (scanRoot: ScanRoot) => void;
+  onRevealUnprocessableVideoCandidate: (path: string) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
+  onRequestUnprocessableVideoCandidateTrash: (path: string) => void;
   onSaveScanRootInferenceRules: (
     scanRoot: ScanRoot,
     inferenceRules: ScanRoot["inferenceRules"],
@@ -67,7 +71,13 @@ export function RootsPanel({
                 onCancelScanRootRefresh={onCancelScanRootRefresh}
                 onCheckScanRootAvailability={onCheckScanRootAvailability}
                 onRefreshSelectedScanRoot={onRefreshSelectedScanRoot}
+                onRevealUnprocessableVideoCandidate={
+                  onRevealUnprocessableVideoCandidate
+                }
                 onRequestScanRootRemoval={onRequestScanRootRemoval}
+                onRequestUnprocessableVideoCandidateTrash={
+                  onRequestUnprocessableVideoCandidateTrash
+                }
                 onSaveScanRootInferenceRules={onSaveScanRootInferenceRules}
                 scanRoot={scanRoot}
                 unprocessableVideoCandidateGroup={unprocessableVideoCandidateGroups.find(

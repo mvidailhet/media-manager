@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { Button, Divider, Group, Stack, Text } from "@mantine/core";
 
+import { MoveToTrashConfirmation } from "../../../../../../components/MoveToTrashConfirmation";
 import type {
   ScanRoot,
+  UnprocessableVideoCandidate,
   UnprocessableVideoCandidateGroup,
 } from "../../../../../../tauriCommands";
 import { DefinitionList } from "../../../../../../shared/components/DefinitionList";
@@ -13,14 +15,20 @@ import { formatFileSize } from "../../../../../../shared/formatting/videoFormatt
 const maximumDisplayedCandidates = 20;
 
 export function UnprocessableCandidatesSection({
+  onRevealCandidate,
+  onRequestCandidateTrash,
   scanRoot,
   unprocessableVideoCandidateGroup,
 }: {
+  onRevealCandidate: (path: string) => void;
+  onRequestCandidateTrash: (path: string) => void;
   scanRoot: ScanRoot;
   unprocessableVideoCandidateGroup?: UnprocessableVideoCandidateGroup;
 }) {
   const [areCandidatesOpen, setAreCandidatesOpen] = useState(false);
   const [areAllCandidatesShown, setAreAllCandidatesShown] = useState(false);
+  const [candidatePendingTrash, setCandidatePendingTrash] =
+    useState<UnprocessableVideoCandidate | null>(null);
   const candidates = unprocessableVideoCandidateGroup?.candidates ?? [];
   const displayedCandidates = areAllCandidatesShown
     ? candidates
@@ -34,6 +42,15 @@ export function UnprocessableCandidatesSection({
 
   if (!hasCandidates) {
     return null;
+  }
+
+  function confirmMoveToTrash() {
+    if (!candidatePendingTrash) {
+      return;
+    }
+
+    onRequestCandidateTrash(candidatePendingTrash.path);
+    setCandidatePendingTrash(null);
   }
 
   return (
@@ -62,6 +79,27 @@ export function UnprocessableCandidatesSection({
               <WrappingCode>
                 {relativeCandidatePath(scanRoot.path, candidate.path)}
               </WrappingCode>
+              <Group gap="xs">
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="light"
+                  aria-label={`Reveal ${candidate.path} in Finder`}
+                  onClick={() => onRevealCandidate(candidate.path)}
+                >
+                  Reveal in Finder
+                </Button>
+                <Button
+                  type="button"
+                  size="xs"
+                  variant="light"
+                  color="red"
+                  aria-label={`Move ${candidate.path} to Trash`}
+                  onClick={() => setCandidatePendingTrash(candidate)}
+                >
+                  Move to Trash
+                </Button>
+              </Group>
               <DefinitionList>
                 <DefinitionTerm label="Failure Reason">
                   {candidate.reason}
@@ -87,6 +125,12 @@ export function UnprocessableCandidatesSection({
           ) : null}
         </Stack>
       ) : null}
+      <MoveToTrashConfirmation
+        affectedFileLocations={candidatePendingTrash ? [candidatePendingTrash.path] : []}
+        isOpen={candidatePendingTrash !== null}
+        onCancel={() => setCandidatePendingTrash(null)}
+        onConfirm={confirmMoveToTrash}
+      />
     </>
   );
 }

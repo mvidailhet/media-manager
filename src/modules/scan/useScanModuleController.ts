@@ -91,8 +91,12 @@ export function useScanModuleController({
       onIgnoreFailedPreview: previewGeneration.ignoreFailedPreview,
       onPausePreviewStripQueue: previewGeneration.pausePreviewStripQueueAction,
       onRefreshSelectedScanRoot: scanRootsState.refreshSelectedScanRoot,
+      onRevealUnprocessableVideoCandidate:
+        scanRootsState.revealUnprocessableVideoCandidate,
       onRequestMissingVideoForget,
       onRequestScanRootRemoval,
+      onRequestUnprocessableVideoCandidateTrash:
+        scanRootsState.moveUnprocessableVideoCandidatePathToTrash,
       onResumePreviewStripQueue: previewGeneration.resumePreviewStripQueueAction,
       onRetryFailedPreview: previewGeneration.retryFailedPreview,
       onSaveScanRootInferenceRules: scanRootsState.saveScanRootInferenceRules,

@@ -33,6 +33,10 @@ const startScanRootRefreshJobCommand = "start_scan_root_refresh_job";
 const cancelScanRootRefreshJobCommand = "cancel_scan_root_refresh_job";
 const listUnprocessableVideoCandidatesByScanRootCommand =
   "list_unprocessable_video_candidates_by_scan_root";
+const openUnprocessableVideoCandidateInFinderCommand =
+  "open_unprocessable_video_candidate_in_finder";
+const moveUnprocessableVideoCandidateToTrashCommand =
+  "move_unprocessable_video_candidate_to_trash";
 const listFailedPreviewStripsCommand = "list_failed_preview_strips";
 const listMetadataSuggestionGroupsCommand = "list_metadata_suggestion_groups";
 const acceptMetadataSuggestionForVideosCommand =
@@ -410,6 +414,18 @@ export async function listUnprocessableVideoCandidatesByScanRoot(): Promise<
   return invoke<UnprocessableVideoCandidateGroup[]>(
     listUnprocessableVideoCandidatesByScanRootCommand,
   );
+}
+
+export async function openUnprocessableVideoCandidateInFinder(
+  path: string,
+): Promise<void> {
+  return invoke<void>(openUnprocessableVideoCandidateInFinderCommand, { path });
+}
+
+export async function moveUnprocessableVideoCandidateToTrash(
+  path: string,
+): Promise<void> {
+  return invoke<void>(moveUnprocessableVideoCandidateToTrashCommand, { path });
 }
 
 export async function listFailedPreviewStrips(): Promise<FailedPreviewStrip[]> {
