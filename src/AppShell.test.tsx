@@ -189,7 +189,7 @@ describe("App shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("clears Batch Edit when applying the Favorite Search Filter", async () => {
+  it("clears Batch Edit when applying the Favorites", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -243,7 +243,7 @@ describe("App shell", () => {
 
     fireEvent.click(
       within(catalogVideos).getByRole("checkbox", {
-        name: "Favorite Search Filter",
+        name: "Favorites",
       }),
     );
 

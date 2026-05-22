@@ -273,7 +273,7 @@ describe("Catalog module boundaries", () => {
     expect(videosPanelSource).not.toMatch(/function formatDurationRange/);
     expect(videosPanelSource).not.toMatch(/function formatDurationFilterValue/);
     expect(filtersPanelSource).toMatch(
-      /from "\.\.\/catalogVideoDurationFilters"/,
+      /from ['"]\.\.\/catalogVideoDurationFilters['"]/,
     );
     expect(videoGridSource).toMatch(/".\/VideoCard"/);
     expect(Object.keys(videosPanelBarrelFiles)).toEqual([

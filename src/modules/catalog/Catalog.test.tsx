@@ -668,7 +668,7 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
     expect(
       within(catalogVideos).getByRole("checkbox", {
-        name: "Favorite Search Filter",
+        name: "Favorites",
       }),
     ).not.toBeChecked();
     expect(
@@ -701,7 +701,7 @@ describe("Catalog module", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(catalogVideos).getByRole("slider", {
+      await within(catalogVideos).findByRole("slider", {
         name: "Minimum duration",
       }),
     ).toBeInTheDocument();
@@ -1052,7 +1052,7 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("uses Favorite Search Filter to narrow Videos to Favorite Videos", async () => {
+  it("uses Favorites to narrow Videos to Favorite Videos", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -1093,13 +1093,13 @@ describe("Catalog module", () => {
 
     fireEvent.click(
       within(catalogVideos).getByRole("checkbox", {
-        name: "Favorite Search Filter",
+        name: "Favorites",
       }),
     );
 
     expect(
       within(catalogVideos).getByRole("checkbox", {
-        name: "Favorite Search Filter",
+        name: "Favorites",
       }),
     ).toBeChecked();
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
@@ -2864,7 +2864,7 @@ describe("Catalog module", () => {
       }),
     );
     fireEvent.click(
-      within(catalogVideos).getByRole("checkbox", {
+      await within(catalogVideos).findByRole("checkbox", {
         name: "Show unavailable videos",
       }),
     );

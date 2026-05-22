@@ -1,15 +1,25 @@
-import { useState } from "react";
-import { Box, Button, Checkbox, Group, RangeSlider, Stack, Text, TextInput } from "@mantine/core";
+import { useState } from 'react';
+import {
+  Box,
+  Button,
+  Checkbox,
+  Collapse,
+  Group,
+  RangeSlider,
+  Stack,
+  Text,
+  TextInput,
+} from '@mantine/core';
 
-import type { CatalogPerformer, CatalogTag } from "../../../../tauriCommands";
-import type { CatalogVideoFilters } from "../../catalogTypes";
+import type { CatalogPerformer, CatalogTag } from '../../../../tauriCommands';
+import type { CatalogVideoFilters } from '../../catalogTypes';
 import {
   durationSliderStepMinutes,
   formatDurationFilterValue,
   formatDurationRange,
   maximumDurationMinutes,
   minimumDurationMinutes,
-} from "../catalogVideoDurationFilters";
+} from '../catalogVideoDurationFilters';
 
 export function FiltersPanel({
   availablePerformers,
@@ -24,10 +34,10 @@ export function FiltersPanel({
 }) {
   const [advancedSearchOpened, setAdvancedSearchOpened] = useState(false);
   const durationRangeValue: [number, number] = [
-    filters.minimumDurationMinutes === ""
+    filters.minimumDurationMinutes === ''
       ? minimumDurationMinutes
       : filters.minimumDurationMinutes,
-    filters.maximumDurationMinutes === ""
+    filters.maximumDurationMinutes === ''
       ? maximumDurationMinutes
       : filters.maximumDurationMinutes,
   ];
@@ -38,33 +48,36 @@ export function FiltersPanel({
 
   return (
     <Stack gap="sm" aria-label="Video Search Filters">
-      <TextInput
-        aria-label="Search Videos"
-        placeholder="Search Videos"
-        value={filters.searchText}
-        onChange={(event) =>
-          updateFilters({ searchText: event.currentTarget.value })
-        }
-      />
-      <Checkbox
-        label="Favorite Search Filter"
-        checked={filters.favoritesOnly}
-        onChange={(event) =>
-          updateFilters({ favoritesOnly: event.currentTarget.checked })
-        }
-      />
+      <Group align="center">
+        <TextInput
+          aria-label="Search Videos"
+          placeholder="Search Videos"
+          value={filters.searchText}
+          style={{ flex: 1 }}
+          onChange={(event) =>
+            updateFilters({ searchText: event.currentTarget.value })
+          }
+        />
+        <Checkbox
+          label="Favorites"
+          checked={filters.favoritesOnly}
+          onChange={(event) =>
+            updateFilters({ favoritesOnly: event.currentTarget.checked })
+          }
+        />
+      </Group>
       <Button
         type="button"
         variant="subtle"
         size="xs"
-        px={0}
+        px="xs"
         w="fit-content"
         aria-expanded={advancedSearchOpened}
         onClick={() => setAdvancedSearchOpened((isOpened) => !isOpened)}
       >
         Advanced search
       </Button>
-      {advancedSearchOpened ? (
+      <Collapse expanded={advancedSearchOpened}>
         <Stack gap="sm">
           <Box>
             <Group justify="space-between" gap="sm" mb="xs">
@@ -101,7 +114,7 @@ export function FiltersPanel({
             }
           />
         </Stack>
-      ) : null}
+      </Collapse>
       {availableTags.length > 0 ? (
         <Checkbox.Group
           label="Tags"
@@ -139,3 +152,4 @@ export function FiltersPanel({
     </Stack>
   );
 }
+
