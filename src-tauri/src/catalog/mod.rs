@@ -71,6 +71,7 @@ pub struct CatalogVideoFileLocation {
     pub path: String,
     pub file_size_bytes: i64,
     pub is_preferred: bool,
+    pub is_reachable: bool,
 }
 
 #[derive(Debug, PartialEq, Serialize)]

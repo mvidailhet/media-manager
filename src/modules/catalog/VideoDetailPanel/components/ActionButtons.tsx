@@ -24,7 +24,7 @@ export function ActionButtons({
         variant="default"
         onClick={onOpenContainingFolder}
       >
-        Open in finder
+        Reveal in Finder
       </Button>
     </Group>
   );

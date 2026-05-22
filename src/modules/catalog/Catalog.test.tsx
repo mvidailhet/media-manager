@@ -25,6 +25,7 @@ import {
   mockedSetVideoFavorite,
   mockedOpenCatalogVideoContainingFolder,
   mockedOpenCatalogVideo,
+  mockedMoveCatalogVideoFileLocationToTrash,
   mockedRetryFailedPreviewStrip,
   mockedIgnoreFailedPreviewStrip,
   mockedListCatalogVideos,
@@ -1365,9 +1366,10 @@ describe("Catalog module", () => {
     await within(catalogVideos).findByRole("article", {
       name: "Shared Clip",
     });
-    const alexHeading = within(catalogVideos).getAllByText("Alex")[0];
-    const blairHeading = within(catalogVideos).getAllByText("Blair")[0];
-    const unassignedHeading = within(catalogVideos).getByText("Unassigned");
+    const alexHeading = (await within(catalogVideos).findAllByText("Alex"))[0];
+    const blairHeading = (await within(catalogVideos).findAllByText("Blair"))[0];
+    const unassignedHeading =
+      await within(catalogVideos).findByText("Unassigned");
     const sharedClipCard = within(catalogVideos).getByRole("article", {
       name: "Shared Clip",
     });
@@ -2255,11 +2257,13 @@ describe("Catalog module", () => {
             path: "/Volumes/Archive/Videos/family-trip.mp4",
             fileSizeBytes: 80740352,
             isPreferred: true,
+            isReachable: true,
           },
           {
             path: "/Volumes/Backup/Videos/family-trip.mp4",
             fileSizeBytes: 80740352,
             isPreferred: false,
+            isReachable: true,
           },
         ],
         isAvailable: true,
@@ -2318,6 +2322,215 @@ describe("Catalog module", () => {
     expect(mockedListCatalogVideos).not.toHaveBeenCalledWith(
       expect.stringContaining("Family Archive"),
     );
+  });
+
+  it("reveals a selected Video in Finder and offers Move to Trash only for reachable File Locations", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/family-trip.mp4",
+            fileSizeBytes: 80740352,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Missing Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: null,
+        fileLocationPath: null,
+        fileLocations: [
+          {
+            path: "/Volumes/Missing/Videos/missing-trip.mp4",
+            fileSizeBytes: 80740352,
+            isPreferred: true,
+            isReachable: false,
+          },
+        ],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+
+    const familyTripPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(
+      within(familyTripPanel).getByRole("button", { name: "Reveal in Finder" }),
+    );
+    expect(mockedOpenCatalogVideoContainingFolder).toHaveBeenCalledWith(1);
+    expect(
+      within(familyTripPanel).getByRole("button", {
+        name: "Move /Volumes/Archive/Videos/family-trip.mp4 to Trash",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("article", { name: "Missing Trip" }));
+
+    const missingTripPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    expect(
+      within(missingTripPanel).queryByRole("button", {
+        name: /Move .* to Trash/,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("moves one File Location to Trash and refreshes the detail panel when another reachable location remains", async () => {
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+            {
+              path: "/Volumes/Backup/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: false,
+              isReachable: true,
+            },
+          ],
+          isAvailable: true,
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Backup/Videos/family-trip.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Backup/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+          ],
+          isAvailable: true,
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+      ]);
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("button", {
+        name: "Move /Volumes/Archive/Videos/family-trip.mp4 to Trash",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Move to Trash" }),
+    );
+
+    await waitFor(() => {
+      expect(mockedMoveCatalogVideoFileLocationToTrash).toHaveBeenCalledWith(
+        1,
+        "/Volumes/Archive/Videos/family-trip.mp4",
+      );
+    });
+    expect(
+      within(detailPanel).queryByText("/Volumes/Archive/Videos/family-trip.mp4"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(detailPanel).getByText("/Volumes/Backup/Videos/family-trip.mp4"),
+    ).toBeInTheDocument();
+  });
+
+  it("moves the last reachable File Location to Trash and clears the Video Detail Panel", async () => {
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+            {
+              path: "/Volumes/Missing/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: false,
+              isReachable: false,
+            },
+          ],
+          isAvailable: true,
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+      ])
+      .mockResolvedValueOnce([]);
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("button", {
+        name: "Move /Volumes/Archive/Videos/family-trip.mp4 to Trash",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Move to Trash" }),
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByRole("region", { name: "Video Detail Panel" }),
+      ).not.toBeInTheDocument();
+    });
   });
 
   it("shows selected Video Tags and Performers as metadata Badges", async () => {
@@ -2769,7 +2982,7 @@ describe("Catalog module", () => {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      within(detailPanel).getByRole("button", { name: "Open in finder" }),
+      within(detailPanel).getByRole("button", { name: "Reveal in Finder" }),
     ).toBeInTheDocument();
     expect(within(detailPanel).queryByText("Duration")).not.toBeInTheDocument();
     expect(within(detailPanel).queryByText("File Size")).not.toBeInTheDocument();
@@ -2799,7 +3012,9 @@ describe("Catalog module", () => {
       within(detailPanel).queryByRole("textbox", { name: "Title" }),
     ).not.toBeInTheDocument();
 
-    fireEvent.click(within(detailPanel).getByRole("button", { name: "Open in finder" }));
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Reveal in Finder" }),
+    );
     expect(mockedOpenCatalogVideoContainingFolder).toHaveBeenCalledWith(1);
   });
 

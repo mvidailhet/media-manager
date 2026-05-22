@@ -5,7 +5,7 @@ const missingVideosWorkflowErrorMessage = "Missing Videos unavailable";
 export function useMissingVideos({
   refreshCatalogVideos,
 }: {
-  refreshCatalogVideos: () => Promise<void>;
+  refreshCatalogVideos: () => Promise<unknown>;
 }) {
   const [missingVideosStatusMessage, setMissingVideosStatusMessage] =
     useState("");

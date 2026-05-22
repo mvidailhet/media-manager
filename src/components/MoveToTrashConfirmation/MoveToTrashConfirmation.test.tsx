@@ -5,14 +5,14 @@ import { AppProviders } from "../../AppProviders";
 import { MoveToTrashConfirmation } from "./MoveToTrashConfirmation";
 
 describe("MoveToTrashConfirmation", () => {
-  it("confirms a single Preferred File Location before moving it to Trash", () => {
+  it("confirms a single File Location before moving it to Trash", () => {
     const confirmMoveToTrash = vi.fn();
     const cancelMoveToTrash = vi.fn();
 
     render(
       <AppProviders>
         <MoveToTrashConfirmation
-          affectedPreferredFileLocations={[
+          affectedFileLocations={[
             "/Volumes/Archive/Videos/Family Trip.mp4",
           ]}
           isOpen
@@ -45,11 +45,11 @@ describe("MoveToTrashConfirmation", () => {
     expect(confirmMoveToTrash).toHaveBeenCalledOnce();
   });
 
-  it("confirms batch Preferred File Locations with a count and scrollable list", () => {
+  it("confirms batch File Locations with a count and scrollable list", () => {
     render(
       <AppProviders>
         <MoveToTrashConfirmation
-          affectedPreferredFileLocations={[
+          affectedFileLocations={[
             "/Volumes/Archive/Videos/Family Trip.mp4",
             "/Volumes/Archive/Videos/City Walk.mov",
             "/Volumes/Archive/Videos/Concert.mkv",
@@ -65,11 +65,11 @@ describe("MoveToTrashConfirmation", () => {
       name: "Move 3 files to Trash?",
     });
     const locations = within(confirmation).getByRole("list", {
-      name: "Preferred File Locations to move to Trash",
+      name: "File Locations to move to Trash",
     });
 
     expect(confirmation).toHaveTextContent(
-      "3 Preferred File Locations will be moved to Trash.",
+      "3 File Locations will be moved to Trash.",
     );
     expect(locations).toHaveStyle({ overflowY: "auto" });
     expect(locations).toHaveStyle({ maxHeight: "240px" });

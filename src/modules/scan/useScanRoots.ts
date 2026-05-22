@@ -31,7 +31,7 @@ export function useScanRoots({
   refreshMetadataSuggestionGroups,
   refreshPreviewStripQueueStatus,
 }: {
-  refreshCatalogVideos: () => Promise<void>;
+  refreshCatalogVideos: () => Promise<unknown>;
   refreshMetadataSuggestionGroups: () => Promise<void>;
   refreshPreviewStripQueueStatus: () => Promise<void>;
 }) {

@@ -475,6 +475,57 @@ fn open_catalog_video_containing_folder(
     open_file_location(containing_folder_path)
 }
 
+#[tauri::command]
+fn move_catalog_video_file_location_to_trash(
+    catalog_state: tauri::State<'_, CatalogState>,
+    video_id: i64,
+    path: String,
+) -> Result<(), String> {
+    let file_location_path = PathBuf::from(path);
+
+    {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if !catalog.has_file_location(video_id, &file_location_path)? {
+            return Err("File Location is not in the Catalog".to_string());
+        }
+    }
+
+    move_file_location_to_trash(&file_location_path)?;
+
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+    catalog.remove_trashed_file_location(video_id, &file_location_path)
+}
+
+fn move_file_location_to_trash(file_location_path: &Path) -> Result<(), String> {
+    if !file_location_path.exists() {
+        return Err("File Location is not reachable".to_string());
+    }
+
+    let apple_script_path = apple_script_string(file_location_path);
+    let trash_command = FileLocationOpenCommand {
+        program: "osascript".to_string(),
+        arguments: vec![
+            "-e".to_string(),
+            format!("tell application \"Finder\" to delete POSIX file \"{apple_script_path}\""),
+        ],
+        should_detach: false,
+    };
+
+    run_open_command(&trash_command)
+}
+
+fn apple_script_string(path: &Path) -> String {
+    path.to_string_lossy()
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+}
+
 fn open_file_location(file_location_path: &Path) -> Result<(), String> {
     let open_command = file_location_open_command(file_location_path);
     run_open_command(&open_command)
@@ -1058,6 +1109,7 @@ pub fn run() {
             set_video_favorite,
             open_catalog_video,
             open_catalog_video_containing_folder,
+            move_catalog_video_file_location_to_trash,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             start_scan_root_refresh_job,

@@ -3,34 +3,31 @@ import { Button, Group, Modal, Stack, Text } from "@mantine/core";
 import { PreferredFileLocationList } from "./components/PreferredFileLocationList";
 
 type MoveToTrashConfirmationProps = {
-  affectedPreferredFileLocations: string[];
+  affectedFileLocations: string[];
   isOpen: boolean;
   onCancel: () => void;
   onConfirm: () => void;
 };
 
 export function MoveToTrashConfirmation({
-  affectedPreferredFileLocations,
+  affectedFileLocations,
   isOpen,
   onCancel,
   onConfirm,
 }: MoveToTrashConfirmationProps) {
-  const affectedPreferredFileLocationCount =
-    affectedPreferredFileLocations.length;
-  const title = moveToTrashConfirmationTitle(
-    affectedPreferredFileLocationCount,
-  );
-  const affectedPreferredFileLocationSummary =
-    affectedPreferredFileLocationCount === 1
-      ? "This Preferred File Location will be moved to Trash."
-      : `${affectedPreferredFileLocationCount} Preferred File Locations will be moved to Trash.`;
+  const affectedFileLocationCount = affectedFileLocations.length;
+  const title = moveToTrashConfirmationTitle(affectedFileLocationCount);
+  const affectedFileLocationSummary =
+    affectedFileLocationCount === 1
+      ? "This File Location will be moved to Trash."
+      : `${affectedFileLocationCount} File Locations will be moved to Trash.`;
 
   return (
     <Modal opened={isOpen} onClose={onCancel} title={title} centered>
       <Stack gap="md">
-        <Text>{affectedPreferredFileLocationSummary}</Text>
+        <Text>{affectedFileLocationSummary}</Text>
         <PreferredFileLocationList
-          preferredFileLocations={affectedPreferredFileLocations}
+          fileLocations={affectedFileLocations}
         />
         <Text c="dimmed">This action cannot be undone from the app.</Text>
         <Group gap="xs" justify="flex-end">
@@ -47,11 +44,11 @@ export function MoveToTrashConfirmation({
 }
 
 function moveToTrashConfirmationTitle(
-  affectedPreferredFileLocationCount: number,
+  affectedFileLocationCount: number,
 ) {
-  if (affectedPreferredFileLocationCount === 1) {
+  if (affectedFileLocationCount === 1) {
     return "Move this file to Trash?";
   }
 
-  return `Move ${affectedPreferredFileLocationCount} files to Trash?`;
+  return `Move ${affectedFileLocationCount} files to Trash?`;
 }

@@ -21,7 +21,7 @@ const previewStripQueuePollingIntervalMilliseconds = 250;
 export function usePreviewGeneration({
   refreshCatalogVideos,
 }: {
-  refreshCatalogVideos: () => Promise<void>;
+  refreshCatalogVideos: () => Promise<unknown>;
 }) {
   const [failedPreviewStrips, setFailedPreviewStrips] = useState<
     FailedPreviewStrip[]
