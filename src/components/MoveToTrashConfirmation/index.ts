@@ -1,0 +1,1 @@
+export { MoveToTrashConfirmation } from "./MoveToTrashConfirmation";
