@@ -790,6 +790,52 @@ fn listing_unprocessable_candidates_by_scan_root_returns_all_candidate_details()
 }
 
 #[test]
+fn removing_an_unprocessable_candidate_after_trash_removes_it_from_its_scan_root_review_list() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let broken_video_path = movies_root.join("broken.mkv");
+    let corrupt_video_path = movies_root.join("corrupt.mov");
+    std::fs::write(&broken_video_path, "broken").expect("broken video exists");
+    std::fs::write(&corrupt_video_path, "corrupt").expect("corrupt video exists");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &AlwaysFailingVideoFileProbe,
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+    let canonical_broken_video_path = broken_video_path
+        .canonicalize()
+        .expect("broken video path canonicalizes");
+
+    catalog
+        .remove_trashed_unprocessable_video_candidate(&canonical_broken_video_path)
+        .expect("trashed candidate removes");
+
+    let candidate_groups = catalog
+        .list_unprocessable_video_candidates_by_scan_root()
+        .expect("unprocessable candidates grouped by Scan Root");
+    assert_eq!(candidate_groups.len(), 1);
+    assert_eq!(candidate_groups[0].scan_root_path, scan_root.path);
+    assert_eq!(candidate_groups[0].candidate_count, 1);
+    assert_eq!(candidate_groups[0].candidates.len(), 1);
+    assert_eq!(
+        candidate_groups[0].candidates[0].path,
+        corrupt_video_path
+            .canonicalize()
+            .expect("corrupt video path canonicalizes")
+            .to_string_lossy()
+    );
+}
+
+#[test]
 fn cancelled_scan_root_refresh_keeps_processed_results_without_cleanup_or_suggestions() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");

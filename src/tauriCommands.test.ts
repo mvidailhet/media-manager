@@ -24,8 +24,10 @@ import {
   listPerformers,
   listTags,
   listUnprocessableVideoCandidatesByScanRoot,
+  moveUnprocessableVideoCandidateToTrash,
   listCatalogVideos,
   listScanRoots,
+  openUnprocessableVideoCandidateInFinder,
   pausePreviewStripQueue,
   removeScanRoot,
   cancelScanRootRefreshJob,
@@ -291,6 +293,32 @@ describe("Tauri commands", () => {
     ]);
     expect(mockedInvoke).toHaveBeenCalledWith(
       "list_unprocessable_video_candidates_by_scan_root",
+    );
+  });
+
+  it("calls the typed Rust command for revealing an Unprocessable Video Candidate in Finder", async () => {
+    await openUnprocessableVideoCandidateInFinder(
+      "/Volumes/Archive/Videos/broken.mkv",
+    );
+
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "open_unprocessable_video_candidate_in_finder",
+      {
+        path: "/Volumes/Archive/Videos/broken.mkv",
+      },
+    );
+  });
+
+  it("calls the typed Rust command for moving an Unprocessable Video Candidate to Trash", async () => {
+    await moveUnprocessableVideoCandidateToTrash(
+      "/Volumes/Archive/Videos/broken.mkv",
+    );
+
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "move_unprocessable_video_candidate_to_trash",
+      {
+        path: "/Volumes/Archive/Videos/broken.mkv",
+      },
     );
   });
 

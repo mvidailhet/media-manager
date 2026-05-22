@@ -28,6 +28,8 @@ import {
   mockedIgnoreFailedPreviewStrip,
   mockedListCatalogVideos,
   mockedListUnprocessableVideoCandidatesByScanRoot,
+  mockedMoveUnprocessableVideoCandidateToTrash,
+  mockedOpenUnprocessableVideoCandidateInFinder,
   mockedListScanRoots,
   mockedAddScanRoot,
   mockedCheckScanRootAvailability,
@@ -1312,6 +1314,83 @@ describe("Scan module", () => {
     expect(
       within(scanRoots).queryByRole("button", { name: "Show all" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("reveals and moves Unprocessable Video Candidates to Trash from Scan Roots", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+    ]);
+    mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
+      {
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidateCount: 2,
+        candidates: [
+          {
+            path: "/Volumes/Archive/Videos/broken.mov",
+            reason: "missing moov atom",
+            fileSizeBytes: 4096,
+          },
+          {
+            path: "/Volumes/Archive/Videos/corrupt.mkv",
+            reason: "ffprobe failed",
+            fileSizeBytes: 2048,
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openScanModule();
+
+    const scanRoots = await screen.findByLabelText("Scan Roots");
+    fireEvent.click(
+      within(scanRoots).getByRole("button", {
+        name: "Show Unprocessable videos for /Volumes/Archive/Videos",
+      }),
+    );
+    const brokenCandidate = within(scanRoots)
+      .getByText("broken.mov")
+      .closest("article");
+
+    expect(brokenCandidate).not.toBeNull();
+    fireEvent.click(
+      within(brokenCandidate as HTMLElement).getByRole("button", {
+        name: "Reveal /Volumes/Archive/Videos/broken.mov in Finder",
+      }),
+    );
+    expect(mockedOpenUnprocessableVideoCandidateInFinder).toHaveBeenCalledWith(
+      "/Volumes/Archive/Videos/broken.mov",
+    );
+
+    fireEvent.click(
+      within(brokenCandidate as HTMLElement).getByRole("button", {
+        name: "Move /Volumes/Archive/Videos/broken.mov to Trash",
+      }),
+    );
+
+    const confirmation = await screen.findByRole("dialog", {
+      name: "Move this file to Trash?",
+    });
+    expect(
+      within(confirmation).getByText("/Volumes/Archive/Videos/broken.mov"),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(confirmation).getByRole("button", { name: "Move to Trash" }),
+    );
+
+    await waitFor(() =>
+      expect(mockedMoveUnprocessableVideoCandidateToTrash).toHaveBeenCalledWith(
+        "/Volumes/Archive/Videos/broken.mov",
+      ),
+    );
+    expect(within(scanRoots).queryByText("broken.mov")).not.toBeInTheDocument();
+    expect(within(scanRoots).getByText("corrupt.mkv")).toBeInTheDocument();
+    expect(within(scanRoots).getByText("1 Unprocessable video")).toBeInTheDocument();
   });
   it("lists Failed Preview Strips in Preview Generation with retry and ignore actions", async () => {
     mockedListFailedPreviewStrips

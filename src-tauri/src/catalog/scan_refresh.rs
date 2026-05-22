@@ -336,6 +336,29 @@ impl Catalog {
         Ok(candidate_groups)
     }
 
+    pub fn has_unprocessable_video_candidate(&self, video_path: &Path) -> Result<bool, String> {
+        let video_path = video_path.to_string_lossy().into_owned();
+
+        self.database
+            .query_row(
+                "SELECT EXISTS(
+                    SELECT 1
+                    FROM unprocessable_video_candidates
+                    WHERE path = ?1
+                )",
+                params![video_path],
+                |row| row.get::<_, bool>(0),
+            )
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn remove_trashed_unprocessable_video_candidate(
+        &self,
+        video_path: &Path,
+    ) -> Result<(), String> {
+        self.remove_unprocessable_video_candidate(&video_path.to_string_lossy())
+    }
+
     fn store_scanned_video(
         &self,
         scan_root_id: i64,

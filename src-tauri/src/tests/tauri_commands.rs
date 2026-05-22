@@ -41,6 +41,28 @@ fn file_location_open_command_uses_the_platform_launcher() {
 }
 
 #[test]
+fn reveal_file_location_command_selects_the_file_on_macos() {
+    let video_path = std::path::Path::new("/Volumes/Archive/Videos/broken movie.mov");
+
+    let macos_command = reveal_file_location_command_for_platform(video_path, "macos");
+    let linux_command = reveal_file_location_command_for_platform(video_path, "linux");
+    let windows_command = reveal_file_location_command_for_platform(video_path, "windows");
+
+    assert_eq!(macos_command.program, "open");
+    assert_eq!(
+        macos_command.arguments,
+        vec!["-R", "/Volumes/Archive/Videos/broken movie.mov"]
+    );
+    assert_eq!(linux_command.program, "xdg-open");
+    assert_eq!(linux_command.arguments, vec!["/Volumes/Archive/Videos"]);
+    assert_eq!(windows_command.program, "explorer");
+    assert_eq!(
+        windows_command.arguments,
+        vec!["/select,/Volumes/Archive/Videos/broken movie.mov"]
+    );
+}
+
+#[test]
 fn video_start_time_open_command_reuses_the_macos_vlc_player() {
     let video_path = std::path::Path::new("/Volumes/Archive/Videos/family trip.mp4");
 

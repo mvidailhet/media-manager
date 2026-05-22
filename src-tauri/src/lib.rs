@@ -502,6 +502,52 @@ fn move_catalog_video_file_location_to_trash(
     catalog.remove_trashed_file_location(video_id, &file_location_path)
 }
 
+#[tauri::command]
+fn open_unprocessable_video_candidate_in_finder(
+    catalog_state: tauri::State<'_, CatalogState>,
+    path: String,
+) -> Result<(), String> {
+    let candidate_path = PathBuf::from(path);
+
+    {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if !catalog.has_unprocessable_video_candidate(&candidate_path)? {
+            return Err("Unprocessable Video Candidate is not in the Catalog".to_string());
+        }
+    }
+
+    reveal_file_location_in_finder(&candidate_path)
+}
+
+#[tauri::command]
+fn move_unprocessable_video_candidate_to_trash(
+    catalog_state: tauri::State<'_, CatalogState>,
+    path: String,
+) -> Result<(), String> {
+    let candidate_path = PathBuf::from(path);
+
+    {
+        let catalog = catalog_state
+            .catalog
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if !catalog.has_unprocessable_video_candidate(&candidate_path)? {
+            return Err("Unprocessable Video Candidate is not in the Catalog".to_string());
+        }
+    }
+
+    move_file_location_to_trash(&candidate_path)?;
+
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+    catalog.remove_trashed_unprocessable_video_candidate(&candidate_path)
+}
+
 fn move_file_location_to_trash(file_location_path: &Path) -> Result<(), String> {
     if !file_location_path.exists() {
         return Err("File Location is not reachable".to_string());
@@ -518,6 +564,12 @@ fn move_file_location_to_trash(file_location_path: &Path) -> Result<(), String> 
     };
 
     run_open_command(&trash_command)
+}
+
+fn reveal_file_location_in_finder(file_location_path: &Path) -> Result<(), String> {
+    let open_command =
+        reveal_file_location_command_for_platform(file_location_path, std::env::consts::OS);
+    run_open_command(&open_command)
 }
 
 fn apple_script_string(path: &Path) -> String {
@@ -677,6 +729,36 @@ fn file_location_open_command_for_platform(
         _ => FileLocationOpenCommand {
             program: "xdg-open".to_string(),
             arguments: vec![file_location_path_text],
+            should_detach: false,
+        },
+    }
+}
+
+fn reveal_file_location_command_for_platform(
+    file_location_path: &Path,
+    operating_system: &str,
+) -> FileLocationOpenCommand {
+    let file_location_path_text = file_location_path.to_string_lossy().into_owned();
+    let containing_folder_path_text = file_location_path
+        .parent()
+        .unwrap_or(file_location_path)
+        .to_string_lossy()
+        .into_owned();
+
+    match operating_system {
+        "macos" => FileLocationOpenCommand {
+            program: "open".to_string(),
+            arguments: vec!["-R".to_string(), file_location_path_text],
+            should_detach: false,
+        },
+        "windows" => FileLocationOpenCommand {
+            program: "explorer".to_string(),
+            arguments: vec![format!("/select,{file_location_path_text}")],
+            should_detach: false,
+        },
+        _ => FileLocationOpenCommand {
+            program: "xdg-open".to_string(),
+            arguments: vec![containing_folder_path_text],
             should_detach: false,
         },
     }
@@ -1110,6 +1192,8 @@ pub fn run() {
             open_catalog_video,
             open_catalog_video_containing_folder,
             move_catalog_video_file_location_to_trash,
+            open_unprocessable_video_candidate_in_finder,
+            move_unprocessable_video_candidate_to_trash,
             get_ffmpeg_tools_status,
             save_ffmpeg_configuration,
             start_scan_root_refresh_job,
