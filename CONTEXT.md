@@ -121,8 +121,8 @@ Local usage metadata recording when a **Video** was opened from the app and how 
 _Avoid_: Playback progress, watch history
 
 **Trashed Video**:
-A **Video** intentionally moved to the system Trash from the app while its metadata remains restorable.
-_Avoid_: Missing video, deleted video
+A **Video** intentionally moved to the system Trash from the app and forgotten from the active **Catalog** when no reachable **File Locations** remain.
+_Avoid_: Missing video, deleted video, restorable video
 
 **Local Desktop App**:
 A Mac application that catalogs local **Videos** and works without internet access.
@@ -146,7 +146,7 @@ _Avoid_: Supported codec list
 
 **Unprocessable Video Candidate**:
 A discovered file that matches the **Video Extension Allowlist** but cannot be validated as a usable **Video**.
-_Avoid_: Video, missing video
+_Avoid_: Video, missing video, deleted video
 
 **Inferred Metadata**:
 Suggested **Local Metadata** derived from a **Video**'s **File Location**.
@@ -236,6 +236,7 @@ _Avoid_: Favorite edit, metadata suggestion
 - A **Scan Root** is searched for files matching the **Video Extension Allowlist** before video probing validates them.
 - An **Unprocessable Video Candidate** belongs with its **Scan Root** instead of normal **Video** search results.
 - An **Unprocessable Video Candidate** is retried when its file changes or when manually retried from its **Scan Root**.
+- Moving an **Unprocessable Video Candidate** to the system Trash removes it from its **Scan Root** review list.
 - An **Initial Scan** creates the first **Catalog** entries for a new **Scan Root**.
 - An **Initial Scan** cannot create **Missing Videos** because it has no previous **File Locations** to invalidate.
 - A **Refresh** can run for one **Scan Root** or all **Scan Roots**.
@@ -258,6 +259,11 @@ _Avoid_: Favorite edit, metadata suggestion
 - A **Duplicate Location** belongs to one **Video**.
 - **Duplicate Locations** are created only from exact **Video Fingerprint** matches in v1.
 - Invalidating one **File Location** does not make a **Missing Video** while another known **File Location** remains.
+- Moving a **File Location** to the system Trash from the app removes that **File Location** from normal **Catalog** results.
+- Moving one **File Location** to the system Trash does not make a **Trashed Video** while another known reachable **File Location** remains.
+- A **Video** becomes a **Trashed Video** when its last known reachable **File Location** is moved to the system Trash from the app and then forgotten from the active **Catalog**.
+- A batch trash action uses each selected **Video**'s **Preferred File Location** unless the user has explicitly chosen a different **File Location**.
+- Restoring a trashed file outside the app makes it discoverable through a later **Refresh** or **Initial Scan**, not through an app-specific restore workflow.
 - Trash actions target **File Locations** when a **Video** has more than one **File Location**.
 - A **Missing Video** keeps its metadata and can be reconnected when a matching **Video Fingerprint** appears again.
 - Re-adding a removed **Scan Root** can reconnect **Missing Videos** when matching **Video Fingerprints** are found.
