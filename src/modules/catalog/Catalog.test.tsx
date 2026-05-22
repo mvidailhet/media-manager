@@ -2205,6 +2205,127 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("summarizes partial Move to Trash batch results without rolling back successful moves", async () => {
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([
+        {
+          ...catalogVideoFixture(1, "Family Trip"),
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+          ],
+        },
+        {
+          ...catalogVideoFixture(2, "City Walk"),
+          fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/city-walk.mp4",
+              fileSizeBytes: 50740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+          ],
+        },
+        {
+          ...catalogVideoFixture(3, "Missing Trip"),
+          fileLocationPath: null,
+          fileSizeBytes: null,
+          fileLocations: [
+            {
+              path: "/Volumes/Missing/Videos/missing-trip.mp4",
+              fileSizeBytes: 30740352,
+              isPreferred: true,
+              isReachable: false,
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          ...catalogVideoFixture(2, "City Walk"),
+          fileLocationPath: "/Volumes/Archive/Videos/city-walk.mp4",
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/city-walk.mp4",
+              fileSizeBytes: 50740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+          ],
+        },
+        {
+          ...catalogVideoFixture(3, "Missing Trip"),
+          fileLocationPath: null,
+          fileSizeBytes: null,
+          fileLocations: [
+            {
+              path: "/Volumes/Missing/Videos/missing-trip.mp4",
+              fileSizeBytes: 30740352,
+              isPreferred: true,
+              isReachable: false,
+            },
+          ],
+        },
+      ]);
+    mockedMoveCatalogVideoFileLocationToTrash
+      .mockResolvedValueOnce()
+      .mockRejectedValueOnce("Finder denied delete permission");
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "Missing Trip" }),
+      { metaKey: true },
+    );
+
+    const batchEditPanel = await screen.findByRole("region", {
+      name: "Batch Edit Panel",
+    });
+    fireEvent.click(
+      within(batchEditPanel).getByRole("button", {
+        name: "Move selected Videos to Trash",
+      }),
+    );
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "Move 2 files to Trash?" }),
+      ).getByRole("button", { name: "Move to Trash" }),
+    );
+
+    expect(await screen.findByText(/Move to Trash finished/)).toHaveTextContent(
+      "Move to Trash finished: 1 moved, 1 skipped, 1 failed.",
+    );
+    expect(screen.getByText(/Move to Trash finished/)).toHaveTextContent(
+      "Moved: /Volumes/Archive/Videos/family-trip.mp4. Skipped: /Volumes/Missing/Videos/missing-trip.mp4. Failed: /Volumes/Archive/Videos/city-walk.mp4 (Finder denied delete permission).",
+    );
+    expect(mockedMoveCatalogVideoFileLocationToTrash).toHaveBeenCalledTimes(2);
+    expect(
+      within(catalogVideos).queryByRole("article", { name: "Family Trip" }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+    ).toBeInTheDocument();
+  });
+
   it("skips selected Videos without reachable Preferred File Locations and clears Batch Edit", async () => {
     const unavailableVideos = [
       {
@@ -2736,6 +2857,58 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
     expect(
       within(detailPanel).getByText("/Volumes/Backup/Videos/family-trip.mp4"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows a friendly path-specific Move to Trash failure in the detail panel", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/family-trip.mp4",
+            fileSizeBytes: 80740352,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+        isAvailable: true,
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+    mockedMoveCatalogVideoFileLocationToTrash.mockRejectedValue(
+      "Finder denied delete permission",
+    );
+
+    renderApp();
+    fireEvent.click(await screen.findByRole("article", { name: "Family Trip" }));
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("button", {
+        name: "Move /Volumes/Archive/Videos/family-trip.mp4 to Trash",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Move to Trash" }),
+    );
+
+    expect(
+      await within(detailPanel).findByText(
+        "Could not move this File Location to Trash: /Volumes/Archive/Videos/family-trip.mp4 (Finder denied delete permission).",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(detailPanel).getByText("/Volumes/Archive/Videos/family-trip.mp4"),
     ).toBeInTheDocument();
   });
 
