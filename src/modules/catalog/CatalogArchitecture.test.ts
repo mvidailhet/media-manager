@@ -292,6 +292,10 @@ describe("Catalog module boundaries", () => {
       batchEditPanelFiles,
       "./BatchEditPanel/components/FavoriteActions.tsx",
     );
+    const batchTrashActionsSource = rawSource(
+      batchEditPanelFiles,
+      "./BatchEditPanel/components/BatchTrashActions.tsx",
+    );
     const batchMetadataSectionSource = rawSource(
       batchEditPanelFiles,
       "./BatchEditPanel/components/BatchMetadataSection.tsx",
@@ -299,10 +303,14 @@ describe("Catalog module boundaries", () => {
 
     expect(batchEditPanelSource).not.toBe("");
     expect(favoriteActionsSource).not.toBe("");
+    expect(batchTrashActionsSource).not.toBe("");
     expect(batchMetadataSectionSource).not.toBe("");
     expect(batchEditPanelSource).toMatch(/function BatchEditPanel/);
     expect(favoriteActionsSource).toMatch(/function FavoriteActions/);
     expect(favoriteActionsSource).toMatch(/onSetFavorite/);
+    expect(batchTrashActionsSource).toMatch(/function BatchTrashActions/);
+    expect(batchTrashActionsSource).toMatch(/MoveToTrashConfirmation/);
+    expect(batchTrashActionsSource).toMatch(/selected Videos/);
     expect(batchMetadataSectionSource).toMatch(/function BatchMetadataSection/);
     expect(batchMetadataSectionSource).toMatch(/findMetadataByName/);
     expect(batchMetadataSectionSource).toMatch(/on some selected Videos/);
@@ -310,9 +318,13 @@ describe("Catalog module boundaries", () => {
       /from "\.\/components\/FavoriteActions"/,
     );
     expect(batchEditPanelSource).toMatch(
+      /from "\.\/components\/BatchTrashActions"/,
+    );
+    expect(batchEditPanelSource).toMatch(
       /from "\.\/components\/BatchMetadataSection"/,
     );
     expect(batchEditPanelSource).not.toMatch(/function FavoriteActions/);
+    expect(batchEditPanelSource).not.toMatch(/function BatchTrashActions/);
     expect(batchEditPanelSource).not.toMatch(/function BatchMetadataSection/);
     expect(catalogSource).not.toMatch(/import \{ BatchEditPanel \}/);
     expect(catalogSource).not.toMatch(/<BatchEditPanel/);
