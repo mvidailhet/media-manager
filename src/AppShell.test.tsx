@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { fireEvent, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it } from "vitest";
 
@@ -15,6 +16,11 @@ import {
   videoDetailAsideBreakpoint,
   videoDetailAsideWidth,
 } from "./App";
+
+const appStylesSource = readFileSync(
+  "src/App.module.css",
+  "utf8",
+);
 
 describe("App shell", () => {
   beforeEach(resetAppTestHarness);
@@ -70,6 +76,7 @@ describe("App shell", () => {
     });
 
     expect(videoDetailAsideWidth).toBe(560);
+    expect(appMain.className).toMatch(/mainContent/);
     expect(detailPanel).toBeInTheDocument();
     expect(
       within(appMain).queryByRole("region", { name: "Video Detail Panel" }),
@@ -84,6 +91,44 @@ describe("App shell", () => {
     expect(
       await within(appAside).findByRole("heading", { name: "City Walk" }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps Catalog Videos flush to the available right edge", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const appMain = screen.getByRole("main");
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+
+    expect(appStylesSource).toMatch(
+      /\.mainContent\s*{[^}]*padding-right:\s*var\(--app-shell-aside-offset,\s*0rem\)/s,
+    );
+
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", {
+        name: "Family Trip",
+      }),
+    );
+
+    expect(await screen.findByRole("complementary")).toBeInTheDocument();
+    expect(appMain.className).toMatch(/mainContent/);
   });
 
   it("keeps the Video Detail aside in desktop side-panel mode at narrow app widths", () => {

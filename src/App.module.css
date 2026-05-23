@@ -6,7 +6,7 @@
   height: 100vh;
   overflow: hidden;
   padding-bottom: 0;
-  padding-right: 0;
+  padding-right: var(--app-shell-aside-offset, 0rem);
 }
 
 .moduleNavigation {
@@ -20,6 +20,7 @@
 
 @media (max-width: 640px) {
   .mainContent {
-    padding: 28px 0 0 20px;
+    padding-left: 20px;
+    padding-top: 28px;
   }
 }
