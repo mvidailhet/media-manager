@@ -1,5 +1,7 @@
 import { Badge, Button, Group } from "@mantine/core";
 
+import styles from "../Catalog.module.css";
+
 type CatalogToolbarProps = {
   metadataSuggestionGroupCount: number;
   onOpenMetadataSuggestionsReview: () => void;
@@ -14,7 +16,7 @@ export function CatalogToolbar({
   }
 
   return (
-    <Group justify="flex-end" px="md" pt="md">
+    <Group className={styles.catalogToolbar}>
       <Button
         type="button"
         variant="light"

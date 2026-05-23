@@ -19,6 +19,10 @@ const videoPreviewStylesSource = readFileSync(
   "src/modules/catalog/components/VideoPreview/VideoPreview.module.css",
   "utf8",
 );
+const catalogStylesSource = readFileSync(
+  "src/modules/catalog/Catalog.module.css",
+  "utf8",
+);
 
 const videosPanelFiles = import.meta.glob("./VideosPanel/**/*.{ts,tsx,css}", {
   eager: true,
@@ -178,6 +182,18 @@ describe("Catalog module boundaries", () => {
     expect(metadataSuggestionsSectionSource).toMatch(/MetadataSuggestionsPanel/);
     expect(metadataSuggestionsSectionSource).not.toMatch(
       /CatalogMetadataSuggestionsSection/,
+    );
+  });
+
+  it("keeps optional Metadata Suggestions access from reserving Catalog vertical space", () => {
+    expect(catalogSource).toMatch(/CatalogToolbar/);
+    expect(catalogStylesSource).toMatch(/\.catalogToolbar\s*{/);
+    expect(catalogStylesSource).toMatch(/position:\s*fixed/);
+    expect(catalogStylesSource).toMatch(/left:\s*16px/);
+    expect(catalogStylesSource).toMatch(/top:\s*16px/);
+    expect(catalogStylesSource).toMatch(/grid-template-rows:\s*minmax\(0, 1fr\)/);
+    expect(catalogStylesSource).not.toMatch(
+      /grid-template-rows:\s*auto minmax\(0, 1fr\)/,
     );
   });
 
