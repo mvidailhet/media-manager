@@ -279,4 +279,28 @@ describe("VideoGrid", () => {
       }),
     );
   });
+
+  it("keeps unassigned Videos grouped under the unassigned header", () => {
+    const unassignedVideo = catalogVideo(3);
+    const rows = virtualRowsForPerformerGroups(
+      [
+        {
+          performer,
+          videos: [catalogVideo(1)],
+        },
+        {
+          performer: null,
+          videos: [unassignedVideo],
+        },
+      ],
+      1,
+    );
+
+    expect(rows).toMatchObject([
+      { kind: "header", performer },
+      { kind: "videos" },
+      { kind: "header", performer: null },
+      { kind: "videos", videos: [unassignedVideo] },
+    ]);
+  });
 });
