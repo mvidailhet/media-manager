@@ -1,4 +1,4 @@
-import { Paper, Stack } from "@mantine/core";
+import { Box, Stack } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag } from "../../../tauriCommands";
 import { SectionHeader } from "../../../shared/components/SectionHeader";
@@ -46,11 +46,9 @@ export function BatchEditPanel({
   trashTargets: BatchTrashTarget[];
 }) {
   return (
-    <Paper
+    <Box
       component="section"
       aria-label="Batch Edit Panel"
-      p="md"
-      maw={760}
     >
       <Stack gap="md">
         <SectionHeader
@@ -89,6 +87,6 @@ export function BatchEditPanel({
           title="Performers"
         />
       </Stack>
-    </Paper>
+    </Box>
   );
 }
