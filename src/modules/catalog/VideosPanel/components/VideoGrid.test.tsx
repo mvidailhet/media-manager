@@ -3,7 +3,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../../../AppProviders";
 import type { CatalogVideo } from "../../../../tauriCommands";
-import { VideoGrid } from "./VideoGrid";
+import {
+  VideoGrid,
+  videoColumnCountForWidth,
+  virtualRowsForPerformerGroups,
+} from "./VideoGrid";
 
 vi.mock("@tauri-apps/api/core", () => ({
   convertFileSrc: vi.fn((path: string) => `asset://${path}`),
@@ -15,6 +19,10 @@ const largeVisibleResultCount = 100;
 const performer = {
   id: 1,
   name: "Ada Performer",
+};
+const otherPerformer = {
+  id: 2,
+  name: "Grace Performer",
 };
 
 function catalogVideo(id: number): CatalogVideo {
@@ -78,5 +86,34 @@ describe("VideoGrid", () => {
     expect(mountedVideoCards.length).toBeLessThanOrEqual(
       mountedVideoWindowMaximum,
     );
+  });
+
+  it("counts every card column that fits inside the available grid width", () => {
+    expect(videoColumnCountForWidth(411)).toBe(1);
+    expect(videoColumnCountForWidth(412)).toBe(2);
+    expect(videoColumnCountForWidth(624)).toBe(3);
+  });
+
+  it("keeps performer header spacing tied to logical group position", () => {
+    const rows = virtualRowsForPerformerGroups(
+      [
+        {
+          performer,
+          videos: [catalogVideo(1)],
+        },
+        {
+          performer: otherPerformer,
+          videos: [catalogVideo(2)],
+        },
+      ],
+      1,
+    );
+
+    expect(rows).toMatchObject([
+      { kind: "header", hasTopSpacing: false },
+      { kind: "videos" },
+      { kind: "header", hasTopSpacing: true },
+      { kind: "videos" },
+    ]);
   });
 });

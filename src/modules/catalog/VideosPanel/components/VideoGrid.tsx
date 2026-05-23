@@ -21,6 +21,7 @@ const initialVirtualViewportHeightPixels = 900;
 const initialVirtualViewportWidthPixels = 1000;
 const minimumVideoCardWidthPixels = 200;
 const videoCardGapPixels = 12;
+const noScrollMarginPixels = 0;
 
 type DragPoint = {
   x: number;
@@ -33,6 +34,7 @@ const unassignedGroupBadgeColor = "gray";
 type HeaderRow = {
   kind: "header";
   key: string;
+  hasTopSpacing: boolean;
   performer: CatalogPerformer | null;
 };
 
@@ -90,6 +92,9 @@ export function VideoGrid({
   const [ownScrollElement, setOwnScrollElement] = useState<HTMLElement | null>(
     null,
   );
+  const [scrollMarginPixels, setScrollMarginPixels] = useState(
+    noScrollMarginPixels,
+  );
   const setGridElement = useCallback((element: HTMLDivElement | null) => {
     gridElement.current = element;
     setOwnScrollElement(element);
@@ -100,6 +105,10 @@ export function VideoGrid({
   }, []);
 
   useEffect(() => {
+    updateVirtualGridMeasurements();
+  }, [scrollElementRef, ownScrollElement]);
+
+  useEffect(() => {
     const grid = gridElement.current;
 
     if (!grid || typeof ResizeObserver === "undefined") {
@@ -107,19 +116,13 @@ export function VideoGrid({
     }
 
     const resizeObserver = new ResizeObserver((entries) => {
-      const nextGridWidthPixels = entries[0]?.contentRect.width;
-
-      if (!nextGridWidthPixels) {
-        return;
-      }
-
-      setGridWidthPixels(nextGridWidthPixels);
+      updateVirtualGridMeasurements(entries[0]?.contentRect.width);
     });
 
     resizeObserver.observe(grid);
 
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [scrollElementRef, ownScrollElement]);
 
   const videoColumnCount = useMemo(
     () => videoColumnCountForWidth(gridWidthPixels),
@@ -149,6 +152,7 @@ export function VideoGrid({
       width: gridWidthPixels,
     },
     overscan: virtualGridOverscanRows,
+    scrollMargin: scrollMarginPixels,
   });
   const measuredVisibleVirtualRows = rowVirtualizer.getVirtualItems();
   const visibleVirtualRows =
@@ -315,6 +319,30 @@ export function VideoGrid({
     onClearVideoSelection();
   }
 
+  function updateVirtualGridMeasurements(nextGridWidthPixels?: number) {
+    const grid = gridElement.current;
+
+    if (!grid) {
+      return;
+    }
+
+    const measuredGridWidthPixels =
+      nextGridWidthPixels || grid.getBoundingClientRect().width;
+
+    if (measuredGridWidthPixels > 0) {
+      setGridWidthPixels(measuredGridWidthPixels);
+    }
+
+    const scrollElement = scrollElementRef?.current ?? ownScrollElement;
+
+    if (!scrollElement) {
+      setScrollMarginPixels(noScrollMarginPixels);
+      return;
+    }
+
+    setScrollMarginPixels(grid.offsetTop - scrollElement.offsetTop);
+  }
+
   function videoIdsInsideDragRectangle(
     startPoint: DragPoint,
     endPoint: DragPoint,
@@ -391,11 +419,17 @@ export function VideoGrid({
           if (virtualVideoRow.kind === "header") {
             return (
               <Box
-                className={styles.virtualPerformerRow}
+                className={
+                  virtualVideoRow.hasTopSpacing
+                    ? `${styles.virtualPerformerRow} ${styles.spacedPerformerRow}`
+                    : styles.virtualPerformerRow
+                }
                 data-index={visibleVirtualRow.index}
                 key={virtualVideoRow.key}
                 ref={rowVirtualizer.measureElement}
-                style={{ transform: `translateY(${visibleVirtualRow.start}px)` }}
+                style={{
+                  transform: `translateY(${virtualRowStartPixels(visibleVirtualRow)}px)`,
+                }}
               >
                 <Box className={styles.performerGroup}>
                   <Badge
@@ -422,7 +456,7 @@ export function VideoGrid({
               ref={rowVirtualizer.measureElement}
               style={{
                 gridTemplateColumns: `repeat(${videoColumnCount}, minmax(0, 1fr))`,
-                transform: `translateY(${visibleVirtualRow.start}px)`,
+                transform: `translateY(${virtualRowStartPixels(visibleVirtualRow)}px)`,
               }}
             >
               {virtualVideoRow.videos.map((catalogVideo) => (
@@ -446,19 +480,32 @@ export function VideoGrid({
       </Box>
     </Box>
   );
+
+  function virtualRowStartPixels(visibleVirtualRow: VisibleVirtualRow) {
+    if (measuredVisibleVirtualRows.length === 0) {
+      return visibleVirtualRow.start;
+    }
+
+    return visibleVirtualRow.start - rowVirtualizer.options.scrollMargin;
+  }
 }
 
-function videoColumnCountForWidth(gridWidthPixels: number) {
+export function videoColumnCountForWidth(gridWidthPixels: number) {
   const videoColumnWidthPixels = minimumVideoCardWidthPixels + videoCardGapPixels;
 
-  return Math.max(1, Math.floor(gridWidthPixels / videoColumnWidthPixels));
+  return Math.max(
+    1,
+    Math.floor(
+      (gridWidthPixels + videoCardGapPixels) / videoColumnWidthPixels,
+    ),
+  );
 }
 
-function virtualRowsForPerformerGroups(
+export function virtualRowsForPerformerGroups(
   performerGroups: CatalogVideoPerformerGroup[],
   videoColumnCount: number,
 ) {
-  return performerGroups.flatMap<VirtualVideoRow>((performerGroup) => {
+  return performerGroups.flatMap<VirtualVideoRow>((performerGroup, groupIndex) => {
     const groupKey = performerGroup.performer?.id ?? "unassigned";
     const videoRows = chunkCatalogVideos(performerGroup.videos, videoColumnCount);
 
@@ -466,6 +513,7 @@ function virtualRowsForPerformerGroups(
       {
         kind: "header",
         key: `header-${groupKey}`,
+        hasTopSpacing: groupIndex > 0,
         performer: performerGroup.performer,
       },
       ...videoRows.map((videos, rowIndex) => ({
