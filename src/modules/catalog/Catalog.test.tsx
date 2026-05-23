@@ -2613,7 +2613,187 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("clears Video selection when filters change", async () => {
+  it("keeps selected Videos that still match when filters change", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      catalogVideoFixture(2, "Family Walk"),
+      catalogVideoFixture(3, "City Walk"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", {
+        name: "Family Walk",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", {
+        name: "City Walk",
+      }),
+      { metaKey: true },
+    );
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("3 selected");
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
+      target: { value: "Family" },
+    });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+    expect(
+      within(catalogVideos).getByRole("article", {
+        name: "Family Trip",
+      }).className,
+    ).toContain("batchSelectedCard");
+    expect(
+      within(catalogVideos).getByRole("article", {
+        name: "Family Walk",
+      }).className,
+    ).toContain("batchSelectedCard");
+    expect(
+      within(catalogVideos).queryByRole("article", {
+        name: "City Walk",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps selected Videos when sort order changes", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      {
+        ...catalogVideoFixture(2, "City Walk"),
+        fileSizeBytes: 80740352,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Family Trip",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", {
+        name: "City Walk",
+      }),
+      { metaKey: true },
+    );
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "fileSizeDescending" },
+    });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+    expect(
+      within(catalogVideos).getByRole("article", {
+        name: "Family Trip",
+      }).className,
+    ).toContain("batchSelectedCard");
+    expect(
+      within(catalogVideos).getByRole("article", {
+        name: "City Walk",
+      }).className,
+    ).toContain("batchSelectedCard");
+  });
+
+  it("keeps selected Videos that still match when sort moves them outside the exposed result window", async () => {
+    mockedListCatalogVideos.mockResolvedValue(
+      catalogVideoBatch(incrementalVideoResultBatchSize + 3).map(
+        (catalogVideo) => ({
+          ...catalogVideo,
+          fileSizeBytes: catalogVideo.id,
+        }),
+      ),
+    );
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Archive Clip 001",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", {
+        name: "Archive Clip 002",
+      }),
+      { metaKey: true },
+    );
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "fileSizeDescending" },
+    });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+  });
+
+  it("keeps selected Video Detail when sort moves it outside the exposed result window", async () => {
+    mockedListCatalogVideos.mockResolvedValue(
+      catalogVideoBatch(incrementalVideoResultBatchSize + 3).map(
+        (catalogVideo) => ({
+          ...catalogVideo,
+          fileSizeBytes: catalogVideo.id,
+        }),
+      ),
+    );
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Archive Clip 001",
+      }),
+    );
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("Archive Clip 001");
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "fileSizeDescending" },
+    });
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("Archive Clip 001");
+  });
+
+  it("clears Video Detail Panel selection when filters stop matching it", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Family Trip"),
       catalogVideoFixture(2, "City Walk"),

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppProviders } from "../../../../AppProviders";
@@ -87,6 +87,119 @@ describe("VideoGrid", () => {
     expect(mountedVideoCards.length).toBeLessThanOrEqual(
       mountedVideoWindowMaximum,
     );
+  });
+
+  it("limits v1 drag selection to mounted visible Video Cards", () => {
+    const catalogVideos = Array.from(
+      { length: largeVisibleResultCount },
+      (_value, index) => catalogVideo(index + 1),
+    );
+    const catalogVideoMetadataById = Object.fromEntries(
+      catalogVideos.map((video) => [
+        video.id,
+        {
+          tags: [],
+          performers: [performer],
+        },
+      ]),
+    );
+    const replaceSelectedVideos = vi.fn();
+
+    render(
+      <AppProviders>
+        <VideoGrid
+          catalogVideoMetadataById={catalogVideoMetadataById}
+          catalogVideos={catalogVideos}
+          onClearVideoSelection={vi.fn()}
+          onReplaceSelectedVideos={replaceSelectedVideos}
+          onSelectVideo={vi.fn()}
+          onSetFavorite={vi.fn()}
+          selectedDetailVideoId={null}
+          selectedVideoIds={[]}
+        />
+      </AppProviders>,
+    );
+
+    const mountedVideoCards = screen.getAllByRole("article");
+    mountedVideoCards.forEach((videoCard, index) => {
+      vi.spyOn(videoCard, "getBoundingClientRect").mockReturnValue({
+        bottom: 100,
+        height: 100,
+        left: index * 120,
+        right: index * 120 + 100,
+        top: 0,
+        width: 100,
+        x: index * 120,
+        y: 0,
+        toJSON: () => ({}),
+      });
+    });
+
+    const videoGrid = screen.getByLabelText("Video grid");
+
+    fireEvent.pointerDown(videoGrid, { button: 0, clientX: 0, clientY: 0 });
+    fireEvent.pointerMove(videoGrid, { clientX: 10000, clientY: 10000 });
+    fireEvent.pointerUp(videoGrid, { clientX: 10000, clientY: 10000 });
+
+    const mountedVideoIds = mountedVideoCards.map((videoCard) =>
+      Number(videoCard.dataset.videoId),
+    );
+
+    expect(replaceSelectedVideos).toHaveBeenCalledWith(mountedVideoIds);
+    expect(mountedVideoIds.length).toBeLessThan(largeVisibleResultCount);
+  });
+
+  it("marks a selected Video when its Card remounts inside the Visible Video Window", () => {
+    const selectedVideo = catalogVideo(100);
+    const firstVisibleVideos = [catalogVideo(1), catalogVideo(2)];
+    const remountedVisibleVideos = [selectedVideo, catalogVideo(101)];
+    const visibleVideos = [...firstVisibleVideos, ...remountedVisibleVideos];
+    const catalogVideoMetadataById = Object.fromEntries(
+      visibleVideos.map((video) => [
+        video.id,
+        {
+          tags: [],
+          performers: [performer],
+        },
+      ]),
+    );
+    const { rerender } = render(
+      <AppProviders>
+        <VideoGrid
+          catalogVideoMetadataById={catalogVideoMetadataById}
+          catalogVideos={firstVisibleVideos}
+          onClearVideoSelection={vi.fn()}
+          onReplaceSelectedVideos={vi.fn()}
+          onSelectVideo={vi.fn()}
+          onSetFavorite={vi.fn()}
+          selectedDetailVideoId={null}
+          selectedVideoIds={[selectedVideo.id]}
+        />
+      </AppProviders>,
+    );
+
+    expect(
+      screen.queryByRole("article", { name: selectedVideo.title }),
+    ).not.toBeInTheDocument();
+
+    rerender(
+      <AppProviders>
+        <VideoGrid
+          catalogVideoMetadataById={catalogVideoMetadataById}
+          catalogVideos={remountedVisibleVideos}
+          onClearVideoSelection={vi.fn()}
+          onReplaceSelectedVideos={vi.fn()}
+          onSelectVideo={vi.fn()}
+          onSetFavorite={vi.fn()}
+          selectedDetailVideoId={null}
+          selectedVideoIds={[selectedVideo.id]}
+        />
+      </AppProviders>,
+    );
+
+    expect(
+      screen.getByRole("article", { name: selectedVideo.title }).className,
+    ).toContain("batchSelectedCard");
   });
 
   it("counts every card column that fits inside the available grid width", () => {

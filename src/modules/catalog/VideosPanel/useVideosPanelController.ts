@@ -76,6 +76,7 @@ export function useVideosPanelController({
     exposeNextCatalogVideoBatch,
     filteredCatalogVideos,
     hasMoreFilteredCatalogVideos,
+    matchingCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
   };
