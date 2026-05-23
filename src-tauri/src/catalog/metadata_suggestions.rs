@@ -331,6 +331,32 @@ impl Catalog {
                 let source_path_segment = suggestion_source.source_path_segment;
                 let normalized_suggested_value =
                     normalized_metadata_suggestion_value(&suggested_value);
+                if let Some(suggestion_mapping) = mapped_metadata_suggestion(
+                    &transaction,
+                    scan_root_id,
+                    &source_path_segment,
+                    &suggested_value,
+                    "tag",
+                )? {
+                    attach_mapped_metadata_suggestion_to_video(
+                        &transaction,
+                        &suggestion_mapping,
+                        video_id,
+                    )?;
+                    store_accepted_metadata_suggestion(
+                        &transaction,
+                        scan_root_id,
+                        video_id,
+                        &source_path_segment,
+                        &suggested_value,
+                        &normalized_suggested_value,
+                        "tag",
+                    )?;
+                    continue;
+                }
+
+                let suggestion_kind =
+                    inferred_metadata_suggestion_kind(&transaction, &suggested_value)?;
                 let has_source_rejection = transaction
                     .query_row(
                         "SELECT 1
@@ -338,12 +364,13 @@ impl Catalog {
                          WHERE scan_root_id = ?1
                            AND source_path_segment = ?2
                            AND normalized_suggested_value = ?3
-                           AND suggestion_kind = 'tag'
+                           AND suggestion_kind = ?4
                          LIMIT 1",
                         params![
                             scan_root_id,
                             source_path_segment,
-                            normalized_suggested_value
+                            normalized_suggested_value,
+                            suggestion_kind
                         ],
                         |_| Ok(()),
                     )
@@ -360,40 +387,22 @@ impl Catalog {
                     scan_root_id,
                     &source_path_segment,
                     &suggested_value,
-                    "tag",
+                    suggestion_kind,
                 )? {
                     attach_mapped_metadata_suggestion_to_video(
                         &transaction,
                         &suggestion_mapping,
                         video_id,
                     )?;
-                    transaction
-                        .execute(
-                            "INSERT INTO metadata_suggestions (
-                                scan_root_id,
-                                video_id,
-                                source_path_segment,
-                                suggested_value,
-                                normalized_suggested_value,
-                                suggestion_kind,
-                                accepted_at
-                             )
-                             VALUES (?1, ?2, ?3, ?4, ?5, 'tag', CURRENT_TIMESTAMP)
-                             ON CONFLICT(scan_root_id, video_id, source_path_segment, normalized_suggested_value, suggestion_kind)
-                             DO UPDATE SET
-                                suggested_value = excluded.suggested_value,
-                                accepted_at = CURRENT_TIMESTAMP,
-                                rejected_at = NULL,
-                                updated_at = CURRENT_TIMESTAMP",
-                            params![
-                                scan_root_id,
-                                video_id,
-                                source_path_segment,
-                                suggested_value,
-                                normalized_suggested_value
-                            ],
-                        )
-                        .map_err(|error| error.to_string())?;
+                    store_accepted_metadata_suggestion(
+                        &transaction,
+                        scan_root_id,
+                        video_id,
+                        &source_path_segment,
+                        &suggested_value,
+                        &normalized_suggested_value,
+                        suggestion_kind,
+                    )?;
                     continue;
                 }
 
@@ -407,7 +416,7 @@ impl Catalog {
                             normalized_suggested_value,
                             suggestion_kind
                          )
-                         VALUES (?1, ?2, ?3, ?4, ?5, 'tag')
+                         VALUES (?1, ?2, ?3, ?4, ?5, ?6)
                          ON CONFLICT(scan_root_id, video_id, source_path_segment, normalized_suggested_value, suggestion_kind)
                          DO UPDATE SET
                             suggested_value = excluded.suggested_value,
@@ -417,7 +426,8 @@ impl Catalog {
                             video_id,
                             source_path_segment,
                             suggested_value,
-                            normalized_suggested_value
+                            normalized_suggested_value,
+                            suggestion_kind
                         ],
                     )
                     .map_err(|error| error.to_string())?;
@@ -486,4 +496,70 @@ fn is_single_video_leaf_folder_suggestion(
             .copied()
             .unwrap_or_default()
             == 1
+}
+
+fn inferred_metadata_suggestion_kind<'a>(
+    transaction: &Transaction<'_>,
+    suggested_value: &'a str,
+) -> Result<&'a str, String> {
+    let metadata_name = normalized_metadata_input(suggested_value)?;
+    let matches_existing_performer = transaction
+        .query_row(
+            "SELECT 1
+             FROM performers
+             WHERE normalized_name = ?1
+             LIMIT 1",
+            params![metadata_name.normalized_name],
+            |_| Ok(()),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?
+        .is_some();
+
+    if matches_existing_performer {
+        Ok("performer")
+    } else {
+        Ok("tag")
+    }
+}
+
+fn store_accepted_metadata_suggestion(
+    transaction: &Transaction<'_>,
+    scan_root_id: i64,
+    video_id: i64,
+    source_path_segment: &str,
+    suggested_value: &str,
+    normalized_suggested_value: &str,
+    suggestion_kind: &str,
+) -> Result<(), String> {
+    transaction
+        .execute(
+            "INSERT INTO metadata_suggestions (
+                scan_root_id,
+                video_id,
+                source_path_segment,
+                suggested_value,
+                normalized_suggested_value,
+                suggestion_kind,
+                accepted_at
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, CURRENT_TIMESTAMP)
+             ON CONFLICT(scan_root_id, video_id, source_path_segment, normalized_suggested_value, suggestion_kind)
+             DO UPDATE SET
+                suggested_value = excluded.suggested_value,
+                accepted_at = CURRENT_TIMESTAMP,
+                rejected_at = NULL,
+                updated_at = CURRENT_TIMESTAMP",
+            params![
+                scan_root_id,
+                video_id,
+                source_path_segment,
+                suggested_value,
+                normalized_suggested_value,
+                suggestion_kind
+            ],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
 }

@@ -126,6 +126,221 @@ fn scan_root_refresh_generates_tag_suggestions_from_allowed_child_folder_segment
 }
 
 #[test]
+fn scan_root_refresh_generates_performer_suggestions_for_existing_performer_names() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    catalog.create_performer("Alex").expect("performer creates");
+    let movies_root = temporary_folder.path().join("Movies");
+    let video_folder = movies_root.join("Alex");
+    std::fs::create_dir_all(&video_folder).expect("video folder exists");
+    std::fs::write(video_folder.join("alex-scene.mp4"), "valid video bytes").expect("video exists");
+    std::fs::write(video_folder.join("alex-extra.mp4"), "valid extra bytes")
+        .expect("extra video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert_eq!(
+        metadata_suggestion_sources(&catalog.database),
+        vec![
+            (
+                "Alex".to_string(),
+                "Alex".to_string(),
+                "performer".to_string()
+            ),
+            (
+                "Alex".to_string(),
+                "Alex".to_string(),
+                "performer".to_string()
+            )
+        ]
+    );
+}
+
+#[test]
+fn filename_bracket_inference_generates_performer_suggestions_for_existing_performer_names() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    catalog.create_performer("Alex").expect("performer creates");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    std::fs::write(movies_root.join("birthday [Alex].mp4"), "valid video bytes")
+        .expect("video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert_eq!(
+        metadata_suggestions(&catalog.database),
+        vec![("Alex".to_string(), "performer".to_string())]
+    );
+}
+
+#[test]
+fn performer_suggestion_matching_uses_metadata_name_normalization() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    catalog
+        .create_performer("Mary Jane")
+        .expect("performer creates");
+    let movies_root = temporary_folder.path().join("Movies");
+    let compact_name_folder = movies_root.join("MaryJane");
+    std::fs::create_dir_all(&compact_name_folder).expect("video folder exists");
+    std::fs::write(compact_name_folder.join("scene.mp4"), "valid video bytes")
+        .expect("video exists");
+    std::fs::write(compact_name_folder.join("extra.mp4"), "valid extra bytes")
+        .expect("extra video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+
+    assert_eq!(
+        metadata_suggestions(&catalog.database),
+        vec![
+            ("MaryJane".to_string(), "tag".to_string()),
+            ("MaryJane".to_string(), "tag".to_string())
+        ]
+    );
+}
+
+#[test]
+fn rejected_tag_suggestions_do_not_suppress_later_performer_suggestions() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let video_folder = movies_root.join("Alex");
+    std::fs::create_dir_all(&video_folder).expect("video folder exists");
+    std::fs::write(video_folder.join("first.mp4"), "valid video bytes").expect("video exists");
+    std::fs::write(video_folder.join("second.mp4"), "valid extra bytes")
+        .expect("extra video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+    catalog
+        .reject_metadata_suggestion_source(&scan_root.path, "Alex", "Alex", "tag")
+        .expect("tag suggestion rejects");
+    catalog.create_performer("Alex").expect("performer creates");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes again");
+
+    assert_eq!(
+        metadata_suggestion_sources(&catalog.database),
+        vec![
+            (
+                "Alex".to_string(),
+                "Alex".to_string(),
+                "performer".to_string()
+            ),
+            (
+                "Alex".to_string(),
+                "Alex".to_string(),
+                "performer".to_string()
+            )
+        ]
+    );
+}
+
+#[test]
+fn existing_tag_mapping_wins_over_later_performer_name_match() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let video_folder = movies_root.join("Alex");
+    std::fs::create_dir_all(&video_folder).expect("video folder exists");
+    std::fs::write(video_folder.join("first.mp4"), "valid video bytes").expect("video exists");
+    std::fs::write(video_folder.join("second.mp4"), "valid extra bytes")
+        .expect("extra video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+    let first_video_id = video_id_for_title(&catalog.database, "first");
+    let second_video_id = video_id_for_title(&catalog.database, "second");
+    catalog
+        .accept_metadata_suggestion_for_videos(
+            &scan_root.path,
+            "Alex",
+            "Alex",
+            "tag",
+            None,
+            None,
+            &[first_video_id, second_video_id],
+        )
+        .expect("tag suggestion accepts");
+    catalog.create_performer("Alex").expect("performer creates");
+    std::fs::write(video_folder.join("third.mp4"), "valid third bytes").expect("new video exists");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes again");
+
+    let third_video_id = video_id_for_title(&catalog.database, "third");
+    assert_eq!(
+        catalog
+            .tags_for_video(third_video_id)
+            .expect("video tags list"),
+        vec![crate::catalog::CatalogTag {
+            id: 1,
+            name: "Alex".to_string()
+        }]
+    );
+    assert_eq!(
+        catalog
+            .performers_for_video(third_video_id)
+            .expect("video performers list"),
+        Vec::<crate::catalog::CatalogPerformer>::new()
+    );
+    assert_eq!(
+        catalog
+            .list_metadata_suggestion_groups()
+            .expect("metadata suggestions list"),
+        Vec::<crate::catalog::MetadataSuggestionGroup>::new()
+    );
+}
+
+#[test]
 fn scan_root_refresh_skips_single_video_leaf_folder_suggestions() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
