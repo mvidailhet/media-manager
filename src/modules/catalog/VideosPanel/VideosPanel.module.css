@@ -21,9 +21,14 @@
   width: 100%;
 }
 
+.virtualPerformerRow {
+  padding-bottom: 12px;
+}
+
 .virtualVideoRow {
   display: grid;
   gap: 12px;
+  padding-bottom: 12px;
 }
 
 .spacedPerformerRow {
@@ -32,10 +37,6 @@
 
 .performerGroup {
   grid-column: 1 / -1;
-}
-
-.performerGroup:not(:first-child) {
-  padding-top: 24px;
 }
 
 .selectionRectangle {

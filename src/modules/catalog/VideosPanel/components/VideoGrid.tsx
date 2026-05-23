@@ -19,7 +19,10 @@ const estimatedHeaderRowHeightPixels = 52;
 const estimatedVideoRowHeightPixels = 300;
 const initialVirtualViewportHeightPixels = 900;
 const initialVirtualViewportWidthPixels = 1000;
+const initialViewportWidthPixels = 1000;
 const minimumVideoCardWidthPixels = 200;
+const preferredVideoCardViewportWidthRatio = 0.18;
+const maximumMinimumVideoCardWidthPixels = 400;
 const videoCardGapPixels = 12;
 const noScrollMarginPixels = 0;
 
@@ -89,6 +92,9 @@ export function VideoGrid({
   const [gridWidthPixels, setGridWidthPixels] = useState(
     initialVirtualViewportWidthPixels,
   );
+  const [viewportWidthPixels, setViewportWidthPixels] = useState(
+    currentViewportWidthPixels,
+  );
   const [ownScrollElement, setOwnScrollElement] = useState<HTMLElement | null>(
     null,
   );
@@ -102,6 +108,12 @@ export function VideoGrid({
 
   useEffect(() => {
     return () => restoreDocumentTextSelection();
+  }, []);
+
+  useEffect(() => {
+    window.addEventListener("resize", updateViewportWidth);
+
+    return () => window.removeEventListener("resize", updateViewportWidth);
   }, []);
 
   useEffect(() => {
@@ -125,8 +137,8 @@ export function VideoGrid({
   }, [scrollElementRef, ownScrollElement]);
 
   const videoColumnCount = useMemo(
-    () => videoColumnCountForWidth(gridWidthPixels),
-    [gridWidthPixels],
+    () => videoColumnCountForWidth(gridWidthPixels, viewportWidthPixels),
+    [gridWidthPixels, viewportWidthPixels],
   );
   const performerGroups = useMemo(
     () =>
@@ -319,6 +331,18 @@ export function VideoGrid({
     onClearVideoSelection();
   }
 
+  function updateViewportWidth() {
+    setViewportWidthPixels((previousViewportWidthPixels) => {
+      const nextViewportWidthPixels = currentViewportWidthPixels();
+
+      if (previousViewportWidthPixels === nextViewportWidthPixels) {
+        return previousViewportWidthPixels;
+      }
+
+      return nextViewportWidthPixels;
+    });
+  }
+
   function updateVirtualGridMeasurements(nextGridWidthPixels?: number) {
     const grid = gridElement.current;
 
@@ -490,8 +514,13 @@ export function VideoGrid({
   }
 }
 
-export function videoColumnCountForWidth(gridWidthPixels: number) {
-  const videoColumnWidthPixels = minimumVideoCardWidthPixels + videoCardGapPixels;
+export function videoColumnCountForWidth(
+  gridWidthPixels: number,
+  viewportWidthPixels = initialViewportWidthPixels,
+) {
+  const videoColumnWidthPixels =
+    preferredVideoCardMinimumWidthForViewport(viewportWidthPixels) +
+    videoCardGapPixels;
 
   return Math.max(
     1,
@@ -499,6 +528,20 @@ export function videoColumnCountForWidth(gridWidthPixels: number) {
       (gridWidthPixels + videoCardGapPixels) / videoColumnWidthPixels,
     ),
   );
+}
+
+function preferredVideoCardMinimumWidthForViewport(viewportWidthPixels: number) {
+  return Math.min(
+    maximumMinimumVideoCardWidthPixels,
+    Math.max(
+      minimumVideoCardWidthPixels,
+      viewportWidthPixels * preferredVideoCardViewportWidthRatio,
+    ),
+  );
+}
+
+function currentViewportWidthPixels() {
+  return window.innerWidth || initialViewportWidthPixels;
 }
 
 export function virtualRowsForPerformerGroups(

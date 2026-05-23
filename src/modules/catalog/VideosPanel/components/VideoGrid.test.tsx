@@ -89,9 +89,24 @@ describe("VideoGrid", () => {
   });
 
   it("counts every card column that fits inside the available grid width", () => {
-    expect(videoColumnCountForWidth(411)).toBe(1);
-    expect(videoColumnCountForWidth(412)).toBe(2);
-    expect(videoColumnCountForWidth(624)).toBe(3);
+    const narrowViewportWidthPixels = 1000;
+
+    expect(videoColumnCountForWidth(411, narrowViewportWidthPixels)).toBe(1);
+    expect(videoColumnCountForWidth(412, narrowViewportWidthPixels)).toBe(2);
+    expect(videoColumnCountForWidth(624, narrowViewportWidthPixels)).toBe(3);
+  });
+
+  it("resizes card columns from the viewport width like the original responsive grid", () => {
+    const gridWidthPixels = 1000;
+    const narrowViewportWidthPixels = 1000;
+    const wideViewportWidthPixels = 2000;
+
+    expect(
+      videoColumnCountForWidth(gridWidthPixels, narrowViewportWidthPixels),
+    ).toBe(4);
+    expect(
+      videoColumnCountForWidth(gridWidthPixels, wideViewportWidthPixels),
+    ).toBe(2);
   });
 
   it("keeps performer header spacing tied to logical group position", () => {
