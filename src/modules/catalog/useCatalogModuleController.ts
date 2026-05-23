@@ -198,6 +198,7 @@ export function useCatalogModuleController(): CatalogController {
     exposeNextCatalogVideoBatch,
     filteredCatalogVideos,
     hasMoreFilteredCatalogVideos,
+    matchingCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
   } = useVideosPanelController({
@@ -259,17 +260,17 @@ export function useCatalogModuleController(): CatalogController {
   }, [catalogView, metadataSuggestionGroups.length]);
 
   useEffect(() => {
-    const filteredVideoIds = new Set(
-      filteredCatalogVideos.map((catalogVideo) => catalogVideo.id),
+    const matchingVideoIds = new Set(
+      matchingCatalogVideos.map((catalogVideo) => catalogVideo.id),
     );
 
-    if (selectedVideo && !filteredVideoIds.has(selectedVideo.id)) {
+    if (selectedVideo && !matchingVideoIds.has(selectedVideo.id)) {
       resetSelectedVideo();
     }
 
     if (batchSelectedVideoIds.length > 0) {
       const matchingSelectedVideoIds = batchSelectedVideoIds.filter((videoId) =>
-        filteredVideoIds.has(videoId),
+        matchingVideoIds.has(videoId),
       );
 
       if (matchingSelectedVideoIds.length !== batchSelectedVideoIds.length) {
@@ -279,17 +280,22 @@ export function useCatalogModuleController(): CatalogController {
 
     if (
       selectionAnchorVideoId !== null &&
-      !filteredVideoIds.has(selectionAnchorVideoId)
+      !matchingVideoIds.has(selectionAnchorVideoId)
     ) {
+      const fallbackSelectedVideoId =
+        selectedVideo && matchingVideoIds.has(selectedVideo.id)
+          ? selectedVideo.id
+          : null;
+
       setSelectionAnchorVideoId(
-        batchSelectedVideoIds.find((videoId) => filteredVideoIds.has(videoId)) ??
-          selectedVideo?.id ??
+        batchSelectedVideoIds.find((videoId) => matchingVideoIds.has(videoId)) ??
+          fallbackSelectedVideoId ??
           null,
       );
     }
   }, [
     batchSelectedVideoIds,
-    filteredCatalogVideos,
+    matchingCatalogVideos,
     resetSelectedVideo,
     selectedVideo,
     selectionAnchorVideoId,
@@ -500,13 +506,13 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function videoSelectionRange(targetVideoId: number) {
-    const visibleVideoIds = filteredCatalogVideos.map(
+    const matchingVideoIds = matchingCatalogVideos.map(
       (catalogVideo) => catalogVideo.id,
     );
     const fallbackAnchorVideoId =
       selectionAnchorVideoId ?? selectedVideo?.id ?? targetVideoId;
-    const anchorIndex = visibleVideoIds.indexOf(fallbackAnchorVideoId);
-    const targetIndex = visibleVideoIds.indexOf(targetVideoId);
+    const anchorIndex = matchingVideoIds.indexOf(fallbackAnchorVideoId);
+    const targetIndex = matchingVideoIds.indexOf(targetVideoId);
 
     if (anchorIndex === -1 || targetIndex === -1) {
       return [targetVideoId];
@@ -515,7 +521,7 @@ export function useCatalogModuleController(): CatalogController {
     const rangeStartIndex = Math.min(anchorIndex, targetIndex);
     const rangeEndIndex = Math.max(anchorIndex, targetIndex);
 
-    return visibleVideoIds.slice(rangeStartIndex, rangeEndIndex + 1);
+    return matchingVideoIds.slice(rangeStartIndex, rangeEndIndex + 1);
   }
 
   function changeCatalogVideoFilters(filters: typeof catalogVideoFilters) {
