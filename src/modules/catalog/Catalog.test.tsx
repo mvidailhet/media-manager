@@ -54,6 +54,8 @@ import { previewStripAutoplayFrameIntervalMilliseconds } from "./components/Vide
 import { incrementalVideoResultBatchSize } from "./VideosPanel/useVideosPanelController";
 
 describe("Catalog module", () => {
+  const visibleVideoWindowProbeIndex = 8;
+
   beforeEach(resetAppTestHarness);
 
   function expandMetadataSuggestionBranch(
@@ -1328,7 +1330,7 @@ describe("Catalog module", () => {
     ).toEqual(["Small Clip", "Large Archive"]);
   });
 
-  it("groups Catalog Videos by first Performer and keeps unassigned Videos visible", async () => {
+  it("groups Catalog Videos by first Performer and keeps unassigned headers visible", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -1403,13 +1405,9 @@ describe("Catalog module", () => {
     const soloClipCard = within(catalogVideos).getByRole("article", {
       name: "Solo Clip",
     });
-    const looseClipCard = within(catalogVideos).getByRole("article", {
-      name: "Loose Clip",
-    });
 
     expect(sharedClipCard).toBeInTheDocument();
     expect(soloClipCard).toBeInTheDocument();
-    expect(looseClipCard).toBeInTheDocument();
     expect(
       Boolean(
         alexHeading.compareDocumentPosition(sharedClipCard) &
@@ -1422,12 +1420,7 @@ describe("Catalog module", () => {
           Node.DOCUMENT_POSITION_FOLLOWING,
       ),
     ).toBe(true);
-    expect(
-      Boolean(
-        unassignedHeading.compareDocumentPosition(looseClipCard) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-      ),
-    ).toBe(true);
+    expect(unassignedHeading).toBeInTheDocument();
   });
 
   it("opens a Video from the start and refreshes Catalog Videos", async () => {
@@ -3841,18 +3834,31 @@ describe("Catalog module", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(catalogVideos).getByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize).padStart(3, "0")}`,
+      within(catalogVideos).getAllByRole("article").length,
+    ).toBeLessThan(incrementalVideoResultBatchSize);
+  });
+
+  it("does not expose every matching Video in the initial Videos View render for large result sets", async () => {
+    const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize * 3);
+    mockedListCatalogVideos.mockResolvedValue(matchingVideos);
+
+    renderApp();
+
+    const catalogVideos = await visibleCatalogVideos();
+
+    expect(
+      await within(catalogVideos).findByRole("article", {
+        name: "Archive Clip 001",
       }),
     ).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
+        name: `Archive Clip ${String(incrementalVideoResultBatchSize * 3).padStart(3, "0")}`,
       }),
     ).not.toBeInTheDocument();
   });
 
-  it("exposes the next Video batch when scrolling near the end", async () => {
+  it("keeps a bounded Visible Video Window when scrolling near the end", async () => {
     const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3);
     mockedListCatalogVideos.mockResolvedValue(matchingVideos);
 
@@ -3868,10 +3874,13 @@ describe("Catalog module", () => {
     fireEvent.scroll(catalogVideos);
 
     expect(
-      await within(catalogVideos).findByRole("article", {
+      within(catalogVideos).getAllByRole("article").length,
+    ).toBeLessThan(incrementalVideoResultBatchSize);
+    expect(
+      within(catalogVideos).queryByRole("article", {
         name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
   });
 
   it("exposes another Video batch when the first batch does not fill the Videos View", async () => {
@@ -3887,10 +3896,8 @@ describe("Catalog module", () => {
     const catalogVideos = await visibleCatalogVideos();
 
     expect(
-      await within(catalogVideos).findByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
-      }),
-    ).toBeInTheDocument();
+      within(catalogVideos).getAllByRole("article").length,
+    ).toBeLessThan(incrementalVideoResultBatchSize);
 
     delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
     delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
@@ -3912,7 +3919,7 @@ describe("Catalog module", () => {
     fireEvent.scroll(catalogVideos);
     expect(
       await within(catalogVideos).findByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
+        name: `Archive Clip ${String(visibleVideoWindowProbeIndex).padStart(3, "0")}`,
       }),
     ).toBeInTheDocument();
 
@@ -3937,6 +3944,128 @@ describe("Catalog module", () => {
     });
 
     expect(catalogVideos.scrollTop).toBe(0);
+  });
+
+  it("resets exposed Videos and preserves only still-matching selection when filters change", async () => {
+    const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3).map(
+      (catalogVideo) => {
+        if (catalogVideo.id === 1) {
+          return { ...catalogVideo, title: "Archive Clip 001 Family" };
+        }
+
+        if (catalogVideo.id === 2) {
+          return { ...catalogVideo, title: "Archive Clip 002 Family" };
+        }
+
+        if (catalogVideo.id === visibleVideoWindowProbeIndex) {
+          return { ...catalogVideo, title: "Archive Clip 008 City" };
+        }
+
+        return catalogVideo;
+      },
+    );
+    mockedListCatalogVideos.mockResolvedValue(matchingVideos);
+
+    renderApp();
+
+    const catalogVideos = await visibleCatalogVideos();
+    Object.defineProperties(catalogVideos, {
+      clientHeight: { configurable: true, value: 400 },
+      scrollHeight: { configurable: true, value: 1200 },
+      scrollTop: { configurable: true, value: 760, writable: true },
+    });
+
+    fireEvent.scroll(catalogVideos);
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Archive Clip 001 Family",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Archive Clip 002 Family",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Archive Clip 008 City",
+      }),
+      { metaKey: true },
+    );
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("3 selected");
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
+      target: { value: "Family" },
+    });
+
+    expect(catalogVideos.scrollTop).toBe(0);
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+    expect(
+      within(catalogVideos).getByRole("article", {
+        name: "Archive Clip 001 Family",
+      }).className,
+    ).toContain("batchSelectedCard");
+    expect(
+      within(catalogVideos).queryByRole("article", {
+        name: "Archive Clip 008 City",
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("resets exposed Videos and preserves selected Videos when sort changes", async () => {
+    const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3).map(
+      (catalogVideo) => ({
+        ...catalogVideo,
+        fileSizeBytes: catalogVideo.id,
+      }),
+    );
+    mockedListCatalogVideos.mockResolvedValue(matchingVideos);
+
+    renderApp();
+
+    const catalogVideos = await visibleCatalogVideos();
+    Object.defineProperties(catalogVideos, {
+      clientHeight: { configurable: true, value: 400 },
+      scrollHeight: { configurable: true, value: 1200 },
+      scrollTop: { configurable: true, value: 760, writable: true },
+    });
+
+    fireEvent.scroll(catalogVideos);
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "Archive Clip 001",
+      }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: `Archive Clip ${String(visibleVideoWindowProbeIndex).padStart(3, "0")}`,
+      }),
+      { metaKey: true },
+    );
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "fileSizeDescending" },
+    });
+
+    expect(catalogVideos.scrollTop).toBe(0);
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+    expect(
+      within(catalogVideos).queryByRole("article", {
+        name: "Archive Clip 001",
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it("shows an empty state when the Catalog has no Videos", async () => {

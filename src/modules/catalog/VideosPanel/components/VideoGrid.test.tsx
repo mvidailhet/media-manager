@@ -246,4 +246,37 @@ describe("VideoGrid", () => {
       { kind: "videos" },
     ]);
   });
+
+  it("keeps performer group headers in large grouped results", () => {
+    const rows = virtualRowsForPerformerGroups(
+      [
+        {
+          performer,
+          videos: Array.from({ length: largeVisibleResultCount }, (_value, index) =>
+            catalogVideo(index + 1),
+          ),
+        },
+        {
+          performer: otherPerformer,
+          videos: Array.from({ length: largeVisibleResultCount }, (_value, index) =>
+            catalogVideo(index + largeVisibleResultCount + 1),
+          ),
+        },
+      ],
+      2,
+    );
+
+    expect(rows).toContainEqual(
+      expect.objectContaining({
+        kind: "header",
+        performer,
+      }),
+    );
+    expect(rows).toContainEqual(
+      expect.objectContaining({
+        kind: "header",
+        performer: otherPerformer,
+      }),
+    );
+  });
 });
