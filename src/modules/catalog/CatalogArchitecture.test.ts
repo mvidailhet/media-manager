@@ -23,6 +23,10 @@ const catalogStylesSource = readFileSync(
   "src/modules/catalog/Catalog.module.css",
   "utf8",
 );
+const videosPanelStylesSource = readFileSync(
+  "src/modules/catalog/VideosPanel/VideosPanel.module.css",
+  "utf8",
+);
 
 const videosPanelFiles = import.meta.glob("./VideosPanel/**/*.{ts,tsx,css}", {
   eager: true,
@@ -195,6 +199,11 @@ describe("Catalog module boundaries", () => {
     expect(catalogStylesSource).not.toMatch(
       /grid-template-rows:\s*auto minmax\(0, 1fr\)/,
     );
+  });
+
+  it("keeps performer groups visually separated in the Videos list", () => {
+    expect(videosPanelStylesSource).toMatch(/\.performerGroup:not\(:first-child\)/);
+    expect(videosPanelStylesSource).toMatch(/padding-top:\s*16px/);
   });
 
   it("keeps Metadata Suggestions panel, group, source, and tree helpers in focused files", () => {
