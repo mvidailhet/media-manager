@@ -292,6 +292,7 @@ export function resetAppTestHarness() {
     mockedSetVideoFavorite.mockResolvedValue(undefined);
     mockedOpenCatalogVideoContainingFolder.mockResolvedValue(undefined);
     mockedOpenCatalogVideo.mockResolvedValue(undefined);
+    mockedMoveCatalogVideoFileLocationToTrash.mockResolvedValue(undefined);
     mockedRetryFailedPreviewStrip.mockResolvedValue({
       pendingCount: 1,
       runningCount: 0,

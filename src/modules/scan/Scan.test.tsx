@@ -1392,6 +1392,67 @@ describe("Scan module", () => {
     expect(within(scanRoots).getByText("corrupt.mkv")).toBeInTheDocument();
     expect(within(scanRoots).getByText("1 Unprocessable video")).toBeInTheDocument();
   });
+
+  it("keeps an Unprocessable Video Candidate visible with a path-specific Move to Trash failure", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+    ]);
+    mockedListUnprocessableVideoCandidatesByScanRoot.mockResolvedValue([
+      {
+        scanRootPath: "/Volumes/Archive/Videos",
+        candidateCount: 1,
+        candidates: [
+          {
+            path: "/Volumes/Archive/Videos/broken.mov",
+            reason: "missing moov atom",
+            fileSizeBytes: 4096,
+          },
+        ],
+      },
+    ]);
+    mockedMoveUnprocessableVideoCandidateToTrash.mockRejectedValue(
+      "Finder denied delete permission",
+    );
+
+    renderApp();
+    await openScanModule();
+
+    const scanRoots = await screen.findByLabelText("Scan Roots");
+    fireEvent.click(
+      within(scanRoots).getByRole("button", {
+        name: "Show Unprocessable videos for /Volumes/Archive/Videos",
+      }),
+    );
+
+    const brokenCandidate = within(scanRoots)
+      .getByText("broken.mov")
+      .closest("article");
+
+    expect(brokenCandidate).not.toBeNull();
+    fireEvent.click(
+      within(brokenCandidate as HTMLElement).getByRole("button", {
+        name: "Move /Volumes/Archive/Videos/broken.mov to Trash",
+      }),
+    );
+    fireEvent.click(
+      within(
+        await screen.findByRole("dialog", { name: "Move this file to Trash?" }),
+      ).getByRole("button", { name: "Move to Trash" }),
+    );
+
+    expect(
+      await within(scanRoots).findByText(
+        "Could not move this Unprocessable Video Candidate to Trash: /Volumes/Archive/Videos/broken.mov (Finder denied delete permission).",
+      ),
+    ).toBeInTheDocument();
+    expect(within(scanRoots).getByText("broken.mov")).toBeInTheDocument();
+    expect(within(scanRoots).getByText("1 Unprocessable video")).toBeInTheDocument();
+  });
+
   it("lists Failed Preview Strips in Preview Generation with retry and ignore actions", async () => {
     mockedListFailedPreviewStrips
       .mockResolvedValueOnce([

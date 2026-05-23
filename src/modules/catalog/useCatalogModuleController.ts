@@ -28,6 +28,9 @@ import { useVideosPanelController } from "./VideosPanel/useVideosPanelController
 export type { CatalogVideo };
 
 const emptyMetadataInputMessage = "Enter a name first.";
+const moveToTrashDetailFailurePrefix =
+  "Could not move this File Location to Trash";
+const moveToTrashBatchResultPrefix = "Move to Trash finished";
 
 type CatalogController = {
   catalogProps: CatalogProps;
@@ -81,6 +84,76 @@ function preferredFileLocationTrashTargets(
       },
     ];
   });
+}
+
+function skippedBatchTrashPaths(catalogVideos: CatalogVideo[]) {
+  return catalogVideos
+    .filter((catalogVideo) => {
+      return !catalogVideo.fileLocations.some(
+        (fileLocation) => fileLocation.isPreferred && fileLocation.isReachable,
+      );
+    })
+    .flatMap((catalogVideo) =>
+      catalogVideo.fileLocations
+        .filter((fileLocation) => fileLocation.isPreferred)
+        .map((fileLocation) => fileLocation.path),
+    );
+}
+
+function moveToTrashFailureMessage(prefix: string, path: string, error: unknown) {
+  return `${prefix}: ${path} (${errorMessage(error)}).`;
+}
+
+function pluralizedCount(count: number, singular: string, plural: string) {
+  return count === 1 ? `${count} ${singular}` : `${count} ${plural}`;
+}
+
+function joinedPathSummary(label: string, paths: string[]) {
+  if (paths.length === 0) {
+    return "";
+  }
+
+  return `${label}: ${paths.join(", ")}.`;
+}
+
+function failedPathSummary(
+  failedTrashResults: { path: string; reason: unknown }[],
+) {
+  if (failedTrashResults.length === 0) {
+    return "";
+  }
+
+  const failedPaths = failedTrashResults.map(
+    (failedTrashResult) =>
+      `${failedTrashResult.path} (${errorMessage(failedTrashResult.reason)})`,
+  );
+
+  return `Failed: ${failedPaths.join(", ")}.`;
+}
+
+function batchMoveToTrashResultMessage({
+  failedTrashResults,
+  movedPaths,
+  skippedPaths,
+}: {
+  failedTrashResults: { path: string; reason: unknown }[];
+  movedPaths: string[];
+  skippedPaths: string[];
+}) {
+  const resultCounts = [
+    pluralizedCount(movedPaths.length, "moved", "moved"),
+    pluralizedCount(skippedPaths.length, "skipped", "skipped"),
+    pluralizedCount(failedTrashResults.length, "failed", "failed"),
+  ].join(", ");
+  const resultDetails = [
+    joinedPathSummary("Moved", movedPaths),
+    joinedPathSummary("Skipped", skippedPaths),
+    failedPathSummary(failedTrashResults),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return `${moveToTrashBatchResultPrefix}: ${resultCounts}. ${resultDetails}`;
 }
 
 export function useCatalogModuleController(): CatalogController {
@@ -519,13 +592,20 @@ export function useCatalogModuleController(): CatalogController {
       setDetailStatusMessage("");
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
-      setDetailStatusMessage(errorMessage(error));
-      setCatalogVideoActionStatusMessage(errorMessage(error));
+      const trashFailureMessage = moveToTrashFailureMessage(
+        moveToTrashDetailFailurePrefix,
+        path,
+        error,
+      );
+
+      setDetailStatusMessage(trashFailureMessage);
+      setCatalogVideoActionStatusMessage(trashFailureMessage);
     }
   }
 
   async function moveBatchPreferredFileLocationsToTrash() {
     const trashTargets = batchPreferredFileLocationTrashTargets;
+    const skippedPaths = skippedBatchTrashPaths(batchSelectedVideos);
 
     try {
       const trashResults = await Promise.allSettled(
@@ -533,21 +613,37 @@ export function useCatalogModuleController(): CatalogController {
           moveVideoFileLocationToTrash(target.videoId, target.path),
         ),
       );
-      const rejectedResult = trashResults.find(
-        (result) => result.status === "rejected",
-      );
+      const movedPaths = trashTargets.flatMap((target, targetIndex) => {
+        const trashResult = trashResults[targetIndex];
+
+        return trashResult?.status === "fulfilled" ? [target.path] : [];
+      });
+      const failedTrashResults = trashTargets.flatMap((target, targetIndex) => {
+        const trashResult = trashResults[targetIndex];
+
+        if (trashResult?.status !== "rejected") {
+          return [];
+        }
+
+        return [
+          {
+            path: target.path,
+            reason: trashResult.reason,
+          },
+        ];
+      });
 
       await refreshCatalogVideos();
       resetCatalogSelection();
 
-      if (rejectedResult?.status === "rejected") {
-        setCatalogVideoActionStatusMessage(errorMessage(rejectedResult.reason));
-        setDetailStatusMessage(errorMessage(rejectedResult.reason));
-        return;
-      }
+      const trashResultMessage = batchMoveToTrashResultMessage({
+        failedTrashResults,
+        movedPaths,
+        skippedPaths,
+      });
 
-      setCatalogVideoActionStatusMessage("");
-      setDetailStatusMessage("");
+      setCatalogVideoActionStatusMessage(trashResultMessage);
+      setDetailStatusMessage(trashResultMessage);
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
       setDetailStatusMessage(errorMessage(error));

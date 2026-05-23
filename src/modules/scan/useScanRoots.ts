@@ -27,6 +27,15 @@ const scanRootsErrorMessage = "Scan Roots unavailable";
 const scanRootAvailabilityCheckMessage = "Checking Scan Root availability...";
 const scanRootRefreshStartedMessage = "Refreshing Scan Root...";
 const scanRootRefreshEventName = "scan-root-refresh-progress";
+const unprocessableCandidateMoveToTrashFailurePrefix =
+  "Could not move this Unprocessable Video Candidate to Trash";
+
+function unprocessableCandidateMoveToTrashFailureMessage(
+  path: string,
+  error: unknown,
+) {
+  return `${unprocessableCandidateMoveToTrashFailurePrefix}: ${path} (${errorMessage(error)}).`;
+}
 
 export function useScanRoots({
   refreshCatalogVideos,
@@ -286,7 +295,9 @@ export function useScanRoots({
         candidateGroupsWithoutPath(currentCandidateGroups, path),
       );
     } catch (error) {
-      setScanRootsStatusMessage(errorMessage(error));
+      setScanRootsStatusMessage(
+        unprocessableCandidateMoveToTrashFailureMessage(path, error),
+      );
     }
   }
 
