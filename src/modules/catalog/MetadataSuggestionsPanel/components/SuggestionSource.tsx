@@ -42,20 +42,24 @@ const metadataSuggestionTreeCaretSize = 12;
 const videoTitleActivationKeys = new Set(["Enter", " "]);
 
 export function SuggestionSource({
+  acceptedSuggestionKind,
   availablePerformers,
   availableTags,
   onAcceptMetadataSuggestionVideos,
   onRejectMetadataSuggestionSource,
   onReviewVideo,
+  onAcceptedSuggestionKindChange,
   sourceGroup,
   suggestionKind,
   suggestedValue,
 }: {
+  acceptedSuggestionKind: string;
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
   onAcceptMetadataSuggestionVideos: AcceptMetadataSuggestionVideos;
   onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
   onReviewVideo?: (videoId: number) => void;
+  onAcceptedSuggestionKindChange: (suggestionKind: string) => void;
   sourceGroup: MetadataSuggestionGroup["sources"][number];
   suggestionKind: string;
   suggestedValue: string;
@@ -68,8 +72,6 @@ export function SuggestionSource({
     initialCheckedState: suggestionVideoTree.checkedNodeValues,
     initialExpandedState: {},
   });
-  const [acceptedSuggestionKind, setAcceptedSuggestionKind] =
-    useState(suggestionKind);
   const [acceptedValue, setAcceptedValue] = useState(suggestedValue);
   const [additionalTagNames, setAdditionalTagNames] = useState<string[]>([]);
   const [isAddingTags, setIsAddingTags] = useState(false);
@@ -104,11 +106,11 @@ export function SuggestionSource({
   }, [suggestionVideoTree]);
 
   useEffect(() => {
-    setAcceptedSuggestionKind(suggestionKind);
+    onAcceptedSuggestionKindChange(suggestionKind);
     setAcceptedValue(suggestedValue);
     setAdditionalTagNames([]);
     setIsAddingTags(false);
-  }, [suggestedValue, suggestionKind]);
+  }, [suggestedValue, suggestionKind, onAcceptedSuggestionKindChange]);
 
   return (
     <Stack gap="md">
@@ -121,7 +123,9 @@ export function SuggestionSource({
             { value: "tag", label: "Tag" },
             { value: "performer", label: "Performer" },
           ]}
-          onChange={(event) => setAcceptedSuggestionKind(event.currentTarget.value)}
+          onChange={(event) =>
+            onAcceptedSuggestionKindChange(event.currentTarget.value)
+          }
         />
         <Autocomplete
           aria-label="Accepted metadata name"

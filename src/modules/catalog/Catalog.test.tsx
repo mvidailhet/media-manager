@@ -80,6 +80,22 @@ describe("Catalog module", () => {
     });
   }
 
+  function getMetadataSuggestionBadge(
+    metadataSuggestions: HTMLElement,
+    suggestedValue: string,
+  ) {
+    const suggestionBadge = within(metadataSuggestions)
+      .getAllByText(suggestedValue)
+      .map((element) => element.closest(".mantine-Badge-root"))
+      .find((element): element is HTMLElement => element instanceof HTMLElement);
+
+    if (!suggestionBadge) {
+      throw new Error(`Missing Metadata Suggestion badge for ${suggestedValue}`);
+    }
+
+    return suggestionBadge;
+  }
+
   function catalogVideoFixture(id: number, title: string) {
     return {
       id,
@@ -3749,10 +3765,10 @@ describe("Catalog module", () => {
     });
 
     expect(
-      within(metadataSuggestions).queryByRole("heading", {
+      within(metadataSuggestions).getByRole("heading", {
         name: "Metadata Suggestions",
       }),
-    ).not.toBeInTheDocument();
+    ).toBeVisible();
     expect(await within(metadataSuggestions).findByText("Family")).toBeInTheDocument();
     metadataSuggestions = screen.getByRole("region", {
       name: "Metadata Suggestions",
@@ -4301,6 +4317,55 @@ describe("Catalog module", () => {
     expect(
       await screen.findByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
+  });
+
+  it("updates the Metadata Suggestion badge color when accepting it as a Performer", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "Family",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    const suggestionBadge = getMetadataSuggestionBadge(
+      metadataSuggestions,
+      "Family",
+    );
+
+    expect(suggestionBadge).toHaveStyle({
+      "--badge-bg": "var(--mantine-color-blue-light)",
+    });
+
+    fireEvent.change(
+      within(metadataSuggestions).getByLabelText(
+        "Accept Family as metadata kind",
+      ),
+      { target: { value: "performer" } },
+    );
+
+    expect(suggestionBadge).toHaveStyle({
+      "--badge-bg": "var(--mantine-color-grape-light)",
+    });
   });
 
   it("accepts Metadata Suggestions with additional new Tags for the selected Videos", async () => {
