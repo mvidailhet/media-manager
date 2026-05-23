@@ -27,7 +27,6 @@ export function BatchTrashActions({
         color="red"
         onClick={() => setIsConfirmingTrash(true)}
         type="button"
-        variant="subtle"
       >
         Move selected Videos to Trash
       </Button>

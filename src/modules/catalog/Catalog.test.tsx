@@ -2762,6 +2762,11 @@ describe("Catalog module", () => {
     expect(mockedOpenCatalogVideoContainingFolder).toHaveBeenCalledWith(1);
     expect(
       within(familyTripPanel).getByRole("button", {
+        name: "Move Video to Trash",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(familyTripPanel).getByRole("button", {
         name: "Move /Volumes/Archive/Videos/family-trip.mp4 to Trash",
       }),
     ).toBeInTheDocument();
@@ -2771,6 +2776,11 @@ describe("Catalog module", () => {
     const missingTripPanel = await screen.findByRole("region", {
       name: "Video Detail Panel",
     });
+    expect(
+      within(missingTripPanel).queryByRole("button", {
+        name: "Move Video to Trash",
+      }),
+    ).not.toBeInTheDocument();
     expect(
       within(missingTripPanel).queryByRole("button", {
         name: /Move .* to Trash/,

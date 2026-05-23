@@ -2,10 +2,12 @@ import { Button, Group } from "@mantine/core";
 
 export function ActionButtons({
   isAvailable,
+  onMovePreferredFileLocationToTrash,
   onOpenContainingFolder,
   onOpenVideo,
 }: {
   isAvailable: boolean;
+  onMovePreferredFileLocationToTrash?: () => void;
   onOpenContainingFolder: () => void;
   onOpenVideo: (startAtSeconds: number) => void;
 }) {
@@ -26,6 +28,15 @@ export function ActionButtons({
       >
         Reveal in Finder
       </Button>
+      {onMovePreferredFileLocationToTrash ? (
+        <Button
+          type="button"
+          color="red"
+          onClick={onMovePreferredFileLocationToTrash}
+        >
+          Move Video to Trash
+        </Button>
+      ) : null}
     </Group>
   );
 }

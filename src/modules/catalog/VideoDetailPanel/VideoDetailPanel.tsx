@@ -33,6 +33,9 @@ export function VideoDetailPanel({
   video: CatalogVideo;
 }) {
   const fileLocations = video.fileLocations;
+  const preferredReachableFileLocation = fileLocations.find(
+    (fileLocation) => fileLocation.isPreferred && fileLocation.isReachable,
+  );
   const [fileLocationPendingTrash, setFileLocationPendingTrash] = useState<
     string | null
   >(null);
@@ -70,6 +73,14 @@ export function VideoDetailPanel({
         />
         <ActionButtons
           isAvailable={video.isAvailable}
+          onMovePreferredFileLocationToTrash={
+            preferredReachableFileLocation
+              ? () =>
+                  setFileLocationPendingTrash(
+                    preferredReachableFileLocation.path,
+                  )
+              : undefined
+          }
           onOpenVideo={(startAtSeconds) => void actions.openVideo(startAtSeconds)}
           onOpenContainingFolder={() => void actions.openContainingFolder()}
         />
