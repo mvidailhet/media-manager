@@ -6,6 +6,10 @@ import {
   normalizedMetadataName,
 } from "../../../../shared/metadata/metadataHelpers";
 import type { MetadataBadgeKind } from "../../components/MetadataBadges";
+import {
+  metadataInputPillSize,
+  metadataInputPillStylesForKind,
+} from "../../components/metadataBadgeStyles";
 import type { BatchMetadataValue } from "../BatchEditPanel";
 
 type MetadataValue = CatalogTag | CatalogPerformer;
@@ -32,6 +36,7 @@ export function BatchMetadataSection<TMetadata extends MetadataValue>({
   title: string;
 }) {
   const selectedNames = selectedValues.map((value) => value.metadata.name);
+  const metadataInputPillStyles = metadataInputPillStylesForKind(metadataKind);
 
   function changeSelectedNames(nextNames: string[]) {
     const normalizedPreviousNames = new Set(
@@ -74,6 +79,8 @@ export function BatchMetadataSection<TMetadata extends MetadataValue>({
         <TagsInput
           aria-label={title}
           data={availableValues.map((value) => value.name)}
+          size={metadataInputPillSize}
+          styles={{ pill: metadataInputPillStyles }}
           value={selectedNames}
           onChange={changeSelectedNames}
         />

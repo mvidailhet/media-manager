@@ -5,6 +5,17 @@ export const metadataBadgeColors: Record<MetadataBadgeKind, string> = {
   performer: "grape",
 };
 
+export const metadataInputPillSize = "md";
+
 export function metadataBadgeColorForKind(kind: MetadataBadgeKind) {
   return metadataBadgeColors[kind];
+}
+
+export function metadataInputPillStylesForKind(kind: MetadataBadgeKind) {
+  const metadataColor = metadataBadgeColorForKind(kind);
+
+  return {
+    backgroundColor: `var(--mantine-color-${metadataColor}-light)`,
+    color: `var(--mantine-color-${metadataColor}-light-color)`,
+  };
 }
