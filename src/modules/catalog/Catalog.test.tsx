@@ -3592,6 +3592,28 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("exposes another Video batch when the first batch does not fill the Videos View", async () => {
+    const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3);
+    mockedListCatalogVideos.mockResolvedValue(matchingVideos);
+    Object.defineProperties(HTMLElement.prototype, {
+      clientHeight: { configurable: true, value: 1200 },
+      scrollHeight: { configurable: true, value: 800 },
+    });
+
+    renderApp();
+
+    const catalogVideos = await visibleCatalogVideos();
+
+    expect(
+      await within(catalogVideos).findByRole("article", {
+        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
+      }),
+    ).toBeInTheDocument();
+
+    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
+    delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
+  });
+
   it("resets exposed Videos and scroll position when Search Filters or sort change", async () => {
     const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3);
     mockedListCatalogVideos.mockResolvedValue(matchingVideos);
@@ -3629,7 +3651,7 @@ describe("Catalog module", () => {
       writable: true,
     });
     fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
-      target: { value: "titleDescending" },
+      target: { value: "fileSizeAscending" },
     });
 
     expect(catalogVideos.scrollTop).toBe(0);

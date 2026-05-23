@@ -35,6 +35,7 @@ export type CatalogProps = {
   catalogVideosStatusMessage: string;
   catalogView: CatalogView;
   detailStatusMessage: string;
+  hasMoreCatalogVideos: boolean;
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   onAcceptMetadataSuggestionVideos: (
     request: CatalogMetadataSuggestionAcceptanceRequest,
@@ -90,6 +91,7 @@ export function Catalog({
   catalogVideos,
   catalogVideosStatusMessage,
   catalogView,
+  hasMoreCatalogVideos,
   metadataSuggestionGroups,
   onAcceptMetadataSuggestionVideos,
   onCatalogVideoFiltersChange,
@@ -128,6 +130,7 @@ export function Catalog({
             catalogVideoSort={catalogVideoSort}
             catalogVideos={catalogVideos}
             catalogVideosStatusMessage={catalogVideosStatusMessage}
+            hasMoreCatalogVideos={hasMoreCatalogVideos}
             onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
             onCatalogVideoSortChange={onCatalogVideoSortChange}
             onSetFavorite={onSetFavorite}

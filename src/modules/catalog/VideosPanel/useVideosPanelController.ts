@@ -67,12 +67,15 @@ export function useVideosPanelController({
     0,
     exposedCatalogVideoCount,
   );
+  const hasMoreFilteredCatalogVideos =
+    exposedCatalogVideoCount < matchingCatalogVideos.length;
 
   return {
     catalogVideoFilters,
     catalogVideoSort,
     exposeNextCatalogVideoBatch,
     filteredCatalogVideos,
+    hasMoreFilteredCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
   };

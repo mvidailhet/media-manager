@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { UIEvent } from "react";
 import { Box, Stack } from "@mantine/core";
 
@@ -25,6 +25,7 @@ export function VideosPanel({
   catalogVideoSort,
   catalogVideos,
   catalogVideosStatusMessage,
+  hasMoreCatalogVideos,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
   onClearVideoSelection,
@@ -43,6 +44,7 @@ export function VideosPanel({
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
+  hasMoreCatalogVideos: boolean;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onClearVideoSelection: () => void;
@@ -57,6 +59,10 @@ export function VideosPanel({
   selectedVideoIds: number[];
 }) {
   const videosViewElement = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    exposeMoreVideosWhenCurrentBatchCannotScroll();
+  }, [catalogVideos.length, hasMoreCatalogVideos]);
 
   function changeCatalogVideoFilters(filters: CatalogVideoFilters) {
     scrollVideosViewToTop();
@@ -88,6 +94,20 @@ export function VideosPanel({
     }
 
     videosViewElement.current.scrollTop = 0;
+  }
+
+  function exposeMoreVideosWhenCurrentBatchCannotScroll() {
+    const videosView = videosViewElement.current;
+
+    if (!videosView || !hasMoreCatalogVideos || videosView.clientHeight === 0) {
+      return;
+    }
+
+    if (videosView.scrollHeight > videosView.clientHeight) {
+      return;
+    }
+
+    onExposeNextCatalogVideoBatch();
   }
 
   return (
