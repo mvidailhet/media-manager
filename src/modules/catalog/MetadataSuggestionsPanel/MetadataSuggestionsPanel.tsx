@@ -1,4 +1,4 @@
-import { Stack, Text } from "@mantine/core";
+import { Stack, Text, Title } from "@mantine/core";
 
 import type {
   CatalogPerformer,
@@ -37,6 +37,7 @@ export function MetadataSuggestionsPanel({
       gap="xs"
       aria-label="Metadata Suggestions"
     >
+      <Title order={2}>Metadata Suggestions</Title>
       {metadataSuggestionGroups.length > 0 ? (
         <Stack gap="xl">
           {metadataSuggestionGroups.map((suggestionGroup) => (
