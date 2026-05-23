@@ -17,6 +17,7 @@
     "@mantine/modals": "^9.2.1",
     "@mantine/notifications": "^9.2.1",
     "@tabler/icons-react": "^3.44.0",
+    "@tanstack/react-virtual": "^3.13.25",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "^2.7.1",
     "react": "^19.0.0",
