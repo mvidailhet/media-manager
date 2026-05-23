@@ -2,7 +2,9 @@
   box-sizing: border-box;
   display: grid;
   gap: 12px;
-  align-content: start;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  height: 100vh;
+  overflow: hidden;
 }
 
 .moduleNavigation {

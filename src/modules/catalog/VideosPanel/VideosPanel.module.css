@@ -1,5 +1,5 @@
 .videosView {
-  max-height: calc(100vh - 112px);
+  min-height: 0;
   overflow-y: auto;
 }
 
