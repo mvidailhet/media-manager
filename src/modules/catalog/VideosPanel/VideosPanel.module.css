@@ -3,12 +3,31 @@
   overflow-y: auto;
 }
 
-.grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 18vw, 400px), 1fr));
+.virtualGrid {
   position: relative;
   user-select: none;
+}
+
+.virtualGridSpace {
+  position: relative;
+  width: 100%;
+}
+
+.virtualPerformerRow,
+.virtualVideoRow {
+  left: 0;
+  position: absolute;
+  top: 0;
+  width: 100%;
+}
+
+.virtualVideoRow {
+  display: grid;
+  gap: 12px;
+}
+
+.virtualPerformerRow:not(:first-child) {
+  padding-top: 24px;
 }
 
 .performerGroup {

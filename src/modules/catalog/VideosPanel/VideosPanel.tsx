@@ -145,6 +145,7 @@ export function VideosPanel({
           onSelectVideo={onSelectVideo}
           onSetFavorite={onSetFavorite}
           onReplaceSelectedVideos={onReplaceSelectedVideos}
+          scrollElementRef={videosViewElement}
           selectedDetailVideoId={selectedDetailVideoId}
           selectedVideoIds={selectedVideoIds}
         />
