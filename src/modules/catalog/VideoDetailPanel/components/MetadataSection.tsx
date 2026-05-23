@@ -21,6 +21,10 @@ import {
   MetadataBadges,
   type MetadataBadgeKind,
 } from "../../components/MetadataBadges";
+import {
+  metadataInputPillSize,
+  metadataInputPillStylesForKind,
+} from "../../components/metadataBadgeStyles";
 
 const metadataEditIconSize = 16;
 
@@ -52,6 +56,7 @@ export function MetadataSection<TMetadata extends MetadataValue>({
   const selectedNames = selectedValues.map((value) => value.name);
   const baselineNames = baselineValues.map((value) => value.name);
   const hasBaselineChanges = !areNameSetsEqual(selectedNames, baselineNames);
+  const metadataInputPillStyles = metadataInputPillStylesForKind(metadataKind);
 
   useEffect(() => {
     setIsEditing(false);
@@ -156,6 +161,8 @@ export function MetadataSection<TMetadata extends MetadataValue>({
           <TagsInput
             aria-label={title}
             data={availableValues.map((value) => value.name)}
+            size={metadataInputPillSize}
+            styles={{ pill: metadataInputPillStyles }}
             value={selectedNames}
             onChange={changeSelectedNames}
           />
