@@ -425,7 +425,10 @@ export function VideoGrid({
                     : styles.virtualPerformerRow
                 }
                 data-index={visibleVirtualRow.index}
-                key={virtualVideoRow.key}
+                key={virtualRowElementKeyFor({
+                  columnCount: videoColumnCount,
+                  rowKey: virtualVideoRow.key,
+                })}
                 ref={rowVirtualizer.measureElement}
                 style={{
                   transform: `translateY(${virtualRowStartPixels(visibleVirtualRow)}px)`,
@@ -452,7 +455,10 @@ export function VideoGrid({
             <Box
               className={styles.virtualVideoRow}
               data-index={visibleVirtualRow.index}
-              key={virtualVideoRow.key}
+              key={virtualRowElementKeyFor({
+                columnCount: videoColumnCount,
+                rowKey: virtualVideoRow.key,
+              })}
               ref={rowVirtualizer.measureElement}
               style={{
                 gridTemplateColumns: `repeat(${videoColumnCount}, ${videoCardWidthPixels}px)`,
@@ -501,6 +507,16 @@ export function videoColumnCountForWidth(
       (gridWidthPixels + videoCardGapPixels) / videoColumnWidthPixels,
     ),
   );
+}
+
+export function virtualRowElementKeyFor({
+  columnCount,
+  rowKey,
+}: {
+  columnCount: number;
+  rowKey: string;
+}) {
+  return `${rowKey}:${columnCount}`;
 }
 
 export function virtualRowsForPerformerGroups(

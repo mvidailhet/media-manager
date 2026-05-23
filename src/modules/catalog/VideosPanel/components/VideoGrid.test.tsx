@@ -6,6 +6,7 @@ import type { CatalogVideo } from "../../../../tauriCommands";
 import {
   VideoGrid,
   videoColumnCountForWidth,
+  virtualRowElementKeyFor,
   virtualRowsForPerformerGroups,
 } from "./VideoGrid";
 
@@ -89,9 +90,25 @@ describe("VideoGrid", () => {
   });
 
   it("counts every card column that fits inside the available grid width", () => {
-    expect(videoColumnCountForWidth(411)).toBe(1);
-    expect(videoColumnCountForWidth(412)).toBe(2);
-    expect(videoColumnCountForWidth(624)).toBe(3);
+    expect(videoColumnCountForWidth(811)).toBe(1);
+    expect(videoColumnCountForWidth(812)).toBe(2);
+    expect(videoColumnCountForWidth(1224)).toBe(3);
+  });
+
+  it("remounts visible virtual rows when the column count changes", () => {
+    const rowKey = "videos-1-0";
+
+    expect(
+      virtualRowElementKeyFor({
+        rowKey,
+        columnCount: 2,
+      }),
+    ).not.toBe(
+      virtualRowElementKeyFor({
+        rowKey,
+        columnCount: 3,
+      }),
+    );
   });
 
   it("keeps performer header spacing tied to logical group position", () => {
