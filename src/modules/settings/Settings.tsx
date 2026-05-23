@@ -1,6 +1,7 @@
 import type { FfmpegToolsStatus } from "../../tauriCommands";
 import { FfmpegStatusPanel } from "./SettingsStatusPanels/FfmpegStatusPanel";
 import { TauriStatusPanel } from "./SettingsStatusPanels/TauriStatusPanel";
+import styles from "./Settings.module.css";
 
 export type SettingsProps = {
   ffmpegPath: string;
@@ -24,7 +25,7 @@ export function Settings({
   onSaveConfiguredFfmpegPaths,
 }: SettingsProps) {
   return (
-    <>
+    <div className={styles.settingsWorkspace}>
       <TauriStatusPanel localDesktopAppStatus={localDesktopAppStatus} />
       <FfmpegStatusPanel
         ffmpegPath={ffmpegPath}
@@ -35,6 +36,6 @@ export function Settings({
         onFfprobePathChange={onFfprobePathChange}
         onSaveConfiguredFfmpegPaths={onSaveConfiguredFfmpegPaths}
       />
-    </>
+    </div>
   );
 }

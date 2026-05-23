@@ -1,0 +1,6 @@
+.settingsWorkspace {
+  align-content: start;
+  display: grid;
+  gap: 16px;
+  min-height: 0;
+}

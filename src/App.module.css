@@ -2,9 +2,11 @@
   box-sizing: border-box;
   display: grid;
   gap: 12px;
-  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr);
   height: 100vh;
   overflow: hidden;
+  padding-bottom: 0;
+  padding-right: 0;
 }
 
 .moduleNavigation {
@@ -18,6 +20,6 @@
 
 @media (max-width: 640px) {
   .mainContent {
-    padding: 28px 20px;
+    padding: 28px 0 0 20px;
   }
 }

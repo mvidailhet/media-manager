@@ -18,6 +18,7 @@ import type {
 import { CatalogToolbar } from "./components/CatalogToolbar";
 import { MetadataSuggestionsSection } from "./components/MetadataSuggestionsSection";
 import { VideosPanel } from "./VideosPanel";
+import styles from "./Catalog.module.css";
 
 export type CatalogProps = {
   availablePerformers: CatalogPerformer[];
@@ -112,7 +113,7 @@ export function Catalog({
   const selectedDetailVideoId = selectedVideo?.id ?? null;
 
   return (
-    <>
+    <div className={styles.catalogWorkspace}>
       {isVideosView ? (
         <>
           <CatalogToolbar
@@ -153,6 +154,6 @@ export function Catalog({
           onReturnToVideosView={() => onCatalogViewChange("videos")}
         />
       )}
-    </>
+    </div>
   );
 }
