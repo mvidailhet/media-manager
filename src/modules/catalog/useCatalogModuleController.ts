@@ -258,6 +258,44 @@ export function useCatalogModuleController(): CatalogController {
     resetCatalogSelection();
   }, [catalogView, metadataSuggestionGroups.length]);
 
+  useEffect(() => {
+    const filteredVideoIds = new Set(
+      filteredCatalogVideos.map((catalogVideo) => catalogVideo.id),
+    );
+
+    if (selectedVideo && !filteredVideoIds.has(selectedVideo.id)) {
+      resetSelectedVideo();
+    }
+
+    if (batchSelectedVideoIds.length > 0) {
+      const matchingSelectedVideoIds = batchSelectedVideoIds.filter((videoId) =>
+        filteredVideoIds.has(videoId),
+      );
+
+      if (matchingSelectedVideoIds.length !== batchSelectedVideoIds.length) {
+        setBatchSelectedVideoIds(matchingSelectedVideoIds);
+      }
+    }
+
+    if (
+      selectionAnchorVideoId !== null &&
+      !filteredVideoIds.has(selectionAnchorVideoId)
+    ) {
+      setSelectionAnchorVideoId(
+        batchSelectedVideoIds.find((videoId) => filteredVideoIds.has(videoId)) ??
+          selectedVideo?.id ??
+          null,
+      );
+    }
+  }, [
+    batchSelectedVideoIds,
+    filteredCatalogVideos,
+    resetSelectedVideo,
+    selectedVideo,
+    selectionAnchorVideoId,
+    setBatchSelectedVideoIds,
+  ]);
+
   async function acceptSelectedMetadataSuggestionVideos({
     acceptedMetadataKind,
     acceptedValue,
@@ -481,7 +519,6 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function changeCatalogVideoFilters(filters: typeof catalogVideoFilters) {
-    resetCatalogSelection();
     setCatalogVideoFilters(filters);
   }
 
@@ -504,7 +541,6 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function changeCatalogVideoSort(sort: typeof catalogVideoSort) {
-    resetCatalogSelection();
     setCatalogVideoSort(sort);
   }
 
