@@ -1970,6 +1970,92 @@ describe("Catalog module", () => {
     expect(mockedUpdateVideoTitle).not.toHaveBeenCalled();
   });
 
+  it("clears a Performer filter when Batch Edit removes that Performer from every matching Video", async () => {
+    mockedListPerformers.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      catalogVideoFixture(2, "City Walk"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await within(catalogVideos).findByText("Blair");
+
+    fireEvent.click(within(catalogVideos).getByLabelText("Blair"));
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
+
+    const batchEditPanel = await screen.findByRole("region", {
+      name: "Batch Edit Panel",
+    });
+    const performersInput = within(batchEditPanel).getByRole("combobox", {
+      name: "Performers",
+    });
+
+    fireEvent.keyDown(performersInput, { key: "Backspace" });
+
+    await waitFor(() => {
+      expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 1);
+      expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 2);
+    });
+    expect(within(catalogVideos).getByLabelText("Blair")).not.toBeChecked();
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("City Walk")).toBeInTheDocument();
+  });
+
+  it("clears a Tag filter when Batch Edit removes that Tag from every matching Video", async () => {
+    mockedListTags.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      catalogVideoFixture(2, "City Walk"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await within(catalogVideos).findByText("Travel");
+
+    fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "City Walk" }),
+      { metaKey: true },
+    );
+
+    const batchEditPanel = await screen.findByRole("region", {
+      name: "Batch Edit Panel",
+    });
+    const tagsInput = within(batchEditPanel).getByRole("combobox", {
+      name: "Tags",
+    });
+
+    fireEvent.keyDown(tagsInput, { key: "Backspace" });
+
+    await waitFor(() => {
+      expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 1);
+      expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 2);
+    });
+    expect(within(catalogVideos).getByLabelText("Travel")).not.toBeChecked();
+    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("City Walk")).toBeInTheDocument();
+  });
+
   it("uses file-explorer gestures to switch between Video Detail and Batch Edit selection", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, name: "Travel" },

@@ -485,6 +485,24 @@ export function useCatalogModuleController(): CatalogController {
     setCatalogVideoFilters(filters);
   }
 
+  function removeTagFromCatalogVideoFilters(tag: CatalogTag) {
+    setCatalogVideoFilters((currentFilters) => ({
+      ...currentFilters,
+      selectedTagIds: currentFilters.selectedTagIds.filter(
+        (selectedTagId) => selectedTagId !== tag.id,
+      ),
+    }));
+  }
+
+  function removePerformerFromCatalogVideoFilters(performer: CatalogPerformer) {
+    setCatalogVideoFilters((currentFilters) => ({
+      ...currentFilters,
+      selectedPerformerIds: currentFilters.selectedPerformerIds.filter(
+        (selectedPerformerId) => selectedPerformerId !== performer.id,
+      ),
+    }));
+  }
+
   function changeCatalogVideoSort(sort: typeof catalogVideoSort) {
     resetCatalogSelection();
     setCatalogVideoSort(sort);
@@ -720,6 +738,7 @@ export function useCatalogModuleController(): CatalogController {
           currentTags.filter((currentTag) => currentTag.id !== tag.id),
         );
       }
+      removeTagFromCatalogVideoFilters(tag);
       setAvailableTags(await loadAvailableTags());
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
@@ -799,6 +818,7 @@ export function useCatalogModuleController(): CatalogController {
         setDetailStatusMessage("");
       }
       removeTagFromCatalogVideoMetadata(videoId, tag);
+      removeTagFromCatalogVideoFilters(tag);
       setAvailableTags(await loadAvailableTags());
     } catch (error) {
       if (selectedVideoId.current === videoId) {
@@ -887,6 +907,7 @@ export function useCatalogModuleController(): CatalogController {
         setDetailStatusMessage("");
       }
       removePerformerFromCatalogVideoMetadata(videoId, performer);
+      removePerformerFromCatalogVideoFilters(performer);
       setAvailablePerformers(await loadAvailablePerformers());
     } catch (error) {
       if (selectedVideoId.current === videoId) {
@@ -977,6 +998,7 @@ export function useCatalogModuleController(): CatalogController {
           ),
         );
       }
+      removePerformerFromCatalogVideoFilters(performer);
       setAvailablePerformers(await loadAvailablePerformers());
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
