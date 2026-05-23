@@ -35,6 +35,7 @@ export type CatalogProps = {
   catalogVideosStatusMessage: string;
   catalogView: CatalogView;
   detailStatusMessage: string;
+  hasMoreCatalogVideos: boolean;
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   onAcceptMetadataSuggestionVideos: (
     request: CatalogMetadataSuggestionAcceptanceRequest,
@@ -47,6 +48,7 @@ export type CatalogProps = {
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onCatalogViewChange: (catalogView: CatalogView) => void;
   onClearVideoSelection: () => void;
+  onExposeNextCatalogVideoBatch: () => void;
   onCreateOrAppendPerformer: (performerName: string) => void;
   onCreateOrAppendTag: (tagName: string) => void;
   onCreateOrAttachPerformer: (performerName: string) => void;
@@ -89,12 +91,14 @@ export function Catalog({
   catalogVideos,
   catalogVideosStatusMessage,
   catalogView,
+  hasMoreCatalogVideos,
   metadataSuggestionGroups,
   onAcceptMetadataSuggestionVideos,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
   onCatalogViewChange,
   onClearVideoSelection,
+  onExposeNextCatalogVideoBatch,
   onRejectMetadataSuggestionSource,
   onReplaceSelectedVideos,
   onReviewVideo,
@@ -126,10 +130,12 @@ export function Catalog({
             catalogVideoSort={catalogVideoSort}
             catalogVideos={catalogVideos}
             catalogVideosStatusMessage={catalogVideosStatusMessage}
+            hasMoreCatalogVideos={hasMoreCatalogVideos}
             onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
             onCatalogVideoSortChange={onCatalogVideoSortChange}
             onSetFavorite={onSetFavorite}
             onClearVideoSelection={onClearVideoSelection}
+            onExposeNextCatalogVideoBatch={onExposeNextCatalogVideoBatch}
             onReplaceSelectedVideos={onReplaceSelectedVideos}
             onSelectVideo={onSelectVideo}
             selectedDetailVideoId={selectedDetailVideoId}

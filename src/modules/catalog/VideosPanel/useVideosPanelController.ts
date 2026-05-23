@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { CatalogVideo } from "../../../tauriCommands";
 import type {
@@ -12,6 +12,9 @@ import {
   sortedCatalogVideos,
 } from "../catalogVideoFiltering";
 
+export const incrementalVideoResultBatchSize = 40;
+export const incrementalVideoResultLoadThresholdPixels = 600;
+
 export function useVideosPanelController({
   catalogVideoMetadataById,
   catalogVideos,
@@ -23,22 +26,56 @@ export function useVideosPanelController({
     useState<CatalogVideoFilters>(defaultCatalogVideoFilters);
   const [catalogVideoSort, setCatalogVideoSort] =
     useState<CatalogVideoSort>("titleAscending");
-
-  const filteredCatalogVideos = sortedCatalogVideos(
-    catalogVideos.filter((catalogVideo) =>
-      catalogVideoMatchesFilters(
-        catalogVideo,
-        catalogVideoMetadataById[catalogVideo.id],
-        catalogVideoFilters,
-      ),
-    ),
-    catalogVideoSort,
+  const [exposedCatalogVideoCount, setExposedCatalogVideoCount] = useState(
+    incrementalVideoResultBatchSize,
   );
+
+  const matchingCatalogVideos = useMemo(
+    () =>
+      sortedCatalogVideos(
+        catalogVideos.filter((catalogVideo) =>
+          catalogVideoMatchesFilters(
+            catalogVideo,
+            catalogVideoMetadataById[catalogVideo.id],
+            catalogVideoFilters,
+          ),
+        ),
+        catalogVideoSort,
+      ),
+    [
+      catalogVideoFilters,
+      catalogVideoMetadataById,
+      catalogVideoSort,
+      catalogVideos,
+    ],
+  );
+
+  useEffect(() => {
+    setExposedCatalogVideoCount(incrementalVideoResultBatchSize);
+  }, [catalogVideoFilters, catalogVideoSort]);
+
+  function exposeNextCatalogVideoBatch() {
+    setExposedCatalogVideoCount((currentExposedCatalogVideoCount) =>
+      Math.min(
+        currentExposedCatalogVideoCount + incrementalVideoResultBatchSize,
+        matchingCatalogVideos.length,
+      ),
+    );
+  }
+
+  const filteredCatalogVideos = matchingCatalogVideos.slice(
+    0,
+    exposedCatalogVideoCount,
+  );
+  const hasMoreFilteredCatalogVideos =
+    exposedCatalogVideoCount < matchingCatalogVideos.length;
 
   return {
     catalogVideoFilters,
     catalogVideoSort,
+    exposeNextCatalogVideoBatch,
     filteredCatalogVideos,
+    hasMoreFilteredCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
   };

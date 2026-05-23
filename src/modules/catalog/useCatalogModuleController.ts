@@ -195,7 +195,9 @@ export function useCatalogModuleController(): CatalogController {
   const {
     catalogVideoFilters,
     catalogVideoSort,
+    exposeNextCatalogVideoBatch,
     filteredCatalogVideos,
+    hasMoreFilteredCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
   } = useVideosPanelController({
@@ -1117,6 +1119,7 @@ export function useCatalogModuleController(): CatalogController {
       catalogVideosStatusMessage,
       catalogView,
       detailStatusMessage,
+      hasMoreCatalogVideos: hasMoreFilteredCatalogVideos,
       metadataSuggestionGroups,
       onAcceptMetadataSuggestionVideos: acceptSelectedMetadataSuggestionVideos,
       onAppendPerformer: appendPerformerToBatchSelectedVideos,
@@ -1126,6 +1129,7 @@ export function useCatalogModuleController(): CatalogController {
       onCatalogVideoFiltersChange: changeCatalogVideoFilters,
       onCatalogVideoSortChange: changeCatalogVideoSort,
       onCatalogViewChange: selectCatalogView,
+      onExposeNextCatalogVideoBatch: exposeNextCatalogVideoBatch,
       onCreateOrAppendPerformer: createOrAppendPerformerToBatchSelectedVideos,
       onCreateOrAppendTag: createOrAppendTagToBatchSelectedVideos,
       onCreateOrAttachPerformer: createOrAttachPerformerToSelectedVideo,
