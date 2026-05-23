@@ -195,6 +195,7 @@ export function useCatalogModuleController(): CatalogController {
   const {
     catalogVideoFilters,
     catalogVideoSort,
+    exposeNextCatalogVideoBatch,
     filteredCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
@@ -1126,6 +1127,7 @@ export function useCatalogModuleController(): CatalogController {
       onCatalogVideoFiltersChange: changeCatalogVideoFilters,
       onCatalogVideoSortChange: changeCatalogVideoSort,
       onCatalogViewChange: selectCatalogView,
+      onExposeNextCatalogVideoBatch: exposeNextCatalogVideoBatch,
       onCreateOrAppendPerformer: createOrAppendPerformerToBatchSelectedVideos,
       onCreateOrAppendTag: createOrAppendTagToBatchSelectedVideos,
       onCreateOrAttachPerformer: createOrAttachPerformerToSelectedVideo,

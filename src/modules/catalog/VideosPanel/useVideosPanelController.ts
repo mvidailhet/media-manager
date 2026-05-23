@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import type { CatalogVideo } from "../../../tauriCommands";
 import type {
@@ -12,6 +12,9 @@ import {
   sortedCatalogVideos,
 } from "../catalogVideoFiltering";
 
+export const incrementalVideoResultBatchSize = 40;
+export const incrementalVideoResultLoadThresholdPixels = 600;
+
 export function useVideosPanelController({
   catalogVideoMetadataById,
   catalogVideos,
@@ -23,21 +26,52 @@ export function useVideosPanelController({
     useState<CatalogVideoFilters>(defaultCatalogVideoFilters);
   const [catalogVideoSort, setCatalogVideoSort] =
     useState<CatalogVideoSort>("titleAscending");
+  const [exposedCatalogVideoCount, setExposedCatalogVideoCount] = useState(
+    incrementalVideoResultBatchSize,
+  );
 
-  const filteredCatalogVideos = sortedCatalogVideos(
-    catalogVideos.filter((catalogVideo) =>
-      catalogVideoMatchesFilters(
-        catalogVideo,
-        catalogVideoMetadataById[catalogVideo.id],
-        catalogVideoFilters,
+  const matchingCatalogVideos = useMemo(
+    () =>
+      sortedCatalogVideos(
+        catalogVideos.filter((catalogVideo) =>
+          catalogVideoMatchesFilters(
+            catalogVideo,
+            catalogVideoMetadataById[catalogVideo.id],
+            catalogVideoFilters,
+          ),
+        ),
+        catalogVideoSort,
       ),
-    ),
-    catalogVideoSort,
+    [
+      catalogVideoFilters,
+      catalogVideoMetadataById,
+      catalogVideoSort,
+      catalogVideos,
+    ],
+  );
+
+  useEffect(() => {
+    setExposedCatalogVideoCount(incrementalVideoResultBatchSize);
+  }, [catalogVideoFilters, catalogVideoSort]);
+
+  function exposeNextCatalogVideoBatch() {
+    setExposedCatalogVideoCount((currentExposedCatalogVideoCount) =>
+      Math.min(
+        currentExposedCatalogVideoCount + incrementalVideoResultBatchSize,
+        matchingCatalogVideos.length,
+      ),
+    );
+  }
+
+  const filteredCatalogVideos = matchingCatalogVideos.slice(
+    0,
+    exposedCatalogVideoCount,
   );
 
   return {
     catalogVideoFilters,
     catalogVideoSort,
+    exposeNextCatalogVideoBatch,
     filteredCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
