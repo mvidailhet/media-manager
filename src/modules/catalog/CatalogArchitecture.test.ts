@@ -11,7 +11,7 @@ import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataS
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
 import videosPanelControllerSource from "./VideosPanel/useVideosPanelController.ts?raw";
-import batchMetadataControllerSource from "./SelectionPanel/BatchEditPanel/useBatchMetadataController.ts?raw";
+import batchMetadataControllerSource from "./SelectionPanel/useBatchMetadataController.ts?raw";
 import selectedVideoControllerSource from "./SelectionPanel/useSelectedVideoController.ts?raw";
 import metadataSuggestionsControllerSource from "./MetadataSuggestionsPanel/useMetadataSuggestionsController.ts?raw";
 
@@ -408,6 +408,8 @@ describe("Catalog module boundaries", () => {
     expect(batchEditPanelSource).not.toMatch(/function BatchMetadataSection/);
     expect(catalogSource).not.toMatch(/import \{ BatchEditPanel \}/);
     expect(catalogSource).not.toMatch(/<BatchEditPanel/);
+    expect(catalogSource).not.toMatch(/SelectionPanel\/BatchEditPanel/);
+    expect(catalogControllerSource).not.toMatch(/SelectionPanel\/BatchEditPanel/);
     expect(catalogSource).not.toMatch(
       /from "\.\/BatchEditPanel\.tsx"/,
     );

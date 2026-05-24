@@ -10,7 +10,7 @@ import {
   metadataInputPillSize,
   metadataInputPillStylesForKind,
 } from "../../../components/metadataBadgeStyles";
-import type { BatchMetadataValue } from "../BatchEditPanel";
+import type { BatchMetadataValue } from "../../batchMetadataTypes";
 
 type MetadataValue = CatalogTag | CatalogPerformer;
 
