@@ -479,15 +479,34 @@ export function useCatalogModuleController(): CatalogController {
     resolveVideoSelection(nextVideoIds, catalogVideo.id);
   }
 
-  function replaceSelectedVideosFromDrag(videoIds: number[]) {
-    const anchorVideoId = videoIds[videoIds.length - 1] ?? selectionAnchorVideoId;
+  function replaceSelectedVideosFromDrag(
+    videoIds: number[],
+    modifiers: VideoSelectionModifiers,
+  ) {
+    const nextVideoIds = modifiers.isCommandPressed
+      ? toggledVideoIds(currentSelectedVideoIds(), videoIds)
+      : videoIds;
+    const anchorVideoId =
+      nextVideoIds[nextVideoIds.length - 1] ?? selectionAnchorVideoId;
 
     if (anchorVideoId === null) {
       resetCatalogSelection();
       return;
     }
 
-    resolveVideoSelection(videoIds, anchorVideoId);
+    resolveVideoSelection(nextVideoIds, anchorVideoId);
+  }
+
+  function toggledVideoIds(currentVideoIds: number[], touchedVideoIds: number[]) {
+    const touchedVideoIdSet = new Set(touchedVideoIds);
+    const remainingVideoIds = currentVideoIds.filter(
+      (videoId) => !touchedVideoIdSet.has(videoId),
+    );
+    const addedVideoIds = touchedVideoIds.filter(
+      (videoId) => !currentVideoIds.includes(videoId),
+    );
+
+    return [...remainingVideoIds, ...addedVideoIds];
   }
 
   function currentSelectedVideoIds() {

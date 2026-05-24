@@ -3628,6 +3628,108 @@ describe("Catalog module", () => {
     ).toHaveTextContent("3 selected");
   });
 
+  it("toggles Videos in an existing selection with command-drag", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      catalogVideoFixture(2, "City Walk"),
+      catalogVideoFixture(3, "Studio Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const videoGrid = within(catalogVideos).getByLabelText("Video grid");
+    const familyTripCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+    const cityWalkCard = within(catalogVideos).getByRole("article", {
+      name: "City Walk",
+    });
+    const studioClipCard = within(catalogVideos).getByRole("article", {
+      name: "Studio Clip",
+    });
+
+    vi.spyOn(videoGrid, "getBoundingClientRect").mockReturnValue({
+      bottom: 600,
+      height: 600,
+      left: 0,
+      right: 600,
+      top: 0,
+      width: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(familyTripCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(cityWalkCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 120,
+      right: 220,
+      top: 0,
+      width: 100,
+      x: 120,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(studioClipCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 240,
+      right: 340,
+      top: 0,
+      width: 100,
+      x: 240,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.pointerDown(familyTripCard, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(videoGrid, { clientX: 210, clientY: 80 });
+    fireEvent.pointerUp(cityWalkCard, { clientX: 210, clientY: 80 });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.pointerDown(cityWalkCard, {
+      button: 0,
+      clientX: 130,
+      clientY: 10,
+      metaKey: true,
+    });
+    fireEvent.pointerMove(videoGrid, {
+      clientX: 330,
+      clientY: 80,
+      metaKey: true,
+    });
+    fireEvent.pointerUp(studioClipCard, {
+      clientX: 330,
+      clientY: 80,
+      metaKey: true,
+    });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+    expect(familyTripCard.className).toContain("batchSelectedPreviewCard");
+    expect(cityWalkCard.className).not.toContain("batchSelectedPreviewCard");
+    expect(studioClipCard.className).toContain("batchSelectedPreviewCard");
+  });
+
   it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, isSecret: false, name: "Travel" },

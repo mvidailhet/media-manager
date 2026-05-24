@@ -21,6 +21,7 @@ type DragPoint = {
 
 type PointerDragPoint = {
   contentPoint: DragPoint;
+  selectionModifiers: VideoSelectionModifiers;
   viewportPoint: DragPoint;
 };
 
@@ -42,7 +43,10 @@ export function VideoGrid({
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
   onClearVideoSelection: () => void;
-  onReplaceSelectedVideos: (videoIds: number[]) => void;
+  onReplaceSelectedVideos: (
+    videoIds: number[],
+    modifiers: VideoSelectionModifiers,
+  ) => void;
   onSelectVideo: (
     catalogVideo: CatalogVideo,
     modifiers: VideoSelectionModifiers,
@@ -107,24 +111,24 @@ export function VideoGrid({
       return;
     }
 
-    if (
-      pointerStartedOnVideoCard(event) &&
-      activeSelectionModifiers([
-        selectionModifiersFromPointerEvent(event),
-        currentKeyboardSelectionModifiers(),
-      ]).isSelectingWithModifier
-    ) {
-      return;
-    }
+    const selectionModifiers = activeSelectionModifiers([
+      selectionModifiersFromPointerEvent(event),
+      currentKeyboardSelectionModifiers(),
+    ]);
 
-    event.preventDefault();
+    if (!selectionModifiers.isSelectingWithModifier) {
+      event.preventDefault();
+    }
     const nextDragSelectionStart = dragPointFromPointerEvent(event);
 
     if (!nextDragSelectionStart) {
       return;
     }
 
-    dragSelectionStart.current = nextDragSelectionStart;
+    dragSelectionStart.current = {
+      ...nextDragSelectionStart,
+      selectionModifiers,
+    };
     event.currentTarget.setPointerCapture?.(event.pointerId);
     clearSuppressedCardClick();
     isDragSelecting.current = false;
@@ -160,9 +164,9 @@ export function VideoGrid({
 
       setDragSelectionEnd(nextDragSelectionEnd);
       setDragSelectedVideoIds(
-        videoIdsInsideDragRectangle(
-          dragSelectionStart.current.contentPoint,
-          nextDragSelectionEnd.contentPoint,
+        selectedVideoIdsFromDragRectangle(
+          dragSelectionStart.current,
+          nextDragSelectionEnd,
         ),
       );
     }
@@ -203,6 +207,7 @@ export function VideoGrid({
 
     onReplaceSelectedVideos(
       videoIdsInsideDragRectangle(startPoint.contentPoint, endPoint.contentPoint),
+      startPoint.selectionModifiers,
     );
   }
 
@@ -269,12 +274,6 @@ export function VideoGrid({
     return keyboardSelectionModifiers.current;
   }
 
-  function pointerStartedOnVideoCard(event: PointerEvent<HTMLDivElement>) {
-    return event.target instanceof Element
-      ? event.target.closest("[data-video-id]") !== null
-      : false;
-  }
-
   function activeSelectionModifiers(
     selectionModifiers: VideoSelectionModifiers[],
   ) {
@@ -324,6 +323,47 @@ export function VideoGrid({
     onClearVideoSelection();
   }
 
+  function selectedVideoIdsFromDragRectangle(
+    startPoint: PointerDragPoint,
+    endPoint: PointerDragPoint,
+  ) {
+    const touchedVideoIds = videoIdsInsideDragRectangle(
+      startPoint.contentPoint,
+      endPoint.contentPoint,
+    );
+
+    if (!startPoint.selectionModifiers.isCommandPressed) {
+      return touchedVideoIds;
+    }
+
+    return toggledVideoIds(currentSelectedVideoIds(), touchedVideoIds);
+  }
+
+  function currentSelectedVideoIds() {
+    const selectedIds = [...selectedVideoIds];
+
+    if (
+      selectedDetailVideoId !== null &&
+      !selectedIds.includes(selectedDetailVideoId)
+    ) {
+      selectedIds.push(selectedDetailVideoId);
+    }
+
+    return selectedIds;
+  }
+
+  function toggledVideoIds(currentVideoIds: number[], touchedVideoIds: number[]) {
+    const touchedVideoIdSet = new Set(touchedVideoIds);
+    const remainingVideoIds = currentVideoIds.filter(
+      (videoId) => !touchedVideoIdSet.has(videoId),
+    );
+    const addedVideoIds = touchedVideoIds.filter(
+      (videoId) => !currentVideoIds.includes(videoId),
+    );
+
+    return [...remainingVideoIds, ...addedVideoIds];
+  }
+
   function videoIdsInsideDragRectangle(
     startPoint: DragPoint,
     endPoint: DragPoint,
@@ -365,6 +405,7 @@ export function VideoGrid({
         x: event.clientX - gridBox.left,
         y: event.clientY - gridBox.top,
       },
+      selectionModifiers: emptySelectionModifiers,
       viewportPoint: {
         x: event.clientX,
         y: event.clientY,

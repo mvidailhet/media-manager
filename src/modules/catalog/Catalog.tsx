@@ -63,7 +63,10 @@ export type CatalogProps = {
   onRejectMetadataSuggestionSource: (
     request: RejectMetadataSuggestionSourceRequest,
   ) => void;
-  onReplaceSelectedVideos: (videoIds: number[]) => void;
+  onReplaceSelectedVideos: (
+    videoIds: number[],
+    modifiers: VideoSelectionModifiers,
+  ) => void;
   onRemovePerformer: (performer: CatalogPerformer) => void;
   onRemoveTag: (tag: CatalogTag) => void;
   onReviewVideo: (videoId: number) => void;

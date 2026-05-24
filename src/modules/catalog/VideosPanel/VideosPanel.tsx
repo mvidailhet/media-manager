@@ -45,7 +45,10 @@ export function VideosPanel({
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onClearVideoSelection: () => void;
-  onReplaceSelectedVideos: (videoIds: number[]) => void;
+  onReplaceSelectedVideos: (
+    videoIds: number[],
+    modifiers: VideoSelectionModifiers,
+  ) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   onSelectVideo: (
     catalogVideo: CatalogVideo,
