@@ -1,7 +1,7 @@
 .catalogWorkspace {
   display: grid;
   gap: 12px;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+  grid-template-columns: minmax(0, 1fr) minmax(400px, min(820px, 32vw));
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;

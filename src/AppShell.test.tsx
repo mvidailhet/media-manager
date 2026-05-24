@@ -151,7 +151,7 @@ describe("App shell", () => {
 
     expect(catalogStylesSource).toMatch(/\.catalogWorkspace\s*{[^}]*overflow:\s*hidden;/s);
     expect(catalogStylesSource).toMatch(
-      /\.catalogWorkspace\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(320px,\s*420px\);/s,
+      /\.catalogWorkspace\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(400px,\s*min\(820px,\s*32vw\)\);/s,
     );
     expect(catalogStylesSource).toMatch(/\.catalogContent\s*{[^}]*display:\s*grid;/s);
     expect(catalogStylesSource).toMatch(
