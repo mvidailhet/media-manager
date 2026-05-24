@@ -11,7 +11,7 @@ import metadataSuggestionsPanelSource from "./MetadataSuggestionsPanel/MetadataS
 import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSuggestionTree.ts?raw";
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
 import videosPanelControllerSource from "./VideosPanel/useVideosPanelController.ts?raw";
-import batchMetadataControllerSource from "./BatchEditPanel/useBatchMetadataController.ts?raw";
+import batchMetadataControllerSource from "./SelectionPanel/BatchEditPanel/useBatchMetadataController.ts?raw";
 import selectedVideoControllerSource from "./SelectionPanel/useSelectedVideoController.ts?raw";
 import metadataSuggestionsControllerSource from "./MetadataSuggestionsPanel/useMetadataSuggestionsController.ts?raw";
 
@@ -54,14 +54,22 @@ const legacyCatalogVideosPanelTopLevelFiles = import.meta.glob(
   },
 );
 const batchEditPanelBarrelFiles = import.meta.glob(
-  "./BatchEditPanel/**/index.*",
+  "./SelectionPanel/BatchEditPanel/**/index.*",
   {
     eager: true,
     query: "?raw",
   },
 );
 const batchEditPanelFiles = import.meta.glob(
-  "./BatchEditPanel/**/*.tsx",
+  "./SelectionPanel/BatchEditPanel/**/*.tsx",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
+const topLevelBatchEditPanelFiles = import.meta.glob(
+  "./BatchEditPanel/**/*.{ts,tsx,css}",
   {
     eager: true,
     query: "?raw",
@@ -100,7 +108,7 @@ const metadataSuggestionsPanelFiles = import.meta.glob(
   },
 );
 const videoDetailPanelBarrelFiles = import.meta.glob(
-  "./VideoDetailPanel/**/index.*",
+  "./SelectionPanel/VideoDetailPanel/**/index.*",
   {
     eager: true,
     query: "?raw",
@@ -113,11 +121,22 @@ const videoPreviewBarrelFiles = import.meta.glob(
     query: "?raw",
   },
 );
-const videoDetailPanelFiles = import.meta.glob("./VideoDetailPanel/**/*.tsx", {
-  eager: true,
-  query: "?raw",
-  import: "default",
-});
+const videoDetailPanelFiles = import.meta.glob(
+  "./SelectionPanel/VideoDetailPanel/**/*.tsx",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
+const topLevelVideoDetailPanelFiles = import.meta.glob(
+  "./VideoDetailPanel/**/*.{ts,tsx,css}",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
 const videoPreviewFiles = import.meta.glob(
   "./components/VideoPreview/**/*.{ts,tsx,css}",
   {
@@ -347,19 +366,19 @@ describe("Catalog module boundaries", () => {
   it("keeps Batch Edit actions in focused files", () => {
     const batchEditPanelSource = rawSource(
       batchEditPanelFiles,
-      "./BatchEditPanel/BatchEditPanel.tsx",
+      "./SelectionPanel/BatchEditPanel/BatchEditPanel.tsx",
     );
     const favoriteActionsSource = rawSource(
       batchEditPanelFiles,
-      "./BatchEditPanel/components/FavoriteActions.tsx",
+      "./SelectionPanel/BatchEditPanel/components/FavoriteActions.tsx",
     );
     const batchTrashActionsSource = rawSource(
       batchEditPanelFiles,
-      "./BatchEditPanel/components/BatchTrashActions.tsx",
+      "./SelectionPanel/BatchEditPanel/components/BatchTrashActions.tsx",
     );
     const batchMetadataSectionSource = rawSource(
       batchEditPanelFiles,
-      "./BatchEditPanel/components/BatchMetadataSection.tsx",
+      "./SelectionPanel/BatchEditPanel/components/BatchMetadataSection.tsx",
     );
 
     expect(batchEditPanelSource).not.toBe("");
@@ -393,8 +412,9 @@ describe("Catalog module boundaries", () => {
       /from "\.\/BatchEditPanel\.tsx"/,
     );
     expect(Object.keys(batchEditPanelBarrelFiles)).toEqual([
-      "./BatchEditPanel/index.ts",
+      "./SelectionPanel/BatchEditPanel/index.ts",
     ]);
+    expect(Object.keys(topLevelBatchEditPanelFiles)).toHaveLength(0);
   });
 
   it("keeps the Catalog Selection Panel owned by the Catalog module", () => {
@@ -448,23 +468,23 @@ describe("Catalog module boundaries", () => {
   it("keeps Video detail and preview pieces in focused files", () => {
     const videoDetailPanelSource = rawSource(
       videoDetailPanelFiles,
-      "./VideoDetailPanel/VideoDetailPanel.tsx",
+      "./SelectionPanel/VideoDetailPanel/VideoDetailPanel.tsx",
     );
     const titleEditorSource = rawSource(
       videoDetailPanelFiles,
-      "./VideoDetailPanel/components/TitleEditor.tsx",
+      "./SelectionPanel/VideoDetailPanel/components/TitleEditor.tsx",
     );
     const actionButtonsSource = rawSource(
       videoDetailPanelFiles,
-      "./VideoDetailPanel/components/ActionButtons.tsx",
+      "./SelectionPanel/VideoDetailPanel/components/ActionButtons.tsx",
     );
     const metadataSectionSource = rawSource(
       videoDetailPanelFiles,
-      "./VideoDetailPanel/components/MetadataSection.tsx",
+      "./SelectionPanel/VideoDetailPanel/components/MetadataSection.tsx",
     );
     const fileLocationsSectionSource = rawSource(
       videoDetailPanelFiles,
-      "./VideoDetailPanel/components/FileLocationsSection.tsx",
+      "./SelectionPanel/VideoDetailPanel/components/FileLocationsSection.tsx",
     );
     const videoPreviewSource = rawSource(
       videoPreviewFiles,
@@ -487,7 +507,7 @@ describe("Catalog module boundaries", () => {
     expect(actionButtonsSource).toMatch(/Reveal in Finder/);
     expect(metadataSectionSource).toMatch(/function MetadataSection/);
     expect(metadataSectionSource).toMatch(
-      /from "\.\.\/\.\.\/components\/MetadataBadges"/,
+      /from "\.\.\/\.\.\/\.\.\/components\/MetadataBadges"/,
     );
     expect(fileLocationsSectionSource).toMatch(
       /function FileLocationsSection/,
@@ -530,8 +550,9 @@ describe("Catalog module boundaries", () => {
       /function previewStripFramePosition/,
     );
     expect(Object.keys(videoDetailPanelBarrelFiles)).toEqual([
-      "./VideoDetailPanel/index.ts",
+      "./SelectionPanel/VideoDetailPanel/index.ts",
     ]);
+    expect(Object.keys(topLevelVideoDetailPanelFiles)).toHaveLength(0);
     expect(Object.keys(videoPreviewBarrelFiles)).toHaveLength(0);
   });
 });

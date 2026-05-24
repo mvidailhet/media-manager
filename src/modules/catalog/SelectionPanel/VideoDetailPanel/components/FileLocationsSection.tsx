@@ -1,8 +1,8 @@
 import { Badge, Button, Group, Stack, Text, Title } from "@mantine/core";
 
-import { WrappingCode } from "../../../../shared/components/WrappingCode";
-import { formatFileSize } from "../../../../shared/formatting/videoFormatting";
-import type { CatalogVideo } from "../../../../tauriCommands";
+import { WrappingCode } from "../../../../../shared/components/WrappingCode";
+import { formatFileSize } from "../../../../../shared/formatting/videoFormatting";
+import type { CatalogVideo } from "../../../../../tauriCommands";
 
 type FileLocation = CatalogVideo["fileLocations"][number];
 

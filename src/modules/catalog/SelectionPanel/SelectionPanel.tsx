@@ -1,11 +1,11 @@
 import { Box } from "@mantine/core";
 import type { ReactNode } from "react";
 
-import { BatchEditPanel } from "../BatchEditPanel";
 import type { CatalogProps } from "../Catalog";
 import { createSelectedVideoDetailActions } from "../selectedVideoDetailActions";
-import { VideoDetailPanel } from "../VideoDetailPanel";
+import { BatchEditPanel } from "./BatchEditPanel";
 import { EmptySelectionState } from "./components/EmptySelectionState";
+import { VideoDetailPanel } from "./VideoDetailPanel";
 import styles from "./SelectionPanel.module.css";
 
 export function SelectionPanel({

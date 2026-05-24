@@ -1,7 +1,7 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { AppProviders } from "../../../../AppProviders";
+import { AppProviders } from "../../../../../AppProviders";
 import { BatchMetadataSection } from "./BatchMetadataSection";
 
 describe("BatchMetadataSection", () => {

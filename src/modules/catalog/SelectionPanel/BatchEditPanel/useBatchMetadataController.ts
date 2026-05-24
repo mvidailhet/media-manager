@@ -1,12 +1,12 @@
 import { useState } from "react";
 
-import { uniqueMetadataValues } from "../../../shared/metadata/metadataHelpers";
+import { uniqueMetadataValues } from "../../../../shared/metadata/metadataHelpers";
 import type {
   CatalogPerformer,
   CatalogTag,
   CatalogVideo,
-} from "../../../tauriCommands";
-import type { CatalogVideoMetadata } from "../catalogTypes";
+} from "../../../../tauriCommands";
+import type { CatalogVideoMetadata } from "../../catalogTypes";
 import type { BatchMetadataValue } from "./BatchEditPanel";
 
 export function useBatchMetadataController({
