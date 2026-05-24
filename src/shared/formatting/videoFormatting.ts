@@ -2,6 +2,7 @@ import type { CatalogVideo } from "../../tauriCommands";
 
 const millisecondsPerSecond = 1000;
 const secondsPerMinute = 60;
+const millisecondsPerMinute = millisecondsPerSecond * secondsPerMinute;
 const minutesPerHour = 60;
 const secondsPerHour = secondsPerMinute * minutesPerHour;
 const bytesPerMegabyte = 1_000_000;
@@ -48,6 +49,10 @@ export function formatDuration(durationMilliseconds: number) {
   const totalMinutes = Math.floor(totalSeconds / secondsPerMinute);
   const hours = Math.floor(totalMinutes / minutesPerHour);
   const minutes = totalMinutes % minutesPerHour;
+
+  if (durationMilliseconds > 0 && durationMilliseconds < millisecondsPerMinute) {
+    return "<1m";
+  }
 
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
