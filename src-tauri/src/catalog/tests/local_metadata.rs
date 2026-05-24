@@ -338,6 +338,31 @@ fn merging_performers_keeps_secret_status_when_any_source_performer_was_secret()
 }
 
 #[test]
+fn merging_metadata_keeps_secret_status_when_the_kept_value_was_secret() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let secret_tag = catalog.create_tag("Travel", true).expect("tag creates");
+    let public_tag = catalog.create_tag("Trips", false).expect("tag creates");
+    let secret_performer = catalog
+        .create_performer("Alex", true)
+        .expect("performer creates");
+    let public_performer = catalog
+        .create_performer("Blair", false)
+        .expect("performer creates");
+
+    let merged_tag = catalog
+        .merge_tags(secret_tag.id, public_tag.id)
+        .expect("tags merge");
+    let merged_performer = catalog
+        .merge_performers(secret_performer.id, public_performer.id)
+        .expect("performers merge");
+
+    assert!(merged_tag.is_secret);
+    assert!(merged_performer.is_secret);
+}
+
+#[test]
 fn merging_non_secret_tags_and_performers_keeps_result_non_secret() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");

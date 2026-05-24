@@ -302,17 +302,18 @@ impl Catalog {
         merged_metadata_id: i64,
         metadata_type_name: &str,
     ) -> Result<CatalogMetadataValue, String> {
-        self.metadata_value_by_id(metadata_table_name, kept_metadata_id, metadata_type_name)?;
+        let kept_metadata_value =
+            self.metadata_value_by_id(metadata_table_name, kept_metadata_id, metadata_type_name)?;
         if kept_metadata_id == merged_metadata_id {
-            return self.metadata_value_by_id(
-                metadata_table_name,
-                kept_metadata_id,
-                metadata_type_name,
-            );
+            return Ok(kept_metadata_value);
         }
 
         let merged_metadata_value =
             self.metadata_value_by_id(metadata_table_name, merged_metadata_id, metadata_type_name)?;
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
 
         let update_secret_status_query = format!(
             "UPDATE {metadata_table_name}
@@ -320,7 +321,7 @@ impl Catalog {
                  updated_at = CURRENT_TIMESTAMP
              WHERE id = ?2"
         );
-        self.database
+        transaction
             .execute(
                 &update_secret_status_query,
                 params![merged_metadata_value.is_secret, kept_metadata_id],
@@ -333,7 +334,7 @@ impl Catalog {
              FROM {link_table_name}
              WHERE {metadata_id_column} = ?2"
         );
-        self.database
+        transaction
             .execute(
                 &copy_attachments_query,
                 params![kept_metadata_id, merged_metadata_id],
@@ -344,7 +345,7 @@ impl Catalog {
             "DELETE FROM {link_table_name}
              WHERE {metadata_id_column} = ?1"
         );
-        self.database
+        transaction
             .execute(
                 &delete_merged_attachments_query,
                 params![merged_metadata_id],
@@ -355,9 +356,10 @@ impl Catalog {
             "DELETE FROM {metadata_table_name}
              WHERE id = ?1"
         );
-        self.database
+        transaction
             .execute(&delete_merged_metadata_query, params![merged_metadata_id])
             .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
 
         self.metadata_value_by_id(metadata_table_name, kept_metadata_id, metadata_type_name)
     }
