@@ -148,6 +148,7 @@ impl Catalog {
                 [],
             )
             .map_err(|error| error.to_string())?;
+        delete_unused_metadata_values(&transaction)?;
         transaction
             .execute(
                 "DELETE FROM scan_roots

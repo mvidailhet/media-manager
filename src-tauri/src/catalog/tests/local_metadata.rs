@@ -168,6 +168,70 @@ fn forgetting_one_missing_catalog_video_removes_metadata_without_touching_the_fi
 }
 
 #[test]
+fn forgetting_the_last_video_use_removes_unused_tags_and_performers() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let database = catalog_test_database(&catalog_path);
+    store_test_video(&database, "fingerprint-one", "Family Trip");
+    let tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let performer = catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
+    catalog
+        .attach_tag_to_video(tag.id, 1)
+        .expect("tag attaches to video");
+    catalog
+        .attach_performer_to_video(performer.id, 1)
+        .expect("performer attaches to video");
+
+    catalog
+        .forget_catalog_video(1)
+        .expect("missing video is forgotten");
+
+    assert_eq!(catalog.list_tags().expect("tags list"), Vec::new());
+    assert_eq!(
+        catalog.list_performers().expect("performers list"),
+        Vec::new()
+    );
+}
+
+#[test]
+fn merging_tags_moves_metadata_suggestion_mappings_to_the_kept_tag() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    catalog.add_scan_root(&movies_root).expect("scan root adds");
+    let vacation_tag = catalog.create_tag("Vacation", false).expect("tag creates");
+    let travel_tag = catalog.create_tag("Travel", false).expect("tag creates");
+    catalog
+        .database
+        .execute(
+            "INSERT INTO metadata_suggestion_mappings (
+                scan_root_id,
+                source_path_segment,
+                normalized_suggested_value,
+                suggestion_kind,
+                accepted_tag_id
+             )
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (1_i64, "Vacation", "vacation", "tag", vacation_tag.id),
+        )
+        .expect("metadata suggestion mapping persists");
+
+    catalog
+        .merge_tags(travel_tag.id, vacation_tag.id)
+        .expect("tags merge");
+
+    assert_eq!(
+        tag_metadata_suggestion_mapping_targets(&catalog.database),
+        vec![("vacation".to_string(), travel_tag.id)]
+    );
+}
+
+#[test]
 fn tags_and_performers_are_unique_within_their_own_type_case_insensitively() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");

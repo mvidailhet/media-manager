@@ -1114,6 +1114,59 @@ fn removing_scan_root_can_forget_affected_videos_from_catalog() {
 }
 
 #[test]
+fn removing_scan_root_forgetting_last_video_use_removes_unused_metadata() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let database = catalog_test_database(&catalog_path);
+    database
+        .execute(
+            "INSERT INTO videos (fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4)",
+            ("fingerprint-one", 1_i64, "Family Trip", 3723000_i64),
+        )
+        .expect("video persists");
+    database
+        .execute(
+            "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                1_i64,
+                1_i64,
+                movies_root.join("family-trip.mp4").to_string_lossy().into_owned(),
+                80740352_i64,
+                "2026-05-14T16:35:48Z",
+            ),
+        )
+        .expect("file location persists");
+    let tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let performer = catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
+    catalog
+        .attach_tag_to_video(tag.id, 1)
+        .expect("tag attaches to video");
+    catalog
+        .attach_performer_to_video(performer.id, 1)
+        .expect("performer attaches to video");
+
+    catalog
+        .remove_scan_root_forgetting_catalog_videos(&scan_root.path)
+        .expect("scan root removes");
+
+    assert_eq!(catalog.list_tags().expect("tags list"), Vec::new());
+    assert_eq!(
+        catalog.list_performers().expect("performers list"),
+        Vec::new()
+    );
+}
+
+#[test]
 fn forgetting_scan_root_preserves_videos_with_locations_in_other_scan_roots() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");

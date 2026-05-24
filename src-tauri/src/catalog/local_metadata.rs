@@ -373,6 +373,24 @@ impl Catalog {
             )
             .map_err(|error| error.to_string())?;
 
+        let metadata_suggestion_mapping_column = match metadata_table_name {
+            "tags" => "accepted_tag_id",
+            "performers" => "accepted_performer_id",
+            _ => return Err("Metadata table is not supported".to_string()),
+        };
+        let update_metadata_suggestion_mappings_query = format!(
+            "UPDATE metadata_suggestion_mappings
+             SET {metadata_suggestion_mapping_column} = ?1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE {metadata_suggestion_mapping_column} = ?2"
+        );
+        transaction
+            .execute(
+                &update_metadata_suggestion_mappings_query,
+                params![kept_metadata_id, merged_metadata_id],
+            )
+            .map_err(|error| error.to_string())?;
+
         let delete_merged_attachments_query = format!(
             "DELETE FROM {link_table_name}
              WHERE {metadata_id_column} = ?1"

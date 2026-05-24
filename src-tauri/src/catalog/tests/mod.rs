@@ -172,6 +172,24 @@ fn metadata_suggestion_mappings(database: &Connection) -> Vec<(String, String, S
         .expect("metadata suggestion mappings load")
 }
 
+fn tag_metadata_suggestion_mapping_targets(database: &Connection) -> Vec<(String, i64)> {
+    let mut statement = database
+        .prepare(
+            "SELECT normalized_suggested_value,
+                        accepted_tag_id
+                 FROM metadata_suggestion_mappings
+                 WHERE accepted_tag_id IS NOT NULL
+                 ORDER BY normalized_suggested_value",
+        )
+        .expect("tag metadata suggestion mapping targets query prepares");
+
+    statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .expect("tag metadata suggestion mapping targets query runs")
+        .collect::<Result<Vec<_>, _>>()
+        .expect("tag metadata suggestion mapping targets load")
+}
+
 #[derive(Debug)]
 struct StoredPreviewStrip {
     video_id: i64,

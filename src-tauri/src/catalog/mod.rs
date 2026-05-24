@@ -514,6 +514,33 @@ fn normalized_metadata_suggestion_value(suggested_value: &str) -> String {
         .collect()
 }
 
+fn delete_unused_metadata_values(transaction: &Transaction<'_>) -> Result<(), String> {
+    transaction
+        .execute(
+            "DELETE FROM tags
+             WHERE NOT EXISTS (
+                SELECT 1
+                FROM tag_videos
+                WHERE tag_videos.tag_id = tags.id
+             )",
+            [],
+        )
+        .map_err(|error| error.to_string())?;
+    transaction
+        .execute(
+            "DELETE FROM performers
+             WHERE NOT EXISTS (
+                SELECT 1
+                FROM performer_videos
+                WHERE performer_videos.performer_id = performers.id
+             )",
+            [],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
+}
+
 fn metadata_value_id_for_suggestion(
     transaction: &Transaction<'_>,
     suggestion_kind: &str,

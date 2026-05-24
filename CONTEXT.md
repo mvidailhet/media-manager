@@ -320,6 +320,13 @@ _Avoid_: Favorite edit, metadata suggestion
 - **Tag** names are case-insensitively unique among **Tags**; **Performer** names are case-insensitively unique among **Performers**.
 - Attached **Tags** and **Performers** should be merged or explicitly detached before deletion.
 - Unused **Tags** and **Performers** are removed from the **Catalog** when they no longer belong to any **Video**.
+- Every **Catalog** action that removes the last relationship between a **Tag** or **Performer** and **Videos** removes that unused metadata value.
+- Whether a **Tag** or **Performer** is unused is decided from the final **Catalog** state after the completed metadata changes.
+- **Missing Videos** still count as **Videos** for deciding whether a **Tag** or **Performer** is unused.
+- **Tags** and **Performers** are evaluated separately when deciding whether a metadata value is unused.
+- **Metadata Suggestion Mappings** do not keep otherwise unused **Tags** or **Performers** in the **Catalog**.
+- Removing an unused **Tag** or **Performer** also removes **Metadata Suggestion Mappings** that point to it.
+- **Metadata Suggestion Mappings** that point to a merged **Tag** or **Performer** move to the kept metadata value.
 - Removing the last use of a **Tag** or **Performer** deletes it on save/apply without extra confirmation during normal editing.
 - **Inferred Metadata** can suggest **Tags** or **Performers** but does not become confirmed **Local Metadata** until accepted.
 - A **Scan Root** can have **Inference Rules** for Tag suggestions and ignored folder names.

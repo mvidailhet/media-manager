@@ -161,6 +161,7 @@ impl Catalog {
             return Err("Only Missing Videos can be forgotten from the Catalog".to_string());
         }
 
+        delete_unused_metadata_values(&transaction)?;
         transaction.commit().map_err(|error| error.to_string())
     }
 
@@ -197,6 +198,7 @@ impl Catalog {
             )
             .map_err(|error| error.to_string())?;
 
+        delete_unused_metadata_values(&transaction)?;
         transaction.commit().map_err(|error| error.to_string())
     }
 
