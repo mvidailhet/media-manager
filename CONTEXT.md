@@ -24,6 +24,10 @@ _Avoid_: Category, folder
 A person who appears in a **Video**.
 _Avoid_: Creator, channel, studio
 
+**Primary Performer Group**:
+A **Videos View** grouping where each **Video** appears under its first **Performer**, or under an unassigned group when it has no **Performers**.
+_Avoid_: Performer, all performers group
+
 **Secret Metadata**:
 A **Tag** or **Performer** marked as sensitive enough to hide from normal browsing when secret content is hidden.
 _Avoid_: Private scan root, hidden folder
@@ -99,6 +103,14 @@ _Avoid_: Sync job
 **Preview Strip**:
 A generated sequence of still frames sampled across a **Video** for quick visual preview.
 _Avoid_: Thumbnail, trailer
+
+**Group Preview Strip**:
+A compact preview of selected **Videos** from a **Primary Performer Group**, prioritizing **Favorites** before other **Videos**.
+_Avoid_: Performer thumbnail, group trailer
+
+**Primary Performer Accordion**:
+A collapsible **Videos View** section for a **Primary Performer Group**.
+_Avoid_: Performer page, performer folder
 
 **Pending Preview Strip**:
 A **Preview Strip** that has not been generated yet.
@@ -242,6 +254,13 @@ _Avoid_: Favorite edit, metadata suggestion
 - When an **Availability Check** makes an **Unavailable Scan Root** reachable again, **Refresh** becomes available but does not start automatically.
 - An **Unavailable Video** is only a **Missing Video** when no last-known **File Location** remains.
 - **Incremental Video Results** keep the **Videos View** responsive when many **Videos** match the current **Search Filters**.
+- A **Primary Performer Group** places a **Video** in only one group even when that **Video** has multiple **Performers**.
+- **Search Filters** narrow the **Videos View** before **Primary Performer Groups** are formed.
+- A **Primary Performer Group** count reflects the current **Videos View** results after **Search Filters**.
+- A **Group Preview Strip** follows the current **Videos View** ordering within its **Primary Performer Group**.
+- **Videos** shown in a **Group Preview Strip** are not repeated in the expanded **Primary Performer Group** body.
+- Each **Video** in a **Group Preview Strip** can be selected independently.
+- **Primary Performer Accordions** start collapsed and keep their open or closed state during the current **Videos View** session.
 - A **Scan Root** is searched for files matching the **Video Extension Allowlist** before video probing validates them.
 - An **Unprocessable Video Candidate** belongs with its **Scan Root** instead of normal **Video** search results.
 - An **Unprocessable Video Candidate** is retried when its file changes or when manually retried from its **Scan Root**.
