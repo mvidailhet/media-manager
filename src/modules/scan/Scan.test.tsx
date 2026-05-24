@@ -514,13 +514,24 @@ describe("Scan module", () => {
       name: "Catalog Videos",
     });
 
-    expect(within(catalogVideos).getByText("Pending Trip")).toBeInTheDocument();
+    const pendingVideoCard = within(catalogVideos)
+      .getByText("Pending Trip")
+      .closest("article");
+    const failedVideoCard = within(catalogVideos)
+      .getByText("Failed Trip")
+      .closest("article");
+
+    if (!pendingVideoCard) {
+      throw new Error("Pending Trip Video card was not rendered");
+    }
     expect(
-      within(catalogVideos).getByText("Pending Preview Strip"),
+      within(pendingVideoCard).getByText("Pending Preview Strip"),
     ).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Failed Trip")).toBeInTheDocument();
+    if (!failedVideoCard) {
+      throw new Error("Failed Trip Video card was not rendered");
+    }
     expect(
-      within(catalogVideos).getByText("Failed Preview Strip"),
+      within(failedVideoCard).getByText("Failed Preview Strip"),
     ).toBeInTheDocument();
   });
 
