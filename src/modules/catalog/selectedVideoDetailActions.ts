@@ -19,7 +19,7 @@ export type SelectedVideoDetailActions = {
   setFavorite: (isFavorite: boolean) => void;
 };
 
-export function useSelectedVideoDetailActions({
+export function createSelectedVideoDetailActions({
   onAttachPerformer,
   onAttachTag,
   onCreateOrAttachPerformer,

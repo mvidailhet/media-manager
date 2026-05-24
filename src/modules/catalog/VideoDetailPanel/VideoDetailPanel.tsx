@@ -9,7 +9,7 @@ import type {
 } from "../../../tauriCommands";
 import { VideoPreview } from "../components/VideoPreview/VideoPreview";
 import { isPlaybackWindowFileLocation } from "../../playback/playbackFormats";
-import type { SelectedVideoDetailActions } from "../useSelectedVideoDetailActions";
+import type { SelectedVideoDetailActions } from "../selectedVideoDetailActions";
 import { ActionButtons } from "./components/ActionButtons";
 import { FileLocationsSection } from "./components/FileLocationsSection";
 import { MetadataSection } from "./components/MetadataSection";
