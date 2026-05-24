@@ -1351,6 +1351,62 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("does not show Videos before metadata is loaded while secret metadata is hidden", async () => {
+    const secretTagsForVideo = deferredPromise<
+      { id: number; isSecret: boolean; name: string }[]
+    >();
+    const secretPerformersForVideo = deferredPromise<
+      { id: number; isSecret: boolean; name: string }[]
+    >();
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: true, name: "Secret Tag" },
+    ]);
+    mockedListPerformers.mockResolvedValue([]);
+    mockedTagsForVideo.mockImplementation((videoId) => {
+      if (videoId === 2) {
+        return secretTagsForVideo.promise;
+      }
+
+      return Promise.resolve([{ id: 4, isSecret: false, name: "Travel" }]);
+    });
+    mockedPerformersForVideo.mockImplementation((videoId) => {
+      if (videoId === 2) {
+        return secretPerformersForVideo.promise;
+      }
+
+      return Promise.resolve([]);
+    });
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Normal Video"),
+      catalogVideoFixture(2, "Secret Video"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await waitFor(() => {
+      expect(mockedTagsForVideo).toHaveBeenCalledWith(2);
+    });
+
+    expect(
+      within(catalogVideos).queryByText("Normal Video"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Secret Video"),
+    ).not.toBeInTheDocument();
+
+    secretTagsForVideo.resolve([{ id: 5, isSecret: true, name: "Secret Tag" }]);
+    secretPerformersForVideo.resolve([]);
+
+    expect(await within(catalogVideos).findByText("Normal Video")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Secret Video"),
+    ).not.toBeInTheDocument();
+  });
+
   it("clears selected secret metadata filters when secret metadata is hidden again", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, isSecret: false, name: "Travel" },

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
 import type { CatalogVideo } from "../../../tauriCommands";
+import type { CatalogPerformer, CatalogTag } from "../../../tauriCommands";
 import type {
   CatalogVideoFilters,
   CatalogVideoMetadata,
@@ -18,7 +19,11 @@ export const incrementalVideoResultLoadThresholdPixels = 600;
 export function useVideosPanelController({
   catalogVideoMetadataById,
   catalogVideos,
+  availablePerformers,
+  availableTags,
 }: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
 }) {
@@ -29,6 +34,12 @@ export function useVideosPanelController({
   const [exposedCatalogVideoCount, setExposedCatalogVideoCount] = useState(
     incrementalVideoResultBatchSize,
   );
+  const secretMetadataExists = useMemo(
+    () =>
+      availableTags.some((tag) => tag.isSecret) ||
+      availablePerformers.some((performer) => performer.isSecret),
+    [availablePerformers, availableTags],
+  );
 
   const matchingCatalogVideos = useMemo(
     () =>
@@ -38,6 +49,7 @@ export function useVideosPanelController({
             catalogVideo,
             catalogVideoMetadataById[catalogVideo.id],
             catalogVideoFilters,
+            secretMetadataExists,
           ),
         ),
         catalogVideoSort,
@@ -47,6 +59,7 @@ export function useVideosPanelController({
       catalogVideoMetadataById,
       catalogVideoSort,
       catalogVideos,
+      secretMetadataExists,
     ],
   );
 

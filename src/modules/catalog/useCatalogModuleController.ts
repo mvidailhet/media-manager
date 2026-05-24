@@ -201,6 +201,8 @@ export function useCatalogModuleController(): CatalogController {
     setCatalogVideoFilters,
     setCatalogVideoSort,
   } = useVideosPanelController({
+    availablePerformers,
+    availableTags,
     catalogVideoMetadataById,
     catalogVideos,
   });
