@@ -1421,6 +1421,8 @@ describe("Catalog module", () => {
 
     expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
     expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
+    expect(mockedCreateTag).not.toHaveBeenCalledWith("Secret Tag");
+    expect(mockedCreatePerformer).not.toHaveBeenCalledWith("Secret Performer");
   });
 
   it("does not show Videos before metadata is loaded while secret metadata is hidden", async () => {
@@ -2306,6 +2308,8 @@ describe("Catalog module", () => {
       expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
       expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 2);
     });
+    expect(mockedCreateTag).not.toHaveBeenCalledWith("Secret Tag");
+    expect(mockedCreatePerformer).not.toHaveBeenCalledWith("Secret Performer");
   });
 
   it("clears a Performer filter when Batch Edit removes that Performer from every matching Video", async () => {
@@ -4801,16 +4805,24 @@ describe("Catalog module", () => {
     const metadataSuggestions = await screen.findByRole("region", {
       name: "Metadata Suggestions",
     });
+    const acceptedMetadataNameInput = await within(
+      metadataSuggestions,
+    ).findByLabelText("Accepted metadata name");
+    fireEvent.change(acceptedMetadataNameInput, {
+      target: { value: "Secret" },
+    });
+    fireEvent.click(await screen.findByText("Secret Tag"));
+
     fireEvent.change(
-      await within(metadataSuggestions).findByLabelText(
+      within(metadataSuggestions).getByLabelText(
         "Accept Family as metadata kind",
       ),
       { target: { value: "performer" } },
     );
-    fireEvent.change(
-      within(metadataSuggestions).getByLabelText("Accepted metadata name"),
-      { target: { value: "Secret Performer" } },
-    );
+    fireEvent.change(acceptedMetadataNameInput, {
+      target: { value: "Secret Performer" },
+    });
+    fireEvent.click(await screen.findByText("Secret Performer"));
     fireEvent.click(
       within(metadataSuggestions).getByRole("button", {
         name: "Accept",
