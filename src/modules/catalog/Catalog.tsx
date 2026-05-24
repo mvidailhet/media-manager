@@ -5,8 +5,8 @@ import type {
   MetadataSuggestionGroup,
   RejectMetadataSuggestionSourceRequest,
 } from "../../tauriCommands";
-import type { BatchMetadataValue } from "./SelectionPanel/BatchEditPanel";
-import type { BatchTrashTarget } from "./SelectionPanel/BatchEditPanel/batchTrashTypes";
+import type { BatchMetadataValue } from "./SelectionPanel/batchMetadataTypes";
+import type { BatchTrashTarget } from "./SelectionPanel/batchTrashTypes";
 import type { VideoSelectionModifiers } from "./useCatalogModuleController";
 import type {
   CatalogMetadataSuggestionAcceptanceRequest,

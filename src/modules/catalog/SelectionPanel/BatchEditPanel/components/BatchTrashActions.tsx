@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button, Stack, Text } from "@mantine/core";
 
 import { MoveToTrashConfirmation } from "../../../../../components/MoveToTrashConfirmation";
-import type { BatchTrashTarget } from "../batchTrashTypes";
+import type { BatchTrashTarget } from "../../batchTrashTypes";
 
 export function BatchTrashActions({
   onMoveToTrash,

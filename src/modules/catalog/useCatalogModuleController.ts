@@ -19,8 +19,8 @@ import type {
   CatalogView,
 } from "./catalogTypes";
 import type { CatalogProps } from "./Catalog";
-import type { BatchTrashTarget } from "./SelectionPanel/BatchEditPanel/batchTrashTypes";
-import { useBatchMetadataController } from "./SelectionPanel/BatchEditPanel/useBatchMetadataController";
+import type { BatchTrashTarget } from "./SelectionPanel/batchTrashTypes";
+import { useBatchMetadataController } from "./SelectionPanel/useBatchMetadataController";
 import { useSelectedVideoController } from "./SelectionPanel/useSelectedVideoController";
 import { useMetadataSuggestionsController } from "./MetadataSuggestionsPanel/useMetadataSuggestionsController";
 import { useVideosPanelController } from "./VideosPanel/useVideosPanelController";
