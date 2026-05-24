@@ -209,6 +209,25 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows an always-present Selection Panel with an empty state", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+    ]);
+
+    renderApp();
+
+    const selectionPanel = await screen.findByRole("complementary", {
+      name: "Selection Panel",
+    });
+
+    expect(within(selectionPanel).getByText("No video selected")).toBeVisible();
+    expect(
+      within(selectionPanel).getByText(
+        "Select one video for details or select multiple videos for batch editing.",
+      ),
+    ).toBeVisible();
+  });
+
   it("returns from Metadata Suggestions to Videos View without main Catalog tabs", async () => {
     mockedListMetadataSuggestionGroups.mockResolvedValue([
       {
@@ -3014,17 +3033,16 @@ describe("Catalog module", () => {
 
     fireEvent.keyDown(gammaClipCard, { key: "Escape" });
 
-    await waitFor(() => {
-      expect(
-        screen.queryByRole("region", { name: "Batch Edit Panel" }),
-      ).not.toBeInTheDocument();
-    });
+    await screen.findByText("No video selected");
+    expect(
+      screen.queryByRole("region", { name: "Batch Edit Panel" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "Video Detail Panel" }),
     ).not.toBeInTheDocument();
   });
 
-  it("clears Video selection when filters change", async () => {
+  it("clears Video selection when filters or sort change", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Family Trip"),
       catalogVideoFixture(2, "City Walk"),
@@ -3048,9 +3066,105 @@ describe("Catalog module", () => {
       target: { value: "City" },
     });
 
+    expect(await screen.findByText("No video selected")).toBeVisible();
     expect(
       screen.queryByRole("region", { name: "Video Detail Panel" }),
     ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: "City Walk",
+      }),
+    );
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toBeInTheDocument();
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "fileSizeAscending" },
+    });
+
+    expect(await screen.findByText("No video selected")).toBeVisible();
+    expect(
+      screen.queryByRole("region", { name: "Video Detail Panel" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps checked Metadata Suggestion Videos separate from Batch Edit targets", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "Family",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+              {
+                videoId: 8,
+                title: "Birthday",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/birthday.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(7, "Family Trip"),
+      catalogVideoFixture(8, "Birthday"),
+    ]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    expandMetadataSuggestionBranch(
+      metadataSuggestions,
+      "/Volumes/Archive/Videos",
+      "/Family",
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Batch Edit Panel" }),
+    ).not.toBeInTheDocument();
+    expect(await screen.findByText("No video selected")).toBeVisible();
+
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "family-trip.mp4",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("Family Trip");
+    expect(
+      screen.queryByRole("region", { name: "Batch Edit Panel" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept",
+      }),
+    );
+
+    expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
+      scanRootPath: "/Volumes/Archive/Videos",
+      suggestedValue: "Family",
+      sourcePathSegment: "Family",
+      suggestionKind: "tag",
+      videoIds: [7, 8],
+    });
   });
 
   it("selects Videos touched by a drag rectangle", async () => {

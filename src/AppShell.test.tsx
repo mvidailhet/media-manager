@@ -10,12 +10,6 @@ import {
   openScanModule,
   openSettingsModule,
 } from "./test/AppTestHarness";
-import {
-  expandedVideoDetailAsideWidth,
-  getVideoDetailAsideWidth,
-  videoDetailAsideBreakpoint,
-  videoDetailAsideWidth,
-} from "./App";
 
 const appStylesSource = readFileSync(
   "src/App.module.css",
@@ -25,7 +19,7 @@ const appStylesSource = readFileSync(
 describe("App shell", () => {
   beforeEach(resetAppTestHarness);
 
-  it("renders the selected Video Detail Panel in the AppShell aside", async () => {
+  it("renders the Catalog-owned Selection Panel in the main workspace", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -61,7 +55,10 @@ describe("App shell", () => {
       name: "Catalog Videos",
     });
 
-    expect(screen.queryByRole("complementary")).not.toBeInTheDocument();
+    const selectionPanel = await screen.findByRole("complementary", {
+      name: "Selection Panel",
+    });
+    expect(within(selectionPanel).getByText("No video selected")).toBeVisible();
 
     fireEvent.click(
       await within(catalogVideos).findByRole("article", {
@@ -69,17 +66,15 @@ describe("App shell", () => {
       }),
     );
 
-    const appAside = screen.getByRole("complementary");
     const appMain = screen.getByRole("main");
-    const detailPanel = await within(appAside).findByRole("region", {
+    const detailPanel = await within(selectionPanel).findByRole("region", {
       name: "Video Detail Panel",
     });
 
-    expect(videoDetailAsideWidth).toBe(560);
     expect(appMain.className).toMatch(/mainContent/);
     expect(detailPanel).toBeInTheDocument();
     expect(
-      within(appMain).queryByRole("region", { name: "Video Detail Panel" }),
+      document.querySelector(".mantine-AppShell-aside"),
     ).not.toBeInTheDocument();
 
     fireEvent.click(
@@ -89,7 +84,7 @@ describe("App shell", () => {
     );
 
     expect(
-      await within(appAside).findByRole("heading", { name: "City Walk" }),
+      await within(selectionPanel).findByRole("heading", { name: "City Walk" }),
     ).toBeInTheDocument();
   });
 
@@ -117,9 +112,12 @@ describe("App shell", () => {
       name: "Catalog Videos",
     });
 
-    expect(appStylesSource).toMatch(
-      /\.mainContent\s*{[^}]*padding-right:\s*var\(--app-shell-aside-offset,\s*0rem\)/s,
+    expect(appStylesSource).not.toMatch(
+      /padding-right:\s*var\(--app-shell-aside-offset/,
     );
+    expect(await screen.findByRole("complementary", {
+      name: "Selection Panel",
+    })).toBeInTheDocument();
 
     fireEvent.click(
       within(catalogVideos).getByRole("article", {
@@ -127,63 +125,10 @@ describe("App shell", () => {
       }),
     );
 
-    expect(await screen.findByRole("complementary")).toBeInTheDocument();
+    expect(await screen.findByRole("complementary", {
+      name: "Selection Panel",
+    })).toBeInTheDocument();
     expect(appMain.className).toMatch(/mainContent/);
-  });
-
-  it("keeps the Video Detail aside in desktop side-panel mode at narrow app widths", () => {
-    expect(videoDetailAsideBreakpoint).toBe(0);
-  });
-
-  it("expands and retracts the selected Video Detail aside between two widths", async () => {
-    mockedListCatalogVideos.mockResolvedValue([
-      {
-        id: 1,
-        title: "Family Trip",
-        durationMilliseconds: 3723000,
-        fileSizeBytes: 80740352,
-        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
-        isAvailable: true,
-        fileLocations: [],
-        isFavorite: false,
-        lastOpenedAt: null,
-        openCount: 0,
-        previewStrip: pendingPreviewStrip,
-      },
-    ]);
-
-    renderApp();
-
-    const catalogVideos = await screen.findByRole("region", {
-      name: "Catalog Videos",
-    });
-
-    fireEvent.click(
-      await within(catalogVideos).findByRole("article", {
-        name: "Family Trip",
-      }),
-    );
-
-    const appAside = screen.getByRole("complementary");
-    const expandButton = await within(appAside).findByRole("button", {
-      name: "Expand Panel",
-    });
-
-    expect(getVideoDetailAsideWidth(false)).toBe(videoDetailAsideWidth);
-
-    fireEvent.click(expandButton);
-
-    expect(getVideoDetailAsideWidth(true)).toBe(expandedVideoDetailAsideWidth);
-    expect(
-      within(appAside).getByRole("button", {
-        name: "Retract Panel",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(appAside).queryByRole("button", {
-        name: "Expand Panel",
-      }),
-    ).not.toBeInTheDocument();
   });
 
   it("renders Catalog as the initial module workspace", async () => {

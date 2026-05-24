@@ -1,7 +1,0 @@
-.container {
-  left: -5px;
-  position: absolute;
-  top: var(--mantine-spacing-md);
-  transform: translateX(-50%);
-  z-index: 1;
-}

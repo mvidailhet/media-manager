@@ -1,1 +1,0 @@
-export { CatalogDetailAside } from "./CatalogDetailAside";
