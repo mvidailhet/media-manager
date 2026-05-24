@@ -74,8 +74,8 @@ describe("App shell", () => {
     expect(appMain.className).toMatch(/mainContent/);
     expect(detailPanel).toBeInTheDocument();
     expect(
-      within(appMain).getByRole("region", { name: "Video Detail Panel" }),
-    ).toBeInTheDocument();
+      document.querySelector(".mantine-AppShell-aside"),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(
       within(catalogVideos).getByRole("article", {

@@ -3138,6 +3138,33 @@ describe("Catalog module", () => {
       screen.queryByRole("region", { name: "Batch Edit Panel" }),
     ).not.toBeInTheDocument();
     expect(await screen.findByText("No video selected")).toBeVisible();
+
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "family-trip.mp4",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("Family Trip");
+    expect(
+      screen.queryByRole("region", { name: "Batch Edit Panel" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept",
+      }),
+    );
+
+    expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
+      scanRootPath: "/Volumes/Archive/Videos",
+      suggestedValue: "Family",
+      sourcePathSegment: "Family",
+      suggestionKind: "tag",
+      videoIds: [7, 8],
+    });
   });
 
   it("selects Videos touched by a drag rectangle", async () => {

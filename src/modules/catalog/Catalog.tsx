@@ -118,47 +118,49 @@ export function Catalog(props: CatalogProps) {
 
   return (
     <div className={styles.catalogWorkspace}>
-      {isVideosView ? (
-        <>
-          <CatalogToolbar
-            metadataSuggestionGroupCount={metadataSuggestionGroups.length}
-            onOpenMetadataSuggestionsReview={() =>
-              onCatalogViewChange("metadataSuggestions")
-            }
-          />
-          <VideosPanel
+      <div className={styles.catalogContent}>
+        {isVideosView ? (
+          <>
+            <CatalogToolbar
+              metadataSuggestionGroupCount={metadataSuggestionGroups.length}
+              onOpenMetadataSuggestionsReview={() =>
+                onCatalogViewChange("metadataSuggestions")
+              }
+            />
+            <VideosPanel
+              availablePerformers={availablePerformers}
+              availableTags={availableTags}
+              catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
+              catalogVideoFilters={catalogVideoFilters}
+              catalogVideoMetadataById={catalogVideoMetadataById}
+              catalogVideoSort={catalogVideoSort}
+              allCatalogVideos={allCatalogVideos}
+              catalogVideos={catalogVideos}
+              catalogVideosStatusMessage={catalogVideosStatusMessage}
+              hasMoreCatalogVideos={hasMoreCatalogVideos}
+              onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
+              onCatalogVideoSortChange={onCatalogVideoSortChange}
+              onSetFavorite={onSetFavorite}
+              onClearVideoSelection={onClearVideoSelection}
+              onExposeNextCatalogVideoBatch={onExposeNextCatalogVideoBatch}
+              onReplaceSelectedVideos={onReplaceSelectedVideos}
+              onSelectVideo={onSelectVideo}
+              selectedDetailVideoId={selectedDetailVideoId}
+              selectedVideoIds={selectedVideoIds}
+            />
+          </>
+        ) : (
+          <MetadataSuggestionsSection
             availablePerformers={availablePerformers}
             availableTags={availableTags}
-            catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
-            catalogVideoFilters={catalogVideoFilters}
-            catalogVideoMetadataById={catalogVideoMetadataById}
-            catalogVideoSort={catalogVideoSort}
-            allCatalogVideos={allCatalogVideos}
-            catalogVideos={catalogVideos}
-            catalogVideosStatusMessage={catalogVideosStatusMessage}
-            hasMoreCatalogVideos={hasMoreCatalogVideos}
-            onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
-            onCatalogVideoSortChange={onCatalogVideoSortChange}
-            onSetFavorite={onSetFavorite}
-            onClearVideoSelection={onClearVideoSelection}
-            onExposeNextCatalogVideoBatch={onExposeNextCatalogVideoBatch}
-            onReplaceSelectedVideos={onReplaceSelectedVideos}
-            onSelectVideo={onSelectVideo}
-            selectedDetailVideoId={selectedDetailVideoId}
-            selectedVideoIds={selectedVideoIds}
+            metadataSuggestionGroups={metadataSuggestionGroups}
+            onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
+            onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
+            onReviewVideo={onReviewVideo}
+            onReturnToVideosView={() => onCatalogViewChange("videos")}
           />
-        </>
-      ) : (
-        <MetadataSuggestionsSection
-          availablePerformers={availablePerformers}
-          availableTags={availableTags}
-          metadataSuggestionGroups={metadataSuggestionGroups}
-          onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
-          onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
-          onReviewVideo={onReviewVideo}
-          onReturnToVideosView={() => onCatalogViewChange("videos")}
-        />
-      )}
+        )}
+      </div>
       <SelectionPanel {...props} />
     </div>
   );
