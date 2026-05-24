@@ -7,6 +7,7 @@ import type {
 } from "../../../tauriCommands";
 import { SectionHeader } from "../../../shared/components/SectionHeader";
 import { RootCard } from "./components/RootCard";
+import { SecretMetadataSection } from "./components/SecretMetadataSection";
 
 export function RootsPanel({
   onChooseScanRootFolder,
@@ -60,6 +61,8 @@ export function RootsPanel({
         </Group>
 
         {scanRootsStatusMessage ? <Text>{scanRootsStatusMessage}</Text> : null}
+
+        <SecretMetadataSection />
 
         {scanRoots.length > 0 ? (
           <Stack gap="sm">

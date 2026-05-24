@@ -291,8 +291,12 @@ export async function createTag(
 export async function updateTag(
   tagId: number,
   name: string,
+  isSecret?: boolean,
 ): Promise<CatalogTag> {
-  return invoke<CatalogTag>(updateTagCommand, { tagId, name });
+  const request =
+    isSecret === undefined ? { tagId, name } : { isSecret, tagId, name };
+
+  return invoke<CatalogTag>(updateTagCommand, request);
 }
 
 export async function deleteTag(tagId: number): Promise<void> {
@@ -313,11 +317,14 @@ export async function createPerformer(
 export async function updatePerformer(
   performerId: number,
   name: string,
+  isSecret?: boolean,
 ): Promise<CatalogPerformer> {
-  return invoke<CatalogPerformer>(updatePerformerCommand, {
-    performerId,
-    name,
-  });
+  const request =
+    isSecret === undefined
+      ? { performerId, name }
+      : { isSecret, performerId, name };
+
+  return invoke<CatalogPerformer>(updatePerformerCommand, request);
 }
 
 export async function deletePerformer(performerId: number): Promise<void> {

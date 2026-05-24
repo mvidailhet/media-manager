@@ -50,6 +50,8 @@ import {
   moveCatalogVideoFileLocationToTrash,
   tagsForVideo,
   updateScanRootInferenceRules,
+  updatePerformer,
+  updateTag,
   updateVideoTitle,
 } from "../tauriCommands";
 
@@ -105,6 +107,8 @@ vi.mock("../tauriCommands", () => ({
   moveCatalogVideoFileLocationToTrash: vi.fn(),
   tagsForVideo: vi.fn(),
   updateScanRootInferenceRules: vi.fn(),
+  updatePerformer: vi.fn(),
+  updateTag: vi.fn(),
   updateVideoTitle: vi.fn(),
 }));
 
@@ -134,6 +138,8 @@ export const mockedAttachPerformerToVideo = vi.mocked(attachPerformerToVideo);
 export const mockedDetachPerformerFromVideo = vi.mocked(detachPerformerFromVideo);
 export const mockedCreateTag = vi.mocked(createTag);
 export const mockedCreatePerformer = vi.mocked(createPerformer);
+export const mockedUpdateTag = vi.mocked(updateTag);
+export const mockedUpdatePerformer = vi.mocked(updatePerformer);
 export const mockedUpdateVideoTitle = vi.mocked(updateVideoTitle);
 export const mockedSetVideoFavorite = vi.mocked(setVideoFavorite);
 export const mockedOpenCatalogVideoContainingFolder = vi.mocked(
@@ -288,6 +294,18 @@ export function resetAppTestHarness() {
     mockedDetachPerformerFromVideo.mockResolvedValue(undefined);
     mockedCreateTag.mockResolvedValue({ id: 100, isSecret: false, name: "New Tag" });
     mockedCreatePerformer.mockResolvedValue({ id: 200, isSecret: false, name: "New Performer" });
+    mockedUpdateTag.mockImplementation(async (tagId, name, isSecret = false) => ({
+      id: tagId,
+      isSecret,
+      name,
+    }));
+    mockedUpdatePerformer.mockImplementation(
+      async (performerId, name, isSecret = false) => ({
+        id: performerId,
+        isSecret,
+        name,
+      }),
+    );
     mockedUpdateVideoTitle.mockResolvedValue(undefined);
     mockedSetVideoFavorite.mockResolvedValue(undefined);
     mockedOpenCatalogVideoContainingFolder.mockResolvedValue(undefined);
