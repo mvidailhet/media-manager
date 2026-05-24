@@ -203,6 +203,7 @@ export function useCatalogModuleController(): CatalogController {
     moveVideoFileLocationToTrash,
     openVideo,
     openVideoContainingFolder,
+    playVideoInApp,
     refreshCatalogVideos,
     renameVideo,
     setCatalogVideoActionStatusMessage,
@@ -639,6 +640,16 @@ export function useCatalogModuleController(): CatalogController {
   async function openVideoContainingFolderFromCatalog(video: CatalogVideo) {
     try {
       await openVideoContainingFolder(video.id);
+      setCatalogVideoActionStatusMessage("");
+    } catch (error) {
+      setCatalogVideoActionStatusMessage(errorMessage(error));
+    }
+  }
+
+  async function playVideoInAppFromCatalog(video: CatalogVideo) {
+    try {
+      await playVideoInApp(video.id);
+      await refreshCatalogVideos();
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -1280,6 +1291,7 @@ export function useCatalogModuleController(): CatalogController {
       onDetachTag: detachTagFromSelectedVideo,
       onOpenVideo: openVideoFromCatalog,
       onOpenVideoContainingFolder: openVideoContainingFolderFromCatalog,
+      onPlayVideoInApp: playVideoInAppFromCatalog,
       onMoveSelectedVideoFileLocationToTrash:
         moveSelectedVideoFileLocationToTrash,
       onMoveBatchPreferredFileLocationsToTrash:

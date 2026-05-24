@@ -94,3 +94,26 @@ fn video_start_time_open_command_uses_vlc_on_linux() {
     assert_eq!(linux_command.program, "vlc");
     assert!(linux_command.should_detach);
 }
+
+#[test]
+fn playback_window_format_allowlist_accepts_browser_native_extensions() {
+    assert!(is_playback_window_file_location(std::path::Path::new(
+        "/Volumes/Archive/Videos/family trip.mp4"
+    )));
+    assert!(is_playback_window_file_location(std::path::Path::new(
+        "/Volumes/Archive/Videos/family trip.MOV"
+    )));
+    assert!(is_playback_window_file_location(std::path::Path::new(
+        "/Volumes/Archive/Videos/family trip.webm"
+    )));
+}
+
+#[test]
+fn playback_window_format_allowlist_rejects_other_extensions() {
+    assert!(!is_playback_window_file_location(std::path::Path::new(
+        "/Volumes/Archive/Videos/family trip.mkv"
+    )));
+    assert!(!is_playback_window_file_location(std::path::Path::new(
+        "/Volumes/Archive/Videos/family trip"
+    )));
+}

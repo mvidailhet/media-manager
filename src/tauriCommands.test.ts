@@ -7,6 +7,7 @@ import {
   checkScanRootAvailability,
   forgetCatalogVideo,
   getPreviewStripQueueStatus,
+  getCurrentPlaybackWindowVideo,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
   ignoreFailedPreviewStrip,
@@ -39,6 +40,7 @@ import {
   setVideoFavorite,
   openCatalogVideoContainingFolder,
   openCatalogVideo,
+  openPlaybackWindow,
   moveCatalogVideoFileLocationToTrash,
   updatePerformer,
   updateScanRootInferenceRules,
@@ -105,6 +107,31 @@ describe("Tauri commands", () => {
       startAtSeconds: 83,
       videoId: 7,
     });
+  });
+
+  it("calls the typed Rust command for opening a Video in the Playback Window", async () => {
+    await openPlaybackWindow(7);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("open_playback_window", {
+      videoId: 7,
+    });
+  });
+
+  it("calls the typed Rust command for the current Playback Window Video", async () => {
+    mockedInvoke.mockResolvedValue({
+      path: "/Volumes/Archive/Videos/family-trip.mp4",
+      title: "Family Trip",
+      videoId: 7,
+    });
+
+    const playbackVideo = await getCurrentPlaybackWindowVideo();
+
+    expect(playbackVideo).toEqual({
+      path: "/Volumes/Archive/Videos/family-trip.mp4",
+      title: "Family Trip",
+      videoId: 7,
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("get_current_playback_window_video");
   });
 
   it("calls the typed Rust command for opening a Catalog Video containing folder", async () => {

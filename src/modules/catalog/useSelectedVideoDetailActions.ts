@@ -14,6 +14,7 @@ export type SelectedVideoDetailActions = {
   moveFileLocationToTrash: (path: string) => void;
   openContainingFolder: () => void;
   openVideo: (startAtSeconds: number) => void;
+  playVideoInApp: () => void;
   saveTitle: (title: string) => void;
   setFavorite: (isFavorite: boolean) => void;
 };
@@ -28,6 +29,7 @@ export function useSelectedVideoDetailActions({
   onMoveFileLocationToTrash,
   onOpenVideo,
   onOpenVideoContainingFolder,
+  onPlayVideoInApp,
   onSaveTitle,
   onSetSelectedFavorite,
   selectedVideo,
@@ -41,6 +43,7 @@ export function useSelectedVideoDetailActions({
   onMoveFileLocationToTrash: (path: string) => void;
   onOpenVideo: (catalogVideo: CatalogVideo, startAtSeconds: number) => void;
   onOpenVideoContainingFolder: (catalogVideo: CatalogVideo) => void;
+  onPlayVideoInApp: (catalogVideo: CatalogVideo) => void;
   onSaveTitle: (title: string) => void;
   onSetSelectedFavorite: (isFavorite: boolean) => void;
   selectedVideo: CatalogVideo | null;
@@ -61,6 +64,11 @@ export function useSelectedVideoDetailActions({
     openVideo: (startAtSeconds: number) => {
       if (selectedVideo) {
         onOpenVideo(selectedVideo, startAtSeconds);
+      }
+    },
+    playVideoInApp: () => {
+      if (selectedVideo) {
+        onPlayVideoInApp(selectedVideo);
       }
     },
     saveTitle: onSaveTitle,

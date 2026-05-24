@@ -25,6 +25,7 @@ import {
   mockedSetVideoFavorite,
   mockedOpenCatalogVideoContainingFolder,
   mockedOpenCatalogVideo,
+  mockedOpenPlaybackWindow,
   mockedMoveCatalogVideoFileLocationToTrash,
   mockedRetryFailedPreviewStrip,
   mockedIgnoreFailedPreviewStrip,
@@ -1974,6 +1975,115 @@ describe("Catalog module", () => {
       expect(mockedListCatalogVideos).toHaveBeenCalledTimes(2);
     });
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+  });
+
+  it("plays an allowlisted preferred File Location in the Playback Window and refreshes Catalog Videos", async () => {
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          isAvailable: true,
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+          ],
+          isFavorite: false,
+          lastOpenedAt: null,
+          openCount: 0,
+          previewStrip: pendingPreviewStrip,
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          id: 1,
+          title: "Family Trip",
+          durationMilliseconds: 3723000,
+          fileSizeBytes: 80740352,
+          fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+          isAvailable: true,
+          fileLocations: [
+            {
+              path: "/Volumes/Archive/Videos/family-trip.mp4",
+              fileSizeBytes: 80740352,
+              isPreferred: true,
+              isReachable: true,
+            },
+          ],
+          isFavorite: false,
+          lastOpenedAt: "2026-05-15 18:00:00",
+          openCount: 1,
+          previewStrip: pendingPreviewStrip,
+        },
+      ]);
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("article", {
+        name: "Family Trip",
+      }),
+    );
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(
+      within(detailPanel).getByRole("button", { name: "Play in App" }),
+    );
+
+    await waitFor(() => {
+      expect(mockedOpenPlaybackWindow).toHaveBeenCalledWith(1);
+    });
+    await waitFor(() => {
+      expect(mockedListCatalogVideos).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("does not offer Playback Window for a preferred File Location outside the allowlist", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Studio Archive",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/studio-archive.mkv",
+        isAvailable: true,
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/studio-archive.mkv",
+            fileSizeBytes: 80740352,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    fireEvent.click(
+      await screen.findByRole("article", {
+        name: "Studio Archive",
+      }),
+    );
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+
+    expect(
+      within(detailPanel).queryByRole("button", { name: "Play in App" }),
+    ).not.toBeInTheDocument();
   });
 
   it("opens selected Video at the hovered Preview Strip time", async () => {

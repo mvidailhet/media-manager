@@ -7,6 +7,7 @@ import {
   moveCatalogVideoFileLocationToTrash,
   openCatalogVideo,
   openCatalogVideoContainingFolder,
+  openPlaybackWindow,
   setVideoFavorite,
   updateVideoTitle,
 } from "../../tauriCommands";
@@ -69,6 +70,7 @@ export function useCatalogVideos() {
     moveVideoFileLocationToTrash: moveCatalogVideoFileLocationToTrash,
     openVideo: openCatalogVideo,
     openVideoContainingFolder: openCatalogVideoContainingFolder,
+    playVideoInApp: openPlaybackWindow,
     refreshCatalogVideos,
     renameVideo: updateVideoTitle,
     setCatalogVideoActionStatusMessage,

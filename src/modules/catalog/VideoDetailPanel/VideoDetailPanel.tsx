@@ -8,6 +8,7 @@ import type {
   CatalogVideo,
 } from "../../../tauriCommands";
 import { VideoPreview } from "../components/VideoPreview/VideoPreview";
+import { isPlaybackWindowFileLocation } from "../../playback/playbackFormats";
 import type { SelectedVideoDetailActions } from "../useSelectedVideoDetailActions";
 import { ActionButtons } from "./components/ActionButtons";
 import { FileLocationsSection } from "./components/FileLocationsSection";
@@ -36,6 +37,9 @@ export function VideoDetailPanel({
   const preferredReachableFileLocation = fileLocations.find(
     (fileLocation) => fileLocation.isPreferred && fileLocation.isReachable,
   );
+  const canPlayInApp = preferredReachableFileLocation
+    ? isPlaybackWindowFileLocation(preferredReachableFileLocation.path)
+    : false;
   const [fileLocationPendingTrash, setFileLocationPendingTrash] = useState<
     string | null
   >(null);
@@ -73,6 +77,7 @@ export function VideoDetailPanel({
         />
         <ActionButtons
           isAvailable={video.isAvailable}
+          canPlayInApp={canPlayInApp}
           onMovePreferredFileLocationToTrash={
             preferredReachableFileLocation
               ? () =>
@@ -82,6 +87,7 @@ export function VideoDetailPanel({
               : undefined
           }
           onOpenVideo={(startAtSeconds) => void actions.openVideo(startAtSeconds)}
+          onPlayVideoInApp={() => void actions.playVideoInApp()}
           onOpenContainingFolder={() => void actions.openContainingFolder()}
         />
 

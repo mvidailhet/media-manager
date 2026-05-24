@@ -25,6 +25,8 @@ const performersForVideoCommand = "performers_for_video";
 const updateVideoTitleCommand = "update_video_title";
 const setVideoFavoriteCommand = "set_video_favorite";
 const openCatalogVideoCommand = "open_catalog_video";
+const openPlaybackWindowCommand = "open_playback_window";
+const getCurrentPlaybackWindowVideoCommand = "get_current_playback_window_video";
 const openCatalogVideoContainingFolderCommand =
   "open_catalog_video_containing_folder";
 const moveCatalogVideoFileLocationToTrashCommand =
@@ -218,6 +220,12 @@ export type ScanRootRemovalPolicy =
   | "preserveMissingVideos"
   | "forgetFromCatalog";
 
+export interface PlaybackWindowVideo {
+  path: string;
+  title: string;
+  videoId: number;
+}
+
 export type FfmpegConfiguration = {
   ffmpegPath: string | null;
   ffprobePath: string | null;
@@ -391,6 +399,14 @@ export async function openCatalogVideo(
   startAtSeconds = 0,
 ): Promise<void> {
   return invoke<void>(openCatalogVideoCommand, { startAtSeconds, videoId });
+}
+
+export async function openPlaybackWindow(videoId: number): Promise<void> {
+  return invoke<void>(openPlaybackWindowCommand, { videoId });
+}
+
+export async function getCurrentPlaybackWindowVideo(): Promise<PlaybackWindowVideo | null> {
+  return invoke<PlaybackWindowVideo | null>(getCurrentPlaybackWindowVideoCommand);
 }
 
 export async function openCatalogVideoContainingFolder(

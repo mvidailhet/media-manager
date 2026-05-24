@@ -22,6 +22,7 @@ import {
   detachPerformerFromVideo,
   detachTagFromVideo,
   forgetCatalogVideo,
+  getCurrentPlaybackWindowVideo,
   getPreviewStripQueueStatus,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
@@ -47,6 +48,7 @@ import {
   setVideoFavorite,
   openCatalogVideoContainingFolder,
   openCatalogVideo,
+  openPlaybackWindow,
   moveCatalogVideoFileLocationToTrash,
   tagsForVideo,
   updateScanRootInferenceRules,
@@ -79,6 +81,7 @@ vi.mock("../tauriCommands", () => ({
   detachPerformerFromVideo: vi.fn(),
   detachTagFromVideo: vi.fn(),
   forgetCatalogVideo: vi.fn(),
+  getCurrentPlaybackWindowVideo: vi.fn(),
   getPreviewStripQueueStatus: vi.fn(),
   getFfmpegToolsStatus: vi.fn(),
   getLocalDesktopAppStatus: vi.fn(),
@@ -104,6 +107,7 @@ vi.mock("../tauriCommands", () => ({
   setVideoFavorite: vi.fn(),
   openCatalogVideoContainingFolder: vi.fn(),
   openCatalogVideo: vi.fn(),
+  openPlaybackWindow: vi.fn(),
   moveCatalogVideoFileLocationToTrash: vi.fn(),
   tagsForVideo: vi.fn(),
   updateScanRootInferenceRules: vi.fn(),
@@ -146,6 +150,7 @@ export const mockedOpenCatalogVideoContainingFolder = vi.mocked(
   openCatalogVideoContainingFolder,
 );
 export const mockedOpenCatalogVideo = vi.mocked(openCatalogVideo);
+export const mockedOpenPlaybackWindow = vi.mocked(openPlaybackWindow);
 export const mockedMoveCatalogVideoFileLocationToTrash = vi.mocked(
   moveCatalogVideoFileLocationToTrash,
 );
@@ -166,6 +171,9 @@ export const mockedAddScanRoot = vi.mocked(addScanRoot);
 export const mockedCheckScanRootAvailability = vi.mocked(checkScanRootAvailability);
 export const mockedCancelScanRootRefreshJob = vi.mocked(cancelScanRootRefreshJob);
 export const mockedForgetCatalogVideo = vi.mocked(forgetCatalogVideo);
+export const mockedGetCurrentPlaybackWindowVideo = vi.mocked(
+  getCurrentPlaybackWindowVideo,
+);
 export const mockedGetPreviewStripQueueStatus = vi.mocked(getPreviewStripQueueStatus);
 export const mockedPausePreviewStripQueue = vi.mocked(pausePreviewStripQueue);
 export const mockedProcessNextPreviewStripQueueItem = vi.mocked(
@@ -310,6 +318,7 @@ export function resetAppTestHarness() {
     mockedSetVideoFavorite.mockResolvedValue(undefined);
     mockedOpenCatalogVideoContainingFolder.mockResolvedValue(undefined);
     mockedOpenCatalogVideo.mockResolvedValue(undefined);
+    mockedOpenPlaybackWindow.mockResolvedValue(undefined);
     mockedMoveCatalogVideoFileLocationToTrash.mockResolvedValue(undefined);
     mockedRetryFailedPreviewStrip.mockResolvedValue({
       pendingCount: 1,
@@ -341,6 +350,7 @@ export function resetAppTestHarness() {
       path,
     }));
     mockedForgetCatalogVideo.mockResolvedValue(undefined);
+    mockedGetCurrentPlaybackWindowVideo.mockResolvedValue(null);
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
       pendingCount: 0,
       runningCount: 0,

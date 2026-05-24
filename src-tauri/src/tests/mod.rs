@@ -8,8 +8,9 @@ use crate::tooling::{
 };
 use crate::{
     file_location_open_command_for_platform, local_desktop_app_status,
-    reveal_file_location_command_for_platform, video_start_time_open_command_for_platform,
-    CATALOG_DATABASE_FILENAME, PREVIEW_STRIP_CACHE_FOLDER_NAME,
+    is_playback_window_file_location, reveal_file_location_command_for_platform,
+    video_start_time_open_command_for_platform, CATALOG_DATABASE_FILENAME,
+    PREVIEW_STRIP_CACHE_FOLDER_NAME,
 };
 
 mod tauri_commands;

@@ -58,6 +58,7 @@ export type CatalogProps = {
   onDetachTag: (tag: CatalogTag) => void;
   onOpenVideo: (catalogVideo: CatalogVideo, startAtSeconds: number) => void;
   onOpenVideoContainingFolder: (catalogVideo: CatalogVideo) => void;
+  onPlayVideoInApp: (catalogVideo: CatalogVideo) => void;
   onMoveSelectedVideoFileLocationToTrash: (path: string) => void;
   onMoveBatchPreferredFileLocationsToTrash: () => Promise<void>;
   onRejectMetadataSuggestionSource: (

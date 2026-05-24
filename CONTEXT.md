@@ -204,6 +204,18 @@ _Avoid_: Review queue
 The focused editing surface for one selected **Video**.
 _Avoid_: Separate detail page
 
+**Playback Window**:
+A separate app surface dedicated to playing one selected **Video**.
+_Avoid_: Custom player, embedded player
+
+**Playback Window Format Allowlist**:
+The set of **Video** file extensions that may be played inside a **Playback Window**.
+_Avoid_: Codec support, video allowlist
+
+**Playback Scrub**:
+A user action that seeks through a **Video** inside a **Playback Window**.
+_Avoid_: Preview Strip hover
+
 **First Vertical Slice**:
 The initial usable path that adds a **Scan Root**, scans it, stores discovered **Videos**, and lists them in the **Videos View**.
 _Avoid_: Prototype shell
@@ -412,6 +424,11 @@ _Avoid_: Favorite edit, metadata suggestion
 - A **Video** can be opened from or revealed at its current **File Location**.
 - Opening a **Video** uses its **Preferred File Location**, falling back to the most recently confirmed available **File Location**.
 - Opening a specific **File Location** manually makes it the **Preferred File Location**.
+- Playing a **Video** in a **Playback Window** uses its **Preferred File Location**.
+- A **Playback Window** is available only when the **Preferred File Location** matches the **Playback Window Format Allowlist**.
+- The app has at most one **Playback Window** open at a time.
+- Playing another **Video** in the **Playback Window** replaces the current **Video** immediately.
+- A **Playback Scrub** seeks the actual **Video** rather than moving across **Preview Strip** frames.
 - A **Video Detail Panel** edits **Title**, **Tags**, **Performers**, and **Favorite** for one selected **Video**.
 - A **Video Detail Panel** shows all **File Locations** for the selected **Video**.
 - **Secret Metadata** belongs globally to each **Tag** or **Performer**, not to a **Scan Root**.

@@ -20,17 +20,33 @@ use preview_generation::{
     generate_preview_strip_request, store_preview_strip_completion, PreviewGenerationRuntime,
     PreviewGenerationStart, PreviewGenerationStatus,
 };
-use serde::Deserialize;
-use tauri::{Emitter, Manager, WebviewWindow, WindowEvent};
+use serde::{Deserialize, Serialize};
+use tauri::{
+    AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder, WindowEvent,
+};
 use tooling::{FfmpegConfiguration, FfmpegToolsStatus};
 
 const LOCAL_DESKTOP_APP_STATUS: &str = "Rust command online";
 const CATALOG_DATABASE_FILENAME: &str = "catalog.sqlite3";
 const PREVIEW_STRIP_CACHE_FOLDER_NAME: &str = "preview-strips";
 const VLC_PLAYBACK_READY_DELAY_SECONDS: f32 = 0.2;
+const PLAYBACK_WINDOW_LABEL: &str = "playback";
+const PLAYBACK_WINDOW_VIDEO_EVENT: &str = "playback-window-video";
 
 struct CatalogState {
     catalog: Arc<Mutex<Catalog>>,
+}
+
+struct PlaybackWindowState {
+    current_video: Mutex<Option<PlaybackWindowVideo>>,
+}
+
+impl PlaybackWindowState {
+    fn empty() -> Self {
+        Self {
+            current_video: Mutex::new(None),
+        }
+    }
 }
 
 struct ScanRootRefreshRuntime {
@@ -117,6 +133,7 @@ fn initialize_catalog(app: &tauri::App) -> Result<(), String> {
     };
 
     app.manage(catalog_state);
+    app.manage(PlaybackWindowState::empty());
     app.manage(PreviewGenerationRuntime::paused());
     app.manage(ScanRootRefreshRuntime::idle());
 
@@ -128,6 +145,14 @@ fn initialize_catalog(app: &tauri::App) -> Result<(), String> {
 enum ScanRootRemovalPolicy {
     PreserveMissingVideos,
     ForgetFromCatalog,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct PlaybackWindowVideo {
+    video_id: i64,
+    title: String,
+    path: String,
 }
 
 #[tauri::command]
@@ -463,6 +488,69 @@ fn open_catalog_video(
 }
 
 #[tauri::command]
+fn open_playback_window(
+    app_handle: AppHandle,
+    catalog_state: tauri::State<'_, CatalogState>,
+    playback_window_state: tauri::State<'_, PlaybackWindowState>,
+    video_id: i64,
+) -> Result<(), String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+    let file_location_path = catalog.preferred_file_location_path(video_id)?;
+
+    if !is_playback_window_file_location(&file_location_path) {
+        return Err("Video is not supported by the Playback Window".to_string());
+    }
+
+    let catalog_video = catalog
+        .listed_videos()?
+        .into_iter()
+        .find(|video| video.id == video_id)
+        .ok_or_else(|| "Video is not in the Catalog".to_string())?;
+    let playback_window_video = PlaybackWindowVideo {
+        video_id,
+        title: catalog_video.title,
+        path: file_location_path.to_string_lossy().into_owned(),
+    };
+    {
+        let mut current_video = playback_window_state
+            .current_video
+            .lock()
+            .map_err(|error| error.to_string())?;
+        *current_video = Some(playback_window_video.clone());
+    }
+
+    app_handle
+        .asset_protocol_scope()
+        .allow_file(&file_location_path)
+        .map_err(|error| error.to_string())?;
+
+    let playback_window = playback_window(&app_handle)?;
+    playback_window
+        .set_focus()
+        .map_err(|error| error.to_string())?;
+    playback_window
+        .emit(PLAYBACK_WINDOW_VIDEO_EVENT, playback_window_video)
+        .map_err(|error| error.to_string())?;
+
+    catalog.record_video_opened(video_id)
+}
+
+#[tauri::command]
+fn get_current_playback_window_video(
+    playback_window_state: tauri::State<'_, PlaybackWindowState>,
+) -> Result<Option<PlaybackWindowVideo>, String> {
+    let current_video = playback_window_state
+        .current_video
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    Ok(current_video.clone())
+}
+
+#[tauri::command]
 fn open_catalog_video_containing_folder(
     catalog_state: tauri::State<'_, CatalogState>,
     video_id: i64,
@@ -595,6 +683,23 @@ fn open_video_file_location(
     run_open_command(&open_command)
 }
 
+fn playback_window(app_handle: &AppHandle) -> Result<WebviewWindow, String> {
+    if let Some(playback_window) = app_handle.get_webview_window(PLAYBACK_WINDOW_LABEL) {
+        return Ok(playback_window);
+    }
+
+    WebviewWindowBuilder::new(
+        app_handle,
+        PLAYBACK_WINDOW_LABEL,
+        WebviewUrl::App("index.html?window=playback".into()),
+    )
+    .title("Playback")
+    .inner_size(960.0, 540.0)
+    .min_inner_size(640.0, 360.0)
+    .build()
+    .map_err(|error| error.to_string())
+}
+
 fn run_open_command(open_command: &FileLocationOpenCommand) -> Result<(), String> {
     if open_command.should_detach {
         Command::new(&open_command.program)
@@ -706,6 +811,15 @@ fn percent_encode_file_url_byte(byte: u8) -> String {
     }
 
     format!("%{byte:02X}")
+}
+
+fn is_playback_window_file_location(file_location_path: &Path) -> bool {
+    let Some(extension) = file_location_path.extension() else {
+        return false;
+    };
+    let extension = extension.to_string_lossy().to_lowercase();
+
+    matches!(extension.as_str(), "m4v" | "mov" | "mp4" | "webm")
 }
 
 fn file_location_open_command_for_platform(
@@ -1194,6 +1308,8 @@ pub fn run() {
             update_video_title,
             set_video_favorite,
             open_catalog_video,
+            open_playback_window,
+            get_current_playback_window_video,
             open_catalog_video_containing_folder,
             move_catalog_video_file_location_to_trash,
             open_unprocessable_video_candidate_in_finder,
