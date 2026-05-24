@@ -1,5 +1,4 @@
-import { useEffect, useRef } from "react";
-import type { UIEvent } from "react";
+import { useRef } from "react";
 import { Box, Stack } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../../tauriCommands";
@@ -13,7 +12,6 @@ import { FiltersPanel } from "./components/FiltersPanel";
 import { SortSelect } from "./components/SortSelect";
 import { StatusMessages } from "./components/StatusMessages";
 import { VideoGrid } from "./components/VideoGrid";
-import { incrementalVideoResultLoadThresholdPixels } from "./useVideosPanelController";
 import styles from "./VideosPanel.module.css";
 
 export function VideosPanel({
@@ -25,13 +23,10 @@ export function VideosPanel({
   catalogVideoMetadataById,
   catalogVideoSort,
   catalogVideos,
-  matchingCatalogVideos,
   catalogVideosStatusMessage,
-  hasMoreCatalogVideos,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
   onClearVideoSelection,
-  onExposeNextCatalogVideoBatch,
   onReplaceSelectedVideos,
   onSetFavorite,
   onSelectVideo,
@@ -46,13 +41,10 @@ export function VideosPanel({
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
-  matchingCatalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
-  hasMoreCatalogVideos: boolean;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onClearVideoSelection: () => void;
-  onExposeNextCatalogVideoBatch: () => void;
   onReplaceSelectedVideos: (videoIds: number[]) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   onSelectVideo: (
@@ -64,10 +56,6 @@ export function VideosPanel({
 }) {
   const videosViewElement = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    exposeMoreVideosWhenCurrentBatchCannotScroll();
-  }, [catalogVideos.length, hasMoreCatalogVideos]);
-
   function changeCatalogVideoFilters(filters: CatalogVideoFilters) {
     scrollVideosViewToTop();
     onCatalogVideoFiltersChange(filters);
@@ -78,20 +66,6 @@ export function VideosPanel({
     onCatalogVideoSortChange(sort);
   }
 
-  function exposeNextCatalogVideoBatchNearEnd(
-    event: UIEvent<HTMLElement>,
-  ) {
-    const videosView = event.currentTarget;
-    const remainingScrollPixels =
-      videosView.scrollHeight - videosView.scrollTop - videosView.clientHeight;
-
-    if (remainingScrollPixels > incrementalVideoResultLoadThresholdPixels) {
-      return;
-    }
-
-    onExposeNextCatalogVideoBatch();
-  }
-
   function scrollVideosViewToTop() {
     if (!videosViewElement.current) {
       return;
@@ -100,26 +74,11 @@ export function VideosPanel({
     videosViewElement.current.scrollTop = 0;
   }
 
-  function exposeMoreVideosWhenCurrentBatchCannotScroll() {
-    const videosView = videosViewElement.current;
-
-    if (!videosView || !hasMoreCatalogVideos || videosView.clientHeight === 0) {
-      return;
-    }
-
-    if (videosView.scrollHeight > videosView.clientHeight) {
-      return;
-    }
-
-    onExposeNextCatalogVideoBatch();
-  }
-
   return (
     <Box
       component="section"
       aria-label="Catalog Videos"
       className={styles.videosView}
-      onScroll={exposeNextCatalogVideoBatchNearEnd}
       p="md"
       ref={videosViewElement}
     >
@@ -145,7 +104,6 @@ export function VideosPanel({
         />
 
         <VideoGrid
-          allMatchingCatalogVideos={matchingCatalogVideos}
           catalogVideoMetadataById={catalogVideoMetadataById}
           catalogVideos={catalogVideos}
           onClearVideoSelection={onClearVideoSelection}

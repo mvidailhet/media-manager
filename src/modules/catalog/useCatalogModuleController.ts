@@ -232,9 +232,6 @@ export function useCatalogModuleController(): CatalogController {
   const {
     catalogVideoFilters,
     catalogVideoSort,
-    exposeNextCatalogVideoBatch,
-    filteredCatalogVideos,
-    hasMoreFilteredCatalogVideos,
     matchingCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
@@ -502,7 +499,7 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function videoSelectionRange(targetVideoId: number) {
-    const visibleVideoIds = filteredCatalogVideos.map(
+    const visibleVideoIds = matchingCatalogVideos.map(
       (catalogVideo) => catalogVideo.id,
     );
     const fallbackAnchorVideoId =
@@ -1243,12 +1240,10 @@ export function useCatalogModuleController(): CatalogController {
       catalogVideoFilters,
       catalogVideoMetadataById,
       catalogVideoSort,
-      catalogVideos: filteredCatalogVideos,
-      matchingCatalogVideos,
+      catalogVideos: matchingCatalogVideos,
       catalogVideosStatusMessage,
       catalogView,
       detailStatusMessage,
-      hasMoreCatalogVideos: hasMoreFilteredCatalogVideos,
       metadataSuggestionGroups,
       onAcceptMetadataSuggestionVideos: acceptSelectedMetadataSuggestionVideos,
       onAppendPerformer: appendPerformerToBatchSelectedVideos,
@@ -1258,7 +1253,6 @@ export function useCatalogModuleController(): CatalogController {
       onCatalogVideoFiltersChange: changeCatalogVideoFilters,
       onCatalogVideoSortChange: changeCatalogVideoSort,
       onCatalogViewChange: selectCatalogView,
-      onExposeNextCatalogVideoBatch: exposeNextCatalogVideoBatch,
       onCreateOrAppendPerformer: createOrAppendPerformerToBatchSelectedVideos,
       onCreateOrAppendTag: createOrAppendTagToBatchSelectedVideos,
       onCreateOrAttachPerformer: createOrAttachPerformerToSelectedVideo,

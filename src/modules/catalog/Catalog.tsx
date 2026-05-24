@@ -34,12 +34,10 @@ export type CatalogProps = {
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
-  matchingCatalogVideos: CatalogVideo[];
   allCatalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
   catalogView: CatalogView;
   detailStatusMessage: string;
-  hasMoreCatalogVideos: boolean;
   metadataSuggestionGroups: MetadataSuggestionGroup[];
   onAcceptMetadataSuggestionVideos: (
     request: CatalogMetadataSuggestionAcceptanceRequest,
@@ -52,7 +50,6 @@ export type CatalogProps = {
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onCatalogViewChange: (catalogView: CatalogView) => void;
   onClearVideoSelection: () => void;
-  onExposeNextCatalogVideoBatch: () => void;
   onCreateOrAppendPerformer: (performerName: string) => void;
   onCreateOrAppendTag: (tagName: string) => void;
   onCreateOrAttachPerformer: (performerName: string) => void;
@@ -95,17 +92,14 @@ export function Catalog(props: CatalogProps) {
     catalogVideoMetadataById,
     catalogVideoSort,
     catalogVideos,
-    matchingCatalogVideos,
     catalogVideosStatusMessage,
     catalogView,
-    hasMoreCatalogVideos,
     metadataSuggestionGroups,
     onAcceptMetadataSuggestionVideos,
     onCatalogVideoFiltersChange,
     onCatalogVideoSortChange,
     onCatalogViewChange,
     onClearVideoSelection,
-    onExposeNextCatalogVideoBatch,
     onRejectMetadataSuggestionSource,
     onReplaceSelectedVideos,
     onReviewVideo,
@@ -138,14 +132,11 @@ export function Catalog(props: CatalogProps) {
               catalogVideoSort={catalogVideoSort}
               allCatalogVideos={allCatalogVideos}
               catalogVideos={catalogVideos}
-              matchingCatalogVideos={matchingCatalogVideos}
               catalogVideosStatusMessage={catalogVideosStatusMessage}
-              hasMoreCatalogVideos={hasMoreCatalogVideos}
               onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
               onCatalogVideoSortChange={onCatalogVideoSortChange}
               onSetFavorite={onSetFavorite}
               onClearVideoSelection={onClearVideoSelection}
-              onExposeNextCatalogVideoBatch={onExposeNextCatalogVideoBatch}
               onReplaceSelectedVideos={onReplaceSelectedVideos}
               onSelectVideo={onSelectVideo}
               selectedDetailVideoId={selectedDetailVideoId}

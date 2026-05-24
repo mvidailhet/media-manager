@@ -220,10 +220,6 @@ _Avoid_: Metadata suggestions
 A **Search Filter** that narrows **Videos** to those marked **Favorite**.
 _Avoid_: Favorites view, tag view
 
-**Incremental Video Results**:
-A **Videos View** behavior that exposes matching **Videos** in scroll-driven batches instead of all at once.
-_Avoid_: Pagination
-
 **Metadata Merge**:
 An action that combines duplicate **Tags** or duplicate **Performers** into one accepted value.
 _Avoid_: Alias
@@ -253,7 +249,6 @@ _Avoid_: Favorite edit, metadata suggestion
 - An **Unavailable Scan Root** can run an **Availability Check** but cannot run a **Refresh** until reachable again.
 - When an **Availability Check** makes an **Unavailable Scan Root** reachable again, **Refresh** becomes available but does not start automatically.
 - An **Unavailable Video** is only a **Missing Video** when no last-known **File Location** remains.
-- **Incremental Video Results** keep the **Videos View** responsive when many **Videos** match the current **Search Filters**.
 - A **Primary Performer Group** places a **Video** in only one group even when that **Video** has multiple **Performers**.
 - **Search Filters** narrow the **Videos View** before **Primary Performer Groups** are formed.
 - A **Primary Performer Group** count reflects the current **Videos View** results after **Search Filters**.

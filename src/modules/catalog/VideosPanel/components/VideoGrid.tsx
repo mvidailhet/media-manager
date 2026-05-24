@@ -20,7 +20,6 @@ type DragPoint = {
 };
 
 export function VideoGrid({
-  allMatchingCatalogVideos,
   catalogVideoMetadataById,
   catalogVideos,
   onClearVideoSelection,
@@ -30,7 +29,6 @@ export function VideoGrid({
   selectedDetailVideoId,
   selectedVideoIds,
 }: {
-  allMatchingCatalogVideos: CatalogVideo[];
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
   onClearVideoSelection: () => void;
@@ -263,7 +261,7 @@ export function VideoGrid({
   const selectionRectangleStyle = dragSelectionRectangleStyle();
   const fullPerformerGroups = groupCatalogVideosByFirstPerformer({
     catalogVideoMetadataById,
-    catalogVideos: allMatchingCatalogVideos,
+    catalogVideos,
   });
   const exposedPerformerGroups = groupCatalogVideosByFirstPerformer({
     catalogVideoMetadataById,

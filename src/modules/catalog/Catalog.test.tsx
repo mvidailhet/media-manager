@@ -51,7 +51,6 @@ import {
   openPreviewGenerationTab,
 } from "../../test/AppTestHarness";
 import { previewStripAutoplayFrameIntervalMilliseconds } from "./components/VideoPreview/previewStripFrame";
-import { incrementalVideoResultBatchSize } from "./VideosPanel/useVideosPanelController";
 
 describe("Catalog module", () => {
   beforeEach(resetAppTestHarness);
@@ -4310,8 +4309,8 @@ describe("Catalog module", () => {
     );
   });
 
-  it("initially exposes a bounded batch of matching Videos", async () => {
-    const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3);
+  it("shows every matching Video inside an expanded Primary Performer Accordion", async () => {
+    const matchingVideos = catalogVideoBatch(43);
     mockedListCatalogVideos.mockResolvedValue(matchingVideos);
 
     renderApp();
@@ -4326,18 +4325,23 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
     expect(
       within(catalogVideos).getByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize).padStart(3, "0")}`,
+        name: "Archive Clip 040",
       }),
     ).toBeInTheDocument();
     expect(
-      within(catalogVideos).queryByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
+      within(catalogVideos).getByRole("article", {
+        name: "Archive Clip 041",
       }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByRole("article", {
+        name: "Archive Clip 043",
+      }),
+    ).toBeInTheDocument();
   });
 
-  it("exposes the next Video batch when scrolling near the end", async () => {
-    const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3);
+  it("resets scroll position when Search Filters or sort change", async () => {
+    const matchingVideos = catalogVideoBatch(43);
     mockedListCatalogVideos.mockResolvedValue(matchingVideos);
 
     renderApp();
@@ -4349,70 +4353,12 @@ describe("Catalog module", () => {
       scrollHeight: { configurable: true, value: 1200 },
       scrollTop: { configurable: true, value: 760, writable: true },
     });
-
-    fireEvent.scroll(catalogVideos);
-
-    expect(
-      await within(catalogVideos).findByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
-      }),
-    ).toBeInTheDocument();
-  });
-
-  it("exposes another Video batch when the first batch does not fill the Videos View", async () => {
-    const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3);
-    mockedListCatalogVideos.mockResolvedValue(matchingVideos);
-    Object.defineProperties(HTMLElement.prototype, {
-      clientHeight: { configurable: true, value: 1200 },
-      scrollHeight: { configurable: true, value: 800 },
-    });
-
-    renderApp();
-
-    const catalogVideos = await visibleCatalogVideos();
-    await expandPrimaryPerformerAccordion(catalogVideos);
-
-    expect(
-      await within(catalogVideos).findByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
-      }),
-    ).toBeInTheDocument();
-
-    delete (HTMLElement.prototype as { clientHeight?: number }).clientHeight;
-    delete (HTMLElement.prototype as { scrollHeight?: number }).scrollHeight;
-  });
-
-  it("resets exposed Videos and scroll position when Search Filters or sort change", async () => {
-    const matchingVideos = catalogVideoBatch(incrementalVideoResultBatchSize + 3);
-    mockedListCatalogVideos.mockResolvedValue(matchingVideos);
-
-    renderApp();
-
-    const catalogVideos = await visibleCatalogVideos();
-    await expandPrimaryPerformerAccordion(catalogVideos);
-    Object.defineProperties(catalogVideos, {
-      clientHeight: { configurable: true, value: 400 },
-      scrollHeight: { configurable: true, value: 1200 },
-      scrollTop: { configurable: true, value: 760, writable: true },
-    });
-
-    fireEvent.scroll(catalogVideos);
-    expect(
-      await within(catalogVideos).findByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
-      }),
-    ).toBeInTheDocument();
 
     fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
       target: { value: "Archive" },
     });
 
     expect(catalogVideos.scrollTop).toBe(0);
-    expect(
-      within(catalogVideos).queryByRole("article", {
-        name: `Archive Clip ${String(incrementalVideoResultBatchSize + 1).padStart(3, "0")}`,
-      }),
-    ).not.toBeInTheDocument();
 
     Object.defineProperty(catalogVideos, "scrollTop", {
       configurable: true,
