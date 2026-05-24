@@ -1,7 +1,7 @@
 import { Box, Stack } from "@mantine/core";
 
-import type { CatalogPerformer, CatalogTag } from "../../../tauriCommands";
-import { SectionHeader } from "../../../shared/components/SectionHeader";
+import type { CatalogPerformer, CatalogTag } from "../../../../tauriCommands";
+import { SectionHeader } from "../../../../shared/components/SectionHeader";
 import { FavoriteActions } from "./components/FavoriteActions";
 import { BatchMetadataSection } from "./components/BatchMetadataSection";
 import { BatchTrashActions } from "./components/BatchTrashActions";

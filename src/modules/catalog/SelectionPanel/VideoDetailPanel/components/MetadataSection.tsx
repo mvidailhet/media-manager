@@ -12,19 +12,19 @@ import {
 } from "@mantine/core";
 import { IconPencil, IconRestore } from "@tabler/icons-react";
 
-import type { CatalogPerformer, CatalogTag } from "../../../../tauriCommands";
+import type { CatalogPerformer, CatalogTag } from "../../../../../tauriCommands";
 import {
   findMetadataByName,
   normalizedMetadataName,
-} from "../../../../shared/metadata/metadataHelpers";
+} from "../../../../../shared/metadata/metadataHelpers";
 import {
   MetadataBadges,
   type MetadataBadgeKind,
-} from "../../components/MetadataBadges";
+} from "../../../components/MetadataBadges";
 import {
   metadataInputPillSize,
   metadataInputPillStylesForKind,
-} from "../../components/metadataBadgeStyles";
+} from "../../../components/metadataBadgeStyles";
 
 const metadataEditIconSize = 16;
 

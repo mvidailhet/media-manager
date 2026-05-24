@@ -1,15 +1,15 @@
 import { useState } from "react";
 import { Box, Stack, Text } from "@mantine/core";
 
-import { MoveToTrashConfirmation } from "../../../components/MoveToTrashConfirmation";
+import { MoveToTrashConfirmation } from "../../../../components/MoveToTrashConfirmation";
 import type {
   CatalogPerformer,
   CatalogTag,
   CatalogVideo,
-} from "../../../tauriCommands";
-import { VideoPreview } from "../components/VideoPreview/VideoPreview";
-import { isPlaybackWindowFileLocation } from "../../playback/playbackFormats";
-import type { SelectedVideoDetailActions } from "../useSelectedVideoDetailActions";
+} from "../../../../tauriCommands";
+import { VideoPreview } from "../../components/VideoPreview/VideoPreview";
+import { isPlaybackWindowFileLocation } from "../../../playback/playbackFormats";
+import type { SelectedVideoDetailActions } from "../../useSelectedVideoDetailActions";
 import { ActionButtons } from "./components/ActionButtons";
 import { FileLocationsSection } from "./components/FileLocationsSection";
 import { MetadataSection } from "./components/MetadataSection";

@@ -1,5 +1,5 @@
 import type { CatalogProps } from "../../Catalog";
-import { BatchEditPanel } from "../../BatchEditPanel";
+import { BatchEditPanel } from "../BatchEditPanel";
 
 export function SelectedVideosBatchEdit({
   availablePerformers,

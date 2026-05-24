@@ -1,6 +1,6 @@
 import type { CatalogProps } from "../../Catalog";
 import { useSelectedVideoDetailActions } from "../../useSelectedVideoDetailActions";
-import { VideoDetailPanel } from "../../VideoDetailPanel";
+import { VideoDetailPanel } from "../VideoDetailPanel";
 
 export function SelectedVideoDetail({
   availablePerformers,
