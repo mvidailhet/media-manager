@@ -24,6 +24,10 @@ _Avoid_: Category, folder
 A person who appears in a **Video**.
 _Avoid_: Creator, channel, studio
 
+**Secret Metadata**:
+A **Tag** or **Performer** marked as sensitive enough to hide from normal browsing when secret content is hidden.
+_Avoid_: Private scan root, hidden folder
+
 **Title**:
 The user-facing name of a **Video**, initially derived from its filename.
 _Avoid_: Filename, path
@@ -389,6 +393,14 @@ _Avoid_: Favorite edit, metadata suggestion
 - Opening a specific **File Location** manually makes it the **Preferred File Location**.
 - A **Video Detail Panel** edits **Title**, **Tags**, **Performers**, and **Favorite** for one selected **Video**.
 - A **Video Detail Panel** shows all **File Locations** for the selected **Video**.
+- **Secret Metadata** belongs globally to each **Tag** or **Performer**, not to a **Scan Root**.
+- Hiding **Secret Metadata** excludes any **Video** with at least one secret **Tag** or secret **Performer** from normal browsing.
+- **Secret Metadata** is hidden by default during normal browsing.
+- Revealing **Secret Metadata** is temporary and does not change the next startup's hidden default.
+- **Secret Metadata** can still appear on metadata editing and management surfaces.
+- Renaming **Secret Metadata** keeps it secret, and a **Metadata Merge** keeps the result secret when any merged value was secret.
+- Hiding **Secret Metadata** clears any selected secret **Search Filters** from normal browsing.
+- Hiding **Secret Metadata** is a normal browsing behavior, not a security boundary against local catalog access.
 - v1 has one local **Catalog**.
 - The **Catalog** is durable app-private storage; the **Preview Cache** can be regenerated.
 - **Forget From Catalog** makes related **Preview Cache** entries eligible for cleanup.
