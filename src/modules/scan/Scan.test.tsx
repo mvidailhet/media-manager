@@ -107,6 +107,28 @@ describe("Scan module", () => {
   });
 
   it("manages global Secret Metadata from existing Tags and Performers", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Travel Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 1000,
+        fileLocationPath: "/Volumes/Archive/Videos/travel.mp4",
+        isAvailable: true,
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/travel.mp4",
+            fileSizeBytes: 1000,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
     mockedListTags.mockResolvedValue([
       { id: 4, isSecret: false, name: "Travel" },
       { id: 5, isSecret: true, name: "Archive" },
@@ -115,17 +137,27 @@ describe("Scan module", () => {
       { id: 9, isSecret: false, name: "Blair" },
       { id: 10, isSecret: true, name: "Alex" },
     ]);
+    mockedTagsForVideo.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+    ]);
+    mockedPerformersForVideo.mockResolvedValue([]);
 
     renderApp();
 
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    fireEvent.click(
+      within(catalogVideos).getByRole("button", {
+        name: "Advanced search",
+      }),
+    );
     expect(
-      within(catalogVideos).getByRole("checkbox", {
+      await within(catalogVideos).findByRole("checkbox", {
         name: "Hide secret tags and performers",
       }),
     ).toBeChecked();
+    expect(await within(catalogVideos).findByText("Travel Clip")).toBeInTheDocument();
     await openScanModule();
 
     const secretMetadataSection = await screen.findByRole("region", {
@@ -138,7 +170,19 @@ describe("Scan module", () => {
       }),
     ).toBeInTheDocument();
     expect(
-      within(secretMetadataSection).getByRole("checkbox", {
+      within(secretMetadataSection).queryByRole("checkbox", {
+        name: "Travel secret Tag",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(secretMetadataSection).getByRole("button", {
+        name: "Secret Tags and Performers",
+      }),
+    );
+
+    expect(
+      await within(secretMetadataSection).findByRole("checkbox", {
         name: "Travel secret Tag",
       }),
     ).not.toBeChecked();
@@ -178,6 +222,20 @@ describe("Scan module", () => {
     expect(mockedUpdatePerformer).toHaveBeenCalledWith(10, "Alex", false);
     expect(mockedCreateTag).not.toHaveBeenCalled();
     expect(mockedCreatePerformer).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Back to Catalog" }));
+
+    const updatedCatalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await waitFor(() =>
+      expect(
+        within(updatedCatalogVideos).queryByText("Travel Clip"),
+      ).not.toBeInTheDocument(),
+    );
+    expect(
+      within(updatedCatalogVideos).queryByLabelText("Travel"),
+    ).not.toBeInTheDocument();
   });
 
   it("shows a recoverable status when changing a secret Tag fails", async () => {
@@ -193,7 +251,13 @@ describe("Scan module", () => {
       name: "Secret Tags and Performers",
     });
     fireEvent.click(
-      within(secretMetadataSection).getByRole("checkbox", {
+      within(secretMetadataSection).getByRole("button", {
+        name: "Secret Tags and Performers",
+      }),
+    );
+
+    fireEvent.click(
+      await within(secretMetadataSection).findByRole("checkbox", {
         name: "Travel secret Tag",
       }),
     );
@@ -221,7 +285,13 @@ describe("Scan module", () => {
       name: "Secret Tags and Performers",
     });
     fireEvent.click(
-      within(secretMetadataSection).getByRole("checkbox", {
+      within(secretMetadataSection).getByRole("button", {
+        name: "Secret Tags and Performers",
+      }),
+    );
+
+    fireEvent.click(
+      await within(secretMetadataSection).findByRole("checkbox", {
         name: "Blair secret Performer",
       }),
     );

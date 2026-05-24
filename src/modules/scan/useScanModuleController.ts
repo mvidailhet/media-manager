@@ -1,5 +1,9 @@
 import { useState } from "react";
 
+import type {
+  CatalogPerformer,
+  CatalogTag,
+} from "../../tauriCommands";
 import type { CatalogVideo } from "../catalog/useCatalogModuleController";
 import type { ScanProps } from "./Scan";
 import { scanRootsTab } from "./scanTabs";
@@ -27,6 +31,8 @@ export function useScanModuleController({
   refreshMetadataSuggestionGroups,
   onRequestMissingVideoForget,
   onRequestScanRootRemoval,
+  recordPerformerSecretStatusChange,
+  recordTagSecretStatusChange,
 }: {
   catalogVideos: CatalogVideo[];
   missingVideos: CatalogVideo[];
@@ -34,6 +40,8 @@ export function useScanModuleController({
   refreshMetadataSuggestionGroups: () => Promise<void>;
   onRequestMissingVideoForget: (catalogVideo: CatalogVideo) => void;
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
+  recordPerformerSecretStatusChange: (performer: CatalogPerformer) => void;
+  recordTagSecretStatusChange: (tag: CatalogTag) => void;
 }): ScanController {
   const [scanTab, setScanTab] = useState<string | null>(scanRootsTab);
   const missingVideosWorkflow = useMissingVideos({
@@ -95,6 +103,8 @@ export function useScanModuleController({
         scanRootsState.revealUnprocessableVideoCandidate,
       onRequestMissingVideoForget,
       onRequestScanRootRemoval,
+      onSecretPerformerStatusChange: recordPerformerSecretStatusChange,
+      onSecretTagStatusChange: recordTagSecretStatusChange,
       onRequestUnprocessableVideoCandidateTrash:
         scanRootsState.moveUnprocessableVideoCandidatePathToTrash,
       onResumePreviewStripQueue: previewGeneration.resumePreviewStripQueueAction,

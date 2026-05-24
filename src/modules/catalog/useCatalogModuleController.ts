@@ -37,6 +37,8 @@ type CatalogController = {
   catalogVideos: CatalogVideo[];
   forgetMissingVideo: (videoId: number) => Promise<void>;
   missingVideos: CatalogVideo[];
+  recordPerformerSecretStatusChange: (performer: CatalogPerformer) => void;
+  recordTagSecretStatusChange: (tag: CatalogTag) => void;
   refreshCatalogVideos: () => Promise<CatalogVideo[]>;
   refreshMetadataSuggestionGroups: () => Promise<void>;
 };
@@ -1117,6 +1119,48 @@ export function useCatalogModuleController(): CatalogController {
     });
   }
 
+  function recordTagSecretStatusChange(tag: CatalogTag) {
+    setAvailableTags((currentTags) =>
+      currentTags.map((currentTag) =>
+        currentTag.id === tag.id ? tag : currentTag,
+      ),
+    );
+    setCatalogVideoMetadataById((currentMetadataById) =>
+      Object.fromEntries(
+        Object.entries(currentMetadataById).map(([videoId, metadata]) => [
+          videoId,
+          {
+            ...metadata,
+            tags: metadata.tags.map((currentTag) =>
+              currentTag.id === tag.id ? tag : currentTag,
+            ),
+          },
+        ]),
+      ),
+    );
+  }
+
+  function recordPerformerSecretStatusChange(performer: CatalogPerformer) {
+    setAvailablePerformers((currentPerformers) =>
+      currentPerformers.map((currentPerformer) =>
+        currentPerformer.id === performer.id ? performer : currentPerformer,
+      ),
+    );
+    setCatalogVideoMetadataById((currentMetadataById) =>
+      Object.fromEntries(
+        Object.entries(currentMetadataById).map(([videoId, metadata]) => [
+          videoId,
+          {
+            ...metadata,
+            performers: metadata.performers.map((currentPerformer) =>
+              currentPerformer.id === performer.id ? performer : currentPerformer,
+            ),
+          },
+        ]),
+      ),
+    );
+  }
+
   const missingVideos = catalogVideos.filter(
     (catalogVideo) => catalogVideo.fileLocations.length === 0,
   );
@@ -1186,6 +1230,8 @@ export function useCatalogModuleController(): CatalogController {
     catalogVideos,
     forgetMissingVideo,
     missingVideos,
+    recordPerformerSecretStatusChange,
+    recordTagSecretStatusChange,
     refreshCatalogVideos,
     refreshMetadataSuggestionGroups,
   };

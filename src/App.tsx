@@ -41,6 +41,8 @@ export default function App() {
     catalogVideos,
     forgetMissingVideo,
     missingVideos,
+    recordPerformerSecretStatusChange,
+    recordTagSecretStatusChange,
     refreshCatalogVideos,
     refreshMetadataSuggestionGroups,
   } = catalog;
@@ -49,6 +51,8 @@ export default function App() {
     missingVideos,
     onRequestMissingVideoForget: setMissingVideoPendingForget,
     onRequestScanRootRemoval: setScanRootPendingRemoval,
+    recordPerformerSecretStatusChange,
+    recordTagSecretStatusChange,
     refreshCatalogVideos,
     refreshMetadataSuggestionGroups,
   });

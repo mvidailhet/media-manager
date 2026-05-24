@@ -90,13 +90,6 @@ export function FiltersPanel({
             updateFilters({ favoritesOnly: event.currentTarget.checked })
           }
         />
-        <Checkbox
-          label="Hide secret tags and performers"
-          checked={filters.hideSecretMetadata}
-          onChange={(event) =>
-            updateSecretMetadataVisibility(event.currentTarget.checked)
-          }
-        />
         <Button
           type="button"
           variant="subtle"
@@ -111,6 +104,13 @@ export function FiltersPanel({
       </Group>
       <Collapse expanded={advancedSearchOpened}>
         <Stack gap="sm">
+          <Checkbox
+            label="Hide secret tags and performers"
+            checked={filters.hideSecretMetadata}
+            onChange={(event) =>
+              updateSecretMetadataVisibility(event.currentTarget.checked)
+            }
+          />
           <Box>
             <Group justify="space-between" gap="sm" mb="xs">
               <Text size="sm" fw={500}>

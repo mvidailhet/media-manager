@@ -1,6 +1,8 @@
 import { Box, Button, Group, Stack, Text } from "@mantine/core";
 
 import type {
+  CatalogPerformer,
+  CatalogTag,
   ScanRoot,
   ScanRootRefreshJobProgress,
   UnprocessableVideoCandidateGroup,
@@ -8,6 +10,7 @@ import type {
 import { SectionHeader } from "../../../shared/components/SectionHeader";
 import { RootCard } from "./components/RootCard";
 import { SecretMetadataSection } from "./components/SecretMetadataSection";
+import styles from "./RootsPanel.module.css";
 
 export function RootsPanel({
   onChooseScanRootFolder,
@@ -17,6 +20,8 @@ export function RootsPanel({
   onRequestScanRootRemoval,
   onRequestUnprocessableVideoCandidateTrash,
   onSaveScanRootInferenceRules,
+  onSecretPerformerStatusChange,
+  onSecretTagStatusChange,
   scanRoots,
   scanRootsStatusMessage,
   unprocessableVideoCandidateGroups,
@@ -35,6 +40,8 @@ export function RootsPanel({
     scanRoot: ScanRoot,
     inferenceRules: ScanRoot["inferenceRules"],
   ) => void;
+  onSecretPerformerStatusChange: (performer: CatalogPerformer) => void;
+  onSecretTagStatusChange: (tag: CatalogTag) => void;
   scanRoots: ScanRoot[];
   scanRootsStatusMessage: string;
   unprocessableVideoCandidateGroups: UnprocessableVideoCandidateGroup[];
@@ -44,7 +51,13 @@ export function RootsPanel({
     !["cancelled", "complete", "failed"].includes(activeScanRootRefresh.status);
 
   return (
-    <Box component="section" aria-label="Scan Root management" p="md" maw={760}>
+    <Box
+      component="section"
+      aria-label="Scan Root management"
+      className={styles.rootsPanel}
+      p="md"
+      maw={760}
+    >
       <Stack gap="md">
         <Group justify="space-between" align="start">
           <SectionHeader label="Catalog sources" title="Scan Roots" />
@@ -62,7 +75,10 @@ export function RootsPanel({
 
         {scanRootsStatusMessage ? <Text>{scanRootsStatusMessage}</Text> : null}
 
-        <SecretMetadataSection />
+        <SecretMetadataSection
+          onPerformerSecretStatusChange={onSecretPerformerStatusChange}
+          onTagSecretStatusChange={onSecretTagStatusChange}
+        />
 
         {scanRoots.length > 0 ? (
           <Stack gap="sm">

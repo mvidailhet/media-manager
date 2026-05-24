@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Box, Group, Stack, Text, Title } from "@mantine/core";
+import { Accordion, Box, Group, Stack, Text, Title } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag } from "../../../../../tauriCommands";
 import {
@@ -12,8 +12,15 @@ import { errorMessage } from "../../../../../shared/errors/errorMessage";
 import { MetadataSecretToggleList } from "./components/MetadataSecretToggleList";
 
 const secretMetadataStatusMessage = "Secret Metadata unavailable";
+const secretMetadataAccordionValue = "secret-metadata";
 
-export function SecretMetadataSection() {
+export function SecretMetadataSection({
+  onPerformerSecretStatusChange,
+  onTagSecretStatusChange,
+}: {
+  onPerformerSecretStatusChange: (performer: CatalogPerformer) => void;
+  onTagSecretStatusChange: (tag: CatalogTag) => void;
+}) {
   const [tags, setTags] = useState<CatalogTag[]>([]);
   const [performers, setPerformers] = useState<CatalogPerformer[]>([]);
   const [statusMessage, setStatusMessage] = useState("");
@@ -55,6 +62,7 @@ export function SecretMetadataSection() {
           currentTag.id === updatedTag.id ? updatedTag : currentTag,
         ),
       );
+      onTagSecretStatusChange(updatedTag);
       setStatusMessage("");
     } catch (error) {
       setStatusMessage(errorMessage(error));
@@ -78,6 +86,7 @@ export function SecretMetadataSection() {
             : currentPerformer,
         ),
       );
+      onPerformerSecretStatusChange(updatedPerformer);
       setStatusMessage("");
     } catch (error) {
       setStatusMessage(errorMessage(error));
@@ -86,26 +95,34 @@ export function SecretMetadataSection() {
 
   return (
     <Box component="section" aria-label="Secret Tags and Performers">
-      <Stack gap="sm">
-        <Title order={3} size="h4">
-          Secret Tags and Performers
-        </Title>
-        {statusMessage ? <Text>{statusMessage}</Text> : null}
-        <Group align="start" gap="xl">
-          <MetadataSecretToggleList
-            emptyMessage="No Tags available."
-            metadataKind="Tag"
-            values={tags}
-            onChangeSecretStatus={changeTagSecretStatus}
-          />
-          <MetadataSecretToggleList
-            emptyMessage="No Performers available."
-            metadataKind="Performer"
-            values={performers}
-            onChangeSecretStatus={changePerformerSecretStatus}
-          />
-        </Group>
-      </Stack>
+      <Accordion transitionDuration={0}>
+        <Accordion.Item value={secretMetadataAccordionValue}>
+          <Accordion.Control>
+            <Title order={3} size="h4">
+              Secret Tags and Performers
+            </Title>
+          </Accordion.Control>
+          <Accordion.Panel keepMounted={false}>
+            <Stack gap="sm">
+              {statusMessage ? <Text>{statusMessage}</Text> : null}
+              <Group align="start" gap="xl">
+                <MetadataSecretToggleList
+                  emptyMessage="No Tags available."
+                  metadataKind="Tag"
+                  values={tags}
+                  onChangeSecretStatus={changeTagSecretStatus}
+                />
+                <MetadataSecretToggleList
+                  emptyMessage="No Performers available."
+                  metadataKind="Performer"
+                  values={performers}
+                  onChangeSecretStatus={changePerformerSecretStatus}
+                />
+              </Group>
+            </Stack>
+          </Accordion.Panel>
+        </Accordion.Item>
+      </Accordion>
     </Box>
   );
 }

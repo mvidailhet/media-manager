@@ -7,10 +7,12 @@ import previewStripQueuePanelSource from "./PreviewGenerationView/components/Pre
 import attentionTabLabelSource from "./components/AttentionTabLabel.tsx?raw";
 import tabsListSource from "./components/TabsList.tsx?raw";
 import scanSource from "./Scan.tsx?raw";
+import scanStyles from "./Scan.module.css";
 import scanTabsSource from "./scanTabs.ts?raw";
 import missingVideosPanelSource from "./MissingVideosPanel/MissingVideosPanel.tsx?raw";
 import missingVideosListSource from "./MissingVideosPanel/components/MissingVideosList.tsx?raw";
 import rootsPanelSource from "./RootsPanel/RootsPanel.tsx?raw";
+import rootsPanelStyles from "./RootsPanel/RootsPanel.module.css";
 import rootsPanelIndexSource from "./RootsPanel/index.ts?raw";
 import secretMetadataSectionSource from "./RootsPanel/components/SecretMetadataSection/SecretMetadataSection.tsx?raw";
 import secretMetadataSectionIndexSource from "./RootsPanel/components/SecretMetadataSection/index.ts?raw";
@@ -135,6 +137,15 @@ describe("Scan module file structure", () => {
     expectComponentFileToOwnOnly(inferenceRulesFormSource, "InferenceRulesForm");
     expect(missingVideosPanelSource).not.toContain("index.ts");
     expect(previewGenerationSource).not.toContain("index.ts");
+  });
+
+  it("keeps Scan tabs and Scan Roots scrollable inside the module slot", () => {
+    expect(scanStyles.scanWorkspace).toBeTruthy();
+    expect(scanStyles.scanPanel).toBeTruthy();
+    expect(rootsPanelStyles.rootsPanel).toBeTruthy();
+    expect(scanSource).toContain("className={styles.scanWorkspace}");
+    expect(scanSource).toContain("className={styles.scanPanel}");
+    expect(rootsPanelSource).toContain("className={styles.rootsPanel}");
   });
 });
 

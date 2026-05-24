@@ -50,4 +50,10 @@ describe("Scan module boundaries", () => {
     expect(scanModuleEntryPointSource).not.toMatch(/export \{ ScanModule/);
     expect(scanSource).not.toMatch(/function ScanModule|ScanModuleProps/);
   });
+
+  it("keeps Scan scrolling owned by Scan module panels", () => {
+    expect(scanSource).toContain('from "./Scan.module.css"');
+    expect(scanSource).toContain("className={styles.scanWorkspace}");
+    expect(scanSource).toContain("className={styles.scanPanel}");
+  });
 });

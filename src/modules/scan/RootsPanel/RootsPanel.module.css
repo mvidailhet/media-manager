@@ -1,0 +1,4 @@
+.rootsPanel {
+  min-height: 0;
+  overflow-y: auto;
+}

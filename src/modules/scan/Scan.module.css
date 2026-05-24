@@ -1,0 +1,10 @@
+.scanWorkspace {
+  display: grid;
+  gap: 12px;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.scanPanel {
+  min-height: 0;
+}

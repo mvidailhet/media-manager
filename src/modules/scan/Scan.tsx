@@ -1,6 +1,8 @@
 import { Tabs } from "@mantine/core";
 
 import type {
+  CatalogPerformer,
+  CatalogTag,
   CatalogVideo,
   FailedPreviewStrip,
   PreviewStripQueueStatus,
@@ -17,6 +19,7 @@ import {
   scanRootsTab,
 } from "./scanTabs";
 import type { ScanRoot } from "./useScanRoots";
+import styles from "./Scan.module.css";
 
 export type ScanProps = {
   failedPreviewStrips: FailedPreviewStrip[];
@@ -41,6 +44,8 @@ export type ScanProps = {
     inferenceRules: ScanRoot["inferenceRules"],
   ) => void;
   onScanTabChange: (scanTab: string | null) => void;
+  onSecretPerformerStatusChange: (performer: CatalogPerformer) => void;
+  onSecretTagStatusChange: (tag: CatalogTag) => void;
   previewGenerationAttentionCount: number;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
   missingVideosAttentionCount: number;
@@ -72,6 +77,8 @@ export function Scan({
   onRetryFailedPreview,
   onSaveScanRootInferenceRules,
   onScanTabChange,
+  onSecretPerformerStatusChange,
+  onSecretTagStatusChange,
   previewGenerationAttentionCount,
   previewStripQueueStatus,
   missingVideosAttentionCount,
@@ -83,14 +90,19 @@ export function Scan({
   unprocessableVideoCandidateGroups,
 }: ScanProps) {
   return (
-    <Tabs value={scanTab} onChange={onScanTabChange} keepMounted={false}>
+    <Tabs
+      value={scanTab}
+      onChange={onScanTabChange}
+      keepMounted={false}
+      className={styles.scanWorkspace}
+    >
       <TabsList
         previewGenerationAttentionCount={previewGenerationAttentionCount}
         scanRootsAttentionCount={scanRootsAttentionCount}
         missingVideosAttentionCount={missingVideosAttentionCount}
       />
 
-      <Tabs.Panel value={scanRootsTab}>
+      <Tabs.Panel value={scanRootsTab} className={styles.scanPanel}>
         <RootsPanel
           scanRoots={scanRoots}
           scanRootsStatusMessage={scanRootsStatusMessage}
@@ -106,10 +118,12 @@ export function Scan({
             onRequestUnprocessableVideoCandidateTrash
           }
           onSaveScanRootInferenceRules={onSaveScanRootInferenceRules}
+          onSecretPerformerStatusChange={onSecretPerformerStatusChange}
+          onSecretTagStatusChange={onSecretTagStatusChange}
         />
       </Tabs.Panel>
 
-      <Tabs.Panel value={missingVideosTab}>
+      <Tabs.Panel value={missingVideosTab} className={styles.scanPanel}>
         <MissingVideosPanel
           missingVideos={missingVideos}
           missingVideosStatusMessage={missingVideosStatusMessage}
@@ -117,7 +131,7 @@ export function Scan({
         />
       </Tabs.Panel>
 
-      <Tabs.Panel value={previewGenerationTab}>
+      <Tabs.Panel value={previewGenerationTab} className={styles.scanPanel}>
         <PreviewGenerationView
           failedPreviewStrips={failedPreviewStrips}
           generatedPreviewStripCount={generatedPreviewStripCount}

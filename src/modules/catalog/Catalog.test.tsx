@@ -96,6 +96,30 @@ describe("Catalog module", () => {
     return suggestionBadge;
   }
 
+  async function showAdvancedSearch(catalogVideos: HTMLElement) {
+    fireEvent.click(
+      within(catalogVideos).getByRole("button", {
+        name: "Advanced search",
+        expanded: false,
+      }),
+    );
+
+    await within(catalogVideos).findByRole("button", {
+      name: "Advanced search",
+      expanded: true,
+    });
+  }
+
+  async function findSecretMetadataVisibilityCheckbox(
+    catalogVideos: HTMLElement,
+  ) {
+    await showAdvancedSearch(catalogVideos);
+
+    return within(catalogVideos).findByRole("checkbox", {
+      name: "Hide secret tags and performers",
+    });
+  }
+
   function catalogVideoFixture(id: number, title: string) {
     return {
       id,
@@ -719,6 +743,11 @@ describe("Catalog module", () => {
         name: "Maximum duration",
       }),
     ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByRole("checkbox", {
+        name: "Hide secret tags and performers",
+      }),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(advancedSearchButton);
 
@@ -738,6 +767,11 @@ describe("Catalog module", () => {
         name: "Maximum duration",
       }),
     ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Hide secret tags and performers",
+      }),
+    ).toBeChecked();
     expect(within(catalogVideos).getByText("0m - 3h")).toBeInTheDocument();
 
     fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
@@ -1312,9 +1346,8 @@ describe("Catalog module", () => {
       expect(mockedPerformersForVideo).toHaveBeenCalledWith(3);
     });
 
-    const hideSecretMetadata = within(catalogVideos).getByRole("checkbox", {
-      name: "Hide secret tags and performers",
-    });
+    const hideSecretMetadata =
+      await findSecretMetadataVisibilityCheckbox(catalogVideos);
 
     expect(hideSecretMetadata).toBeChecked();
     expect(within(catalogVideos).getByLabelText("Travel")).toBeInTheDocument();
@@ -1378,9 +1411,7 @@ describe("Catalog module", () => {
     await within(catalogVideos).findByText("Normal Video");
 
     expect(
-      within(catalogVideos).getByRole("checkbox", {
-        name: "Hide secret tags and performers",
-      }),
+      await findSecretMetadataVisibilityCheckbox(catalogVideos),
     ).toBeChecked();
     expect(
       within(catalogVideos).queryByLabelText("Secret Tag"),
@@ -1514,9 +1545,8 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    const hideSecretMetadata = within(catalogVideos).getByRole("checkbox", {
-      name: "Hide secret tags and performers",
-    });
+    const hideSecretMetadata =
+      await findSecretMetadataVisibilityCheckbox(catalogVideos);
 
     fireEvent.click(hideSecretMetadata);
     fireEvent.click(within(catalogVideos).getByLabelText("Secret Tag"));
@@ -2263,9 +2293,7 @@ describe("Catalog module", () => {
     await within(catalogVideos).findByText("Normal Video");
 
     expect(
-      within(catalogVideos).getByRole("checkbox", {
-        name: "Hide secret tags and performers",
-      }),
+      await findSecretMetadataVisibilityCheckbox(catalogVideos),
     ).toBeChecked();
     expect(
       within(catalogVideos).queryByLabelText("Secret Tag"),
@@ -4789,9 +4817,7 @@ describe("Catalog module", () => {
     await within(catalogVideos).findByText("Family Trip");
 
     expect(
-      within(catalogVideos).getByRole("checkbox", {
-        name: "Hide secret tags and performers",
-      }),
+      await findSecretMetadataVisibilityCheckbox(catalogVideos),
     ).toBeChecked();
     expect(
       within(catalogVideos).queryByLabelText("Secret Tag"),
