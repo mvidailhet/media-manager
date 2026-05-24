@@ -286,8 +286,8 @@ export function resetAppTestHarness() {
     mockedDetachTagFromVideo.mockResolvedValue(undefined);
     mockedAttachPerformerToVideo.mockResolvedValue(undefined);
     mockedDetachPerformerFromVideo.mockResolvedValue(undefined);
-    mockedCreateTag.mockResolvedValue({ id: 100, name: "New Tag" });
-    mockedCreatePerformer.mockResolvedValue({ id: 200, name: "New Performer" });
+    mockedCreateTag.mockResolvedValue({ id: 100, isSecret: false, name: "New Tag" });
+    mockedCreatePerformer.mockResolvedValue({ id: 200, isSecret: false, name: "New Performer" });
     mockedUpdateVideoTitle.mockResolvedValue(undefined);
     mockedSetVideoFavorite.mockResolvedValue(undefined);
     mockedOpenCatalogVideoContainingFolder.mockResolvedValue(undefined);

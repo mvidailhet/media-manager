@@ -177,6 +177,7 @@ const CREATE_TAGS_TABLE: &str = "
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         normalized_name TEXT NOT NULL UNIQUE,
+        is_secret INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -187,6 +188,7 @@ const CREATE_PERFORMERS_TABLE: &str = "
         id INTEGER PRIMARY KEY,
         name TEXT NOT NULL,
         normalized_name TEXT NOT NULL UNIQUE,
+        is_secret INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -253,7 +255,8 @@ pub(super) fn run_migrations(database: &Connection) -> Result<(), String> {
     add_metadata_suggestion_normalized_value_column_if_missing(database)?;
     add_failed_preview_strip_ignored_at_column_if_missing(database)?;
     add_video_favorite_column_if_missing(database)?;
-    add_video_open_history_columns_if_missing(database)
+    add_video_open_history_columns_if_missing(database)?;
+    add_secret_metadata_columns_if_missing(database)
 }
 
 fn add_scan_root_availability_column_if_missing(database: &Connection) -> Result<(), String> {
@@ -524,6 +527,26 @@ fn add_video_open_history_columns_if_missing(database: &Connection) -> Result<()
             .execute(
                 "ALTER TABLE videos
                  ADD COLUMN open_count INTEGER NOT NULL DEFAULT 0",
+                [],
+            )
+            .map_err(|error| error.to_string())?;
+    }
+
+    Ok(())
+}
+
+fn add_secret_metadata_columns_if_missing(database: &Connection) -> Result<(), String> {
+    for metadata_table_name in ["tags", "performers"] {
+        if catalog_table_has_column(database, metadata_table_name, "is_secret")? {
+            continue;
+        }
+
+        database
+            .execute(
+                &format!(
+                    "ALTER TABLE {metadata_table_name}
+                     ADD COLUMN is_secret INTEGER NOT NULL DEFAULT 0"
+                ),
                 [],
             )
             .map_err(|error| error.to_string())?;

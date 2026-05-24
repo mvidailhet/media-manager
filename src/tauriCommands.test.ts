@@ -515,19 +515,22 @@ describe("Tauri commands", () => {
   });
 
   it("calls typed Rust commands for Tag primitives", async () => {
-    mockedInvoke.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedInvoke.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
 
     const listedTags = await listTags();
-    mockedInvoke.mockResolvedValue({ id: 4, name: "Travel" });
+    mockedInvoke.mockResolvedValue({ id: 4, isSecret: true, name: "Travel" });
     const createdTag = await createTag("Travel");
     const updatedTag = await updateTag(4, "Archive");
     await deleteTag(4);
 
-    expect(listedTags).toEqual([{ id: 4, name: "Travel" }]);
-    expect(createdTag).toEqual({ id: 4, name: "Travel" });
-    expect(updatedTag).toEqual({ id: 4, name: "Travel" });
+    expect(listedTags).toEqual([{ id: 4, isSecret: false, name: "Travel" }]);
+    expect(createdTag).toEqual({ id: 4, isSecret: true, name: "Travel" });
+    expect(updatedTag).toEqual({ id: 4, isSecret: true, name: "Travel" });
     expect(mockedInvoke).toHaveBeenCalledWith("list_tags");
-    expect(mockedInvoke).toHaveBeenCalledWith("create_tag", { name: "Travel" });
+    expect(mockedInvoke).toHaveBeenCalledWith("create_tag", {
+      isSecret: false,
+      name: "Travel",
+    });
     expect(mockedInvoke).toHaveBeenCalledWith("update_tag", {
       tagId: 4,
       name: "Archive",
@@ -536,19 +539,22 @@ describe("Tauri commands", () => {
   });
 
   it("calls typed Rust commands for Performer primitives", async () => {
-    mockedInvoke.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedInvoke.mockResolvedValue([{ id: 9, isSecret: false, name: "Blair" }]);
 
     const listedPerformers = await listPerformers();
-    mockedInvoke.mockResolvedValue({ id: 9, name: "Blair" });
+    mockedInvoke.mockResolvedValue({ id: 9, isSecret: true, name: "Blair" });
     const createdPerformer = await createPerformer("Blair");
     const updatedPerformer = await updatePerformer(9, "Alex");
     await deletePerformer(9);
 
-    expect(listedPerformers).toEqual([{ id: 9, name: "Blair" }]);
-    expect(createdPerformer).toEqual({ id: 9, name: "Blair" });
-    expect(updatedPerformer).toEqual({ id: 9, name: "Blair" });
+    expect(listedPerformers).toEqual([
+      { id: 9, isSecret: false, name: "Blair" },
+    ]);
+    expect(createdPerformer).toEqual({ id: 9, isSecret: true, name: "Blair" });
+    expect(updatedPerformer).toEqual({ id: 9, isSecret: true, name: "Blair" });
     expect(mockedInvoke).toHaveBeenCalledWith("list_performers");
     expect(mockedInvoke).toHaveBeenCalledWith("create_performer", {
+      isSecret: false,
       name: "Blair",
     });
     expect(mockedInvoke).toHaveBeenCalledWith("update_performer", {

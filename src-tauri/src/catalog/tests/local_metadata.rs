@@ -173,20 +173,22 @@ fn tags_and_performers_are_unique_within_their_own_type_case_insensitively() {
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
 
-    let travel_tag = catalog.create_tag("Travel").expect("travel tag creates");
+    let travel_tag = catalog
+        .create_tag("Travel", false)
+        .expect("travel tag creates");
     let travel_performer = catalog
-        .create_performer("Travel")
+        .create_performer("Travel", false)
         .expect("travel performer creates");
 
     assert_eq!(
         catalog
-            .create_tag(" travel ")
+            .create_tag(" travel ", false)
             .expect_err("duplicate tag is rejected"),
         "Tag already exists"
     );
     assert_eq!(
         catalog
-            .create_performer("TRAVEL")
+            .create_performer("TRAVEL", false)
             .expect_err("duplicate performer is rejected"),
         "Performer already exists"
     );
@@ -200,25 +202,79 @@ fn tags_and_performers_are_unique_within_their_own_type_case_insensitively() {
 }
 
 #[test]
+fn tags_and_performers_store_secret_status_and_default_to_non_secret() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+
+    let public_tag = catalog
+        .create_tag("Travel", false)
+        .expect("public tag creates");
+    let secret_tag = catalog
+        .create_tag("Private", true)
+        .expect("secret tag creates");
+    let public_performer = catalog
+        .create_performer("Blair", false)
+        .expect("public performer creates");
+    let secret_performer = catalog
+        .create_performer("Alex", true)
+        .expect("secret performer creates");
+
+    assert!(!public_tag.is_secret);
+    assert!(secret_tag.is_secret);
+    assert!(!public_performer.is_secret);
+    assert!(secret_performer.is_secret);
+    assert_eq!(
+        catalog.list_tags().expect("tags list"),
+        vec![secret_tag, public_tag]
+    );
+    assert_eq!(
+        catalog.list_performers().expect("performers list"),
+        vec![secret_performer, public_performer]
+    );
+}
+
+#[test]
+fn renaming_tags_and_performers_preserves_secret_status() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let tag = catalog
+        .create_tag("Private", true)
+        .expect("secret tag creates");
+    let performer = catalog
+        .create_performer("Alex", true)
+        .expect("secret performer creates");
+
+    let updated_tag = catalog.update_tag(tag.id, "Archive").expect("tag updates");
+    let updated_performer = catalog
+        .update_performer(performer.id, "Blair")
+        .expect("performer updates");
+
+    assert!(updated_tag.is_secret);
+    assert!(updated_performer.is_secret);
+}
+
+#[test]
 fn tags_and_performers_match_non_ascii_names_case_insensitively() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
 
-    catalog.create_tag("Élodie").expect("tag creates");
+    catalog.create_tag("Élodie", false).expect("tag creates");
     catalog
-        .create_performer("Élodie")
+        .create_performer("Élodie", false)
         .expect("performer creates");
 
     assert_eq!(
         catalog
-            .create_tag("élodie")
+            .create_tag("élodie", false)
             .expect_err("accented duplicate tag is rejected"),
         "Tag already exists"
     );
     assert_eq!(
         catalog
-            .create_performer("élodie")
+            .create_performer("élodie", false)
             .expect_err("accented duplicate performer is rejected"),
         "Performer already exists"
     );
@@ -232,9 +288,9 @@ fn tags_and_performers_can_be_attached_to_many_videos() {
     let database = catalog_test_database(&catalog_path);
     store_test_video(&database, "fingerprint-one", "Family Trip");
     store_test_video(&database, "fingerprint-two", "Concert Night");
-    let travel_tag = catalog.create_tag("Travel").expect("tag creates");
+    let travel_tag = catalog.create_tag("Travel", false).expect("tag creates");
     let featured_performer = catalog
-        .create_performer("Featured Person")
+        .create_performer("Featured Person", false)
         .expect("performer creates");
 
     catalog
@@ -271,8 +327,10 @@ fn metadata_primitives_support_update_delete_and_detach() {
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
     let database = catalog_test_database(&catalog_path);
     store_test_video(&database, "fingerprint-one", "Family Trip");
-    let tag = catalog.create_tag("Travel").expect("tag creates");
-    let performer = catalog.create_performer("Alex").expect("performer creates");
+    let tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let performer = catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
     catalog
         .attach_tag_to_video(tag.id, 1)
         .expect("tag attaches to video");
@@ -311,8 +369,10 @@ fn attached_tags_and_performers_must_be_detached_before_deletion() {
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
     let database = catalog_test_database(&catalog_path);
     store_test_video(&database, "fingerprint-one", "Family Trip");
-    let tag = catalog.create_tag("Travel").expect("tag creates");
-    let performer = catalog.create_performer("Alex").expect("performer creates");
+    let tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let performer = catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
     catalog
         .attach_tag_to_video(tag.id, 1)
         .expect("tag attaches to video");
@@ -347,8 +407,10 @@ fn detaching_the_last_video_use_removes_unused_tags_and_performers() {
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
     let database = catalog_test_database(&catalog_path);
     store_test_video(&database, "fingerprint-one", "Family Trip");
-    let tag = catalog.create_tag("Travel").expect("tag creates");
-    let performer = catalog.create_performer("Alex").expect("performer creates");
+    let tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let performer = catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
     catalog
         .attach_tag_to_video(tag.id, 1)
         .expect("tag attaches to video");
@@ -378,8 +440,10 @@ fn detaching_one_video_use_keeps_metadata_attached_to_other_videos() {
     let database = catalog_test_database(&catalog_path);
     store_test_video(&database, "fingerprint-one", "Family Trip");
     store_test_video(&database, "fingerprint-two", "Concert Night");
-    let tag = catalog.create_tag("Travel").expect("tag creates");
-    let performer = catalog.create_performer("Alex").expect("performer creates");
+    let tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let performer = catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
     catalog
         .attach_tag_to_video(tag.id, 1)
         .expect("tag attaches to first video");

@@ -105,6 +105,71 @@ fn catalog_migration_adds_scan_root_availability_to_existing_databases() {
 }
 
 #[test]
+fn catalog_migration_adds_non_secret_status_to_existing_tags_and_performers() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let database = Connection::open(&catalog_path).expect("catalog database opens");
+    database
+        .execute_batch(
+            "
+                CREATE TABLE tags (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    normalized_name TEXT NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE performers (
+                    id INTEGER PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    normalized_name TEXT NOT NULL UNIQUE,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                );
+
+                INSERT INTO tags (id, name, normalized_name)
+                VALUES (1, 'Travel', 'travel');
+
+                INSERT INTO performers (id, name, normalized_name)
+                VALUES (2, 'Alex', 'alex');
+                ",
+        )
+        .expect("old metadata schema exists");
+    drop(database);
+
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+
+    let database = Connection::open(catalog_path).expect("catalog database opens");
+    assert!(
+        crate::catalog::migrations::catalog_table_has_column(&database, "tags", "is_secret")
+            .expect("tag column presence loads")
+    );
+    assert!(crate::catalog::migrations::catalog_table_has_column(
+        &database,
+        "performers",
+        "is_secret"
+    )
+    .expect("performer column presence loads"));
+    assert_eq!(
+        catalog.list_tags().expect("tags list"),
+        vec![crate::catalog::CatalogTag {
+            id: 1,
+            is_secret: false,
+            name: "Travel".to_string(),
+        }]
+    );
+    assert_eq!(
+        catalog.list_performers().expect("performers list"),
+        vec![crate::catalog::CatalogPerformer {
+            id: 2,
+            is_secret: false,
+            name: "Alex".to_string(),
+        }]
+    );
+}
+
+#[test]
 fn catalog_migration_renames_folder_name_rule_once() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
@@ -443,6 +508,7 @@ fn catalog_schema_preserves_the_first_vertical_slice_contract() {
             "id INTEGER optional",
             "name TEXT required",
             "normalized_name TEXT required",
+            "is_secret INTEGER required",
             "created_at TEXT required",
             "updated_at TEXT required",
         ]
@@ -453,6 +519,7 @@ fn catalog_schema_preserves_the_first_vertical_slice_contract() {
             "id INTEGER optional",
             "name TEXT required",
             "normalized_name TEXT required",
+            "is_secret INTEGER required",
             "created_at TEXT required",
             "updated_at TEXT required",
         ]
