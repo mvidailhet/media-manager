@@ -117,6 +117,15 @@ describe("Scan module", () => {
     ]);
 
     renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    expect(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Hide secret tags and performers",
+      }),
+    ).toBeChecked();
     await openScanModule();
 
     const secretMetadataSection = await screen.findByRole("region", {
