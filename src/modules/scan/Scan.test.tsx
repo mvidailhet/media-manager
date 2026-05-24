@@ -21,6 +21,8 @@ import {
   mockedDetachPerformerFromVideo,
   mockedCreateTag,
   mockedCreatePerformer,
+  mockedUpdateTag,
+  mockedUpdatePerformer,
   mockedUpdateVideoTitle,
   mockedSetVideoFavorite,
   mockedOpenCatalogVideo,
@@ -102,6 +104,71 @@ describe("Scan module", () => {
     expect(
       screen.queryByRole("button", { name: "Generate Preview Strips" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("manages global Secret Metadata from existing Tags and Performers", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: true, name: "Archive" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: true, name: "Alex" },
+    ]);
+
+    renderApp();
+    await openScanModule();
+
+    const secretMetadataSection = await screen.findByRole("region", {
+      name: "Secret Tags and Performers",
+    });
+
+    expect(
+      within(secretMetadataSection).getByRole("heading", {
+        name: "Secret Tags and Performers",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Travel secret Tag",
+      }),
+    ).not.toBeChecked();
+    expect(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Archive secret Tag",
+      }),
+    ).toBeChecked();
+    expect(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Blair secret Performer",
+      }),
+    ).not.toBeChecked();
+    expect(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Alex secret Performer",
+      }),
+    ).toBeChecked();
+    expect(
+      within(secretMetadataSection).queryByRole("button", { name: /create/i }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Travel secret Tag",
+      }),
+    );
+    fireEvent.click(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Alex secret Performer",
+      }),
+    );
+
+    await waitFor(() =>
+      expect(mockedUpdateTag).toHaveBeenCalledWith(4, "Travel", true),
+    );
+    expect(mockedUpdatePerformer).toHaveBeenCalledWith(10, "Alex", false);
+    expect(mockedCreateTag).not.toHaveBeenCalled();
+    expect(mockedCreatePerformer).not.toHaveBeenCalled();
   });
 
   it("shows Preview Strip queue status and supports global pause and resume", async () => {

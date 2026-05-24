@@ -11,8 +11,13 @@ impl Catalog {
             .map(catalog_tag_from_value)
     }
 
-    pub fn update_tag(&self, tag_id: i64, name: &str) -> Result<CatalogTag, String> {
-        self.update_metadata_value("tags", tag_id, name, "Tag")
+    pub fn update_tag(
+        &self,
+        tag_id: i64,
+        name: &str,
+        is_secret: Option<bool>,
+    ) -> Result<CatalogTag, String> {
+        self.update_metadata_value("tags", tag_id, name, is_secret, "Tag")
             .map(catalog_tag_from_value)
     }
 
@@ -44,8 +49,9 @@ impl Catalog {
         &self,
         performer_id: i64,
         name: &str,
+        is_secret: Option<bool>,
     ) -> Result<CatalogPerformer, String> {
-        self.update_metadata_value("performers", performer_id, name, "Performer")
+        self.update_metadata_value("performers", performer_id, name, is_secret, "Performer")
             .map(catalog_performer_from_value)
     }
 
@@ -164,6 +170,7 @@ impl Catalog {
         table_name: &str,
         metadata_id: i64,
         name: &str,
+        is_secret: Option<bool>,
         metadata_type_name: &str,
     ) -> Result<CatalogMetadataValue, String> {
         let metadata_name = normalized_metadata_input(name)?;
@@ -174,23 +181,48 @@ impl Catalog {
             Some(metadata_id),
             &duplicate_error,
         )?;
-        let query = format!(
-            "UPDATE {table_name}
-             SET name = ?1,
-                 normalized_name = ?2,
-                 updated_at = CURRENT_TIMESTAMP
-             WHERE id = ?3"
-        );
-        self.database
-            .execute(
-                &query,
-                params![
-                    metadata_name.display_name,
-                    metadata_name.normalized_name,
-                    metadata_id
-                ],
-            )
-            .map_err(|error| error.to_string())?;
+        match is_secret {
+            Some(secret_status) => {
+                let query = format!(
+                    "UPDATE {table_name}
+                     SET name = ?1,
+                         normalized_name = ?2,
+                         is_secret = ?3,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?4"
+                );
+                self.database
+                    .execute(
+                        &query,
+                        params![
+                            metadata_name.display_name,
+                            metadata_name.normalized_name,
+                            secret_status,
+                            metadata_id
+                        ],
+                    )
+                    .map_err(|error| error.to_string())?;
+            }
+            None => {
+                let query = format!(
+                    "UPDATE {table_name}
+                     SET name = ?1,
+                         normalized_name = ?2,
+                         updated_at = CURRENT_TIMESTAMP
+                     WHERE id = ?3"
+                );
+                self.database
+                    .execute(
+                        &query,
+                        params![
+                            metadata_name.display_name,
+                            metadata_name.normalized_name,
+                            metadata_id
+                        ],
+                    )
+                    .map_err(|error| error.to_string())?;
+            }
+        }
 
         self.metadata_value_by_id(table_name, metadata_id, metadata_type_name)
     }

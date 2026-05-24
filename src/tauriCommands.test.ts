@@ -520,7 +520,7 @@ describe("Tauri commands", () => {
     const listedTags = await listTags();
     mockedInvoke.mockResolvedValue({ id: 4, isSecret: true, name: "Travel" });
     const createdTag = await createTag("Travel");
-    const updatedTag = await updateTag(4, "Archive");
+    const updatedTag = await updateTag(4, "Archive", true);
     await deleteTag(4);
 
     expect(listedTags).toEqual([{ id: 4, isSecret: false, name: "Travel" }]);
@@ -532,6 +532,7 @@ describe("Tauri commands", () => {
       name: "Travel",
     });
     expect(mockedInvoke).toHaveBeenCalledWith("update_tag", {
+      isSecret: true,
       tagId: 4,
       name: "Archive",
     });
@@ -544,7 +545,7 @@ describe("Tauri commands", () => {
     const listedPerformers = await listPerformers();
     mockedInvoke.mockResolvedValue({ id: 9, isSecret: true, name: "Blair" });
     const createdPerformer = await createPerformer("Blair");
-    const updatedPerformer = await updatePerformer(9, "Alex");
+    const updatedPerformer = await updatePerformer(9, "Alex", true);
     await deletePerformer(9);
 
     expect(listedPerformers).toEqual([
@@ -558,11 +559,26 @@ describe("Tauri commands", () => {
       name: "Blair",
     });
     expect(mockedInvoke).toHaveBeenCalledWith("update_performer", {
+      isSecret: true,
       performerId: 9,
       name: "Alex",
     });
     expect(mockedInvoke).toHaveBeenCalledWith("delete_performer", {
       performerId: 9,
+    });
+  });
+
+  it("keeps secret status optional when renaming metadata", async () => {
+    await updateTag(4, "Archive");
+    await updatePerformer(9, "Alex");
+
+    expect(mockedInvoke).toHaveBeenCalledWith("update_tag", {
+      tagId: 4,
+      name: "Archive",
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith("update_performer", {
+      performerId: 9,
+      name: "Alex",
     });
   });
 
