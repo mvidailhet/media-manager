@@ -63,7 +63,7 @@ fn scan_root_inference_rules_can_be_changed_without_changing_accepted_local_meta
             |row| row.get::<_, i64>(0),
         )
         .expect("video id loads");
-    let tag = catalog.create_tag("Family").expect("tag creates");
+    let tag = catalog.create_tag("Family", false).expect("tag creates");
     catalog
         .attach_tag_to_video(tag.id, video_id)
         .expect("tag attaches");
@@ -130,7 +130,9 @@ fn scan_root_refresh_generates_performer_suggestions_for_existing_performer_name
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
-    catalog.create_performer("Alex").expect("performer creates");
+    catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
     let movies_root = temporary_folder.path().join("Movies");
     let video_folder = movies_root.join("Alex");
     std::fs::create_dir_all(&video_folder).expect("video folder exists");
@@ -169,7 +171,9 @@ fn filename_bracket_inference_generates_performer_suggestions_for_existing_perfo
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
-    catalog.create_performer("Alex").expect("performer creates");
+    catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
     let movies_root = temporary_folder.path().join("Movies");
     std::fs::create_dir_all(&movies_root).expect("movies root exists");
     std::fs::write(movies_root.join("birthday [Alex].mp4"), "valid video bytes")
@@ -196,7 +200,7 @@ fn performer_suggestion_matching_uses_metadata_name_normalization() {
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
     catalog
-        .create_performer("Mary Jane")
+        .create_performer("Mary Jane", false)
         .expect("performer creates");
     let movies_root = temporary_folder.path().join("Movies");
     let compact_name_folder = movies_root.join("MaryJane");
@@ -246,7 +250,9 @@ fn rejected_tag_suggestions_do_not_suppress_later_performer_suggestions() {
     catalog
         .reject_metadata_suggestion_source(&scan_root.path, "Alex", "Alex", "tag")
         .expect("tag suggestion rejects");
-    catalog.create_performer("Alex").expect("performer creates");
+    catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
 
     catalog
         .refresh_scan_root(
@@ -305,7 +311,9 @@ fn existing_tag_mapping_wins_over_later_performer_name_match() {
             &[first_video_id, second_video_id],
         )
         .expect("tag suggestion accepts");
-    catalog.create_performer("Alex").expect("performer creates");
+    catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
     std::fs::write(video_folder.join("third.mp4"), "valid third bytes").expect("new video exists");
 
     catalog
@@ -323,6 +331,7 @@ fn existing_tag_mapping_wins_over_later_performer_name_match() {
             .expect("video tags list"),
         vec![crate::catalog::CatalogTag {
             id: 1,
+            is_secret: false,
             name: "Alex".to_string()
         }]
     );
@@ -902,6 +911,7 @@ fn accepting_metadata_suggestion_for_many_videos_excludes_selected_videos_withou
             .expect("accepted video tags list"),
         vec![crate::catalog::CatalogTag {
             id: 1,
+            is_secret: false,
             name: "Family".to_string()
         }]
     );
@@ -970,6 +980,7 @@ fn accepting_metadata_suggestion_can_create_a_performer_instead_of_a_tag() {
             .expect("video performers list"),
         vec![crate::catalog::CatalogPerformer {
             id: 1,
+            is_secret: false,
             name: "The Family".to_string()
         }]
     );
@@ -990,7 +1001,9 @@ fn accepting_metadata_suggestion_can_map_to_an_existing_tag_with_a_different_nam
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
     let catalog = Catalog::open(&catalog_path).expect("catalog opens");
-    let existing_tag = catalog.create_tag("Home Movies").expect("tag creates");
+    let existing_tag = catalog
+        .create_tag("Home Movies", false)
+        .expect("tag creates");
     let movies_root = temporary_folder.path().join("Movies");
     let family_folder = movies_root.join("Family");
     std::fs::create_dir_all(&family_folder).expect("family folder exists");
@@ -1163,6 +1176,7 @@ fn accepting_metadata_suggestion_remembers_mapping_for_future_suggestions_from_t
             .expect("new video performers list"),
         vec![crate::catalog::CatalogPerformer {
             id: 1,
+            is_secret: false,
             name: "The Family".to_string()
         }]
     );
@@ -1310,6 +1324,7 @@ fn metadata_suggestion_mappings_are_scoped_to_scan_root_source_and_value() {
             .expect("mapped video tags list"),
         vec![crate::catalog::CatalogTag {
             id: 1,
+            is_secret: false,
             name: "Home Movies".to_string()
         }]
     );

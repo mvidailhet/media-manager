@@ -245,13 +245,14 @@ fn list_tags(catalog_state: tauri::State<'_, CatalogState>) -> Result<Vec<Catalo
 fn create_tag(
     catalog_state: tauri::State<'_, CatalogState>,
     name: String,
+    is_secret: Option<bool>,
 ) -> Result<CatalogTag, String> {
     let catalog = catalog_state
         .catalog
         .lock()
         .map_err(|error| error.to_string())?;
 
-    catalog.create_tag(&name)
+    catalog.create_tag(&name, is_secret.unwrap_or(false))
 }
 
 #[tauri::command]
@@ -294,13 +295,14 @@ fn list_performers(
 fn create_performer(
     catalog_state: tauri::State<'_, CatalogState>,
     name: String,
+    is_secret: Option<bool>,
 ) -> Result<CatalogPerformer, String> {
     let catalog = catalog_state
         .catalog
         .lock()
         .map_err(|error| error.to_string())?;
 
-    catalog.create_performer(&name)
+    catalog.create_performer(&name, is_secret.unwrap_or(false))
 }
 
 #[tauri::command]

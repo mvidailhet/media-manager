@@ -6,8 +6,8 @@ impl Catalog {
             .map(catalog_tags_from_values)
     }
 
-    pub fn create_tag(&self, name: &str) -> Result<CatalogTag, String> {
-        self.create_metadata_value("tags", name, "Tag")
+    pub fn create_tag(&self, name: &str, is_secret: bool) -> Result<CatalogTag, String> {
+        self.create_metadata_value("tags", name, is_secret, "Tag")
             .map(catalog_tag_from_value)
     }
 
@@ -31,8 +31,12 @@ impl Catalog {
             .map(catalog_performers_from_values)
     }
 
-    pub fn create_performer(&self, name: &str) -> Result<CatalogPerformer, String> {
-        self.create_metadata_value("performers", name, "Performer")
+    pub fn create_performer(
+        &self,
+        name: &str,
+        is_secret: bool,
+    ) -> Result<CatalogPerformer, String> {
+        self.create_metadata_value("performers", name, is_secret, "Performer")
             .map(catalog_performer_from_value)
     }
 
@@ -97,7 +101,7 @@ impl Catalog {
 
     fn list_metadata_values(&self, table_name: &str) -> Result<Vec<CatalogMetadataValue>, String> {
         let query = format!(
-            "SELECT id, name
+            "SELECT id, is_secret, name
              FROM {table_name}
              ORDER BY normalized_name"
         );
@@ -110,7 +114,8 @@ impl Catalog {
             .query_map([], |row| {
                 Ok(CatalogMetadataValue {
                     id: row.get(0)?,
-                    name: row.get(1)?,
+                    is_secret: row.get(1)?,
+                    name: row.get(2)?,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -124,6 +129,7 @@ impl Catalog {
         &self,
         table_name: &str,
         name: &str,
+        is_secret: bool,
         metadata_type_name: &str,
     ) -> Result<CatalogMetadataValue, String> {
         let metadata_name = normalized_metadata_input(name)?;
@@ -135,13 +141,17 @@ impl Catalog {
             &duplicate_error,
         )?;
         let query = format!(
-            "INSERT INTO {table_name} (name, normalized_name)
-             VALUES (?1, ?2)"
+            "INSERT INTO {table_name} (name, normalized_name, is_secret)
+             VALUES (?1, ?2, ?3)"
         );
         self.database
             .execute(
                 &query,
-                params![metadata_name.display_name, metadata_name.normalized_name],
+                params![
+                    metadata_name.display_name,
+                    metadata_name.normalized_name,
+                    is_secret
+                ],
             )
             .map_err(|error| error.to_string())?;
         let metadata_id = self.database.last_insert_rowid();
@@ -312,7 +322,9 @@ impl Catalog {
         video_id: i64,
     ) -> Result<Vec<CatalogMetadataValue>, String> {
         let query = format!(
-            "SELECT {metadata_table_name}.id, {metadata_table_name}.name
+            "SELECT {metadata_table_name}.id,
+                    {metadata_table_name}.is_secret,
+                    {metadata_table_name}.name
              FROM {metadata_table_name}
              JOIN {link_table_name}
                ON {link_table_name}.{metadata_id_column} = {metadata_table_name}.id
@@ -328,7 +340,8 @@ impl Catalog {
             .query_map(params![video_id], |row| {
                 Ok(CatalogMetadataValue {
                     id: row.get(0)?,
-                    name: row.get(1)?,
+                    is_secret: row.get(1)?,
+                    name: row.get(2)?,
                 })
             })
             .map_err(|error| error.to_string())?
@@ -345,7 +358,7 @@ impl Catalog {
         metadata_type_name: &str,
     ) -> Result<CatalogMetadataValue, String> {
         let query = format!(
-            "SELECT id, name
+            "SELECT id, is_secret, name
              FROM {table_name}
              WHERE id = ?1"
         );
@@ -353,7 +366,8 @@ impl Catalog {
             .query_row(&query, params![metadata_id], |row| {
                 Ok(CatalogMetadataValue {
                     id: row.get(0)?,
-                    name: row.get(1)?,
+                    is_secret: row.get(1)?,
+                    name: row.get(2)?,
                 })
             })
             .optional()

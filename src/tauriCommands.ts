@@ -200,11 +200,13 @@ export interface RejectMetadataSuggestionSourceRequest {
 
 export interface CatalogTag {
   id: number;
+  isSecret: boolean;
   name: string;
 }
 
 export interface CatalogPerformer {
   id: number;
+  isSecret: boolean;
   name: string;
 }
 
@@ -279,8 +281,11 @@ export async function listTags(): Promise<CatalogTag[]> {
   return invoke<CatalogTag[]>(listTagsCommand);
 }
 
-export async function createTag(name: string): Promise<CatalogTag> {
-  return invoke<CatalogTag>(createTagCommand, { name });
+export async function createTag(
+  name: string,
+  isSecret = false,
+): Promise<CatalogTag> {
+  return invoke<CatalogTag>(createTagCommand, { isSecret, name });
 }
 
 export async function updateTag(
@@ -298,8 +303,11 @@ export async function listPerformers(): Promise<CatalogPerformer[]> {
   return invoke<CatalogPerformer[]>(listPerformersCommand);
 }
 
-export async function createPerformer(name: string): Promise<CatalogPerformer> {
-  return invoke<CatalogPerformer>(createPerformerCommand, { name });
+export async function createPerformer(
+  name: string,
+  isSecret = false,
+): Promise<CatalogPerformer> {
+  return invoke<CatalogPerformer>(createPerformerCommand, { isSecret, name });
 }
 
 export async function updatePerformer(

@@ -570,8 +570,8 @@ describe("Catalog module", () => {
   });
 
   it("loads Catalog Videos into the Videos View", async () => {
-    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, isSecret: false, name: "Blair" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -1185,29 +1185,29 @@ describe("Catalog module", () => {
 
   it("filters Catalog Videos by requiring every selected Tag and any selected Performer", async () => {
     mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Family" },
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Family" },
     ]);
     mockedListPerformers.mockResolvedValue([
-      { id: 9, name: "Blair" },
-      { id: 10, name: "Alex" },
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: false, name: "Alex" },
     ]);
     mockedTagsForVideo.mockImplementation(async (videoId) => {
       if (videoId === 1) {
         return [
-          { id: 4, name: "Travel" },
-          { id: 5, name: "Family" },
+          { id: 4, isSecret: false, name: "Travel" },
+          { id: 5, isSecret: false, name: "Family" },
         ];
       }
 
-      return [{ id: 4, name: "Travel" }];
+      return [{ id: 4, isSecret: false, name: "Travel" }];
     });
     mockedPerformersForVideo.mockImplementation(async (videoId) => {
       if (videoId === 1) {
-        return [{ id: 9, name: "Blair" }];
+        return [{ id: 9, isSecret: false, name: "Blair" }];
       }
 
-      return [{ id: 10, name: "Alex" }];
+      return [{ id: 10, isSecret: false, name: "Alex" }];
     });
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -1372,13 +1372,13 @@ describe("Catalog module", () => {
     ]);
     mockedPerformersForVideo.mockImplementation(async (videoId) => {
       if (videoId === 1) {
-        return [{ id: 9, name: "Blair" }];
+        return [{ id: 9, isSecret: false, name: "Blair" }];
       }
 
       if (videoId === 2) {
         return [
-          { id: 7, name: "Alex" },
-          { id: 9, name: "Blair" },
+          { id: 7, isSecret: false, name: "Alex" },
+          { id: 9, isSecret: false, name: "Blair" },
         ];
       }
 
@@ -1831,24 +1831,24 @@ describe("Catalog module", () => {
 
   it("applies Batch Edit metadata and Favorite actions from the aside to selected Videos", async () => {
     mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Archive" },
-      { id: 7, name: "Unused" },
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Archive" },
+      { id: 7, isSecret: false, name: "Unused" },
     ]);
     mockedListPerformers.mockResolvedValue([
-      { id: 9, name: "Blair" },
-      { id: 10, name: "Alex" },
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: false, name: "Alex" },
     ]);
-    mockedCreateTag.mockResolvedValue({ id: 6, name: "Road Trip" });
-    mockedCreatePerformer.mockResolvedValue({ id: 11, name: "Casey" });
+    mockedCreateTag.mockResolvedValue({ id: 6, isSecret: false, name: "Road Trip" });
+    mockedCreatePerformer.mockResolvedValue({ id: 11, isSecret: false, name: "Casey" });
     mockedTagsForVideo.mockImplementation(async (videoId) => {
       if (videoId === 1) {
-        return [{ id: 4, name: "Travel" }];
+        return [{ id: 4, isSecret: false, name: "Travel" }];
       }
 
-      return [{ id: 5, name: "Archive" }];
+      return [{ id: 5, isSecret: false, name: "Archive" }];
     });
-    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, isSecret: false, name: "Blair" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -1971,8 +1971,8 @@ describe("Catalog module", () => {
   });
 
   it("clears a Performer filter when Batch Edit removes that Performer from every matching Video", async () => {
-    mockedListPerformers.mockResolvedValue([{ id: 9, name: "Blair" }]);
-    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedListPerformers.mockResolvedValue([{ id: 9, isSecret: false, name: "Blair" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, isSecret: false, name: "Blair" }]);
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Family Trip"),
       catalogVideoFixture(2, "City Walk"),
@@ -2014,8 +2014,8 @@ describe("Catalog module", () => {
   });
 
   it("clears a Tag filter when Batch Edit removes that Tag from every matching Video", async () => {
-    mockedListTags.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedListTags.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Family Trip"),
       catalogVideoFixture(2, "City Walk"),
@@ -2058,21 +2058,21 @@ describe("Catalog module", () => {
 
   it("uses file-explorer gestures to switch between Video Detail and Batch Edit selection", async () => {
     mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Archive" },
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Archive" },
     ]);
     mockedListPerformers.mockResolvedValue([
-      { id: 9, name: "Blair" },
-      { id: 10, name: "Alex" },
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: false, name: "Alex" },
     ]);
     mockedTagsForVideo.mockImplementation(async (videoId) => {
       if (videoId === 1) {
-        return [{ id: 4, name: "Travel" }];
+        return [{ id: 4, isSecret: false, name: "Travel" }];
       }
 
-      return [{ id: 5, name: "Archive" }];
+      return [{ id: 5, isSecret: false, name: "Archive" }];
     });
-    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, isSecret: false, name: "Blair" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -2730,15 +2730,15 @@ describe("Catalog module", () => {
 
   it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {
     mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Archive" },
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Archive" },
     ]);
     mockedListPerformers.mockResolvedValue([
-      { id: 9, name: "Blair" },
-      { id: 10, name: "Alex" },
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: false, name: "Alex" },
     ]);
-    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, isSecret: false, name: "Blair" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -3091,15 +3091,15 @@ describe("Catalog module", () => {
 
   it("shows selected Video Tags and Performers as metadata Badges", async () => {
     mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Archive" },
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Archive" },
     ]);
     mockedListPerformers.mockResolvedValue([
-      { id: 9, name: "Blair" },
-      { id: 10, name: "Alex" },
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: false, name: "Alex" },
     ]);
-    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedPerformersForVideo.mockResolvedValue([{ id: 9, name: "Blair" }]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
+    mockedPerformersForVideo.mockResolvedValue([{ id: 9, isSecret: false, name: "Blair" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -3145,10 +3145,10 @@ describe("Catalog module", () => {
 
   it("edits Tags independently with immediate attach, detach, create, Done, and Revert", async () => {
     mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Archive" },
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Archive" },
     ]);
-    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -3164,7 +3164,7 @@ describe("Catalog module", () => {
         previewStrip: pendingPreviewStrip,
       },
     ]);
-    mockedCreateTag.mockResolvedValue({ id: 6, name: "Road Trip" });
+    mockedCreateTag.mockResolvedValue({ id: 6, isSecret: false, name: "Road Trip" });
 
     renderApp();
 
@@ -3227,8 +3227,8 @@ describe("Catalog module", () => {
 
   it("shows quiet metadata empty states and edits Performers independently", async () => {
     mockedListPerformers.mockResolvedValue([
-      { id: 9, name: "Blair" },
-      { id: 10, name: "Alex" },
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: false, name: "Alex" },
     ]);
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -3245,7 +3245,7 @@ describe("Catalog module", () => {
         previewStrip: pendingPreviewStrip,
       },
     ]);
-    mockedCreatePerformer.mockResolvedValue({ id: 11, name: "Casey" });
+    mockedCreatePerformer.mockResolvedValue({ id: 11, isSecret: false, name: "Casey" });
 
     renderApp();
 
@@ -3293,11 +3293,11 @@ describe("Catalog module", () => {
 
   it("exits metadata edit mode and resets baselines when switching selected Video", async () => {
     mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Archive" },
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Archive" },
     ]);
     mockedTagsForVideo.mockImplementation(async (videoId) =>
-      videoId === 1 ? [{ id: 4, name: "Travel" }] : [{ id: 5, name: "Archive" }],
+      videoId === 1 ? [{ id: 4, isSecret: false, name: "Travel" }] : [{ id: 5, isSecret: false, name: "Archive" }],
     );
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -3366,10 +3366,10 @@ describe("Catalog module", () => {
 
   it("recreates a detached baseline Tag by name when Revert restores it", async () => {
     mockedListTags
-      .mockResolvedValueOnce([{ id: 4, name: "Travel" }])
+      .mockResolvedValueOnce([{ id: 4, isSecret: false, name: "Travel" }])
       .mockResolvedValueOnce([]);
-    mockedTagsForVideo.mockResolvedValue([{ id: 4, name: "Travel" }]);
-    mockedCreateTag.mockResolvedValue({ id: 7, name: "Travel" });
+    mockedTagsForVideo.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
+    mockedCreateTag.mockResolvedValue({ id: 7, isSecret: false, name: "Travel" });
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -3418,11 +3418,11 @@ describe("Catalog module", () => {
     const tagDetach = deferredPromise<void>();
     mockedDetachTagFromVideo.mockReturnValue(tagDetach.promise);
     mockedListTags.mockResolvedValue([
-      { id: 4, name: "Travel" },
-      { id: 5, name: "Archive" },
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Archive" },
     ]);
     mockedTagsForVideo.mockImplementation(async (videoId) =>
-      videoId === 1 ? [{ id: 4, name: "Travel" }] : [{ id: 5, name: "Archive" }],
+      videoId === 1 ? [{ id: 4, isSecret: false, name: "Travel" }] : [{ id: 5, isSecret: false, name: "Archive" }],
     );
     mockedListCatalogVideos.mockResolvedValue([
       {
@@ -4363,7 +4363,7 @@ describe("Catalog module", () => {
         },
       ])
       .mockResolvedValueOnce([]);
-    mockedListPerformers.mockResolvedValue([{ id: 12, name: "The Family" }]);
+    mockedListPerformers.mockResolvedValue([{ id: 12, isSecret: false, name: "The Family" }]);
 
     renderApp();
     await openMetadataSuggestionsView();
@@ -4483,8 +4483,8 @@ describe("Catalog module", () => {
         },
       ])
       .mockResolvedValueOnce([]);
-    mockedListTags.mockResolvedValue([{ id: 4, name: "Archive" }]);
-    mockedCreateTag.mockResolvedValue({ id: 6, name: "Home Movies" });
+    mockedListTags.mockResolvedValue([{ id: 4, isSecret: false, name: "Archive" }]);
+    mockedCreateTag.mockResolvedValue({ id: 6, isSecret: false, name: "Home Movies" });
 
     renderApp();
     await openMetadataSuggestionsView();

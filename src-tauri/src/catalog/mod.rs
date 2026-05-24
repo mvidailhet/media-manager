@@ -226,6 +226,7 @@ pub struct MetadataSuggestionVideo {
 #[serde(rename_all = "camelCase")]
 pub struct CatalogTag {
     pub id: i64,
+    pub is_secret: bool,
     pub name: String,
 }
 
@@ -233,11 +234,13 @@ pub struct CatalogTag {
 #[serde(rename_all = "camelCase")]
 pub struct CatalogPerformer {
     pub id: i64,
+    pub is_secret: bool,
     pub name: String,
 }
 
 struct CatalogMetadataValue {
     id: i64,
+    is_secret: bool,
     name: String,
 }
 
@@ -719,6 +722,7 @@ fn mapped_metadata_suggestion(
 fn catalog_tag_from_value(metadata_value: CatalogMetadataValue) -> CatalogTag {
     CatalogTag {
         id: metadata_value.id,
+        is_secret: metadata_value.is_secret,
         name: metadata_value.name,
     }
 }
@@ -733,6 +737,7 @@ fn catalog_tags_from_values(metadata_values: Vec<CatalogMetadataValue>) -> Vec<C
 fn catalog_performer_from_value(metadata_value: CatalogMetadataValue) -> CatalogPerformer {
     CatalogPerformer {
         id: metadata_value.id,
+        is_secret: metadata_value.is_secret,
         name: metadata_value.name,
     }
 }
