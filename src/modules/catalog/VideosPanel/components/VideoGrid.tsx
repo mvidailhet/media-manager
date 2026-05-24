@@ -19,6 +19,11 @@ type DragPoint = {
   y: number;
 };
 
+type PointerDragPoint = {
+  contentPoint: DragPoint;
+  viewportPoint: DragPoint;
+};
+
 export function VideoGrid({
   catalogVideoMetadataById,
   catalogVideos,
@@ -42,14 +47,13 @@ export function VideoGrid({
   selectedVideoIds: number[];
 }) {
   const gridElement = useRef<HTMLDivElement | null>(null);
-  const dragSelectionStart = useRef<DragPoint | null>(null);
+  const dragSelectionStart = useRef<PointerDragPoint | null>(null);
   const isDragSelecting = useRef(false);
   const previousBodyUserSelect = useRef<string | null>(null);
   const shouldSuppressNextCardClick = useRef(false);
   const suppressCardClickTimeoutId = useRef<number | null>(null);
-  const [dragSelectionEnd, setDragSelectionEnd] = useState<DragPoint | null>(
-    null,
-  );
+  const [dragSelectionEnd, setDragSelectionEnd] =
+    useState<PointerDragPoint | null>(null);
   const [dragSelectedVideoIds, setDragSelectedVideoIds] = useState<number[]>([]);
   const [openPerformerGroups, setOpenPerformerGroups] = useState<string[]>([]);
 
@@ -67,10 +71,13 @@ export function VideoGrid({
     }
 
     event.preventDefault();
-    dragSelectionStart.current = {
-      x: event.clientX,
-      y: event.clientY,
-    };
+    const nextDragSelectionStart = dragPointFromPointerEvent(event);
+
+    if (!nextDragSelectionStart) {
+      return;
+    }
+
+    dragSelectionStart.current = nextDragSelectionStart;
     event.currentTarget.setPointerCapture?.(event.pointerId);
     clearSuppressedCardClick();
     isDragSelecting.current = false;
@@ -84,9 +91,11 @@ export function VideoGrid({
     }
 
     const horizontalDistance = Math.abs(
-      event.clientX - dragSelectionStart.current.x,
+      event.clientX - dragSelectionStart.current.viewportPoint.x,
     );
-    const verticalDistance = Math.abs(event.clientY - dragSelectionStart.current.y);
+    const verticalDistance = Math.abs(
+      event.clientY - dragSelectionStart.current.viewportPoint.y,
+    );
 
     if (
       horizontalDistance >= dragSelectionStartThresholdPixels ||
@@ -96,16 +105,17 @@ export function VideoGrid({
       event.preventDefault();
       disableDocumentTextSelection();
       window.getSelection()?.removeAllRanges();
-      const nextDragSelectionEnd = {
-        x: event.clientX,
-        y: event.clientY,
-      };
+      const nextDragSelectionEnd = dragPointFromPointerEvent(event);
+
+      if (!nextDragSelectionEnd) {
+        return;
+      }
 
       setDragSelectionEnd(nextDragSelectionEnd);
       setDragSelectedVideoIds(
         videoIdsInsideDragRectangle(
-          dragSelectionStart.current,
-          nextDragSelectionEnd,
+          dragSelectionStart.current.contentPoint,
+          nextDragSelectionEnd.contentPoint,
         ),
       );
     }
@@ -138,10 +148,15 @@ export function VideoGrid({
     window.getSelection()?.removeAllRanges();
     setDragSelectionEnd(null);
     setDragSelectedVideoIds([]);
-    onReplaceSelectedVideos(videoIdsInsideDragRectangle(startPoint, {
-      x: event.clientX,
-      y: event.clientY,
-    }));
+    const endPoint = dragPointFromPointerEvent(event);
+
+    if (!endPoint) {
+      return;
+    }
+
+    onReplaceSelectedVideos(
+      videoIdsInsideDragRectangle(startPoint.contentPoint, endPoint.contentPoint),
+    );
   }
 
   function cancelDragSelection() {
@@ -227,7 +242,7 @@ export function VideoGrid({
 
     return videoCards
       .filter((videoCard) => {
-        const cardBox = videoCard.getBoundingClientRect();
+        const cardBox = videoCardContentBox(videoCard);
 
         return (
           cardBox.left <= right &&
@@ -239,20 +254,68 @@ export function VideoGrid({
       .map((videoCard) => Number(videoCard.dataset.videoId));
   }
 
+  function dragPointFromPointerEvent(
+    event: PointerEvent<HTMLDivElement>,
+  ): PointerDragPoint | null {
+    if (!gridElement.current) {
+      return null;
+    }
+
+    const gridBox = gridElement.current.getBoundingClientRect();
+
+    return {
+      contentPoint: {
+        x: event.clientX - gridBox.left,
+        y: event.clientY - gridBox.top,
+      },
+      viewportPoint: {
+        x: event.clientX,
+        y: event.clientY,
+      },
+    };
+  }
+
+  function videoCardContentBox(videoCard: HTMLElement) {
+    const cardBox = videoCard.getBoundingClientRect();
+    const gridBox = gridElement.current?.getBoundingClientRect();
+
+    if (!gridBox) {
+      return cardBox;
+    }
+
+    return {
+      bottom: cardBox.bottom - gridBox.top,
+      left: cardBox.left - gridBox.left,
+      right: cardBox.right - gridBox.left,
+      top: cardBox.top - gridBox.top,
+    };
+  }
+
   function dragSelectionRectangleStyle() {
     if (!dragSelectionStart.current || !dragSelectionEnd || !gridElement.current) {
       return undefined;
     }
 
-    const gridBox = gridElement.current.getBoundingClientRect();
-    const left = Math.min(dragSelectionStart.current.x, dragSelectionEnd.x);
-    const right = Math.max(dragSelectionStart.current.x, dragSelectionEnd.x);
-    const top = Math.min(dragSelectionStart.current.y, dragSelectionEnd.y);
-    const bottom = Math.max(dragSelectionStart.current.y, dragSelectionEnd.y);
+    const left = Math.min(
+      dragSelectionStart.current.contentPoint.x,
+      dragSelectionEnd.contentPoint.x,
+    );
+    const right = Math.max(
+      dragSelectionStart.current.contentPoint.x,
+      dragSelectionEnd.contentPoint.x,
+    );
+    const top = Math.min(
+      dragSelectionStart.current.contentPoint.y,
+      dragSelectionEnd.contentPoint.y,
+    );
+    const bottom = Math.max(
+      dragSelectionStart.current.contentPoint.y,
+      dragSelectionEnd.contentPoint.y,
+    );
 
     return {
-      left: left - gridBox.left,
-      top: top - gridBox.top,
+      left,
+      top,
       width: right - left,
       height: bottom - top,
     };

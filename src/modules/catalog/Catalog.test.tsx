@@ -3301,6 +3301,13 @@ describe("Catalog module", () => {
   });
 
   it("selects Videos touched by a drag rectangle", async () => {
+    const visibleGridTop = 0;
+    const scrolledGridTop = -80;
+    const selectionStartX = 10;
+    const selectionStartY = 10;
+    const selectionEndX = 210;
+    const selectionEndY = 160;
+
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Family Trip"),
       catalogVideoFixture(2, "City Walk"),
@@ -3322,7 +3329,19 @@ describe("Catalog module", () => {
     const studioClipCard = within(catalogVideos).getByRole("article", {
       name: "Studio Clip",
     });
+    let gridTop = visibleGridTop;
 
+    vi.spyOn(videoGrid, "getBoundingClientRect").mockImplementation(() => ({
+      bottom: gridTop + 600,
+      height: 600,
+      left: 0,
+      right: 600,
+      top: gridTop,
+      width: 600,
+      x: 0,
+      y: gridTop,
+      toJSON: () => ({}),
+    }));
     vi.spyOn(familyTripCard, "getBoundingClientRect").mockReturnValue({
       bottom: 100,
       height: 100,
@@ -3357,16 +3376,31 @@ describe("Catalog module", () => {
       toJSON: () => ({}),
     });
 
-    fireEvent.pointerDown(familyTripCard, { button: 0, clientX: 10, clientY: 10 });
-    fireEvent.pointerMove(videoGrid, { clientX: 210, clientY: 80 });
+    fireEvent.pointerDown(familyTripCard, {
+      button: 0,
+      clientX: selectionStartX,
+      clientY: selectionStartY,
+    });
+    gridTop = scrolledGridTop;
+    fireEvent.pointerMove(videoGrid, {
+      clientX: selectionEndX,
+      clientY: selectionEndY,
+    });
 
+    const selectionRectangle = videoGrid.querySelector(
+      '[class*="selectionRectangle"]',
+    );
     expect(document.body.style.userSelect).toBe("none");
-    expect(videoGrid.querySelector('[class*="selectionRectangle"]')).not.toBeNull();
+    expect(selectionRectangle).not.toBeNull();
+    expect(selectionRectangle).toHaveStyle({ top: `${selectionStartY}px` });
     expect(familyTripCard.className).toContain("batchSelectedPreviewCard");
     expect(cityWalkCard.className).toContain("batchSelectedPreviewCard");
     expect(studioClipCard.className).not.toContain("batchSelectedPreviewCard");
 
-    fireEvent.pointerUp(cityWalkCard, { clientX: 210, clientY: 80 });
+    fireEvent.pointerUp(cityWalkCard, {
+      clientX: selectionEndX,
+      clientY: selectionEndY,
+    });
     fireEvent.click(cityWalkCard);
 
     expect(document.body.style.userSelect).toBe("");
