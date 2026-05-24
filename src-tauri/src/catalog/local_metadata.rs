@@ -31,6 +31,18 @@ impl Catalog {
         )
     }
 
+    pub fn merge_tags(&self, kept_tag_id: i64, merged_tag_id: i64) -> Result<CatalogTag, String> {
+        self.merge_metadata_value(
+            "tags",
+            "tag_videos",
+            "tag_id",
+            kept_tag_id,
+            merged_tag_id,
+            "Tag",
+        )
+        .map(catalog_tag_from_value)
+    }
+
     pub fn list_performers(&self) -> Result<Vec<CatalogPerformer>, String> {
         self.list_metadata_values("performers")
             .map(catalog_performers_from_values)
@@ -63,6 +75,22 @@ impl Catalog {
             performer_id,
             "Attached Performers must be detached before deletion",
         )
+    }
+
+    pub fn merge_performers(
+        &self,
+        kept_performer_id: i64,
+        merged_performer_id: i64,
+    ) -> Result<CatalogPerformer, String> {
+        self.merge_metadata_value(
+            "performers",
+            "performer_videos",
+            "performer_id",
+            kept_performer_id,
+            merged_performer_id,
+            "Performer",
+        )
+        .map(catalog_performer_from_value)
     }
 
     pub fn attach_tag_to_video(&self, tag_id: i64, video_id: i64) -> Result<(), String> {
@@ -295,6 +323,77 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
 
         Ok(())
+    }
+
+    fn merge_metadata_value(
+        &self,
+        metadata_table_name: &str,
+        link_table_name: &str,
+        metadata_id_column: &str,
+        kept_metadata_id: i64,
+        merged_metadata_id: i64,
+        metadata_type_name: &str,
+    ) -> Result<CatalogMetadataValue, String> {
+        let kept_metadata_value =
+            self.metadata_value_by_id(metadata_table_name, kept_metadata_id, metadata_type_name)?;
+        if kept_metadata_id == merged_metadata_id {
+            return Ok(kept_metadata_value);
+        }
+
+        let merged_metadata_value =
+            self.metadata_value_by_id(metadata_table_name, merged_metadata_id, metadata_type_name)?;
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+
+        let update_secret_status_query = format!(
+            "UPDATE {metadata_table_name}
+             SET is_secret = is_secret OR ?1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?2"
+        );
+        transaction
+            .execute(
+                &update_secret_status_query,
+                params![merged_metadata_value.is_secret, kept_metadata_id],
+            )
+            .map_err(|error| error.to_string())?;
+
+        let copy_attachments_query = format!(
+            "INSERT OR IGNORE INTO {link_table_name} ({metadata_id_column}, video_id)
+             SELECT ?1, video_id
+             FROM {link_table_name}
+             WHERE {metadata_id_column} = ?2"
+        );
+        transaction
+            .execute(
+                &copy_attachments_query,
+                params![kept_metadata_id, merged_metadata_id],
+            )
+            .map_err(|error| error.to_string())?;
+
+        let delete_merged_attachments_query = format!(
+            "DELETE FROM {link_table_name}
+             WHERE {metadata_id_column} = ?1"
+        );
+        transaction
+            .execute(
+                &delete_merged_attachments_query,
+                params![merged_metadata_id],
+            )
+            .map_err(|error| error.to_string())?;
+
+        let delete_merged_metadata_query = format!(
+            "DELETE FROM {metadata_table_name}
+             WHERE id = ?1"
+        );
+        transaction
+            .execute(&delete_merged_metadata_query, params![merged_metadata_id])
+            .map_err(|error| error.to_string())?;
+        transaction.commit().map_err(|error| error.to_string())?;
+
+        self.metadata_value_by_id(metadata_table_name, kept_metadata_id, metadata_type_name)
     }
 
     fn detach_metadata_from_video(

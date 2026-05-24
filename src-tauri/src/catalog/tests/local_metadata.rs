@@ -258,6 +258,138 @@ fn renaming_tags_and_performers_preserves_secret_status() {
 }
 
 #[test]
+fn merging_tags_keeps_secret_status_when_any_source_tag_was_secret() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let database = catalog_test_database(&catalog_path);
+    store_test_video(&database, "fingerprint-one", "Family Trip");
+    store_test_video(&database, "fingerprint-two", "Concert Night");
+    let public_tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let secret_tag = catalog.create_tag("Trips", true).expect("tag creates");
+    catalog
+        .attach_tag_to_video(public_tag.id, 1)
+        .expect("public tag attaches");
+    catalog
+        .attach_tag_to_video(secret_tag.id, 2)
+        .expect("secret tag attaches");
+
+    let merged_tag = catalog
+        .merge_tags(public_tag.id, secret_tag.id)
+        .expect("tags merge");
+
+    assert_eq!(merged_tag.id, public_tag.id);
+    assert!(merged_tag.is_secret);
+    assert_eq!(
+        catalog.list_tags().expect("tags list"),
+        vec![merged_tag.clone()]
+    );
+    assert_eq!(
+        catalog.tags_for_video(1).expect("first video tags list"),
+        vec![merged_tag.clone()]
+    );
+    assert_eq!(
+        catalog.tags_for_video(2).expect("second video tags list"),
+        vec![merged_tag]
+    );
+}
+
+#[test]
+fn merging_performers_keeps_secret_status_when_any_source_performer_was_secret() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let database = catalog_test_database(&catalog_path);
+    store_test_video(&database, "fingerprint-one", "Family Trip");
+    store_test_video(&database, "fingerprint-two", "Concert Night");
+    let public_performer = catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
+    let secret_performer = catalog
+        .create_performer("Blair", true)
+        .expect("performer creates");
+    catalog
+        .attach_performer_to_video(public_performer.id, 1)
+        .expect("public performer attaches");
+    catalog
+        .attach_performer_to_video(secret_performer.id, 2)
+        .expect("secret performer attaches");
+
+    let merged_performer = catalog
+        .merge_performers(public_performer.id, secret_performer.id)
+        .expect("performers merge");
+
+    assert_eq!(merged_performer.id, public_performer.id);
+    assert!(merged_performer.is_secret);
+    assert_eq!(
+        catalog.list_performers().expect("performers list"),
+        vec![merged_performer.clone()]
+    );
+    assert_eq!(
+        catalog
+            .performers_for_video(1)
+            .expect("first video performers list"),
+        vec![merged_performer.clone()]
+    );
+    assert_eq!(
+        catalog
+            .performers_for_video(2)
+            .expect("second video performers list"),
+        vec![merged_performer]
+    );
+}
+
+#[test]
+fn merging_metadata_keeps_secret_status_when_the_kept_value_was_secret() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let secret_tag = catalog.create_tag("Travel", true).expect("tag creates");
+    let public_tag = catalog.create_tag("Trips", false).expect("tag creates");
+    let secret_performer = catalog
+        .create_performer("Alex", true)
+        .expect("performer creates");
+    let public_performer = catalog
+        .create_performer("Blair", false)
+        .expect("performer creates");
+
+    let merged_tag = catalog
+        .merge_tags(secret_tag.id, public_tag.id)
+        .expect("tags merge");
+    let merged_performer = catalog
+        .merge_performers(secret_performer.id, public_performer.id)
+        .expect("performers merge");
+
+    assert!(merged_tag.is_secret);
+    assert!(merged_performer.is_secret);
+}
+
+#[test]
+fn merging_non_secret_tags_and_performers_keeps_result_non_secret() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let public_tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let other_public_tag = catalog.create_tag("Trips", false).expect("tag creates");
+    let public_performer = catalog
+        .create_performer("Alex", false)
+        .expect("performer creates");
+    let other_public_performer = catalog
+        .create_performer("Blair", false)
+        .expect("performer creates");
+
+    let merged_tag = catalog
+        .merge_tags(public_tag.id, other_public_tag.id)
+        .expect("tags merge");
+    let merged_performer = catalog
+        .merge_performers(public_performer.id, other_public_performer.id)
+        .expect("performers merge");
+
+    assert!(!merged_tag.is_secret);
+    assert!(!merged_performer.is_secret);
+}
+
+#[test]
 fn tags_and_performers_can_change_secret_status() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
