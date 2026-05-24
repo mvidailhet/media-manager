@@ -15,6 +15,14 @@ const appStylesSource = readFileSync(
   "src/App.module.css",
   "utf8",
 );
+const catalogStylesSource = readFileSync(
+  "src/modules/catalog/Catalog.module.css",
+  "utf8",
+);
+const selectionPanelStylesSource = readFileSync(
+  "src/modules/catalog/SelectionPanel/SelectionPanel.module.css",
+  "utf8",
+);
 
 describe("App shell", () => {
   beforeEach(resetAppTestHarness);
@@ -129,6 +137,32 @@ describe("App shell", () => {
       name: "Selection Panel",
     })).toBeInTheDocument();
     expect(appMain.className).toMatch(/mainContent/);
+  });
+
+  it("limits Catalog scrolling to the Videos View beside a fixed Selection Panel", async () => {
+    renderApp();
+
+    expect(
+      await screen.findByRole("region", { name: "Catalog Videos" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("complementary", { name: "Selection Panel" }),
+    ).toBeInTheDocument();
+
+    expect(catalogStylesSource).toMatch(/\.catalogWorkspace\s*{[^}]*overflow:\s*hidden;/s);
+    expect(catalogStylesSource).toMatch(
+      /\.catalogWorkspace\s*{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(320px,\s*420px\);/s,
+    );
+    expect(catalogStylesSource).toMatch(/\.catalogContent\s*{[^}]*display:\s*grid;/s);
+    expect(catalogStylesSource).toMatch(
+      /\.catalogContent\s*{[^}]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\);/s,
+    );
+    expect(catalogStylesSource).not.toMatch(
+      /@media\s*\(max-width:\s*900px\)\s*{[^}]*\.catalogWorkspace\s*{[^}]*overflow:\s*auto;/s,
+    );
+    expect(selectionPanelStylesSource).toMatch(
+      /\.selectionPanel\s*{[^}]*overflow-y:\s*auto;/s,
+    );
   });
 
   it("renders Catalog as the initial module workspace", async () => {

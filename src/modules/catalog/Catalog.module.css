@@ -4,23 +4,23 @@
   grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .catalogContent {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
   min-height: 0;
+  overflow: hidden;
 }
 
 .catalogToolbar {
-  left: 16px;
-  position: fixed;
-  top: 16px;
-  z-index: 20;
+  padding: var(--mantine-spacing-md) var(--mantine-spacing-md) 0;
 }
 
 @media (max-width: 900px) {
   .catalogWorkspace {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: minmax(0, 1fr) minmax(280px, auto);
-    overflow: auto;
+    grid-template-rows: minmax(0, 1fr) minmax(280px, 40vh);
   }
 }

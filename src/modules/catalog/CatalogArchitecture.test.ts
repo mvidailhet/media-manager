@@ -197,16 +197,14 @@ describe("Catalog module boundaries", () => {
     );
   });
 
-  it("keeps optional Metadata Suggestions access from reserving Catalog vertical space", () => {
+  it("keeps optional Metadata Suggestions access outside the Videos View scroll area", () => {
     expect(catalogSource).toMatch(/CatalogToolbar/);
     expect(catalogStylesSource).toMatch(/\.catalogToolbar\s*{/);
-    expect(catalogStylesSource).toMatch(/position:\s*fixed/);
-    expect(catalogStylesSource).toMatch(/left:\s*16px/);
-    expect(catalogStylesSource).toMatch(/top:\s*16px/);
-    expect(catalogStylesSource).toMatch(/grid-template-rows:\s*minmax\(0, 1fr\)/);
-    expect(catalogStylesSource).not.toMatch(
-      /grid-template-rows:\s*auto minmax\(0, 1fr\)/,
+    expect(catalogSource).toMatch(/<CatalogToolbar[\s\S]*<VideosPanel/);
+    expect(catalogStylesSource).toMatch(
+      /\.catalogContent\s*{[^}]*grid-template-rows:\s*auto\s+minmax\(0,\s*1fr\);/s,
     );
+    expect(catalogStylesSource).not.toMatch(/position:\s*fixed/);
   });
 
   it("keeps performer groups visually separated in the Videos list", () => {
