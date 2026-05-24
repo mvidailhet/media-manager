@@ -55,7 +55,7 @@
 .primaryPerformerAccordionBody {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 18vw, 400px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 16vw, 320px), 1fr));
 }
 
 .selectionRectangle {
