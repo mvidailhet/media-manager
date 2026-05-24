@@ -15,6 +15,7 @@ export function catalogVideoMatchesFilters(
       filters.showUnavailableVideos,
     ) &&
     catalogVideoMatchesDurationFilter(catalogVideo, filters) &&
+    catalogVideoMatchesSecretMetadataFilter(metadata, filters.hideSecretMetadata) &&
     catalogVideoMatchesTagFilter(metadata, filters.selectedTagIds) &&
     catalogVideoMatchesPerformerFilter(metadata, filters.selectedPerformerIds)
   );
@@ -98,6 +99,21 @@ export function catalogVideoMatchesTagFilter(
   const videoTagIds = new Set(metadata?.tags.map((tag) => tag.id) ?? []);
 
   return selectedTagIds.every((tagId) => videoTagIds.has(tagId));
+}
+
+export function catalogVideoMatchesSecretMetadataFilter(
+  metadata: CatalogVideoMetadata | undefined,
+  hideSecretMetadata: boolean,
+) {
+  if (!hideSecretMetadata) {
+    return true;
+  }
+
+  const hasSecretTag = metadata?.tags.some((tag) => tag.isSecret) ?? false;
+  const hasSecretPerformer =
+    metadata?.performers.some((performer) => performer.isSecret) ?? false;
+
+  return !hasSecretTag && !hasSecretPerformer;
 }
 
 export function catalogVideoMatchesPerformerFilter(

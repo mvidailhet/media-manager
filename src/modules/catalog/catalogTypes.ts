@@ -13,6 +13,7 @@ export interface CatalogVideoFilters {
   searchText: string;
   selectedTagIds: number[];
   selectedPerformerIds: number[];
+  hideSecretMetadata: boolean;
   favoritesOnly: boolean;
   showUnavailableVideos: boolean;
   minimumDurationMinutes: number | "";
@@ -36,6 +37,7 @@ export const defaultCatalogVideoFilters: CatalogVideoFilters = {
   searchText: "",
   selectedTagIds: [],
   selectedPerformerIds: [],
+  hideSecretMetadata: true,
   favoritesOnly: false,
   showUnavailableVideos: false,
   minimumDurationMinutes: "",

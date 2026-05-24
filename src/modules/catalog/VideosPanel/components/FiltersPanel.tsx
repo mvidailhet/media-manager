@@ -41,9 +41,34 @@ export function FiltersPanel({
       ? maximumDurationMinutes
       : filters.maximumDurationMinutes,
   ];
+  const visibleTags = filters.hideSecretMetadata
+    ? availableTags.filter((tag) => !tag.isSecret)
+    : availableTags;
+  const visiblePerformers = filters.hideSecretMetadata
+    ? availablePerformers.filter((performer) => !performer.isSecret)
+    : availablePerformers;
 
   function updateFilters(updatedFilters: Partial<CatalogVideoFilters>) {
     onFiltersChange({ ...filters, ...updatedFilters });
+  }
+
+  function updateSecretMetadataVisibility(hideSecretMetadata: boolean) {
+    const updatedFilters: Partial<CatalogVideoFilters> = {
+      hideSecretMetadata,
+    };
+
+    if (hideSecretMetadata) {
+      updatedFilters.selectedTagIds = selectedVisibleMetadataIds(
+        availableTags,
+        filters.selectedTagIds,
+      );
+      updatedFilters.selectedPerformerIds = selectedVisibleMetadataIds(
+        availablePerformers,
+        filters.selectedPerformerIds,
+      );
+    }
+
+    updateFilters(updatedFilters);
   }
 
   return (
@@ -63,6 +88,13 @@ export function FiltersPanel({
           checked={filters.favoritesOnly}
           onChange={(event) =>
             updateFilters({ favoritesOnly: event.currentTarget.checked })
+          }
+        />
+        <Checkbox
+          label="Hide secret tags and performers"
+          checked={filters.hideSecretMetadata}
+          onChange={(event) =>
+            updateSecretMetadataVisibility(event.currentTarget.checked)
           }
         />
         <Button
@@ -115,7 +147,7 @@ export function FiltersPanel({
           />
         </Stack>
       </Collapse>
-      {availableTags.length > 0 ? (
+      {visibleTags.length > 0 ? (
         <Checkbox.Group
           label="Tags"
           value={filters.selectedTagIds.map(String)}
@@ -124,13 +156,13 @@ export function FiltersPanel({
           }
         >
           <Group gap="sm" mt="xs">
-            {availableTags.map((tag) => (
+            {visibleTags.map((tag) => (
               <Checkbox key={tag.id} value={String(tag.id)} label={tag.name} />
             ))}
           </Group>
         </Checkbox.Group>
       ) : null}
-      {availablePerformers.length > 0 ? (
+      {visiblePerformers.length > 0 ? (
         <Checkbox.Group
           label="Performers"
           value={filters.selectedPerformerIds.map(String)}
@@ -139,7 +171,7 @@ export function FiltersPanel({
           }
         >
           <Group gap="sm" mt="xs">
-            {availablePerformers.map((performer) => (
+            {visiblePerformers.map((performer) => (
               <Checkbox
                 key={performer.id}
                 value={String(performer.id)}
@@ -153,3 +185,17 @@ export function FiltersPanel({
   );
 }
 
+function selectedVisibleMetadataIds<TMetadata extends { id: number; isSecret: boolean }>(
+  metadataValues: TMetadata[],
+  selectedMetadataIds: number[],
+) {
+  const visibleMetadataIds = new Set(
+    metadataValues
+      .filter((metadataValue) => !metadataValue.isSecret)
+      .map((metadataValue) => metadataValue.id),
+  );
+
+  return selectedMetadataIds.filter((metadataId) =>
+    visibleMetadataIds.has(metadataId),
+  );
+}

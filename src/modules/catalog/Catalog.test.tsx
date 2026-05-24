@@ -1273,6 +1273,141 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("hides secret metadata from normal Videos browsing until revealed for the session", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: true, name: "Secret Tag" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: true, name: "Secret Performer" },
+    ]);
+    mockedTagsForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 2) {
+        return [{ id: 5, isSecret: true, name: "Secret Tag" }];
+      }
+
+      return [{ id: 4, isSecret: false, name: "Travel" }];
+    });
+    mockedPerformersForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 3) {
+        return [{ id: 10, isSecret: true, name: "Secret Performer" }];
+      }
+
+      return [{ id: 9, isSecret: false, name: "Blair" }];
+    });
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Normal Video"),
+      catalogVideoFixture(2, "Secret Tag Video"),
+      catalogVideoFixture(3, "Secret Performer Video"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await waitFor(() => {
+      expect(mockedTagsForVideo).toHaveBeenCalledWith(3);
+      expect(mockedPerformersForVideo).toHaveBeenCalledWith(3);
+    });
+
+    const hideSecretMetadata = within(catalogVideos).getByRole("checkbox", {
+      name: "Hide secret tags and performers",
+    });
+
+    expect(hideSecretMetadata).toBeChecked();
+    expect(within(catalogVideos).getByLabelText("Travel")).toBeInTheDocument();
+    expect(within(catalogVideos).getByLabelText("Blair")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("Secret Tag"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("Secret Performer"),
+    ).not.toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Normal Video")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Secret Tag Video"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Secret Performer Video"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(hideSecretMetadata);
+
+    expect(hideSecretMetadata).not.toBeChecked();
+    expect(
+      within(catalogVideos).getByLabelText("Secret Tag"),
+    ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByLabelText("Secret Performer"),
+    ).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Normal Video")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByText("Secret Tag Video"),
+    ).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByText("Secret Performer Video"),
+    ).toBeInTheDocument();
+  });
+
+  it("clears selected secret metadata filters when secret metadata is hidden again", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: true, name: "Secret Tag" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: true, name: "Secret Performer" },
+    ]);
+    mockedTagsForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 2) {
+        return [{ id: 5, isSecret: true, name: "Secret Tag" }];
+      }
+
+      return [{ id: 4, isSecret: false, name: "Travel" }];
+    });
+    mockedPerformersForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 2) {
+        return [{ id: 10, isSecret: true, name: "Secret Performer" }];
+      }
+
+      return [{ id: 9, isSecret: false, name: "Blair" }];
+    });
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Normal Video"),
+      catalogVideoFixture(2, "Secret Video"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const hideSecretMetadata = within(catalogVideos).getByRole("checkbox", {
+      name: "Hide secret tags and performers",
+    });
+
+    fireEvent.click(hideSecretMetadata);
+    fireEvent.click(within(catalogVideos).getByLabelText("Secret Tag"));
+    fireEvent.click(within(catalogVideos).getByLabelText("Secret Performer"));
+
+    expect(
+      within(catalogVideos).queryByText("Normal Video"),
+    ).not.toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Secret Video")).toBeInTheDocument();
+
+    fireEvent.click(hideSecretMetadata);
+    fireEvent.click(hideSecretMetadata);
+
+    expect(within(catalogVideos).getByText("Normal Video")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Secret Video")).toBeInTheDocument();
+    expect(within(catalogVideos).getByLabelText("Secret Tag")).not.toBeChecked();
+    expect(
+      within(catalogVideos).getByLabelText("Secret Performer"),
+    ).not.toBeChecked();
+  });
+
   it("sorts Catalog Videos by File Size without adding File Size as a Search Filter", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
