@@ -164,7 +164,11 @@ impl Catalog {
                 .map_err(|error| error.to_string())?;
         }
 
-        transaction.commit().map_err(|error| error.to_string())
+        transaction.commit().map_err(|error| error.to_string())?;
+        if metadata_kind == "performer" {
+            self.refresh_unaccepted_metadata_suggestions(scan_root_id, scan_root_path)?;
+        }
+        Ok(())
     }
 
     pub fn reject_metadata_suggestion_source(
@@ -227,7 +231,8 @@ impl Catalog {
             )
             .map_err(|error| error.to_string())?;
 
-        transaction.commit().map_err(|error| error.to_string())
+        transaction.commit().map_err(|error| error.to_string())?;
+        self.refresh_unaccepted_metadata_suggestions(scan_root_id, scan_root_path)
     }
 
     fn reject_unknown_suggestion_kind(&self, suggestion_kind: &str) -> Result<(), String> {
@@ -291,6 +296,23 @@ impl Catalog {
         scan_root_id: i64,
         scan_root_path: &str,
     ) -> Result<(), String> {
+        self.regenerate_metadata_suggestions(scan_root_id, scan_root_path, true)
+    }
+
+    fn refresh_unaccepted_metadata_suggestions(
+        &self,
+        scan_root_id: i64,
+        scan_root_path: &str,
+    ) -> Result<(), String> {
+        self.regenerate_metadata_suggestions(scan_root_id, scan_root_path, false)
+    }
+
+    fn regenerate_metadata_suggestions(
+        &self,
+        scan_root_id: i64,
+        scan_root_path: &str,
+        apply_accepted_mappings: bool,
+    ) -> Result<(), String> {
         let scan_root = self.scan_root(scan_root_path)?;
         let file_locations = self.file_locations_for_metadata_inference(scan_root_id)?;
         let transaction = self
@@ -331,28 +353,30 @@ impl Catalog {
                 let source_path_segment = suggestion_source.source_path_segment;
                 let normalized_suggested_value =
                     normalized_metadata_suggestion_value(&suggested_value);
-                if let Some(suggestion_mapping) = mapped_metadata_suggestion(
-                    &transaction,
-                    scan_root_id,
-                    &source_path_segment,
-                    &suggested_value,
-                    "tag",
-                )? {
-                    attach_mapped_metadata_suggestion_to_video(
-                        &transaction,
-                        &suggestion_mapping,
-                        video_id,
-                    )?;
-                    store_accepted_metadata_suggestion(
+                if apply_accepted_mappings {
+                    if let Some(suggestion_mapping) = mapped_metadata_suggestion(
                         &transaction,
                         scan_root_id,
-                        video_id,
                         &source_path_segment,
                         &suggested_value,
-                        &normalized_suggested_value,
                         "tag",
-                    )?;
-                    continue;
+                    )? {
+                        attach_mapped_metadata_suggestion_to_video(
+                            &transaction,
+                            &suggestion_mapping,
+                            video_id,
+                        )?;
+                        store_accepted_metadata_suggestion(
+                            &transaction,
+                            scan_root_id,
+                            video_id,
+                            &source_path_segment,
+                            &suggested_value,
+                            &normalized_suggested_value,
+                            "tag",
+                        )?;
+                        continue;
+                    }
                 }
 
                 let suggestion_kind =
@@ -382,28 +406,30 @@ impl Catalog {
                     continue;
                 }
 
-                if let Some(suggestion_mapping) = mapped_metadata_suggestion(
-                    &transaction,
-                    scan_root_id,
-                    &source_path_segment,
-                    &suggested_value,
-                    suggestion_kind,
-                )? {
-                    attach_mapped_metadata_suggestion_to_video(
-                        &transaction,
-                        &suggestion_mapping,
-                        video_id,
-                    )?;
-                    store_accepted_metadata_suggestion(
+                if apply_accepted_mappings {
+                    if let Some(suggestion_mapping) = mapped_metadata_suggestion(
                         &transaction,
                         scan_root_id,
-                        video_id,
                         &source_path_segment,
                         &suggested_value,
-                        &normalized_suggested_value,
                         suggestion_kind,
-                    )?;
-                    continue;
+                    )? {
+                        attach_mapped_metadata_suggestion_to_video(
+                            &transaction,
+                            &suggestion_mapping,
+                            video_id,
+                        )?;
+                        store_accepted_metadata_suggestion(
+                            &transaction,
+                            scan_root_id,
+                            video_id,
+                            &source_path_segment,
+                            &suggested_value,
+                            &normalized_suggested_value,
+                            suggestion_kind,
+                        )?;
+                        continue;
+                    }
                 }
 
                 transaction

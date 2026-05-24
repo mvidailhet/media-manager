@@ -986,6 +986,82 @@ fn accepting_metadata_suggestion_can_create_a_performer_instead_of_a_tag() {
 }
 
 #[test]
+fn accepting_metadata_suggestion_as_performer_reinfers_remaining_matching_suggestions() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let accepted_family_folder = movies_root.join("Family");
+    let remaining_family_folder = movies_root.join("Events");
+    std::fs::create_dir_all(&accepted_family_folder).expect("accepted family folder exists");
+    std::fs::create_dir_all(&remaining_family_folder).expect("remaining family folder exists");
+    std::fs::write(
+        accepted_family_folder.join("family-trip.mp4"),
+        "valid video bytes",
+    )
+    .expect("family video exists");
+    std::fs::write(
+        accepted_family_folder.join("family-party.mp4"),
+        "valid party bytes",
+    )
+    .expect("second accepted family video exists");
+    std::fs::write(
+        remaining_family_folder.join("[Family - Travel] reunion.mp4"),
+        "valid reunion bytes",
+    )
+    .expect("remaining family video exists");
+    std::fs::write(
+        remaining_family_folder.join("[Family - Travel] birthday.mp4"),
+        "valid birthday bytes",
+    )
+    .expect("second remaining family video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+    let accepted_video_id = video_id_for_title(&catalog.database, "family-trip");
+    let remaining_video_id = catalog
+        .database
+        .query_row(
+            "SELECT video_id FROM file_locations WHERE path LIKE ?1",
+            ["%[Family - Travel] reunion.mp4"],
+            |row| row.get::<_, i64>(0),
+        )
+        .expect("remaining video id loads");
+
+    catalog
+        .accept_metadata_suggestion_for_videos(
+            &scan_root.path,
+            "Family",
+            "Family",
+            "tag",
+            Some("performer"),
+            Some("Family"),
+            &[accepted_video_id],
+        )
+        .expect("metadata suggestion accepts as performer");
+
+    let suggestion_groups = catalog
+        .list_metadata_suggestion_groups()
+        .expect("metadata suggestions list");
+    assert!(suggestion_groups
+        .iter()
+        .any(
+            |suggestion_group| suggestion_group.suggested_value == "Family"
+                && suggestion_group.suggestion_kind == "performer"
+                && suggestion_group
+                    .sources
+                    .iter()
+                    .flat_map(|source| source.videos.iter())
+                    .any(|video| video.video_id == remaining_video_id)
+        ));
+}
+
+#[test]
 fn accepting_metadata_suggestion_can_map_to_an_existing_tag_with_a_different_name() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
