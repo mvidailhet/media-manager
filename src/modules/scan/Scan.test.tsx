@@ -171,6 +171,62 @@ describe("Scan module", () => {
     expect(mockedCreatePerformer).not.toHaveBeenCalled();
   });
 
+  it("shows a recoverable status when changing a secret Tag fails", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+    ]);
+    mockedUpdateTag.mockRejectedValue(new Error("Tag update failed"));
+
+    renderApp();
+    await openScanModule();
+
+    const secretMetadataSection = await screen.findByRole("region", {
+      name: "Secret Tags and Performers",
+    });
+    fireEvent.click(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Travel secret Tag",
+      }),
+    );
+
+    expect(
+      await within(secretMetadataSection).findByText("Tag update failed"),
+    ).toBeInTheDocument();
+    expect(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Travel secret Tag",
+      }),
+    ).not.toBeChecked();
+  });
+
+  it("shows a recoverable status when changing a secret Performer fails", async () => {
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, isSecret: true, name: "Blair" },
+    ]);
+    mockedUpdatePerformer.mockRejectedValue(new Error("Performer update failed"));
+
+    renderApp();
+    await openScanModule();
+
+    const secretMetadataSection = await screen.findByRole("region", {
+      name: "Secret Tags and Performers",
+    });
+    fireEvent.click(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Blair secret Performer",
+      }),
+    );
+
+    expect(
+      await within(secretMetadataSection).findByText("Performer update failed"),
+    ).toBeInTheDocument();
+    expect(
+      within(secretMetadataSection).getByRole("checkbox", {
+        name: "Blair secret Performer",
+      }),
+    ).toBeChecked();
+  });
+
   it("shows Preview Strip queue status and supports global pause and resume", async () => {
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
       pendingCount: 3,

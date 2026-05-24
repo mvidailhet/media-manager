@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Box, Group, Stack, Text, Title } from "@mantine/core";
 
-import type { CatalogPerformer, CatalogTag } from "../../../../tauriCommands";
+import type { CatalogPerformer, CatalogTag } from "../../../../../tauriCommands";
 import {
   listPerformers,
   listTags,
   updatePerformer,
   updateTag,
-} from "../../../../tauriCommands";
-import { MetadataSecretToggleList } from "./SecretMetadataSection/MetadataSecretToggleList";
+} from "../../../../../tauriCommands";
+import { errorMessage } from "../../../../../shared/errors/errorMessage";
+import { MetadataSecretToggleList } from "./components/MetadataSecretToggleList";
 
 const secretMetadataStatusMessage = "Secret Metadata unavailable";
 
@@ -47,30 +48,40 @@ export function SecretMetadataSection() {
   }, []);
 
   async function changeTagSecretStatus(tag: CatalogTag, isSecret: boolean) {
-    const updatedTag = await updateTag(tag.id, tag.name, isSecret);
-    setTags((currentTags) =>
-      currentTags.map((currentTag) =>
-        currentTag.id === updatedTag.id ? updatedTag : currentTag,
-      ),
-    );
+    try {
+      const updatedTag = await updateTag(tag.id, tag.name, isSecret);
+      setTags((currentTags) =>
+        currentTags.map((currentTag) =>
+          currentTag.id === updatedTag.id ? updatedTag : currentTag,
+        ),
+      );
+      setStatusMessage("");
+    } catch (error) {
+      setStatusMessage(errorMessage(error));
+    }
   }
 
   async function changePerformerSecretStatus(
     performer: CatalogPerformer,
     isSecret: boolean,
   ) {
-    const updatedPerformer = await updatePerformer(
-      performer.id,
-      performer.name,
-      isSecret,
-    );
-    setPerformers((currentPerformers) =>
-      currentPerformers.map((currentPerformer) =>
-        currentPerformer.id === updatedPerformer.id
-          ? updatedPerformer
-          : currentPerformer,
-      ),
-    );
+    try {
+      const updatedPerformer = await updatePerformer(
+        performer.id,
+        performer.name,
+        isSecret,
+      );
+      setPerformers((currentPerformers) =>
+        currentPerformers.map((currentPerformer) =>
+          currentPerformer.id === updatedPerformer.id
+            ? updatedPerformer
+            : currentPerformer,
+        ),
+      );
+      setStatusMessage("");
+    } catch (error) {
+      setStatusMessage(errorMessage(error));
+    }
   }
 
   return (
