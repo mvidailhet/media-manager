@@ -1351,6 +1351,78 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps secret metadata available in Video Detail editing while normal browsing hides it", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: true, name: "Secret Tag" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: true, name: "Secret Performer" },
+    ]);
+    mockedTagsForVideo.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+    ]);
+    mockedPerformersForVideo.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Normal Video"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await within(catalogVideos).findByText("Normal Video");
+
+    expect(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Hide secret tags and performers",
+      }),
+    ).toBeChecked();
+    expect(
+      within(catalogVideos).queryByLabelText("Secret Tag"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("Secret Performer"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "Normal Video" }),
+    );
+
+    const videoDetailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    fireEvent.click(
+      within(videoDetailPanel).getByRole("button", { name: "Edit Tags" }),
+    );
+    fireEvent.change(
+      within(videoDetailPanel).getByRole("combobox", { name: "Tags" }),
+      { target: { value: "Secret Tag" } },
+    );
+    fireEvent.keyDown(
+      within(videoDetailPanel).getByRole("combobox", { name: "Tags" }),
+      { key: "Enter" },
+    );
+    fireEvent.click(
+      within(videoDetailPanel).getByRole("button", { name: "Edit Performers" }),
+    );
+    fireEvent.change(
+      within(videoDetailPanel).getByRole("combobox", { name: "Performers" }),
+      { target: { value: "Secret Performer" } },
+    );
+    fireEvent.keyDown(
+      within(videoDetailPanel).getByRole("combobox", { name: "Performers" }),
+      { key: "Enter" },
+    );
+
+    expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
+    expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
+  });
+
   it("does not show Videos before metadata is loaded while secret metadata is hidden", async () => {
     const secretTagsForVideo = deferredPromise<
       { id: number; isSecret: boolean; name: string }[]
@@ -2159,6 +2231,81 @@ describe("Catalog module", () => {
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(1, false);
     expect(mockedSetVideoFavorite).toHaveBeenCalledWith(2, false);
     expect(mockedUpdateVideoTitle).not.toHaveBeenCalled();
+  });
+
+  it("keeps secret metadata available in Batch Metadata Edit while normal browsing hides it", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: true, name: "Secret Tag" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: true, name: "Secret Performer" },
+    ]);
+    mockedTagsForVideo.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+    ]);
+    mockedPerformersForVideo.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Normal Video"),
+      catalogVideoFixture(2, "Second Normal Video"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await within(catalogVideos).findByText("Normal Video");
+
+    expect(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Hide secret tags and performers",
+      }),
+    ).toBeChecked();
+    expect(
+      within(catalogVideos).queryByLabelText("Secret Tag"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("Secret Performer"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", { name: "Normal Video" }),
+      { metaKey: true },
+    );
+    fireEvent.click(
+      within(catalogVideos).getByRole("article", {
+        name: "Second Normal Video",
+      }),
+      { metaKey: true },
+    );
+
+    const batchEditPanel = await screen.findByRole("region", {
+      name: "Batch Edit Panel",
+    });
+    const tagsInput = within(batchEditPanel).getByRole("combobox", {
+      name: "Tags",
+    });
+    fireEvent.change(tagsInput, { target: { value: "Secret Tag" } });
+    fireEvent.keyDown(tagsInput, { key: "Enter" });
+
+    const performersInput = within(batchEditPanel).getByRole("combobox", {
+      name: "Performers",
+    });
+    fireEvent.change(performersInput, {
+      target: { value: "Secret Performer" },
+    });
+    fireEvent.keyDown(performersInput, { key: "Enter" });
+
+    await waitFor(() => {
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 1);
+      expect(mockedAttachTagToVideo).toHaveBeenCalledWith(5, 2);
+      expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 1);
+      expect(mockedAttachPerformerToVideo).toHaveBeenCalledWith(10, 2);
+    });
   });
 
   it("clears a Performer filter when Batch Edit removes that Performer from every matching Video", async () => {
@@ -4594,6 +4741,93 @@ describe("Catalog module", () => {
     expect(
       await screen.findByRole("region", { name: "Catalog Videos" }),
     ).toBeInTheDocument();
+  });
+
+  it("keeps secret metadata available in Metadata Suggestion mapping while normal browsing hides it", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: true, name: "Secret Tag" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 10, isSecret: true, name: "Secret Performer" },
+    ]);
+    mockedListMetadataSuggestionGroups
+      .mockResolvedValueOnce([
+        {
+          suggestedValue: "Family",
+          suggestionKind: "tag",
+          sources: [
+            {
+              scanRootPath: "/Volumes/Archive/Videos",
+              sourcePathSegment: "Family",
+              videos: [
+                {
+                  videoId: 7,
+                  title: "Family Trip",
+                  fileLocationPath:
+                    "/Volumes/Archive/Videos/Family/family-trip.mp4",
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(7, "Family Trip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await within(catalogVideos).findByText("Family Trip");
+
+    expect(
+      within(catalogVideos).getByRole("checkbox", {
+        name: "Hide secret tags and performers",
+      }),
+    ).toBeChecked();
+    expect(
+      within(catalogVideos).queryByLabelText("Secret Tag"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByLabelText("Secret Performer"),
+    ).not.toBeInTheDocument();
+
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+    fireEvent.change(
+      await within(metadataSuggestions).findByLabelText(
+        "Accept Family as metadata kind",
+      ),
+      { target: { value: "performer" } },
+    );
+    fireEvent.change(
+      within(metadataSuggestions).getByLabelText("Accepted metadata name"),
+      { target: { value: "Secret Performer" } },
+    );
+    fireEvent.click(
+      within(metadataSuggestions).getByRole("button", {
+        name: "Accept",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(mockedAcceptMetadataSuggestionForVideos).toHaveBeenCalledWith({
+        scanRootPath: "/Volumes/Archive/Videos",
+        suggestedValue: "Family",
+        sourcePathSegment: "Family",
+        suggestionKind: "tag",
+        acceptedMetadataKind: "performer",
+        acceptedValue: "Secret Performer",
+        videoIds: [7],
+      });
+    });
   });
 
   it("updates the Metadata Suggestion badge color when accepting it as a Performer", async () => {
