@@ -209,7 +209,16 @@ describe("Catalog module boundaries", () => {
 
   it("keeps Primary Performer Accordions visually separated in the Videos list", () => {
     expect(videosPanelStylesSource).toMatch(/\.primaryPerformerAccordions/);
+    expect(videosPanelStylesSource).toMatch(
+      /\.primaryPerformerAccordions\s*{[^}]*gap:\s*12px;/s,
+    );
     expect(videosPanelStylesSource).toMatch(/\.primaryPerformerAccordion\s*{/);
+  });
+
+  it("lets Primary Performer Group Preview cards grow on larger screens", () => {
+    expect(videosPanelStylesSource).toMatch(
+      /\.groupPreviewCard\s*{[^}]*flex:\s*0\s+0\s+clamp\(132px,\s*12vw,\s*320px\);/s,
+    );
   });
 
   it("keeps Metadata Suggestions panel, group, source, and tree helpers in focused files", () => {
@@ -326,6 +335,8 @@ describe("Catalog module boundaries", () => {
     expect(primaryPerformerAccordionSource).toMatch(/".\/VideoCard"/);
     expect(primaryPerformerAccordionSource).toMatch(/".\/GroupPreviewStrip"/);
     expect(groupPreviewStripSource).toMatch(/".\/GroupPreviewCard"/);
+    expect(groupPreviewCardSource).not.toMatch(/groupPreviewTitle/);
+    expect(groupPreviewCardSource).not.toMatch(/<Text/);
     expect(Object.keys(videosPanelBarrelFiles)).toEqual([
       "./VideosPanel/index.ts",
     ]);

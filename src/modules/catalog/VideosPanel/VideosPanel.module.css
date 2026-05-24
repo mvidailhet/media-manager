@@ -9,6 +9,8 @@
 }
 
 .primaryPerformerAccordions {
+  display: grid;
+  gap: 12px;
   width: 100%;
 }
 
@@ -35,7 +37,7 @@
 
 .groupPreviewCard {
   cursor: pointer;
-  flex: 0 0 132px;
+  flex: 0 0 clamp(132px, 12vw, 320px);
   overflow: hidden;
   padding-bottom: 6px;
 }
@@ -48,13 +50,6 @@
 .batchSelectedPreviewCard {
   outline: 2px solid #15aabf;
   outline-offset: 2px;
-}
-
-.groupPreviewTitle {
-  overflow: hidden;
-  padding: 4px 6px 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .primaryPerformerAccordionBody {

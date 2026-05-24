@@ -48,12 +48,6 @@ export function PrimaryPerformerAccordion({
   const performerName =
     fullPerformerGroup.performer?.name ?? unassignedGroupLabel;
   const previewVideos = groupPreviewStripVideos(fullPerformerGroup.videos);
-  const previewVideoIds = new Set(
-    previewVideos.map((catalogVideo) => catalogVideo.id),
-  );
-  const bodyVideos = exposedVideos.filter(
-    (catalogVideo) => !previewVideoIds.has(catalogVideo.id),
-  );
 
   return (
     <Box
@@ -96,7 +90,7 @@ export function PrimaryPerformerAccordion({
         </Box>
         <Accordion.Panel>
           <Box className={styles.primaryPerformerAccordionBody}>
-            {bodyVideos.map((catalogVideo) => (
+            {exposedVideos.map((catalogVideo) => (
               <VideoCard
                 catalogVideo={catalogVideo}
                 catalogVideoMetadata={catalogVideoMetadataById[catalogVideo.id]}

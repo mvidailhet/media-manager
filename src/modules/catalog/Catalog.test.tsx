@@ -667,7 +667,7 @@ describe("Catalog module", () => {
       name: "Family Trip",
     });
 
-    expect(within(videoCard).getByText("Family Trip")).toBeInTheDocument();
+    expect(videoCard).toHaveAccessibleName("Family Trip");
     expect(
       within(videoCard).queryByRole("button", { name: "Family Trip" }),
     ).not.toBeInTheDocument();
@@ -809,7 +809,9 @@ describe("Catalog module", () => {
       target: { value: "family" },
     });
 
-    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
+    ).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByText("Archive Family Cut"),
     ).not.toBeInTheDocument();
@@ -826,7 +828,9 @@ describe("Catalog module", () => {
     expect(
       within(catalogVideos).getByText("Archive Family Cut"),
     ).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Unavailable")).toBeInTheDocument();
+    expect(within(catalogVideos).getAllByText("Unavailable").length).toBeGreaterThan(
+      0,
+    );
     expect(
       within(catalogVideos).queryByText("Studio Clip"),
     ).not.toBeInTheDocument();
@@ -1195,8 +1199,10 @@ describe("Catalog module", () => {
         name: "Favorites",
       }),
     ).toBeChecked();
-    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("1h 2m")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
+    ).toBeInTheDocument();
+    expect(within(catalogVideos).getAllByText("1h 2m").length).toBeGreaterThan(0);
     expect(
       within(catalogVideos).queryByText("Studio Clip"),
     ).not.toBeInTheDocument();
@@ -1797,7 +1803,7 @@ describe("Catalog module", () => {
     ).toBe(true);
   });
 
-  it("shows collapsed Primary Performer Accordions with favorite-first Group Preview Strips", async () => {
+  it("shows collapsed Primary Performer Accordions with thumbnail-only favorite-first Group Preview Strips", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       { ...catalogVideoFixture(1, "Blair First"), isFavorite: false },
       { ...catalogVideoFixture(2, "Blair Favorite"), isFavorite: true },
@@ -1830,23 +1836,29 @@ describe("Catalog module", () => {
         name: "Blair First",
       }),
     ).toBeInTheDocument();
-    expect(
-      within(blairAccordion).getAllByRole("article", {
-        name: "Blair Favorite",
-      }),
-    ).toHaveLength(1);
-
     fireEvent.click(
       within(blairAccordion).getByRole("button", {
         name: "Blair Primary Performer Accordion",
       }),
     );
 
-    expect(
-      within(blairAccordion).getAllByRole("article", {
-        name: "Blair Favorite",
-      }),
-    ).toHaveLength(1);
+    await waitFor(() => {
+      expect(
+        within(blairAccordion).getAllByRole("article", {
+          name: "Blair Favorite",
+        }),
+      ).toHaveLength(2);
+      expect(
+        within(blairAccordion).getAllByRole("article", {
+          name: "Blair Other Favorite",
+        }),
+      ).toHaveLength(2);
+      expect(
+        within(blairAccordion).getAllByRole("article", {
+          name: "Blair First",
+        }),
+      ).toHaveLength(2);
+    });
     expect(
       await within(blairAccordion).findByRole("article", {
         name: "Blair Second",
@@ -1854,14 +1866,56 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
 
     fireEvent.click(
-      within(blairAccordion).getByRole("article", {
+      within(blairAccordion).getAllByRole("article", {
         name: "Blair Favorite",
-      }),
+      })[0],
     );
 
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
     ).toHaveTextContent("Blair Favorite");
+  });
+
+  it("shows every group Video in the expanded accordion when the preview strip contains the whole group", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      { ...catalogVideoFixture(1, "Blair First"), isFavorite: false },
+      { ...catalogVideoFixture(2, "Blair Favorite"), isFavorite: true },
+      { ...catalogVideoFixture(3, "Blair Second"), isFavorite: false },
+    ]);
+    mockedPerformersForVideo.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await visibleCatalogVideos();
+    const blairAccordion = await within(catalogVideos).findByRole("region", {
+      name: "Blair Primary Performer Accordion",
+    });
+
+    fireEvent.click(
+      within(blairAccordion).getByRole("button", {
+        name: "Blair Primary Performer Accordion",
+      }),
+    );
+
+    await waitFor(() => {
+      expect(
+        within(blairAccordion).getAllByRole("article", {
+          name: "Blair Favorite",
+        }),
+      ).toHaveLength(2);
+      expect(
+        within(blairAccordion).getAllByRole("article", {
+          name: "Blair First",
+        }),
+      ).toHaveLength(2);
+      expect(
+        within(blairAccordion).getAllByRole("article", {
+          name: "Blair Second",
+        }),
+      ).toHaveLength(2);
+    });
   });
 
   it("opens a Video from the start and refreshes Catalog Videos", async () => {
@@ -4248,8 +4302,12 @@ describe("Catalog module", () => {
     expect(
       await within(catalogVideos).findByText("Family Trip"),
     ).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Unavailable")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Unknown")).toBeInTheDocument();
+    expect(within(catalogVideos).getAllByText("Unavailable").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(catalogVideos).getAllByText("Unknown").length).toBeGreaterThan(
+      0,
+    );
   });
 
   it("initially exposes a bounded batch of matching Videos", async () => {

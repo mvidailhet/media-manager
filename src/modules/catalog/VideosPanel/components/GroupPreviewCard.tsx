@@ -1,5 +1,5 @@
 import type { KeyboardEvent, MouseEvent } from "react";
-import { Paper, Text } from "@mantine/core";
+import { Paper } from "@mantine/core";
 
 import type { CatalogVideo } from "../../../../tauriCommands";
 import type { VideoSelectionModifiers } from "../../useCatalogModuleController";
@@ -71,9 +71,6 @@ export function GroupPreviewCard({
         catalogVideo={catalogVideo}
         onFavoriteChange={(isFavorite) => onSetFavorite(catalogVideo, isFavorite)}
       />
-      <Text className={styles.groupPreviewTitle} fw={500} size="xs">
-        {catalogVideo.title}
-      </Text>
     </Paper>
   );
 }
