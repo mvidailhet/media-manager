@@ -5,7 +5,6 @@ import {
   type CatalogVideo,
   useCatalogModuleController,
 } from "./modules/catalog";
-import { CatalogDetailAside } from "./modules/catalog/CatalogDetailAside/index";
 import {
   Scan,
   type ScanRoot,
@@ -18,14 +17,6 @@ import { ForgetMissingVideoConfirmation } from "./components/ForgetMissingVideoC
 import { ModuleNavigation } from "./components/ModuleNavigation";
 import { RemoveScanRootConfirmation } from "./components/RemoveScanRootConfirmation";
 import { errorMessage } from "./shared/errors/errorMessage";
-
-export const videoDetailAsideWidth = 560;
-export const expandedVideoDetailAsideWidth = 840;
-export const videoDetailAsideBreakpoint = 0;
-
-export function getVideoDetailAsideWidth(isExpanded: boolean) {
-  return isExpanded ? expandedVideoDetailAsideWidth : videoDetailAsideWidth;
-}
 
 export type AppModule = "catalog" | "scan" | "settings";
 
@@ -61,15 +52,6 @@ export default function App() {
   });
   const { scanAttentionCount, scanProps } = scan;
   const { settingsAttentionCount, settingsProps } = settings;
-  const isCatalogAsideVisible =
-    activeAppModule === "catalog" &&
-    (catalogProps.selectedVideo !== null ||
-      catalogProps.batchSelectedVideoCount >= 2);
-  const [isVideoDetailAsideExpanded, setIsVideoDetailAsideExpanded] =
-    useState(false);
-  const videoDetailAsideCurrentWidth = getVideoDetailAsideWidth(
-    isVideoDetailAsideExpanded,
-  );
 
   async function confirmScanRootRemoval(removalPolicy: ScanRootRemovalPolicy) {
     if (!scanRootPendingRemoval) {
@@ -104,17 +86,7 @@ export default function App() {
   }
 
   return (
-    <AppShell
-      aside={{
-        width: videoDetailAsideCurrentWidth,
-        breakpoint: videoDetailAsideBreakpoint,
-        collapsed: {
-          mobile: !isCatalogAsideVisible,
-          desktop: !isCatalogAsideVisible,
-        },
-      }}
-      padding="md"
-    >
+    <AppShell padding="md">
       <AppShell.Main className={styles.mainContent}>
         <ModuleNavigation
           activeAppModule={activeAppModule}
@@ -147,13 +119,6 @@ export default function App() {
           <Settings {...settingsProps} />
         ) : null}
       </AppShell.Main>
-      {activeAppModule === "catalog" ? (
-        <CatalogDetailAside
-          {...catalogProps}
-          isExpanded={isVideoDetailAsideExpanded}
-          onExpandedChange={setIsVideoDetailAsideExpanded}
-        />
-      ) : null}
     </AppShell>
   );
 }

@@ -1,11 +1,12 @@
 .catalogWorkspace {
   display: grid;
   gap: 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
   grid-template-rows: minmax(0, 1fr);
   min-height: 0;
 }
 
-.catalogWorkspace > :only-child {
+.catalogWorkspace > :first-child {
   grid-row: 1 / -1;
 }
 
@@ -14,4 +15,12 @@
   position: fixed;
   top: 16px;
   z-index: 20;
+}
+
+@media (max-width: 900px) {
+  .catalogWorkspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(280px, auto);
+    overflow: auto;
+  }
 }

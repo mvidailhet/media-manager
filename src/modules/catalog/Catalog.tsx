@@ -17,6 +17,7 @@ import type {
 } from "./catalogTypes";
 import { CatalogToolbar } from "./components/CatalogToolbar";
 import { MetadataSuggestionsSection } from "./components/MetadataSuggestionsSection";
+import { SelectionPanel } from "./SelectionPanel/SelectionPanel";
 import { VideosPanel } from "./VideosPanel";
 import styles from "./Catalog.module.css";
 
@@ -83,34 +84,35 @@ export type CatalogProps = {
   selectedVideoIds: number[];
 };
 
-export function Catalog({
-  availablePerformers,
-  availableTags,
-  allCatalogVideos,
-  catalogVideoActionStatusMessage,
-  catalogVideoFilters,
-  catalogVideoMetadataById,
-  catalogVideoSort,
-  catalogVideos,
-  catalogVideosStatusMessage,
-  catalogView,
-  hasMoreCatalogVideos,
-  metadataSuggestionGroups,
-  onAcceptMetadataSuggestionVideos,
-  onCatalogVideoFiltersChange,
-  onCatalogVideoSortChange,
-  onCatalogViewChange,
-  onClearVideoSelection,
-  onExposeNextCatalogVideoBatch,
-  onRejectMetadataSuggestionSource,
-  onReplaceSelectedVideos,
-  onReviewVideo,
-  onSelectVideo,
-  onSetBatchVideoSelected,
-  onSetFavorite,
-  selectedVideo,
-  selectedVideoIds,
-}: CatalogProps) {
+export function Catalog(props: CatalogProps) {
+  const {
+    availablePerformers,
+    availableTags,
+    allCatalogVideos,
+    catalogVideoActionStatusMessage,
+    catalogVideoFilters,
+    catalogVideoMetadataById,
+    catalogVideoSort,
+    catalogVideos,
+    catalogVideosStatusMessage,
+    catalogView,
+    hasMoreCatalogVideos,
+    metadataSuggestionGroups,
+    onAcceptMetadataSuggestionVideos,
+    onCatalogVideoFiltersChange,
+    onCatalogVideoSortChange,
+    onCatalogViewChange,
+    onClearVideoSelection,
+    onExposeNextCatalogVideoBatch,
+    onRejectMetadataSuggestionSource,
+    onReplaceSelectedVideos,
+    onReviewVideo,
+    onSelectVideo,
+    onSetBatchVideoSelected,
+    onSetFavorite,
+    selectedVideo,
+    selectedVideoIds,
+  } = props;
   const isVideosView = catalogView === "videos";
   const selectedDetailVideoId = selectedVideo?.id ?? null;
 
@@ -157,6 +159,7 @@ export function Catalog({
           onReturnToVideosView={() => onCatalogViewChange("videos")}
         />
       )}
+      <SelectionPanel {...props} />
     </div>
   );
 }

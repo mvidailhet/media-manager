@@ -12,7 +12,7 @@ import metadataSuggestionTreeSource from "./MetadataSuggestionsPanel/metadataSug
 import catalogControllerSource from "./useCatalogModuleController.ts?raw";
 import videosPanelControllerSource from "./VideosPanel/useVideosPanelController.ts?raw";
 import batchMetadataControllerSource from "./BatchEditPanel/useBatchMetadataController.ts?raw";
-import selectedVideoControllerSource from "./CatalogDetailAside/useSelectedVideoController.ts?raw";
+import selectedVideoControllerSource from "./SelectionPanel/useSelectedVideoController.ts?raw";
 import metadataSuggestionsControllerSource from "./MetadataSuggestionsPanel/useMetadataSuggestionsController.ts?raw";
 
 const videoPreviewStylesSource = readFileSync(
@@ -68,7 +68,15 @@ const batchEditPanelFiles = import.meta.glob(
     import: "default",
   },
 );
-const catalogModuleDetailAsideFiles = import.meta.glob(
+const selectionPanelFiles = import.meta.glob(
+  "./SelectionPanel/**/*.{ts,tsx,css}",
+  {
+    eager: true,
+    query: "?raw",
+    import: "default",
+  },
+);
+const legacyCatalogDetailAsideFiles = import.meta.glob(
   "./CatalogDetailAside/**/*.{ts,tsx,css}",
   {
     eager: true,
@@ -203,7 +211,7 @@ describe("Catalog module boundaries", () => {
 
   it("keeps performer groups visually separated in the Videos list", () => {
     expect(videosPanelStylesSource).toMatch(/\.performerGroup:not\(:first-child\)/);
-    expect(videosPanelStylesSource).toMatch(/padding-top:\s*16px/);
+    expect(videosPanelStylesSource).toMatch(/padding-top:\s*24px/);
   });
 
   it("keeps Metadata Suggestions panel, group, source, and tree helpers in focused files", () => {
@@ -361,42 +369,47 @@ describe("Catalog module boundaries", () => {
     ]);
   });
 
-  it("keeps the Catalog detail aside in a focused file imported directly by App", () => {
-    const catalogModuleDetailAsideSource = rawSource(
-      catalogModuleDetailAsideFiles,
-      "./CatalogDetailAside/CatalogDetailAside.tsx",
+  it("keeps the Catalog Selection Panel owned by the Catalog module", () => {
+    const selectionPanelSource = rawSource(
+      selectionPanelFiles,
+      "./SelectionPanel/SelectionPanel.tsx",
     );
-    const catalogModuleDetailAsideBarrelSource = rawSource(
-      catalogModuleDetailAsideFiles,
-      "./CatalogDetailAside/index.ts",
+    const emptySelectionStateSource = rawSource(
+      selectionPanelFiles,
+      "./SelectionPanel/components/EmptySelectionState.tsx",
     );
-    const asideWidthToggleSource = rawSource(
-      catalogModuleDetailAsideFiles,
-      "./CatalogDetailAside/components/AsideWidthToggle.tsx",
+    const selectedVideoDetailSource = rawSource(
+      selectionPanelFiles,
+      "./SelectionPanel/components/SelectedVideoDetail.tsx",
+    );
+    const selectedVideosBatchEditSource = rawSource(
+      selectionPanelFiles,
+      "./SelectionPanel/components/SelectedVideosBatchEdit.tsx",
     );
 
-    expect(catalogModuleDetailAsideSource).not.toBe("");
-    expect(catalogModuleDetailAsideSource).toMatch(
-      /function CatalogDetailAside/,
+    expect(selectionPanelSource).not.toBe("");
+    expect(selectionPanelSource).toMatch(/function SelectionPanel/);
+    expect(selectionPanelSource).toMatch(/EmptySelectionState/);
+    expect(selectionPanelSource).toMatch(/SelectedVideoDetail/);
+    expect(selectionPanelSource).toMatch(/SelectedVideosBatchEdit/);
+    expect(selectionPanelSource).not.toMatch(/AppShell\.Aside/);
+    expect(emptySelectionStateSource).toMatch(/function EmptySelectionState/);
+    expect(emptySelectionStateSource).toMatch(/No video selected/);
+    expect(selectedVideoDetailSource).toMatch(/function SelectedVideoDetail/);
+    expect(selectedVideoDetailSource).toMatch(/useSelectedVideoDetailActions/);
+    expect(selectedVideoDetailSource).toMatch(/VideoDetailPanel/);
+    expect(selectedVideosBatchEditSource).toMatch(
+      /function SelectedVideosBatchEdit/,
     );
-    expect(catalogModuleDetailAsideSource).toMatch(
-      /useSelectedVideoDetailActions/,
-    );
-    expect(catalogModuleDetailAsideSource).toMatch(/VideoDetailPanel/);
-    expect(catalogModuleDetailAsideSource).toMatch(/BatchEditPanel/);
-    expect(catalogSource).not.toMatch(/function CatalogDetailAside/);
+    expect(selectedVideosBatchEditSource).toMatch(/BatchEditPanel/);
+    expect(catalogSource).toMatch(/SelectionPanel/);
+    expect(catalogSource).not.toMatch(/function SelectionPanel/);
     expect(catalogModuleEntryPointSource).not.toMatch(
-      /CatalogDetailAside/,
+      /SelectionPanel/,
     );
-    expect(catalogModuleDetailAsideBarrelSource).toContain(
-      'export { CatalogDetailAside } from "./CatalogDetailAside"',
-    );
-    expect(asideWidthToggleSource).toMatch(/function AsideWidthToggle/);
-    expect(asideWidthToggleSource).toMatch(/IconChevronsLeft/);
-    expect(asideWidthToggleSource).toMatch(/IconChevronsRight/);
-    expect(appSource).toMatch(
-      /from "\.\/modules\/catalog\/CatalogDetailAside\/index"/,
-    );
+    expect(appSource).not.toMatch(/CatalogDetailAside|BatchEditPanel|VideoDetailPanel/);
+    expect(appSource).not.toMatch(/videoDetailAside|AppShell\.Aside/);
+    expect(Object.keys(legacyCatalogDetailAsideFiles)).toHaveLength(0);
   });
 
   it("uses the module folder context for the Catalog entry name", () => {
@@ -447,7 +460,7 @@ describe("Catalog module boundaries", () => {
     expect(titleEditorSource).toMatch(/useState/);
     expect(titleEditorSource).toMatch(/Save title/);
     expect(actionButtonsSource).toMatch(/function ActionButtons/);
-    expect(actionButtonsSource).toMatch(/Open in finder/);
+    expect(actionButtonsSource).toMatch(/Reveal in Finder/);
     expect(metadataSectionSource).toMatch(/function MetadataSection/);
     expect(metadataSectionSource).toMatch(
       /from "\.\.\/\.\.\/components\/MetadataBadges"/,
@@ -471,7 +484,7 @@ describe("Catalog module boundaries", () => {
     expect(videoDetailPanelSource).not.toMatch(/function ActionButtons/);
     expect(videoDetailPanelSource).not.toMatch(/function MetadataSection/);
     expect(videoDetailPanelSource).not.toMatch(/function FileLocationsSection/);
-    expect(videoDetailPanelSource).not.toMatch(/useState/);
+    expect(videoDetailPanelSource).toMatch(/useState/);
     expect(videoDetailPanelSource).not.toMatch(/useEffect/);
     expect(videoDetailPanelSource).not.toMatch(/TextInput/);
     expect(videoDetailPanelSource).not.toMatch(/TagsInput/);
