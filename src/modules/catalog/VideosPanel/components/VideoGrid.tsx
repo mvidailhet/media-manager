@@ -24,6 +24,11 @@ type PointerDragPoint = {
   viewportPoint: DragPoint;
 };
 
+const emptySelectionModifiers: VideoSelectionModifiers = {
+  isCommandPressed: false,
+  isShiftPressed: false,
+};
+
 export function VideoGrid({
   catalogVideoMetadataById,
   catalogVideos,
@@ -52,13 +57,45 @@ export function VideoGrid({
   const previousBodyUserSelect = useRef<string | null>(null);
   const shouldSuppressNextCardClick = useRef(false);
   const suppressCardClickTimeoutId = useRef<number | null>(null);
+  const keyboardSelectionModifiers = useRef<VideoSelectionModifiers>(
+    emptySelectionModifiers,
+  );
   const [dragSelectionEnd, setDragSelectionEnd] =
     useState<PointerDragPoint | null>(null);
   const [dragSelectedVideoIds, setDragSelectedVideoIds] = useState<number[]>([]);
   const [openPerformerGroups, setOpenPerformerGroups] = useState<string[]>([]);
 
   useEffect(() => {
-    return () => restoreDocumentTextSelection();
+    function trackPressedModifierKey(event: globalThis.KeyboardEvent) {
+      if (!isSelectionModifierKey(event.key)) {
+        return;
+      }
+
+      keyboardSelectionModifiers.current = selectionModifiersFromKeyboardEvent(event);
+    }
+
+    function trackReleasedModifierKey(event: globalThis.KeyboardEvent) {
+      if (!isSelectionModifierKey(event.key)) {
+        return;
+      }
+
+      keyboardSelectionModifiers.current = selectionModifiersFromKeyboardEvent(event);
+    }
+
+    function resetKeyboardSelectionModifiers() {
+      keyboardSelectionModifiers.current = emptySelectionModifiers;
+    }
+
+    window.addEventListener("keydown", trackPressedModifierKey);
+    window.addEventListener("keyup", trackReleasedModifierKey);
+    window.addEventListener("blur", resetKeyboardSelectionModifiers);
+
+    return () => {
+      window.removeEventListener("keydown", trackPressedModifierKey);
+      window.removeEventListener("keyup", trackReleasedModifierKey);
+      window.removeEventListener("blur", resetKeyboardSelectionModifiers);
+      restoreDocumentTextSelection();
+    };
   }, []);
 
   if (catalogVideos.length === 0) {
@@ -67,6 +104,16 @@ export function VideoGrid({
 
   function startDragSelection(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) {
+      return;
+    }
+
+    if (
+      pointerStartedOnVideoCard(event) &&
+      activeSelectionModifiers([
+        selectionModifiersFromPointerEvent(event),
+        currentKeyboardSelectionModifiers(),
+      ]).isSelectingWithModifier
+    ) {
       return;
     }
 
@@ -216,6 +263,56 @@ export function VideoGrid({
 
     clearSuppressedCardClick();
     return true;
+  }
+
+  function currentKeyboardSelectionModifiers() {
+    return keyboardSelectionModifiers.current;
+  }
+
+  function pointerStartedOnVideoCard(event: PointerEvent<HTMLDivElement>) {
+    return event.target instanceof Element
+      ? event.target.closest("[data-video-id]") !== null
+      : false;
+  }
+
+  function activeSelectionModifiers(
+    selectionModifiers: VideoSelectionModifiers[],
+  ) {
+    const activeModifiers = selectionModifiers.find(
+      (modifiers) =>
+        modifiers.isCommandPressed === true || modifiers.isShiftPressed === true,
+    ) ?? {
+      isCommandPressed: false,
+      isShiftPressed: false,
+    };
+
+    return {
+      ...activeModifiers,
+      isSelectingWithModifier:
+        activeModifiers.isCommandPressed || activeModifiers.isShiftPressed,
+    };
+  }
+
+  function isSelectionModifierKey(key: string) {
+    return key === "Meta" || key === "Control" || key === "Shift";
+  }
+
+  function selectionModifiersFromKeyboardEvent(
+    event: globalThis.KeyboardEvent,
+  ): VideoSelectionModifiers {
+    return {
+      isCommandPressed: event.metaKey || event.ctrlKey,
+      isShiftPressed: event.shiftKey,
+    };
+  }
+
+  function selectionModifiersFromPointerEvent(
+    event: PointerEvent<HTMLDivElement>,
+  ): VideoSelectionModifiers {
+    return {
+      isCommandPressed: event.metaKey || event.ctrlKey,
+      isShiftPressed: event.shiftKey,
+    };
   }
 
   function clearSelectionFromKeyboard(event: KeyboardEvent<HTMLDivElement>) {
@@ -373,6 +470,7 @@ export function VideoGrid({
               onSelectVideo={onSelectVideo}
               onSetFavorite={onSetFavorite}
               onShouldIgnoreClick={consumeSuppressedCardClick}
+              getKeyboardSelectionModifiers={currentKeyboardSelectionModifiers}
               selectedDetailVideoId={selectedDetailVideoId}
               selectedVideoIds={selectedVideoIds}
             />

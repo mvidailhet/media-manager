@@ -2712,6 +2712,129 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("keeps pointer-down selection modifiers when the click event loses them", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Alpha Clip"),
+      catalogVideoFixture(2, "Beta Clip"),
+      catalogVideoFixture(3, "Gamma Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await expandPrimaryPerformerAccordion(catalogVideos);
+    const alphaClipCard = await within(catalogVideos).findByRole("article", {
+      name: "Alpha Clip",
+    });
+    const betaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Beta Clip",
+    });
+    const gammaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Gamma Clip",
+    });
+
+    fireEvent.click(alphaClipCard);
+    fireEvent.pointerDown(betaClipCard, { metaKey: true });
+    fireEvent.click(betaClipCard);
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    fireEvent.click(alphaClipCard);
+    fireEvent.pointerDown(gammaClipCard, { shiftKey: true });
+    fireEvent.click(gammaClipCard);
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("3 selected");
+  });
+
+  it("uses held keyboard modifiers when pointer and click events lose them", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Alpha Clip"),
+      catalogVideoFixture(2, "Beta Clip"),
+      catalogVideoFixture(3, "Gamma Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await expandPrimaryPerformerAccordion(catalogVideos);
+    const alphaClipCard = await within(catalogVideos).findByRole("article", {
+      name: "Alpha Clip",
+    });
+    const betaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Beta Clip",
+    });
+    const gammaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Gamma Clip",
+    });
+
+    fireEvent.click(alphaClipCard);
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Meta", metaKey: true }),
+    );
+    fireEvent.pointerDown(betaClipCard);
+    fireEvent.click(betaClipCard);
+    window.dispatchEvent(new KeyboardEvent("keyup", { key: "Meta" }));
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    fireEvent.click(alphaClipCard);
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Shift", shiftKey: true }),
+    );
+    fireEvent.pointerDown(gammaClipCard);
+    fireEvent.click(gammaClipCard);
+    window.dispatchEvent(new KeyboardEvent("keyup", { key: "Shift" }));
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("3 selected");
+  });
+
+  it("does not start drag selection when a modified pointer starts on a Video card", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Alpha Clip"),
+      catalogVideoFixture(2, "Beta Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await expandPrimaryPerformerAccordion(catalogVideos);
+    const alphaClipCard = await within(catalogVideos).findByRole("article", {
+      name: "Alpha Clip",
+    });
+    const betaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Beta Clip",
+    });
+
+    fireEvent.click(alphaClipCard);
+    const modifiedPointerDown = new PointerEvent("pointerdown", {
+      bubbles: true,
+      cancelable: true,
+      metaKey: true,
+    });
+
+    betaClipCard.dispatchEvent(modifiedPointerDown);
+    fireEvent.click(betaClipCard, { metaKey: true });
+
+    expect(modifiedPointerDown.defaultPrevented).toBe(false);
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+  });
+
   it("moves selected Videos' reachable Preferred File Locations to Trash and clears Batch Edit", async () => {
     mockedListCatalogVideos
       .mockResolvedValueOnce([
@@ -3418,6 +3541,91 @@ describe("Catalog module", () => {
     expect(
       screen.queryByRole("region", { name: "Batch Edit Panel" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("adds Videos to an existing drag selection with command-click", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      catalogVideoFixture(2, "City Walk"),
+      catalogVideoFixture(3, "Studio Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const videoGrid = within(catalogVideos).getByLabelText("Video grid");
+    const familyTripCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+    const cityWalkCard = within(catalogVideos).getByRole("article", {
+      name: "City Walk",
+    });
+    const studioClipCard = within(catalogVideos).getByRole("article", {
+      name: "Studio Clip",
+    });
+
+    vi.spyOn(videoGrid, "getBoundingClientRect").mockReturnValue({
+      bottom: 600,
+      height: 600,
+      left: 0,
+      right: 600,
+      top: 0,
+      width: 600,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(familyTripCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 0,
+      right: 100,
+      top: 0,
+      width: 100,
+      x: 0,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(cityWalkCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 120,
+      right: 220,
+      top: 0,
+      width: 100,
+      x: 120,
+      y: 0,
+      toJSON: () => ({}),
+    });
+    vi.spyOn(studioClipCard, "getBoundingClientRect").mockReturnValue({
+      bottom: 100,
+      height: 100,
+      left: 240,
+      right: 340,
+      top: 0,
+      width: 100,
+      x: 240,
+      y: 0,
+      toJSON: () => ({}),
+    });
+
+    fireEvent.pointerDown(familyTripCard, { button: 0, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(videoGrid, { clientX: 210, clientY: 80 });
+    fireEvent.pointerUp(cityWalkCard, { clientX: 210, clientY: 80 });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    fireEvent.pointerDown(studioClipCard, { metaKey: true });
+    fireEvent.click(studioClipCard);
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("3 selected");
   });
 
   it("opens a Video Detail Panel for metadata editing without renaming File Locations", async () => {

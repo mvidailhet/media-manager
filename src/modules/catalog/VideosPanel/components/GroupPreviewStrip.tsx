@@ -11,6 +11,7 @@ export function GroupPreviewStrip({
   onSelectVideo,
   onSetFavorite,
   onShouldIgnoreClick,
+  getKeyboardSelectionModifiers,
   selectedDetailVideoId,
   selectedVideoIds,
 }: {
@@ -22,6 +23,7 @@ export function GroupPreviewStrip({
   ) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   onShouldIgnoreClick: () => boolean;
+  getKeyboardSelectionModifiers: () => VideoSelectionModifiers;
   selectedDetailVideoId: number | null;
   selectedVideoIds: number[];
 }) {
@@ -39,6 +41,7 @@ export function GroupPreviewStrip({
           onSelectVideo={onSelectVideo}
           onSetFavorite={onSetFavorite}
           onShouldIgnoreClick={onShouldIgnoreClick}
+          getKeyboardSelectionModifiers={getKeyboardSelectionModifiers}
         />
       ))}
     </Group>

@@ -1,4 +1,5 @@
-import type { KeyboardEvent, MouseEvent } from "react";
+import { useRef } from "react";
+import type { KeyboardEvent, MouseEvent, PointerEvent } from "react";
 import { Paper } from "@mantine/core";
 
 import type { CatalogVideo } from "../../../../tauriCommands";
@@ -13,6 +14,7 @@ export function GroupPreviewCard({
   onSelectVideo,
   onSetFavorite,
   onShouldIgnoreClick,
+  getKeyboardSelectionModifiers,
 }: {
   catalogVideo: CatalogVideo;
   isSelectedForBatch: boolean;
@@ -23,22 +25,41 @@ export function GroupPreviewCard({
   ) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   onShouldIgnoreClick: () => boolean;
+  getKeyboardSelectionModifiers: () => VideoSelectionModifiers;
 }) {
+  const pointerSelectionModifiers = useRef<VideoSelectionModifiers | null>(null);
+
   function selectCatalogVideo(modifiers: VideoSelectionModifiers) {
     onSelectVideo(catalogVideo, modifiers);
+  }
+
+  function rememberPointerSelectionModifiers(event: PointerEvent<HTMLElement>) {
+    pointerSelectionModifiers.current = {
+      isCommandPressed: event.metaKey || event.ctrlKey,
+      isShiftPressed: event.shiftKey,
+    };
   }
 
   function selectCatalogVideoFromPointer(event: MouseEvent<HTMLElement>) {
     event.stopPropagation();
 
     if (onShouldIgnoreClick()) {
+      pointerSelectionModifiers.current = null;
       return;
     }
 
-    selectCatalogVideo({
+    const clickSelectionModifiers = {
       isCommandPressed: event.metaKey || event.ctrlKey,
       isShiftPressed: event.shiftKey,
-    });
+    };
+    const nextSelectionModifiers = activeSelectionModifiers([
+      clickSelectionModifiers,
+      pointerSelectionModifiers.current,
+      getKeyboardSelectionModifiers(),
+    ]);
+
+    pointerSelectionModifiers.current = null;
+    selectCatalogVideo(nextSelectionModifiers);
   }
 
   function selectCatalogVideoFromKeyboard(event: KeyboardEvent<HTMLElement>) {
@@ -54,6 +75,21 @@ export function GroupPreviewCard({
     });
   }
 
+  function activeSelectionModifiers(
+    selectionModifiers: Array<VideoSelectionModifiers | null>,
+  ) {
+    return (
+      selectionModifiers.find(
+        (modifiers) =>
+          modifiers?.isCommandPressed === true ||
+          modifiers?.isShiftPressed === true,
+      ) ?? {
+        isCommandPressed: false,
+        isShiftPressed: false,
+      }
+    );
+  }
+
   return (
     <Paper
       aria-label={catalogVideo.title}
@@ -63,6 +99,7 @@ export function GroupPreviewCard({
       draggable={false}
       onClick={selectCatalogVideoFromPointer}
       onKeyDown={selectCatalogVideoFromKeyboard}
+      onPointerDown={rememberPointerSelectionModifiers}
       role="article"
       tabIndex={0}
       withBorder

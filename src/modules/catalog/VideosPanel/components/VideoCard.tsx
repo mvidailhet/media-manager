@@ -1,4 +1,5 @@
-import type { KeyboardEvent, MouseEvent } from 'react';
+import { useRef } from 'react';
+import type { KeyboardEvent, MouseEvent, PointerEvent } from 'react';
 import { Box, Paper, Stack, Text } from '@mantine/core';
 
 import type { CatalogVideo } from '../../../../tauriCommands';
@@ -16,6 +17,7 @@ export function VideoCard({
   onSelectVideo,
   onSetFavorite,
   onShouldIgnoreClick,
+  getKeyboardSelectionModifiers,
 }: {
   catalogVideo: CatalogVideo;
   catalogVideoMetadata: CatalogVideoMetadata | undefined;
@@ -27,7 +29,9 @@ export function VideoCard({
   ) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   onShouldIgnoreClick: () => boolean;
+  getKeyboardSelectionModifiers: () => VideoSelectionModifiers;
 }) {
+  const pointerSelectionModifiers = useRef<VideoSelectionModifiers | null>(null);
   const tags = catalogVideoMetadata?.tags ?? [];
   const performers = catalogVideoMetadata?.performers ?? [];
 
@@ -35,15 +39,48 @@ export function VideoCard({
     onSelectVideo(catalogVideo, modifiers);
   }
 
+  function rememberPointerSelectionModifiers(event: PointerEvent<HTMLElement>) {
+    pointerSelectionModifiers.current = {
+      isCommandPressed: event.metaKey || event.ctrlKey,
+      isShiftPressed: event.shiftKey,
+    };
+  }
+
   function selectCatalogVideoFromPointer(event: MouseEvent<HTMLElement>) {
+    event.stopPropagation();
+
     if (onShouldIgnoreClick()) {
+      pointerSelectionModifiers.current = null;
       return;
     }
 
-    selectCatalogVideo({
+    const clickSelectionModifiers = {
       isCommandPressed: event.metaKey || event.ctrlKey,
       isShiftPressed: event.shiftKey,
-    });
+    };
+    const nextSelectionModifiers = activeSelectionModifiers([
+      clickSelectionModifiers,
+      pointerSelectionModifiers.current,
+      getKeyboardSelectionModifiers(),
+    ]);
+
+    pointerSelectionModifiers.current = null;
+    selectCatalogVideo(nextSelectionModifiers);
+  }
+
+  function activeSelectionModifiers(
+    selectionModifiers: Array<VideoSelectionModifiers | null>,
+  ) {
+    return (
+      selectionModifiers.find(
+        (modifiers) =>
+          modifiers?.isCommandPressed === true ||
+          modifiers?.isShiftPressed === true,
+      ) ?? {
+        isCommandPressed: false,
+        isShiftPressed: false,
+      }
+    );
   }
 
   function selectCatalogVideoFromKeyboard(event: KeyboardEvent<HTMLElement>) {
@@ -68,6 +105,7 @@ export function VideoCard({
       draggable={false}
       onClick={selectCatalogVideoFromPointer}
       onKeyDown={selectCatalogVideoFromKeyboard}
+      onPointerDown={rememberPointerSelectionModifiers}
       radius="md"
       tabIndex={0}
       withBorder

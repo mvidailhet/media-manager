@@ -29,6 +29,7 @@ export function PrimaryPerformerAccordion({
   onSelectVideo,
   onSetFavorite,
   onShouldIgnoreClick,
+  getKeyboardSelectionModifiers,
   selectedDetailVideoId,
   selectedVideoIds,
 }: {
@@ -42,6 +43,7 @@ export function PrimaryPerformerAccordion({
   ) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
   onShouldIgnoreClick: () => boolean;
+  getKeyboardSelectionModifiers: () => VideoSelectionModifiers;
   selectedDetailVideoId: number | null;
   selectedVideoIds: number[];
 }) {
@@ -84,6 +86,7 @@ export function PrimaryPerformerAccordion({
             onSelectVideo={onSelectVideo}
             onSetFavorite={onSetFavorite}
             onShouldIgnoreClick={onShouldIgnoreClick}
+            getKeyboardSelectionModifiers={getKeyboardSelectionModifiers}
             selectedDetailVideoId={selectedDetailVideoId}
             selectedVideoIds={selectedVideoIds}
           />
@@ -103,6 +106,7 @@ export function PrimaryPerformerAccordion({
                 onSelectVideo={onSelectVideo}
                 onSetFavorite={onSetFavorite}
                 onShouldIgnoreClick={onShouldIgnoreClick}
+                getKeyboardSelectionModifiers={getKeyboardSelectionModifiers}
               />
             ))}
           </Box>
