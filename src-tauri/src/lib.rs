@@ -260,13 +260,14 @@ fn update_tag(
     catalog_state: tauri::State<'_, CatalogState>,
     tag_id: i64,
     name: String,
+    is_secret: Option<bool>,
 ) -> Result<CatalogTag, String> {
     let catalog = catalog_state
         .catalog
         .lock()
         .map_err(|error| error.to_string())?;
 
-    catalog.update_tag(tag_id, &name)
+    catalog.update_tag(tag_id, &name, is_secret)
 }
 
 #[tauri::command]
@@ -310,13 +311,14 @@ fn update_performer(
     catalog_state: tauri::State<'_, CatalogState>,
     performer_id: i64,
     name: String,
+    is_secret: Option<bool>,
 ) -> Result<CatalogPerformer, String> {
     let catalog = catalog_state
         .catalog
         .lock()
         .map_err(|error| error.to_string())?;
 
-    catalog.update_performer(performer_id, &name)
+    catalog.update_performer(performer_id, &name, is_secret)
 }
 
 #[tauri::command]

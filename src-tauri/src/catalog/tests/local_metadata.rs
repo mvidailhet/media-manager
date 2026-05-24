@@ -246,9 +246,11 @@ fn renaming_tags_and_performers_preserves_secret_status() {
         .create_performer("Alex", true)
         .expect("secret performer creates");
 
-    let updated_tag = catalog.update_tag(tag.id, "Archive").expect("tag updates");
+    let updated_tag = catalog
+        .update_tag(tag.id, "Archive", None)
+        .expect("tag updates");
     let updated_performer = catalog
-        .update_performer(performer.id, "Blair")
+        .update_performer(performer.id, "Blair", None)
         .expect("performer updates");
 
     assert!(updated_tag.is_secret);
@@ -388,6 +390,27 @@ fn merging_non_secret_tags_and_performers_keeps_result_non_secret() {
 }
 
 #[test]
+fn tags_and_performers_can_change_secret_status() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let tag = catalog.create_tag("Travel", false).expect("tag creates");
+    let performer = catalog
+        .create_performer("Alex", true)
+        .expect("performer creates");
+
+    let updated_tag = catalog
+        .update_tag(tag.id, "Travel", Some(true))
+        .expect("tag updates");
+    let updated_performer = catalog
+        .update_performer(performer.id, "Alex", Some(false))
+        .expect("performer updates");
+
+    assert!(updated_tag.is_secret);
+    assert!(!updated_performer.is_secret);
+}
+
+#[test]
 fn tags_and_performers_match_non_ascii_names_case_insensitively() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");
@@ -470,9 +493,11 @@ fn metadata_primitives_support_update_delete_and_detach() {
         .attach_performer_to_video(performer.id, 1)
         .expect("performer attaches to video");
 
-    let updated_tag = catalog.update_tag(tag.id, "Archive").expect("tag updates");
+    let updated_tag = catalog
+        .update_tag(tag.id, "Archive", None)
+        .expect("tag updates");
     let updated_performer = catalog
-        .update_performer(performer.id, "Blair")
+        .update_performer(performer.id, "Blair", None)
         .expect("performer updates");
     catalog
         .detach_tag_from_video(updated_tag.id, 1)

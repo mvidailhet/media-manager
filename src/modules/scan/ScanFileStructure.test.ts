@@ -12,6 +12,9 @@ import missingVideosPanelSource from "./MissingVideosPanel/MissingVideosPanel.ts
 import missingVideosListSource from "./MissingVideosPanel/components/MissingVideosList.tsx?raw";
 import rootsPanelSource from "./RootsPanel/RootsPanel.tsx?raw";
 import rootsPanelIndexSource from "./RootsPanel/index.ts?raw";
+import secretMetadataSectionSource from "./RootsPanel/components/SecretMetadataSection/SecretMetadataSection.tsx?raw";
+import secretMetadataSectionIndexSource from "./RootsPanel/components/SecretMetadataSection/index.ts?raw";
+import metadataSecretToggleListSource from "./RootsPanel/components/SecretMetadataSection/components/MetadataSecretToggleList.tsx?raw";
 import rootCardSource from "./RootsPanel/components/RootCard/RootCard.tsx?raw";
 import rootCardIndexSource from "./RootsPanel/components/RootCard/index.ts?raw";
 import headerSource from "./RootsPanel/components/RootCard/components/Header.tsx?raw";
@@ -79,6 +82,15 @@ describe("Scan module file structure", () => {
     expect(rootsPanelIndexSource).toContain('./RootsPanel"');
     expect(rootCardSource).toContain("function RootCard");
     expect(rootCardIndexSource).toContain('./RootCard"');
+    expect(secretMetadataSectionSource).toContain(
+      "function SecretMetadataSection",
+    );
+    expect(secretMetadataSectionIndexSource).toContain(
+      './SecretMetadataSection"',
+    );
+    expect(metadataSecretToggleListSource).toContain(
+      "function MetadataSecretToggleList",
+    );
     expect(headerSource).toContain("function Header");
     expect(progressBarSource).toContain("function ProgressBar");
     expect(refreshProgressSource).toContain("function RefreshProgress");
@@ -87,6 +99,10 @@ describe("Scan module file structure", () => {
     );
     expect(inferenceRulesFormSource).toContain("function InferenceRulesForm");
     expect(rootsPanelSource).toContain('./components/RootCard"');
+    expect(rootsPanelSource).toContain('./components/SecretMetadataSection"');
+    expect(secretMetadataSectionSource).toContain(
+      './components/MetadataSecretToggleList"',
+    );
     expect(rootCardSource).toContain('./components/Header"');
     expect(refreshProgressSource).toContain('./ProgressBar"');
     expect(rootCardSource).toContain('./components/RefreshProgress"');
@@ -100,6 +116,14 @@ describe("Scan module file structure", () => {
     expect(unprocessableCandidatesSectionSource).not.toMatch(/function ScanRoot/);
     expect(inferenceRulesFormSource).not.toMatch(/function ScanRoot/);
     expectComponentFileToOwnOnly(rootsPanelSource, "RootsPanel");
+    expectComponentFileToOwnOnly(
+      secretMetadataSectionSource,
+      "SecretMetadataSection",
+    );
+    expectComponentFileToOwnOnly(
+      metadataSecretToggleListSource,
+      "MetadataSecretToggleList",
+    );
     expectComponentFileToOwnOnly(rootCardSource, "RootCard");
     expectComponentFileToOwnOnly(headerSource, "Header");
     expectComponentFileToOwnOnly(progressBarSource, "ProgressBar");
