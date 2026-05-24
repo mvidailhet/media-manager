@@ -17,6 +17,7 @@ import { incrementalVideoResultLoadThresholdPixels } from "./useVideosPanelContr
 import styles from "./VideosPanel.module.css";
 
 export function VideosPanel({
+  allCatalogVideos,
   availablePerformers,
   availableTags,
   catalogVideoActionStatusMessage,
@@ -36,6 +37,7 @@ export function VideosPanel({
   selectedDetailVideoId,
   selectedVideoIds,
 }: {
+  allCatalogVideos: CatalogVideo[];
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
   catalogVideoActionStatusMessage: string;
@@ -123,6 +125,8 @@ export function VideosPanel({
         <FiltersPanel
           availablePerformers={availablePerformers}
           availableTags={availableTags}
+          catalogVideoMetadataById={catalogVideoMetadataById}
+          catalogVideos={allCatalogVideos}
           filters={catalogVideoFilters}
           onFiltersChange={changeCatalogVideoFilters}
         />

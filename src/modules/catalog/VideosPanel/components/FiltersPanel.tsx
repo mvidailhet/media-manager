@@ -12,7 +12,8 @@ import {
 } from '@mantine/core';
 
 import type { CatalogPerformer, CatalogTag } from '../../../../tauriCommands';
-import type { CatalogVideoFilters } from '../../catalogTypes';
+import type { CatalogVideo } from '../../../../tauriCommands';
+import type { CatalogVideoFilters, CatalogVideoMetadata } from '../../catalogTypes';
 import {
   durationSliderStepMinutes,
   formatDurationFilterValue,
@@ -24,11 +25,15 @@ import {
 export function FiltersPanel({
   availablePerformers,
   availableTags,
+  catalogVideoMetadataById,
+  catalogVideos,
   filters,
   onFiltersChange,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
+  catalogVideos: CatalogVideo[];
   filters: CatalogVideoFilters;
   onFiltersChange: (filters: CatalogVideoFilters) => void;
 }) {
@@ -41,12 +46,20 @@ export function FiltersPanel({
       ? maximumDurationMinutes
       : filters.maximumDurationMinutes,
   ];
-  const visibleTags = filters.hideSecretMetadata
-    ? availableTags.filter((tag) => !tag.isSecret)
-    : availableTags;
-  const visiblePerformers = filters.hideSecretMetadata
-    ? availablePerformers.filter((performer) => !performer.isSecret)
-    : availablePerformers;
+  const visibleTags = visibleMetadataValues({
+    availableValues: availableTags,
+    catalogVideoMetadataById,
+    catalogVideos,
+    hideSecretMetadata: filters.hideSecretMetadata,
+    metadataKind: 'tag',
+  });
+  const visiblePerformers = visibleMetadataValues({
+    availableValues: availablePerformers,
+    catalogVideoMetadataById,
+    catalogVideos,
+    hideSecretMetadata: filters.hideSecretMetadata,
+    metadataKind: 'performer',
+  });
 
   function updateFilters(updatedFilters: Partial<CatalogVideoFilters>) {
     onFiltersChange({ ...filters, ...updatedFilters });
@@ -59,11 +72,23 @@ export function FiltersPanel({
 
     if (hideSecretMetadata) {
       updatedFilters.selectedTagIds = selectedVisibleMetadataIds(
-        availableTags,
+        visibleMetadataValues({
+          availableValues: availableTags,
+          catalogVideoMetadataById,
+          catalogVideos,
+          hideSecretMetadata,
+          metadataKind: 'tag',
+        }),
         filters.selectedTagIds,
       );
       updatedFilters.selectedPerformerIds = selectedVisibleMetadataIds(
-        availablePerformers,
+        visibleMetadataValues({
+          availableValues: availablePerformers,
+          catalogVideoMetadataById,
+          catalogVideos,
+          hideSecretMetadata,
+          metadataKind: 'performer',
+        }),
         filters.selectedPerformerIds,
       );
     }
@@ -182,6 +207,95 @@ export function FiltersPanel({
         </Checkbox.Group>
       ) : null}
     </Stack>
+  );
+}
+
+function visibleMetadataValues<TMetadata extends { id: number; isSecret: boolean }>({
+  availableValues,
+  catalogVideoMetadataById,
+  catalogVideos,
+  hideSecretMetadata,
+  metadataKind,
+}: {
+  availableValues: TMetadata[];
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
+  catalogVideos: CatalogVideo[];
+  hideSecretMetadata: boolean;
+  metadataKind: 'tag' | 'performer';
+}) {
+  const metadataIdsOnVisibleVideos = new Set<number>();
+
+  for (const catalogVideo of catalogVideos) {
+    const metadata = catalogVideoMetadataById[catalogVideo.id];
+
+    if (!metadata) {
+      continue;
+    }
+
+    if (hideSecretMetadata && videoHasSecretMetadata(metadata)) {
+      continue;
+    }
+
+    const metadataValues =
+      metadataKind === 'tag' ? metadata.tags : metadata.performers;
+    metadataValues.forEach((metadataValue) =>
+      metadataIdsOnVisibleVideos.add(metadataValue.id),
+    );
+  }
+
+  return availableValues.filter((metadataValue) => {
+    if (hideSecretMetadata && metadataValue.isSecret) {
+      return false;
+    }
+
+    if (!hideSecretMetadata) {
+      return true;
+    }
+
+    const metadataIdsOnLoadedVideos = metadataIdsForLoadedVideos({
+      catalogVideoMetadataById,
+      catalogVideos,
+      metadataKind,
+    });
+
+    if (!metadataIdsOnLoadedVideos.has(metadataValue.id)) {
+      return true;
+    }
+
+    return metadataIdsOnVisibleVideos.has(metadataValue.id);
+  });
+}
+
+function metadataIdsForLoadedVideos({
+  catalogVideoMetadataById,
+  catalogVideos,
+  metadataKind,
+}: {
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
+  catalogVideos: CatalogVideo[];
+  metadataKind: 'tag' | 'performer';
+}) {
+  const metadataIds = new Set<number>();
+
+  for (const catalogVideo of catalogVideos) {
+    const metadata = catalogVideoMetadataById[catalogVideo.id];
+
+    if (!metadata) {
+      continue;
+    }
+
+    const metadataValues =
+      metadataKind === 'tag' ? metadata.tags : metadata.performers;
+    metadataValues.forEach((metadataValue) => metadataIds.add(metadataValue.id));
+  }
+
+  return metadataIds;
+}
+
+function videoHasSecretMetadata(metadata: CatalogVideoMetadata) {
+  return (
+    metadata.tags.some((tag) => tag.isSecret) ||
+    metadata.performers.some((performer) => performer.isSecret)
   );
 }
 

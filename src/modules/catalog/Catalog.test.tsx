@@ -1384,6 +1384,47 @@ describe("Catalog module", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides public Tag filters when every tagged Video is hidden by secret metadata", async () => {
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Casal Fist" },
+      { id: 5, isSecret: true, name: "Scatbook" },
+    ]);
+    mockedListPerformers.mockResolvedValue([]);
+    mockedTagsForVideo.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Casal Fist" },
+      { id: 5, isSecret: true, name: "Scatbook" },
+    ]);
+    mockedPerformersForVideo.mockResolvedValue([]);
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Casal Fist Video"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await waitFor(() => {
+      expect(mockedTagsForVideo).toHaveBeenCalledWith(1);
+    });
+
+    const hideSecretMetadata =
+      await findSecretMetadataVisibilityCheckbox(catalogVideos);
+
+    expect(hideSecretMetadata).toBeChecked();
+    expect(
+      within(catalogVideos).queryByLabelText("Casal Fist"),
+    ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Casal Fist Video"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(hideSecretMetadata);
+
+    expect(within(catalogVideos).getByLabelText("Casal Fist")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Casal Fist Video")).toBeInTheDocument();
+  });
+
   it("keeps secret metadata available in Video Detail editing while normal browsing hides it", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, isSecret: false, name: "Travel" },
@@ -2378,7 +2419,7 @@ describe("Catalog module", () => {
       expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 1);
       expect(mockedDetachPerformerFromVideo).toHaveBeenCalledWith(9, 2);
     });
-    expect(within(catalogVideos).getByLabelText("Blair")).not.toBeChecked();
+    expect(within(catalogVideos).queryByLabelText("Blair")).not.toBeInTheDocument();
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("City Walk")).toBeInTheDocument();
   });
@@ -2421,7 +2462,7 @@ describe("Catalog module", () => {
       expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 1);
       expect(mockedDetachTagFromVideo).toHaveBeenCalledWith(4, 2);
     });
-    expect(within(catalogVideos).getByLabelText("Travel")).not.toBeChecked();
+    expect(within(catalogVideos).queryByLabelText("Travel")).not.toBeInTheDocument();
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("City Walk")).toBeInTheDocument();
   });

@@ -158,6 +158,41 @@ function batchMoveToTrashResultMessage({
   return `${moveToTrashBatchResultPrefix}: ${resultCounts}. ${resultDetails}`;
 }
 
+function tagRemainsOnUnselectedVideo({
+  catalogVideoMetadataById,
+  selectedVideoIds,
+  tag,
+}: {
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata | undefined>;
+  selectedVideoIds: number[];
+  tag: CatalogTag;
+}) {
+  return Object.entries(catalogVideoMetadataById).some(
+    ([videoId, metadata]) =>
+      !selectedVideoIds.includes(Number(videoId)) &&
+      (metadata?.tags.some((currentTag) => currentTag.id === tag.id) ?? false),
+  );
+}
+
+function performerRemainsOnUnselectedVideo({
+  catalogVideoMetadataById,
+  performer,
+  selectedVideoIds,
+}: {
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata | undefined>;
+  performer: CatalogPerformer;
+  selectedVideoIds: number[];
+}) {
+  return Object.entries(catalogVideoMetadataById).some(
+    ([videoId, metadata]) =>
+      !selectedVideoIds.includes(Number(videoId)) &&
+      (metadata?.performers.some(
+        (currentPerformer) => currentPerformer.id === performer.id,
+      ) ??
+        false),
+  );
+}
+
 export function useCatalogModuleController(): CatalogController {
   const [catalogView, setCatalogView] = useState<CatalogView>("videos");
   const {
@@ -734,6 +769,11 @@ export function useCatalogModuleController(): CatalogController {
           detachTagFromCatalogVideo(tag.id, videoId),
         ),
       );
+      const removedTagFromEveryKnownVideo = !tagRemainsOnUnselectedVideo({
+        catalogVideoMetadataById,
+        selectedVideoIds: batchSelectedVideoIds,
+        tag,
+      });
       batchSelectedVideoIds.forEach((videoId) =>
         removeTagFromCatalogVideoMetadata(videoId, tag),
       );
@@ -743,7 +783,12 @@ export function useCatalogModuleController(): CatalogController {
         );
       }
       removeTagFromCatalogVideoFilters(tag);
-      setAvailableTags(await loadAvailableTags());
+      const storedTags = await loadAvailableTags();
+      setAvailableTags(
+        removedTagFromEveryKnownVideo
+          ? storedTags.filter((storedTag) => storedTag.id !== tag.id)
+          : storedTags,
+      );
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -992,6 +1037,12 @@ export function useCatalogModuleController(): CatalogController {
           detachPerformerFromCatalogVideo(performer.id, videoId),
         ),
       );
+      const removedPerformerFromEveryKnownVideo =
+        !performerRemainsOnUnselectedVideo({
+          catalogVideoMetadataById,
+          performer,
+          selectedVideoIds: batchSelectedVideoIds,
+        });
       batchSelectedVideoIds.forEach((videoId) =>
         removePerformerFromCatalogVideoMetadata(videoId, performer),
       );
@@ -1003,7 +1054,14 @@ export function useCatalogModuleController(): CatalogController {
         );
       }
       removePerformerFromCatalogVideoFilters(performer);
-      setAvailablePerformers(await loadAvailablePerformers());
+      const storedPerformers = await loadAvailablePerformers();
+      setAvailablePerformers(
+        removedPerformerFromEveryKnownVideo
+          ? storedPerformers.filter(
+              (storedPerformer) => storedPerformer.id !== performer.id,
+            )
+          : storedPerformers,
+      );
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -1179,6 +1237,7 @@ export function useCatalogModuleController(): CatalogController {
       batchSelectedVideosAllFavorite,
       batchSelectedVideoCount: batchSelectedVideos.length,
       batchTrashTargets: batchPreferredFileLocationTrashTargets,
+      allCatalogVideos: catalogVideos,
       catalogVideoActionStatusMessage,
       catalogVideoFilters,
       catalogVideoMetadataById,

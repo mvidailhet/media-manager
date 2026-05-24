@@ -33,6 +33,7 @@ export type CatalogProps = {
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
+  allCatalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
   catalogView: CatalogView;
   detailStatusMessage: string;
@@ -85,6 +86,7 @@ export type CatalogProps = {
 export function Catalog({
   availablePerformers,
   availableTags,
+  allCatalogVideos,
   catalogVideoActionStatusMessage,
   catalogVideoFilters,
   catalogVideoMetadataById,
@@ -129,6 +131,7 @@ export function Catalog({
             catalogVideoFilters={catalogVideoFilters}
             catalogVideoMetadataById={catalogVideoMetadataById}
             catalogVideoSort={catalogVideoSort}
+            allCatalogVideos={allCatalogVideos}
             catalogVideos={catalogVideos}
             catalogVideosStatusMessage={catalogVideosStatusMessage}
             hasMoreCatalogVideos={hasMoreCatalogVideos}
