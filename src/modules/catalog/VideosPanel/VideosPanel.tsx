@@ -25,6 +25,7 @@ export function VideosPanel({
   catalogVideoMetadataById,
   catalogVideoSort,
   catalogVideos,
+  matchingCatalogVideos,
   catalogVideosStatusMessage,
   hasMoreCatalogVideos,
   onCatalogVideoFiltersChange,
@@ -45,6 +46,7 @@ export function VideosPanel({
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideoSort: CatalogVideoSort;
   catalogVideos: CatalogVideo[];
+  matchingCatalogVideos: CatalogVideo[];
   catalogVideosStatusMessage: string;
   hasMoreCatalogVideos: boolean;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
@@ -143,6 +145,7 @@ export function VideosPanel({
         />
 
         <VideoGrid
+          allMatchingCatalogVideos={matchingCatalogVideos}
           catalogVideoMetadataById={catalogVideoMetadataById}
           catalogVideos={catalogVideos}
           onClearVideoSelection={onClearVideoSelection}

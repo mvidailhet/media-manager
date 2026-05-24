@@ -207,9 +207,9 @@ describe("Catalog module boundaries", () => {
     expect(catalogStylesSource).not.toMatch(/position:\s*fixed/);
   });
 
-  it("keeps performer groups visually separated in the Videos list", () => {
-    expect(videosPanelStylesSource).toMatch(/\.performerGroup:not\(:first-child\)/);
-    expect(videosPanelStylesSource).toMatch(/padding-top:\s*24px/);
+  it("keeps Primary Performer Accordions visually separated in the Videos list", () => {
+    expect(videosPanelStylesSource).toMatch(/\.primaryPerformerAccordions/);
+    expect(videosPanelStylesSource).toMatch(/\.primaryPerformerAccordion\s*{/);
   });
 
   it("keeps Metadata Suggestions panel, group, source, and tree helpers in focused files", () => {
@@ -282,6 +282,18 @@ describe("Catalog module boundaries", () => {
       videosPanelFiles,
       "./VideosPanel/components/VideoCard.tsx",
     );
+    const primaryPerformerAccordionSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/PrimaryPerformerAccordion.tsx",
+    );
+    const groupPreviewStripSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/GroupPreviewStrip.tsx",
+    );
+    const groupPreviewCardSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/GroupPreviewCard.tsx",
+    );
     const durationFiltersSource = rawSource(
       videosPanelFiles,
       "./VideosPanel/catalogVideoDurationFilters.ts",
@@ -293,6 +305,11 @@ describe("Catalog module boundaries", () => {
     expect(statusMessagesSource).toMatch(/function StatusMessages/);
     expect(videoGridSource).toMatch(/function VideoGrid/);
     expect(videoCardSource).toMatch(/function VideoCard/);
+    expect(primaryPerformerAccordionSource).toMatch(
+      /function PrimaryPerformerAccordion/,
+    );
+    expect(groupPreviewStripSource).toMatch(/function GroupPreviewStrip/);
+    expect(groupPreviewCardSource).toMatch(/function GroupPreviewCard/);
     expect(metadataBadgesSource).toMatch(/function MetadataBadges/);
     expect(durationFiltersSource).toMatch(/function formatDurationRange/);
     expect(videosPanelSource).not.toMatch(/function FiltersPanel/);
@@ -306,7 +323,9 @@ describe("Catalog module boundaries", () => {
     expect(filtersPanelSource).toMatch(
       /from ['"]\.\.\/catalogVideoDurationFilters['"]/,
     );
-    expect(videoGridSource).toMatch(/".\/VideoCard"/);
+    expect(primaryPerformerAccordionSource).toMatch(/".\/VideoCard"/);
+    expect(primaryPerformerAccordionSource).toMatch(/".\/GroupPreviewStrip"/);
+    expect(groupPreviewStripSource).toMatch(/".\/GroupPreviewCard"/);
     expect(Object.keys(videosPanelBarrelFiles)).toEqual([
       "./VideosPanel/index.ts",
     ]);

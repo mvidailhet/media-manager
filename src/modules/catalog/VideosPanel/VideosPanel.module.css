@@ -4,19 +4,63 @@
 }
 
 .grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 18vw, 400px), 1fr));
   position: relative;
   user-select: none;
 }
 
-.performerGroup {
-  grid-column: 1 / -1;
+.primaryPerformerAccordions {
+  width: 100%;
 }
 
-.performerGroup:not(:first-child) {
-  padding-top: 24px;
+.primaryPerformerAccordion {
+  width: 100%;
+}
+
+.primaryPerformerAccordionHeader {
+  align-items: center;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(180px, 1fr) minmax(280px, 2fr);
+  padding-right: 12px;
+}
+
+.primaryPerformerAccordionControl {
+  min-height: 100%;
+}
+
+.groupPreviewStrip {
+  overflow-x: auto;
+  padding: 8px 0;
+}
+
+.groupPreviewCard {
+  cursor: pointer;
+  flex: 0 0 132px;
+  overflow: hidden;
+  padding-bottom: 6px;
+}
+
+.selectedPreviewCard {
+  border-color: #228be6;
+  box-shadow: 0 0 0 2px rgba(34, 139, 230, 0.22);
+}
+
+.batchSelectedPreviewCard {
+  outline: 2px solid #15aabf;
+  outline-offset: 2px;
+}
+
+.groupPreviewTitle {
+  overflow: hidden;
+  padding: 4px 6px 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.primaryPerformerAccordionBody {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(200px, 18vw, 400px), 1fr));
 }
 
 .selectionRectangle {
@@ -25,4 +69,10 @@
   pointer-events: none;
   position: absolute;
   z-index: 2;
+}
+
+@media (max-width: 720px) {
+  .primaryPerformerAccordionHeader {
+    grid-template-columns: 1fr;
+  }
 }

@@ -235,6 +235,7 @@ export function useCatalogModuleController(): CatalogController {
     exposeNextCatalogVideoBatch,
     filteredCatalogVideos,
     hasMoreFilteredCatalogVideos,
+    matchingCatalogVideos,
     setCatalogVideoFilters,
     setCatalogVideoSort,
   } = useVideosPanelController({
@@ -1243,6 +1244,7 @@ export function useCatalogModuleController(): CatalogController {
       catalogVideoMetadataById,
       catalogVideoSort,
       catalogVideos: filteredCatalogVideos,
+      matchingCatalogVideos,
       catalogVideosStatusMessage,
       catalogView,
       detailStatusMessage,

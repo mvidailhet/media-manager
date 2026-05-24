@@ -146,6 +146,18 @@ describe("Catalog module", () => {
     return await screen.findByRole("region", { name: "Catalog Videos" });
   }
 
+  async function expandPrimaryPerformerAccordion(
+    catalogVideos: HTMLElement,
+    performerName = "Unassigned",
+  ) {
+    const accordionButton = await within(catalogVideos).findByRole("button", {
+      name: `${performerName} Primary Performer Accordion`,
+      expanded: false,
+    });
+
+    fireEvent.click(accordionButton);
+  }
+
   it("reviews Metadata Suggestions inside Catalog with selectable affected Video context", async () => {
     mockedListMetadataSuggestionGroups.mockResolvedValue([
       {
@@ -667,8 +679,8 @@ describe("Catalog module", () => {
         name: "Mark Family Trip as Favorite",
       }),
     ).toBeInTheDocument();
-    expect(await within(videoCard).findByText("Travel")).toBeInTheDocument();
-    expect(await within(videoCard).findByText("Blair")).toBeInTheDocument();
+    expect(within(videoCard).queryByText("Travel")).not.toBeInTheDocument();
+    expect(within(videoCard).queryByText("Blair")).not.toBeInTheDocument();
     expect(within(videoCard).getByText("1h 2m")).toBeInTheDocument();
     expect(within(videoCard).getByText("150Mo")).toBeInTheDocument();
     expect(
@@ -1783,6 +1795,73 @@ describe("Catalog module", () => {
           Node.DOCUMENT_POSITION_FOLLOWING,
       ),
     ).toBe(true);
+  });
+
+  it("shows collapsed Primary Performer Accordions with favorite-first Group Preview Strips", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      { ...catalogVideoFixture(1, "Blair First"), isFavorite: false },
+      { ...catalogVideoFixture(2, "Blair Favorite"), isFavorite: true },
+      { ...catalogVideoFixture(3, "Blair Second"), isFavorite: false },
+      { ...catalogVideoFixture(4, "Blair Other Favorite"), isFavorite: true },
+    ]);
+    mockedPerformersForVideo.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await visibleCatalogVideos();
+    const blairAccordion = await within(catalogVideos).findByRole("region", {
+      name: "Blair Primary Performer Accordion",
+    });
+    expect(within(blairAccordion).getByText("4 Videos")).toBeInTheDocument();
+    expect(
+      within(blairAccordion).getByRole("article", {
+        name: "Blair Favorite",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(blairAccordion).getByRole("article", {
+        name: "Blair Other Favorite",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(blairAccordion).getByRole("article", {
+        name: "Blair First",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(blairAccordion).getAllByRole("article", {
+        name: "Blair Favorite",
+      }),
+    ).toHaveLength(1);
+
+    fireEvent.click(
+      within(blairAccordion).getByRole("button", {
+        name: "Blair Primary Performer Accordion",
+      }),
+    );
+
+    expect(
+      within(blairAccordion).getAllByRole("article", {
+        name: "Blair Favorite",
+      }),
+    ).toHaveLength(1);
+    expect(
+      await within(blairAccordion).findByRole("article", {
+        name: "Blair Second",
+      }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(blairAccordion).getByRole("article", {
+        name: "Blair Favorite",
+      }),
+    );
+
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("Blair Favorite");
   });
 
   it("opens a Video from the start and refreshes Catalog Videos", async () => {
@@ -2974,6 +3053,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    await expandPrimaryPerformerAccordion(catalogVideos);
     const alphaClipCard = await within(catalogVideos).findByRole("article", {
       name: "Alpha Clip",
     });
@@ -2983,7 +3063,7 @@ describe("Catalog module", () => {
     const gammaClipCard = within(catalogVideos).getByRole("article", {
       name: "Gamma Clip",
     });
-    const omegaClipCard = within(catalogVideos).getByRole("article", {
+    const omegaClipCard = await within(catalogVideos).findByRole("article", {
       name: "Omega Clip",
     });
 
@@ -3229,9 +3309,9 @@ describe("Catalog module", () => {
 
     expect(document.body.style.userSelect).toBe("none");
     expect(videoGrid.querySelector('[class*="selectionRectangle"]')).not.toBeNull();
-    expect(familyTripCard.className).toContain("batchSelectedCard");
-    expect(cityWalkCard.className).toContain("batchSelectedCard");
-    expect(studioClipCard.className).not.toContain("batchSelectedCard");
+    expect(familyTripCard.className).toContain("batchSelectedPreviewCard");
+    expect(cityWalkCard.className).toContain("batchSelectedPreviewCard");
+    expect(studioClipCard.className).not.toContain("batchSelectedPreviewCard");
 
     fireEvent.pointerUp(cityWalkCard, { clientX: 210, clientY: 80 });
     fireEvent.click(cityWalkCard);
@@ -4179,6 +4259,7 @@ describe("Catalog module", () => {
     renderApp();
 
     const catalogVideos = await visibleCatalogVideos();
+    await expandPrimaryPerformerAccordion(catalogVideos);
 
     expect(
       await within(catalogVideos).findByRole("article", {
@@ -4204,6 +4285,7 @@ describe("Catalog module", () => {
     renderApp();
 
     const catalogVideos = await visibleCatalogVideos();
+    await expandPrimaryPerformerAccordion(catalogVideos);
     Object.defineProperties(catalogVideos, {
       clientHeight: { configurable: true, value: 400 },
       scrollHeight: { configurable: true, value: 1200 },
@@ -4230,6 +4312,7 @@ describe("Catalog module", () => {
     renderApp();
 
     const catalogVideos = await visibleCatalogVideos();
+    await expandPrimaryPerformerAccordion(catalogVideos);
 
     expect(
       await within(catalogVideos).findByRole("article", {
@@ -4248,6 +4331,7 @@ describe("Catalog module", () => {
     renderApp();
 
     const catalogVideos = await visibleCatalogVideos();
+    await expandPrimaryPerformerAccordion(catalogVideos);
     Object.defineProperties(catalogVideos, {
       clientHeight: { configurable: true, value: 400 },
       scrollHeight: { configurable: true, value: 1200 },

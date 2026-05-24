@@ -1,14 +1,16 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { KeyboardEvent, PointerEvent } from "react";
-import { Badge, Box } from "@mantine/core";
+import { Accordion, Box } from "@mantine/core";
 
 import type { CatalogVideo } from "../../../../tauriCommands";
 import type { CatalogVideoMetadata } from "../../catalogTypes";
-import { metadataBadgeColorForKind } from "../../components/metadataBadgeStyles";
 import type { VideoSelectionModifiers } from "../../useCatalogModuleController";
 import { groupCatalogVideosByFirstPerformer } from "../catalogVideoPerformerGroups";
 import styles from "../VideosPanel.module.css";
-import { VideoCard } from "./VideoCard";
+import {
+  PrimaryPerformerAccordion,
+  primaryPerformerAccordionValue,
+} from "./PrimaryPerformerAccordion";
 
 const dragSelectionStartThresholdPixels = 4;
 
@@ -17,10 +19,8 @@ type DragPoint = {
   y: number;
 };
 
-const unassignedGroupLabel = "Unassigned";
-const unassignedGroupBadgeColor = "gray";
-
 export function VideoGrid({
+  allMatchingCatalogVideos,
   catalogVideoMetadataById,
   catalogVideos,
   onClearVideoSelection,
@@ -30,6 +30,7 @@ export function VideoGrid({
   selectedDetailVideoId,
   selectedVideoIds,
 }: {
+  allMatchingCatalogVideos: CatalogVideo[];
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
   onClearVideoSelection: () => void;
@@ -52,6 +53,7 @@ export function VideoGrid({
     null,
   );
   const [dragSelectedVideoIds, setDragSelectedVideoIds] = useState<number[]>([]);
+  const [openPerformerGroups, setOpenPerformerGroups] = useState<string[]>([]);
 
   useEffect(() => {
     return () => restoreDocumentTextSelection();
@@ -259,10 +261,20 @@ export function VideoGrid({
   }
 
   const selectionRectangleStyle = dragSelectionRectangleStyle();
-  const performerGroups = groupCatalogVideosByFirstPerformer({
+  const fullPerformerGroups = groupCatalogVideosByFirstPerformer({
+    catalogVideoMetadataById,
+    catalogVideos: allMatchingCatalogVideos,
+  });
+  const exposedPerformerGroups = groupCatalogVideosByFirstPerformer({
     catalogVideoMetadataById,
     catalogVideos,
   });
+  const exposedVideosByPerformerGroup = new Map(
+    exposedPerformerGroups.map((performerGroup) => [
+      primaryPerformerAccordionValue(performerGroup),
+      performerGroup.videos,
+    ]),
+  );
 
   return (
     <Box
@@ -278,38 +290,34 @@ export function VideoGrid({
       {selectionRectangleStyle ? (
         <Box className={styles.selectionRectangle} style={selectionRectangleStyle} />
       ) : null}
-      {performerGroups.map((performerGroup) => (
-        <Fragment key={performerGroup.performer?.id ?? "unassigned"}>
-          <Box className={styles.performerGroup}>
-            <Badge
-             size='xl'
-              color={
-                performerGroup.performer
-                  ? metadataBadgeColorForKind("performer")
-                  : unassignedGroupBadgeColor
+      <Accordion
+        className={styles.primaryPerformerAccordions}
+        multiple
+        onChange={setOpenPerformerGroups}
+        value={openPerformerGroups}
+        variant="separated"
+      >
+        {fullPerformerGroups.map((performerGroup) => {
+          const performerGroupValue = primaryPerformerAccordionValue(performerGroup);
+
+          return (
+            <PrimaryPerformerAccordion
+              catalogVideoMetadataById={catalogVideoMetadataById}
+              dragSelectedVideoIds={dragSelectedVideoIds}
+              exposedVideos={
+                exposedVideosByPerformerGroup.get(performerGroupValue) ?? []
               }
-              variant="light"
-            >
-              {performerGroup.performer?.name ?? unassignedGroupLabel}
-            </Badge>
-          </Box>
-          {performerGroup.videos.map((catalogVideo) => (
-            <VideoCard
-              catalogVideo={catalogVideo}
-              catalogVideoMetadata={catalogVideoMetadataById[catalogVideo.id]}
-              key={catalogVideo.id}
+              fullPerformerGroup={performerGroup}
+              key={performerGroupValue}
               onSelectVideo={onSelectVideo}
               onSetFavorite={onSetFavorite}
               onShouldIgnoreClick={consumeSuppressedCardClick}
-              isSelectedForDetail={catalogVideo.id === selectedDetailVideoId}
-              isSelectedForBatch={
-                selectedVideoIds.includes(catalogVideo.id) ||
-                dragSelectedVideoIds.includes(catalogVideo.id)
-              }
+              selectedDetailVideoId={selectedDetailVideoId}
+              selectedVideoIds={selectedVideoIds}
             />
-          ))}
-        </Fragment>
-      ))}
+          );
+        })}
+      </Accordion>
     </Box>
   );
 }
