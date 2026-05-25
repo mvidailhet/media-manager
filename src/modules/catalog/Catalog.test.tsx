@@ -1318,10 +1318,16 @@ describe("Catalog module", () => {
       expect(mockedTagsForVideo).toHaveBeenCalledWith(1);
       expect(mockedPerformersForVideo).toHaveBeenCalledWith(2);
     });
+    expect(within(catalogVideos).getByText("2 Videos")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Travel (2)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Family (1)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Blair (1)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Alex (1)")).toBeInTheDocument();
 
     fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
     fireEvent.click(within(catalogVideos).getByLabelText("Family"));
 
+    expect(within(catalogVideos).getByText("1 Video")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByText("Travel Clip"),
@@ -2511,7 +2517,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    await within(catalogVideos).findByText("Blair");
+    await within(catalogVideos).findByLabelText("Blair");
     fireEvent.click(
       within(catalogVideos).getByRole("article", { name: "Family Trip" }),
       { metaKey: true },
@@ -2686,7 +2692,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    await within(catalogVideos).findByText("Blair");
+    await within(catalogVideos).findByLabelText("Blair");
 
     fireEvent.click(within(catalogVideos).getByLabelText("Blair"));
     fireEvent.click(
@@ -2729,7 +2735,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    await within(catalogVideos).findByText("Travel");
+    await within(catalogVideos).findByLabelText("Travel");
 
     fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
     fireEvent.click(
@@ -2810,7 +2816,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    await within(catalogVideos).findByText("Blair");
+    await within(catalogVideos).findByLabelText("Blair");
 
     expect(
       within(catalogVideos).queryByLabelText("Select Family Trip"),
@@ -4027,7 +4033,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    await screen.findByText("Blair");
+    await screen.findByLabelText("Blair");
     fireEvent.click(screen.getByRole("article", { name: "Family Trip" }));
 
     const detailPanel = await screen.findByRole("region", {
@@ -4375,7 +4381,7 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    await screen.findByText("Blair");
+    await screen.findByLabelText("Blair");
     fireEvent.click(screen.getByRole("article", { name: "Family Trip" }));
 
     const detailPanel = await screen.findByRole("region", {

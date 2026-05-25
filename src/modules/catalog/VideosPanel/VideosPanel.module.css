@@ -3,6 +3,13 @@
   overflow-y: auto;
 }
 
+.videoListControls {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
 .grid {
   position: relative;
   user-select: none;

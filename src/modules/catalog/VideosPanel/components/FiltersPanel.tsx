@@ -55,8 +55,20 @@ export function FiltersPanel({
     hideSecretMetadata: filters.hideSecretMetadata,
     metadataKind: 'tag',
   });
+  const videoCountByTagId = countVideosByMetadataId({
+    catalogVideoMetadataById,
+    catalogVideos,
+    hideSecretMetadata: filters.hideSecretMetadata,
+    metadataKind: 'tag',
+  });
   const visiblePerformers = visibleMetadataValues({
     availableValues: availablePerformers,
+    catalogVideoMetadataById,
+    catalogVideos,
+    hideSecretMetadata: filters.hideSecretMetadata,
+    metadataKind: 'performer',
+  });
+  const videoCountByPerformerId = countVideosByMetadataId({
     catalogVideoMetadataById,
     catalogVideos,
     hideSecretMetadata: filters.hideSecretMetadata,
@@ -194,7 +206,12 @@ export function FiltersPanel({
         <Group gap="sm" mt="xs">
           <Checkbox value={noTagFilterValue} label="No Tag" />
           {visibleTags.map((tag) => (
-            <Checkbox key={tag.id} value={String(tag.id)} label={tag.name} />
+            <Checkbox
+              aria-label={tag.name}
+              key={tag.id}
+              value={String(tag.id)}
+              label={`${tag.name} (${videoCountByTagId.get(tag.id) ?? 0})`}
+            />
           ))}
         </Group>
       </Checkbox.Group>
@@ -209,9 +226,10 @@ export function FiltersPanel({
           <Group gap="sm" mt="xs">
             {visiblePerformers.map((performer) => (
               <Checkbox
+                aria-label={performer.name}
                 key={performer.id}
                 value={String(performer.id)}
-                label={performer.name}
+                label={`${performer.name} (${videoCountByPerformerId.get(performer.id) ?? 0})`}
               />
             ))}
           </Group>
@@ -308,6 +326,44 @@ function videoHasSecretMetadata(metadata: CatalogVideoMetadata) {
     metadata.tags.some((tag) => tag.isSecret) ||
     metadata.performers.some((performer) => performer.isSecret)
   );
+}
+
+function countVideosByMetadataId({
+  catalogVideoMetadataById,
+  catalogVideos,
+  hideSecretMetadata,
+  metadataKind,
+}: {
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
+  catalogVideos: CatalogVideo[];
+  hideSecretMetadata: boolean;
+  metadataKind: 'tag' | 'performer';
+}) {
+  const videoCountByMetadataId = new Map<number, number>();
+
+  for (const catalogVideo of catalogVideos) {
+    const metadata = catalogVideoMetadataById[catalogVideo.id];
+
+    if (!metadata) {
+      continue;
+    }
+
+    if (hideSecretMetadata && videoHasSecretMetadata(metadata)) {
+      continue;
+    }
+
+    const metadataValues =
+      metadataKind === 'tag' ? metadata.tags : metadata.performers;
+
+    for (const metadataValue of metadataValues) {
+      videoCountByMetadataId.set(
+        metadataValue.id,
+        (videoCountByMetadataId.get(metadataValue.id) ?? 0) + 1,
+      );
+    }
+  }
+
+  return videoCountByMetadataId;
 }
 
 function selectedVisibleMetadataIds<TMetadata extends { id: number; isSecret: boolean }>(

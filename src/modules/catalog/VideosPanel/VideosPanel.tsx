@@ -58,6 +58,8 @@ export function VideosPanel({
   selectedVideoIds: number[];
 }) {
   const videosViewElement = useRef<HTMLElement | null>(null);
+  const videoCountLabel =
+    catalogVideos.length === 1 ? "1 Video" : `${catalogVideos.length} Videos`;
 
   function changeCatalogVideoFilters(filters: CatalogVideoFilters) {
     scrollVideosViewToTop();
@@ -95,10 +97,16 @@ export function VideosPanel({
           onFiltersChange={changeCatalogVideoFilters}
         />
 
-        <SortSelect
-          catalogVideoSort={catalogVideoSort}
-          onCatalogVideoSortChange={changeCatalogVideoSort}
-        />
+        <Box className={styles.videoListControls}>
+          <Box c="dimmed" fw={500}>
+            {videoCountLabel}
+          </Box>
+
+          <SortSelect
+            catalogVideoSort={catalogVideoSort}
+            onCatalogVideoSortChange={changeCatalogVideoSort}
+          />
+        </Box>
 
         <StatusMessages
           catalogVideoActionStatusMessage={catalogVideoActionStatusMessage}
