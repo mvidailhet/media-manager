@@ -160,8 +160,11 @@ export function MetadataSection<TMetadata extends MetadataValue>({
         {isEditing ? (
           <TagsInput
             aria-label={title}
+            autoComplete="off"
+            autoCorrect="off"
             data={availableValues.map((value) => value.name)}
             size={metadataInputPillSize}
+            spellCheck={false}
             styles={{ pill: metadataInputPillStyles }}
             value={selectedNames}
             onChange={changeSelectedNames}

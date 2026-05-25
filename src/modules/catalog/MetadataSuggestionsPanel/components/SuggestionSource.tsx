@@ -139,7 +139,10 @@ export function SuggestionSource({
       {isAddingTags ? (
         <TagsInput
           aria-label="Additional tags"
+          autoComplete="off"
+          autoCorrect="off"
           data={availableTagNames}
+          spellCheck={false}
           value={additionalTagNames}
           onChange={setAdditionalTagNames}
         />

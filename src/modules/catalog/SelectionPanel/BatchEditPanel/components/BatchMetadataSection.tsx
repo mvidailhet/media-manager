@@ -78,8 +78,11 @@ export function BatchMetadataSection<TMetadata extends MetadataValue>({
         </Title>
         <TagsInput
           aria-label={title}
+          autoComplete="off"
+          autoCorrect="off"
           data={availableValues.map((value) => value.name)}
           size={metadataInputPillSize}
+          spellCheck={false}
           styles={{ pill: metadataInputPillStyles }}
           value={selectedNames}
           onChange={changeSelectedNames}
