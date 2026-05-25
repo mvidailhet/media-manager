@@ -18,6 +18,11 @@
   padding: var(--mantine-spacing-md) var(--mantine-spacing-md) 0;
 }
 
+.metadataSuggestionsSection {
+  min-height: 0;
+  overflow-y: auto;
+}
+
 @media (max-width: 900px) {
   .catalogWorkspace {
     grid-template-columns: minmax(0, 1fr);

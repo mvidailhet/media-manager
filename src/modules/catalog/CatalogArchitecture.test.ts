@@ -226,6 +226,15 @@ describe("Catalog module boundaries", () => {
     expect(catalogStylesSource).not.toMatch(/position:\s*fixed/);
   });
 
+  it("keeps Metadata Suggestions scrollable inside the Catalog content area", () => {
+    expect(metadataSuggestionsSectionSource).toMatch(
+      /className=\{styles\.metadataSuggestionsSection\}/,
+    );
+    expect(catalogStylesSource).toMatch(
+      /\.metadataSuggestionsSection\s*{[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s,
+    );
+  });
+
   it("keeps Primary Performer Accordions visually separated in the Videos list", () => {
     expect(videosPanelStylesSource).toMatch(/\.primaryPerformerAccordions/);
     expect(videosPanelStylesSource).toMatch(

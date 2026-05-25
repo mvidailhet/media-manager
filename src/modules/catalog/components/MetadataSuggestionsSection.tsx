@@ -9,6 +9,7 @@ import type {
 } from "../../../tauriCommands";
 import type { CatalogMetadataSuggestionAcceptanceRequest } from "../catalogTypes";
 import { MetadataSuggestionsPanel } from "../MetadataSuggestionsPanel";
+import styles from "../Catalog.module.css";
 
 const backNavigationIconSize = 20;
 
@@ -39,6 +40,7 @@ export function MetadataSuggestionsSection({
     <Box
       component="section"
       aria-label="Catalog Metadata Suggestions"
+      className={styles.metadataSuggestionsSection}
       p="md"
       maw={760}
     >
