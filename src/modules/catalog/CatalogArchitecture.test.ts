@@ -418,18 +418,14 @@ describe("Catalog module boundaries", () => {
     expect(selectionPanelSource).not.toBe("");
     expect(selectionPanelSource).toMatch(/function SelectionPanel/);
     expect(selectionPanelSource).toMatch(/EmptySelectionState/);
-    expect(selectionPanelSource).toMatch(/SelectedVideoDetail/);
-    expect(selectionPanelSource).toMatch(/SelectedVideosBatchEdit/);
+    expect(selectionPanelSource).toMatch(/createSelectedVideoDetailActions/);
+    expect(selectionPanelSource).toMatch(/VideoDetailPanel/);
+    expect(selectionPanelSource).toMatch(/BatchEditPanel/);
     expect(selectionPanelSource).not.toMatch(/AppShell\.Aside/);
     expect(emptySelectionStateSource).toMatch(/function EmptySelectionState/);
     expect(emptySelectionStateSource).toMatch(/No video selected/);
-    expect(selectedVideoDetailSource).toMatch(/function SelectedVideoDetail/);
-    expect(selectedVideoDetailSource).toMatch(/useSelectedVideoDetailActions/);
-    expect(selectedVideoDetailSource).toMatch(/VideoDetailPanel/);
-    expect(selectedVideosBatchEditSource).toMatch(
-      /function SelectedVideosBatchEdit/,
-    );
-    expect(selectedVideosBatchEditSource).toMatch(/BatchEditPanel/);
+    expect(selectedVideoDetailSource).toBe("");
+    expect(selectedVideosBatchEditSource).toBe("");
     expect(catalogSource).toMatch(/SelectionPanel/);
     expect(catalogSource).not.toMatch(/function SelectionPanel/);
     expect(catalogModuleEntryPointSource).not.toMatch(
