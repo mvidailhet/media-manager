@@ -12,6 +12,7 @@ export interface CatalogVideoMetadata {
 export interface CatalogVideoFilters {
   searchText: string;
   selectedTagIds: number[];
+  withoutTagsOnly: boolean;
   selectedPerformerIds: number[];
   hideSecretMetadata: boolean;
   favoritesOnly: boolean;
@@ -36,6 +37,7 @@ export type CatalogMetadataSuggestionAcceptanceRequest =
 export const defaultCatalogVideoFilters: CatalogVideoFilters = {
   searchText: "",
   selectedTagIds: [],
+  withoutTagsOnly: false,
   selectedPerformerIds: [],
   hideSecretMetadata: true,
   favoritesOnly: false,

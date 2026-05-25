@@ -22,6 +22,8 @@ import {
   minimumDurationMinutes,
 } from '../catalogVideoDurationFilters';
 
+const noTagFilterValue = 'without-tags';
+
 export function FiltersPanel({
   availablePerformers,
   availableTags,
@@ -172,21 +174,30 @@ export function FiltersPanel({
           />
         </Stack>
       </Collapse>
-      {visibleTags.length > 0 ? (
-        <Checkbox.Group
-          label="Tags"
-          value={filters.selectedTagIds.map(String)}
-          onChange={(selectedValues) =>
-            updateFilters({ selectedTagIds: selectedValues.map(Number) })
-          }
-        >
-          <Group gap="sm" mt="xs">
-            {visibleTags.map((tag) => (
-              <Checkbox key={tag.id} value={String(tag.id)} label={tag.name} />
-            ))}
-          </Group>
-        </Checkbox.Group>
-      ) : null}
+      <Checkbox.Group
+        label="Tags"
+        value={[
+          ...(filters.withoutTagsOnly ? [noTagFilterValue] : []),
+          ...filters.selectedTagIds.map(String),
+        ]}
+        onChange={(selectedValues) => {
+          const selectedTagIds = selectedValues
+            .filter((selectedValue) => selectedValue !== noTagFilterValue)
+            .map(Number);
+
+          updateFilters({
+            selectedTagIds,
+            withoutTagsOnly: selectedValues.includes(noTagFilterValue),
+          });
+        }}
+      >
+        <Group gap="sm" mt="xs">
+          <Checkbox value={noTagFilterValue} label="No Tag" />
+          {visibleTags.map((tag) => (
+            <Checkbox key={tag.id} value={String(tag.id)} label={tag.name} />
+          ))}
+        </Group>
+      </Checkbox.Group>
       {visiblePerformers.length > 0 ? (
         <Checkbox.Group
           label="Performers"

@@ -21,7 +21,11 @@ export function catalogVideoMatchesFilters(
       filters.hideSecretMetadata,
       secretMetadataExists,
     ) &&
-    catalogVideoMatchesTagFilter(metadata, filters.selectedTagIds) &&
+    catalogVideoMatchesTagFilter(
+      metadata,
+      filters.selectedTagIds,
+      filters.withoutTagsOnly,
+    ) &&
     catalogVideoMatchesPerformerFilter(metadata, filters.selectedPerformerIds)
   );
 }
@@ -96,7 +100,16 @@ export function catalogVideoMatchesDurationFilter(
 export function catalogVideoMatchesTagFilter(
   metadata: CatalogVideoMetadata | undefined,
   selectedTagIds: number[],
+  withoutTagsOnly = false,
 ) {
+  if (withoutTagsOnly && selectedTagIds.length > 0) {
+    return false;
+  }
+
+  if (withoutTagsOnly) {
+    return (metadata?.tags.length ?? 0) === 0;
+  }
+
   if (selectedTagIds.length === 0) {
     return true;
   }

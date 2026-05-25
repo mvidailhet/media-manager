@@ -1344,6 +1344,37 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("filters Catalog Videos to Videos without Tags", async () => {
+    mockedListTags.mockResolvedValue([{ id: 4, isSecret: false, name: "Travel" }]);
+    mockedTagsForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 1) {
+        return [{ id: 4, isSecret: false, name: "Travel" }];
+      }
+
+      return [];
+    });
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Tagged Clip"),
+      catalogVideoFixture(2, "Loose Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await waitFor(() => {
+      expect(mockedTagsForVideo).toHaveBeenCalledWith(2);
+    });
+
+    fireEvent.click(within(catalogVideos).getByLabelText("No Tag"));
+
+    expect(
+      within(catalogVideos).queryByText("Tagged Clip"),
+    ).not.toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Loose Clip")).toBeInTheDocument();
+  });
+
   it("hides secret metadata from normal Videos browsing until revealed for the session", async () => {
     mockedListTags.mockResolvedValue([
       { id: 4, isSecret: false, name: "Travel" },
