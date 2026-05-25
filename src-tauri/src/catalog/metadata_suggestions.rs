@@ -381,6 +381,14 @@ impl Catalog {
 
                 let suggestion_kind =
                     inferred_metadata_suggestion_kind(&transaction, &suggested_value)?;
+                if video_already_has_suggested_metadata(
+                    &transaction,
+                    video_id,
+                    &suggested_value,
+                    suggestion_kind,
+                )? {
+                    continue;
+                }
                 let has_source_rejection = transaction
                     .query_row(
                         "SELECT 1
@@ -485,6 +493,39 @@ impl Catalog {
 
         Ok(file_locations)
     }
+}
+
+fn video_already_has_suggested_metadata(
+    transaction: &Transaction<'_>,
+    video_id: i64,
+    suggested_value: &str,
+    suggestion_kind: &str,
+) -> Result<bool, String> {
+    let metadata_name = normalized_metadata_input(suggested_value)?;
+    let (metadata_table_name, join_table_name, metadata_id_column) = match suggestion_kind {
+        "tag" => ("tags", "tag_videos", "tag_id"),
+        "performer" => ("performers", "performer_videos", "performer_id"),
+        _ => return Err("Metadata Suggestion kind is not supported".to_string()),
+    };
+    let query = format!(
+        "SELECT 1
+         FROM {metadata_table_name}
+         JOIN {join_table_name}
+           ON {join_table_name}.{metadata_id_column} = {metadata_table_name}.id
+         WHERE {join_table_name}.video_id = ?1
+           AND {metadata_table_name}.normalized_name = ?2
+         LIMIT 1"
+    );
+
+    transaction
+        .query_row(
+            &query,
+            params![video_id, metadata_name.normalized_name],
+            |_| Ok(()),
+        )
+        .optional()
+        .map(|match_found| match_found.is_some())
+        .map_err(|error| error.to_string())
 }
 
 fn video_count_by_folder(file_locations: &[(i64, String)]) -> HashMap<PathBuf, usize> {

@@ -1508,6 +1508,64 @@ fn accepting_one_metadata_suggestion_kind_keeps_other_pending_kinds_with_the_sam
 }
 
 #[test]
+fn scan_root_refresh_does_not_suggest_metadata_already_attached_to_the_video() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let performer = catalog
+        .create_performer("Deepthroat Slushie", false)
+        .expect("performer creates");
+    let movies_root = temporary_folder.path().join("Movies");
+    let performer_folder = movies_root.join("Deepthroat Slushie");
+    std::fs::create_dir_all(&performer_folder).expect("performer folder exists");
+    std::fs::write(
+        performer_folder.join("accepted-video.mp4"),
+        "valid accepted bytes",
+    )
+    .expect("accepted video exists");
+    std::fs::write(performer_folder.join("new-video.mp4"), "valid new bytes")
+        .expect("new video exists");
+    let scan_root = catalog.add_scan_root(&movies_root).expect("scan root adds");
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes");
+    let accepted_video_id = video_id_for_title(&catalog.database, "accepted-video");
+    catalog
+        .attach_performer_to_video(performer.id, accepted_video_id)
+        .expect("performer attaches");
+
+    catalog
+        .refresh_scan_root(
+            &scan_root.path,
+            &FakeVideoFileProbe::with_duration(1_000),
+            &crate::catalog::VideoExtensionAllowlist::default(),
+        )
+        .expect("scan root refreshes again");
+
+    assert_eq!(
+        catalog
+            .performers_for_video(accepted_video_id)
+            .expect("accepted video performers list"),
+        vec![performer]
+    );
+    assert_eq!(
+        catalog
+            .list_metadata_suggestion_groups()
+            .expect("metadata suggestions list")[0]
+            .sources[0]
+            .videos
+            .iter()
+            .map(|video| video.title.as_str())
+            .collect::<Vec<_>>(),
+        vec!["new-video"]
+    );
+}
+
+#[test]
 fn rejecting_metadata_suggestion_source_suppresses_repeated_suggestions_for_the_same_source_value()
 {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
