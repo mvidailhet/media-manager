@@ -48,10 +48,10 @@ export function groupCatalogVideosByFirstPerformer({
   }
 
   return [
-    ...performerGroups,
     {
       performer: null,
       videos: unassignedVideos,
     },
+    ...performerGroups,
   ];
 }
