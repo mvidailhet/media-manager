@@ -21,6 +21,7 @@ type DragPoint = {
 
 type PointerDragPoint = {
   contentPoint: DragPoint;
+  catalogVideo: CatalogVideo | null;
   selectionModifiers: VideoSelectionModifiers;
   viewportPoint: DragPoint;
 };
@@ -127,6 +128,7 @@ export function VideoGrid({
 
     dragSelectionStart.current = {
       ...nextDragSelectionStart,
+      catalogVideo: catalogVideoFromPointerTarget(event.target),
       selectionModifiers,
     };
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -185,6 +187,13 @@ export function VideoGrid({
       restoreDocumentTextSelection();
       setDragSelectionEnd(null);
       setDragSelectedVideoIds([]);
+      const selectedModifiedVideoCard =
+        selectModifiedVideoCardFromPointer(startPoint);
+
+      if (selectedModifiedVideoCard) {
+        return;
+      }
+
       if (event.target === event.currentTarget) {
         onClearVideoSelection();
       }
@@ -272,6 +281,44 @@ export function VideoGrid({
 
   function currentKeyboardSelectionModifiers() {
     return keyboardSelectionModifiers.current;
+  }
+
+  function selectModifiedVideoCardFromPointer(startPoint: PointerDragPoint) {
+    const isModifiedSelection =
+      startPoint.selectionModifiers.isCommandPressed ||
+      startPoint.selectionModifiers.isShiftPressed;
+
+    if (!isModifiedSelection) {
+      return false;
+    }
+
+    if (!startPoint.catalogVideo) {
+      return false;
+    }
+
+    suppressNextCardClickIfDragEndedOnCard(true);
+    onSelectVideo(startPoint.catalogVideo, startPoint.selectionModifiers);
+
+    return true;
+  }
+
+  function catalogVideoFromPointerTarget(eventTarget: EventTarget) {
+    if (!(eventTarget instanceof Element)) {
+      return null;
+    }
+
+    const videoCard = eventTarget.closest<HTMLElement>("[data-video-id]");
+
+    if (!videoCard) {
+      return null;
+    }
+
+    const catalogVideoId = Number(videoCard.dataset.videoId);
+
+    return (
+      catalogVideos.find((catalogVideo) => catalogVideo.id === catalogVideoId) ??
+      null
+    );
   }
 
   function activeSelectionModifiers(
@@ -405,6 +452,7 @@ export function VideoGrid({
         x: event.clientX - gridBox.left,
         y: event.clientY - gridBox.top,
       },
+      catalogVideo: null,
       selectionModifiers: emptySelectionModifiers,
       viewportPoint: {
         x: event.clientX,
