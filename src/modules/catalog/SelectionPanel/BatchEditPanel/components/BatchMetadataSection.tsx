@@ -1,16 +1,16 @@
 import { Box, Stack, TagsInput, Text, Title } from "@mantine/core";
 
-import type { CatalogPerformer, CatalogTag } from "../../../../tauriCommands";
+import type { CatalogPerformer, CatalogTag } from "../../../../../tauriCommands";
 import {
   findMetadataByName,
   normalizedMetadataName,
-} from "../../../../shared/metadata/metadataHelpers";
-import type { MetadataBadgeKind } from "../../components/MetadataBadges";
+} from "../../../../../shared/metadata/metadataHelpers";
+import type { MetadataBadgeKind } from "../../../components/MetadataBadges";
 import {
   metadataInputPillSize,
   metadataInputPillStylesForKind,
-} from "../../components/metadataBadgeStyles";
-import type { BatchMetadataValue } from "../BatchEditPanel";
+} from "../../../components/metadataBadgeStyles";
+import type { BatchMetadataValue } from "../../batchMetadataTypes";
 
 type MetadataValue = CatalogTag | CatalogPerformer;
 

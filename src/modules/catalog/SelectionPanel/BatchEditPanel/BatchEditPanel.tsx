@@ -1,16 +1,12 @@
 import { Box, Stack } from "@mantine/core";
 
-import type { CatalogPerformer, CatalogTag } from "../../../tauriCommands";
-import { SectionHeader } from "../../../shared/components/SectionHeader";
+import type { CatalogPerformer, CatalogTag } from "../../../../tauriCommands";
+import { SectionHeader } from "../../../../shared/components/SectionHeader";
 import { FavoriteActions } from "./components/FavoriteActions";
 import { BatchMetadataSection } from "./components/BatchMetadataSection";
 import { BatchTrashActions } from "./components/BatchTrashActions";
-import type { BatchTrashTarget } from "./batchTrashTypes";
-
-export type BatchMetadataValue<TMetadata> = {
-  metadata: TMetadata;
-  selectedVideoCount: number;
-};
+import type { BatchMetadataValue } from "../batchMetadataTypes";
+import type { BatchTrashTarget } from "../batchTrashTypes";
 
 export function BatchEditPanel({
   availablePerformers,

@@ -7,7 +7,7 @@ import type {
   CatalogVideo,
 } from "../../../tauriCommands";
 import type { CatalogVideoMetadata } from "../catalogTypes";
-import type { BatchMetadataValue } from "./BatchEditPanel";
+import type { BatchMetadataValue } from "./batchMetadataTypes";
 
 export function useBatchMetadataController({
   catalogVideoMetadataById,
