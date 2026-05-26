@@ -12,11 +12,74 @@ export function catalogVideoMatchesFilters(
   metadata: CatalogVideoMetadata | undefined,
   filters: CatalogVideoFilters,
   secretMetadataExists = false,
-) {
+): boolean {
+  const filterIndex = buildCatalogVideoFilterIndex([catalogVideo], {
+    [catalogVideo.id]: metadata,
+  });
+
+  return catalogVideoMatchesIndexedFilters(
+    filterIndex,
+    catalogVideo,
+    filters,
+    secretMetadataExists,
+  );
+}
+
+export interface CatalogVideoFilterIndex {
+  videoFilterDataById: Map<number, CatalogVideoFilterData>;
+}
+
+export interface CatalogVideoFilterData {
+  normalizedTitle: string;
+  normalizedCurrentFilename: string;
+  normalizedReachableFileLocationPaths: string[];
+  durationMinutes: number;
+  tagIds: Set<number>;
+  performerIds: Set<number>;
+  hasTags: boolean;
+  hasSecretMetadata: boolean;
+  hasLoadedMetadata: boolean;
+}
+
+interface CatalogVideoMetadataFilterData {
+  tagIds: Set<number>;
+  performerIds: Set<number>;
+  hasTags: boolean;
+  hasSecretMetadata: boolean;
+  hasLoadedMetadata: boolean;
+}
+
+export function buildCatalogVideoFilterIndex(
+  catalogVideos: CatalogVideo[],
+  metadataByVideoId: Record<number, CatalogVideoMetadata | undefined>,
+): CatalogVideoFilterIndex {
+  return {
+    videoFilterDataById: new Map(
+      catalogVideos.map((catalogVideo) => [
+        catalogVideo.id,
+        indexedCatalogVideoFilterData(
+          catalogVideo,
+          metadataByVideoId[catalogVideo.id],
+        ),
+      ]),
+    ),
+  };
+}
+
+export function catalogVideoMatchesIndexedFilters(
+  filterIndex: CatalogVideoFilterIndex,
+  catalogVideo: CatalogVideo,
+  filters: CatalogVideoFilters,
+  secretMetadataExists = false,
+): boolean {
+  const filterData =
+    filterIndex.videoFilterDataById.get(catalogVideo.id) ??
+    indexedCatalogVideoFilterData(catalogVideo, undefined);
+
   return (
-    catalogVideoMatchesSearchText(catalogVideo, filters.searchText) &&
-    catalogVideoMatchesOptionalFolderFilter(
-      catalogVideo,
+    indexedCatalogVideoMatchesSearchText(filterData, filters.searchText) &&
+    indexedCatalogVideoMatchesOptionalFolderFilter(
+      filterData,
       filters.selectedFolderBranches,
     ) &&
     catalogVideoMatchesFavoriteFilter(catalogVideo, filters.favoritesOnly) &&
@@ -24,47 +87,98 @@ export function catalogVideoMatchesFilters(
       catalogVideo,
       filters.showUnavailableVideos,
     ) &&
-    catalogVideoMatchesDurationFilter(catalogVideo, filters) &&
-    catalogVideoMatchesSecretMetadataFilter(
-      metadata,
+    indexedCatalogVideoMatchesDurationFilter(filterData, filters) &&
+    indexedCatalogVideoMatchesSecretMetadataFilter(
+      filterData,
       filters.hideSecretMetadata,
       secretMetadataExists,
     ) &&
-    catalogVideoMatchesTagFilter(
-      metadata,
+    indexedCatalogVideoMatchesTagFilter(
+      filterData,
       filters.selectedTagIds,
       filters.withoutTagsOnly,
     ) &&
-    catalogVideoMatchesPerformerFilter(metadata, filters.selectedPerformerIds)
+    indexedCatalogVideoMatchesPerformerFilter(
+      filterData,
+      filters.selectedPerformerIds,
+    )
   );
 }
 
-function catalogVideoMatchesOptionalFolderFilter(
+function indexedCatalogVideoFilterData(
   catalogVideo: CatalogVideo,
+  metadata: CatalogVideoMetadata | undefined,
+): CatalogVideoFilterData {
+  const metadataFilterData = indexedCatalogVideoMetadataFilterData(metadata);
+
+  return {
+    normalizedTitle: catalogVideo.title.toLocaleLowerCase(),
+    normalizedCurrentFilename: currentFilename(
+      catalogVideo.fileLocationPath,
+    ).toLocaleLowerCase(),
+    normalizedReachableFileLocationPaths: catalogVideo.fileLocations
+      .filter((fileLocation) => fileLocation.isReachable)
+      .map((fileLocation) => normalizedFolderSearchPath(fileLocation.path)),
+    durationMinutes:
+      catalogVideo.durationMilliseconds /
+      millisecondsPerSecond /
+      secondsPerMinute,
+    ...metadataFilterData,
+  };
+}
+
+function indexedCatalogVideoMetadataFilterData(
+  metadata: CatalogVideoMetadata | undefined,
+): CatalogVideoMetadataFilterData {
+  return {
+    tagIds: new Set(metadata?.tags.map((tag) => tag.id) ?? []),
+    performerIds: new Set(
+      metadata?.performers.map((performer) => performer.id) ?? [],
+    ),
+    hasTags: (metadata?.tags.length ?? 0) > 0,
+    hasSecretMetadata:
+      metadata?.tags.some((tag) => tag.isSecret) ||
+      metadata?.performers.some((performer) => performer.isSecret) ||
+      false,
+    hasLoadedMetadata: metadata !== undefined,
+  };
+}
+
+function indexedCatalogVideoMatchesOptionalFolderFilter(
+  filterData: CatalogVideoFilterData,
   selectedFolderBranches: CatalogFolderSearchBranch[] | null,
 ) {
   if (selectedFolderBranches === null) {
     return true;
   }
 
-  return catalogVideoMatchesFolderFilter(catalogVideo, selectedFolderBranches);
+  return indexedCatalogVideoMatchesFolderFilter(
+    filterData,
+    selectedFolderBranches,
+  );
 }
 
 export function catalogVideoMatchesFolderFilter(
   catalogVideo: CatalogVideo,
   selectedFolderBranches: CatalogFolderSearchBranch[],
 ) {
+  return indexedCatalogVideoMatchesFolderFilter(
+    indexedCatalogVideoFilterData(catalogVideo, undefined),
+    selectedFolderBranches,
+  );
+}
+
+function indexedCatalogVideoMatchesFolderFilter(
+  filterData: CatalogVideoFilterData,
+  selectedFolderBranches: CatalogFolderSearchBranch[],
+) {
   if (selectedFolderBranches.length === 0) {
     return false;
   }
 
-  return catalogVideo.fileLocations.some((fileLocation) => {
-    if (!fileLocation.isReachable) {
-      return false;
-    }
-
-    return selectedFolderBranches.some((selectedFolderBranch) => {
-      const fileLocationPath = normalizedFolderSearchPath(fileLocation.path);
+  return filterData.normalizedReachableFileLocationPaths.some(
+    (fileLocationPath) =>
+      selectedFolderBranches.some((selectedFolderBranch) => {
       const selectedBranchPath = normalizedFolderSearchPath(
         selectedFolderBranch.path,
       );
@@ -77,8 +191,8 @@ export function catalogVideoMatchesFolderFilter(
         pathIsInsideBranch(fileLocationPath, availableScanRootPath) &&
         pathIsInsideBranch(fileLocationPath, selectedBranchPath)
       );
-    });
-  });
+      }),
+  );
 }
 
 function normalizedFolderSearchPath(path: string) {
@@ -100,18 +214,26 @@ export function catalogVideoMatchesSearchText(
   catalogVideo: CatalogVideo,
   searchText: string,
 ) {
+  return indexedCatalogVideoMatchesSearchText(
+    indexedCatalogVideoFilterData(catalogVideo, undefined),
+    searchText,
+  );
+}
+
+function indexedCatalogVideoMatchesSearchText(
+  filterData: CatalogVideoFilterData,
+  searchText: string,
+) {
   const normalizedSearchText = searchText.trim().toLocaleLowerCase();
 
   if (normalizedSearchText.length === 0) {
     return true;
   }
 
-  const searchableValues = [
-    catalogVideo.title,
-    currentFilename(catalogVideo.fileLocationPath),
-  ].map((value) => value.toLocaleLowerCase());
-
-  return searchableValues.some((value) => value.includes(normalizedSearchText));
+  return [
+    filterData.normalizedTitle,
+    filterData.normalizedCurrentFilename,
+  ].some((value) => value.includes(normalizedSearchText));
 }
 
 export function currentFilename(fileLocationPath: string | null) {
@@ -145,10 +267,17 @@ export function catalogVideoMatchesDurationFilter(
   catalogVideo: CatalogVideo,
   filters: CatalogVideoFilters,
 ) {
-  const durationMinutes =
-    catalogVideo.durationMilliseconds /
-    millisecondsPerSecond /
-    secondsPerMinute;
+  return indexedCatalogVideoMatchesDurationFilter(
+    indexedCatalogVideoFilterData(catalogVideo, undefined),
+    filters,
+  );
+}
+
+function indexedCatalogVideoMatchesDurationFilter(
+  filterData: CatalogVideoFilterData,
+  filters: CatalogVideoFilters,
+) {
+  const durationMinutes = filterData.durationMinutes;
   const minimumMinutes = filters.minimumDurationMinutes;
   const maximumMinutes = filters.maximumDurationMinutes;
 
@@ -168,21 +297,31 @@ export function catalogVideoMatchesTagFilter(
   selectedTagIds: number[],
   withoutTagsOnly = false,
 ) {
+  return indexedCatalogVideoMatchesTagFilter(
+    indexedCatalogVideoMetadataFilterData(metadata),
+    selectedTagIds,
+    withoutTagsOnly,
+  );
+}
+
+function indexedCatalogVideoMatchesTagFilter(
+  filterData: CatalogVideoMetadataFilterData,
+  selectedTagIds: number[],
+  withoutTagsOnly = false,
+) {
   if (withoutTagsOnly && selectedTagIds.length > 0) {
     return false;
   }
 
   if (withoutTagsOnly) {
-    return (metadata?.tags.length ?? 0) === 0;
+    return !filterData.hasTags;
   }
 
   if (selectedTagIds.length === 0) {
     return true;
   }
 
-  const videoTagIds = new Set(metadata?.tags.map((tag) => tag.id) ?? []);
-
-  return selectedTagIds.every((tagId) => videoTagIds.has(tagId));
+  return selectedTagIds.every((tagId) => filterData.tagIds.has(tagId));
 }
 
 export function catalogVideoMatchesSecretMetadataFilter(
@@ -190,36 +329,49 @@ export function catalogVideoMatchesSecretMetadataFilter(
   hideSecretMetadata: boolean,
   secretMetadataExists: boolean,
 ) {
+  return indexedCatalogVideoMatchesSecretMetadataFilter(
+    indexedCatalogVideoMetadataFilterData(metadata),
+    hideSecretMetadata,
+    secretMetadataExists,
+  );
+}
+
+function indexedCatalogVideoMatchesSecretMetadataFilter(
+  filterData: CatalogVideoMetadataFilterData,
+  hideSecretMetadata: boolean,
+  secretMetadataExists: boolean,
+) {
   if (!hideSecretMetadata) {
     return true;
   }
 
-  if (!metadata && secretMetadataExists) {
+  if (!filterData.hasLoadedMetadata && secretMetadataExists) {
     return false;
   }
 
-  const hasSecretTag = metadata?.tags.some((tag) => tag.isSecret) ?? false;
-  const hasSecretPerformer = metadata?.performers.some(
-    (performer) => performer.isSecret,
-  ) ?? false;
-
-  return !hasSecretTag && !hasSecretPerformer;
+  return !filterData.hasSecretMetadata;
 }
 
 export function catalogVideoMatchesPerformerFilter(
   metadata: CatalogVideoMetadata | undefined,
   selectedPerformerIds: number[],
 ) {
+  return indexedCatalogVideoMatchesPerformerFilter(
+    indexedCatalogVideoMetadataFilterData(metadata),
+    selectedPerformerIds,
+  );
+}
+
+function indexedCatalogVideoMatchesPerformerFilter(
+  filterData: CatalogVideoMetadataFilterData,
+  selectedPerformerIds: number[],
+) {
   if (selectedPerformerIds.length === 0) {
     return true;
   }
 
-  const videoPerformerIds = new Set(
-    metadata?.performers.map((performer) => performer.id) ?? [],
-  );
-
   return selectedPerformerIds.some((performerId) =>
-    videoPerformerIds.has(performerId),
+    filterData.performerIds.has(performerId),
   );
 }
 

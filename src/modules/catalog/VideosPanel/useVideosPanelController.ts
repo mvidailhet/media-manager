@@ -9,7 +9,8 @@ import type {
 } from "../catalogTypes";
 import { defaultCatalogVideoFilters } from "../catalogTypes";
 import {
-  catalogVideoMatchesFilters,
+  buildCatalogVideoFilterIndex,
+  catalogVideoMatchesIndexedFilters,
   sortedCatalogVideos,
 } from "../catalogVideoFiltering";
 
@@ -34,14 +35,18 @@ export function useVideosPanelController({
       availablePerformers.some((performer) => performer.isSecret),
     [availablePerformers, availableTags],
   );
+  const catalogVideoFilterIndex = useMemo(
+    () => buildCatalogVideoFilterIndex(catalogVideos, catalogVideoMetadataById),
+    [catalogVideoMetadataById, catalogVideos],
+  );
 
   const matchingCatalogVideos = useMemo(
     () =>
       sortedCatalogVideos(
         catalogVideos.filter((catalogVideo) =>
-          catalogVideoMatchesFilters(
+          catalogVideoMatchesIndexedFilters(
+            catalogVideoFilterIndex,
             catalogVideo,
-            catalogVideoMetadataById[catalogVideo.id],
             catalogVideoFilters,
             secretMetadataExists,
           ),
@@ -49,8 +54,8 @@ export function useVideosPanelController({
         catalogVideoSort,
       ),
     [
+      catalogVideoFilterIndex,
       catalogVideoFilters,
-      catalogVideoMetadataById,
       catalogVideoSort,
       catalogVideos,
       secretMetadataExists,

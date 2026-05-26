@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import type { CatalogVideo } from "../../tauriCommands";
 import type { CatalogVideoFilters, CatalogVideoMetadata } from "./catalogTypes";
 import {
+  buildCatalogVideoFilterIndex,
   catalogVideoMatchesFilters,
   catalogVideoMatchesFolderFilter,
+  catalogVideoMatchesIndexedFilters,
   catalogVideoMatchesTagFilter,
 } from "./catalogVideoFiltering";
 
@@ -139,6 +141,152 @@ describe("catalogVideoMatchesFilters", () => {
   });
 });
 
+describe("catalogVideoMatchesIndexedFilters", () => {
+  it("returns the same Video IDs as direct Catalog Video filtering", () => {
+    const catalogVideos = [
+      catalogVideo({
+        id: 1,
+        title: "Paris Day One",
+        fileLocationPath: reachableParisVideoPath,
+        fileLocations: [reachableFileLocation(reachableParisVideoPath)],
+        isFavorite: true,
+        durationMilliseconds: 30 * 60_000,
+      }),
+      catalogVideo({
+        id: 2,
+        title: "Berlin Night",
+        fileLocationPath: `${availableScanRootPath}/Travel/Berlin/night.mp4`,
+        fileLocations: [
+          reachableFileLocation(
+            `${availableScanRootPath}/Travel/Berlin/night.mp4`,
+          ),
+        ],
+        durationMilliseconds: 90 * 60_000,
+      }),
+      catalogVideo({
+        id: 3,
+        title: "Secret",
+        fileLocationPath: `${documentariesBranchPath}/secret.mp4`,
+        fileLocations: [reachableFileLocation(`${documentariesBranchPath}/secret.mp4`)],
+        durationMilliseconds: 45 * 60_000,
+      }),
+      catalogVideo({
+        id: 4,
+        title: "Missing Metadata",
+        fileLocationPath: `${documentariesBranchPath}/missing.mp4`,
+        fileLocations: [reachableFileLocation(`${documentariesBranchPath}/missing.mp4`)],
+        durationMilliseconds: 15 * 60_000,
+      }),
+    ];
+    const metadataByVideoId: Record<number, CatalogVideoMetadata> = {
+      1: {
+        tags: [
+          { id: 4, isSecret: false, name: "Travel" },
+          { id: 5, isSecret: false, name: "City" },
+        ],
+        performers: [{ id: 9, isSecret: false, name: "Ada" }],
+      },
+      2: {
+        tags: [{ id: 4, isSecret: false, name: "Travel" }],
+        performers: [{ id: 10, isSecret: false, name: "Bert" }],
+      },
+      3: {
+        tags: [{ id: 6, isSecret: true, name: "Secret" }],
+        performers: [],
+      },
+    };
+    const filtersToCheck = [
+      catalogVideoFilters({
+        searchText: "day-one",
+        selectedFolderBranches: [selectedFolderBranch(travelBranchPath)],
+      }),
+      catalogVideoFilters({
+        selectedTagIds: [4, 5],
+      }),
+      catalogVideoFilters({
+        selectedPerformerIds: [10],
+      }),
+      catalogVideoFilters({
+        withoutTagsOnly: true,
+        selectedTagIds: [4],
+      }),
+      catalogVideoFilters({
+        hideSecretMetadata: true,
+      }),
+      catalogVideoFilters({
+        favoritesOnly: true,
+        showUnavailableVideos: false,
+        minimumDurationMinutes: 20,
+        maximumDurationMinutes: 60,
+      }),
+    ];
+    const filterIndex = buildCatalogVideoFilterIndex(
+      catalogVideos,
+      metadataByVideoId,
+    );
+
+    for (const filters of filtersToCheck) {
+      const directVideoIds = matchingDirectVideoIds(
+        catalogVideos,
+        metadataByVideoId,
+        filters,
+        true,
+      );
+      const indexedVideoIds = catalogVideos
+        .filter((catalogVideo) =>
+          catalogVideoMatchesIndexedFilters(filterIndex, catalogVideo, filters, true),
+        )
+        .map((catalogVideo) => catalogVideo.id);
+
+      expect(indexedVideoIds).toEqual(directVideoIds);
+    }
+  });
+
+  it("reuses indexed per-Video data when only selected filters change", () => {
+    const catalogVideo = catalogVideoWithFileLocations([
+      reachableFileLocation(reachableParisVideoPath),
+    ]);
+    const filterIndex = buildCatalogVideoFilterIndex(
+      [catalogVideo],
+      { [catalogVideo.id]: taggedMetadata },
+    );
+    const indexedCatalogVideo = filterIndex.videoFilterDataById.get(catalogVideo.id);
+
+    catalogVideoMatchesIndexedFilters(
+      filterIndex,
+      catalogVideo,
+      catalogVideoFilters({ selectedTagIds: [4] }),
+    );
+    catalogVideoMatchesIndexedFilters(
+      filterIndex,
+      catalogVideo,
+      catalogVideoFilters({ selectedPerformerIds: [9] }),
+    );
+
+    expect(filterIndex.videoFilterDataById.get(catalogVideo.id)).toBe(
+      indexedCatalogVideo,
+    );
+  });
+});
+
+function matchingDirectVideoIds(
+  catalogVideos: CatalogVideo[],
+  metadataByVideoId: Record<number, CatalogVideoMetadata>,
+  filters: CatalogVideoFilters,
+  secretMetadataExists: boolean,
+) {
+  return catalogVideos
+    .filter((catalogVideo) =>
+      catalogVideoMatchesFilters(
+        catalogVideo,
+        metadataByVideoId[catalogVideo.id],
+        filters,
+        secretMetadataExists,
+      ),
+    )
+    .map((catalogVideo) => catalogVideo.id);
+}
+
 function selectedFolderBranch(path: string) {
   return {
     path,
@@ -167,7 +315,7 @@ function catalogVideoFilters(
 function catalogVideoWithFileLocations(
   fileLocations: CatalogVideo["fileLocations"],
 ): CatalogVideo {
-  return {
+  return catalogVideo({
     id: 1,
     title: "Paris Day One",
     durationMilliseconds: catalogVideoDurationMilliseconds,
@@ -176,9 +324,27 @@ function catalogVideoWithFileLocations(
     fileLocations,
     isAvailable: fileLocations.some((fileLocation) => fileLocation.isReachable),
     isFavorite: false,
+  });
+}
+
+function catalogVideo(
+  video: Omit<Partial<CatalogVideo>, "id"> & Pick<CatalogVideo, "id">,
+): CatalogVideo {
+  const { id, ...videoOverrides } = video;
+
+  return {
+    title: "Paris Day One",
+    durationMilliseconds: catalogVideoDurationMilliseconds,
+    fileSizeBytes: null,
+    fileLocationPath: null,
+    fileLocations: [],
+    isAvailable: false,
+    isFavorite: false,
     lastOpenedAt: null,
     openCount: 0,
-    previewStrip: { status: "pending" },
+    ...videoOverrides,
+    id,
+    previewStrip: videoOverrides.previewStrip ?? { status: "pending" },
   };
 }
 
