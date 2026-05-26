@@ -60,6 +60,35 @@ describe("FolderFilterSection", () => {
     );
   });
 
+  it("lets keyboard users toggle folder branches", async () => {
+    renderFolderFilterSection({
+      folderBranches: [
+        branch(archiveScanRootPath, archiveScanRootPath),
+        branch(`${archiveScanRootPath}/Travel`, archiveScanRootPath),
+      ],
+    });
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Unselect all visible folder branches",
+      }),
+    );
+
+    fireEvent.keyDown(screen.getByLabelText("Travel"), { key: " " });
+
+    expect(screen.getByLabelText("Travel")).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+
+    fireEvent.keyDown(screen.getByLabelText("Travel"), { key: "Enter" });
+
+    expect(screen.getByLabelText("Travel")).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+  });
+
   it("keeps refresh updates selected under the nearest selected existing ancestor", async () => {
     const initialFolderBranches = [
       branch(archiveScanRootPath, archiveScanRootPath),

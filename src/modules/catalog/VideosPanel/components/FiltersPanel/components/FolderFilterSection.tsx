@@ -11,6 +11,7 @@ import {
 } from "../../../folderFilterTree";
 
 const folderFilterTreeCaretSize = 12;
+const folderFilterActivationKeys = new Set([" ", "Enter"]);
 
 export function FolderFilterSection({
   folderBranches,
@@ -56,7 +57,9 @@ export function FolderFilterSection({
 
   useEffect(() => {
     tree.setExpandedState(expandedBranchState);
+  }, [expandedBranchState]);
 
+  useEffect(() => {
     if (selectedFolderBranches === null) {
       const nextCheckedBranchPaths = selectedFolderBranchPaths(
         null,
@@ -93,7 +96,6 @@ export function FolderFilterSection({
     }
   }, [
     checkedBranchPaths,
-    expandedBranchState,
     folderBranches,
     selectedFolderBranches,
   ]);
@@ -151,6 +153,13 @@ export function FolderFilterSection({
         renderNode={({ node, elementProps, tree: nodeTree, expanded, hasChildren }) => {
           const isNodeChecked = nodeTree.isNodeChecked(node.value);
           const isNodeIndeterminate = nodeTree.isNodeIndeterminate(node.value);
+          const toggleNode = () => {
+            if (isNodeChecked || isNodeIndeterminate) {
+              nodeTree.uncheckNode(node.value);
+            } else {
+              nodeTree.checkNode(node.value);
+            }
+          };
 
           return (
             <Group gap="xs" align="center" wrap="nowrap" {...elementProps}>
@@ -172,13 +181,19 @@ export function FolderFilterSection({
                 checked={isNodeChecked}
                 indeterminate={isNodeIndeterminate}
                 aria-label={String(node.label)}
+                tabIndex={0}
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (isNodeChecked || isNodeIndeterminate) {
-                    nodeTree.uncheckNode(node.value);
-                  } else {
-                    nodeTree.checkNode(node.value);
+                  toggleNode();
+                }}
+                onKeyDown={(event) => {
+                  if (!folderFilterActivationKeys.has(event.key)) {
+                    return;
                   }
+
+                  event.preventDefault();
+                  event.stopPropagation();
+                  toggleNode();
                 }}
               />
               <Text size="sm">{node.label}</Text>
