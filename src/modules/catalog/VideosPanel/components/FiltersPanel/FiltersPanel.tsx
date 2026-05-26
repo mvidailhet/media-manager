@@ -32,6 +32,7 @@ export function FiltersPanel({
   catalogVideoMetadataById,
   catalogVideos,
   filters,
+  metadataCountVideos,
   onFiltersChange,
   scanRoots,
 }: {
@@ -40,6 +41,7 @@ export function FiltersPanel({
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
   filters: CatalogVideoFilters;
+  metadataCountVideos: CatalogVideo[];
   onFiltersChange: (filters: CatalogVideoFilters) => void;
   scanRoots: ScanRoot[];
 }) {
@@ -61,7 +63,7 @@ export function FiltersPanel({
   });
   const videoCountByTagId = countVideosByMetadataId({
     catalogVideoMetadataById,
-    catalogVideos,
+    catalogVideos: metadataCountVideos,
     hideSecretMetadata: filters.hideSecretMetadata,
     metadataKind: 'tag',
   });
@@ -74,7 +76,7 @@ export function FiltersPanel({
   });
   const videoCountByPerformerId = countVideosByMetadataId({
     catalogVideoMetadataById,
-    catalogVideos,
+    catalogVideos: metadataCountVideos,
     hideSecretMetadata: filters.hideSecretMetadata,
     metadataKind: 'performer',
   });
