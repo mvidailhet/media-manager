@@ -42,7 +42,6 @@ describe("FiltersPanel", () => {
       catalogVideoMetadataById,
       catalogVideos,
       filters: initialFilters,
-      metadataCountVideos: catalogVideos,
     });
 
     expect(screen.getByText("Travel (2)")).toBeInTheDocument();
@@ -55,7 +54,6 @@ describe("FiltersPanel", () => {
       catalogVideoMetadataById,
       catalogVideos,
       filters: catalogVideoFilters({ selectedTagIds: [travelTag.id] }),
-      metadataCountVideos: catalogVideos,
     });
 
     expect(screen.getByText("Travel (2)")).toBeInTheDocument();
@@ -99,7 +97,6 @@ interface FiltersPanelProps {
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
   filters: CatalogVideoFilters;
-  metadataCountVideos: CatalogVideo[];
 }
 
 function catalogVideoFilters(

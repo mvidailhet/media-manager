@@ -32,7 +32,6 @@ export function FiltersPanel({
   catalogVideoMetadataById,
   catalogVideos,
   filters,
-  metadataCountVideos,
   onFiltersChange,
   scanRoots,
 }: {
@@ -41,7 +40,6 @@ export function FiltersPanel({
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
   filters: CatalogVideoFilters;
-  metadataCountVideos: CatalogVideo[];
   onFiltersChange: (filters: CatalogVideoFilters) => void;
   scanRoots: ScanRoot[];
 }) {
@@ -67,7 +65,6 @@ export function FiltersPanel({
         catalogVideoMetadataById,
         catalogVideos,
         hideSecretMetadata: filters.hideSecretMetadata,
-        metadataCountVideos,
       }),
     [
       availablePerformers,
@@ -75,7 +72,6 @@ export function FiltersPanel({
       catalogVideoMetadataById,
       catalogVideos,
       filters.hideSecretMetadata,
-      metadataCountVideos,
     ],
   );
   const folderBranches = useMemo(
@@ -99,7 +95,6 @@ export function FiltersPanel({
         catalogVideoMetadataById,
         catalogVideos,
         hideSecretMetadata,
-        metadataCountVideos,
       });
 
       updatedFilters.selectedTagIds = selectedVisibleMetadataIds(
@@ -257,14 +252,12 @@ function filterPanelMetadata({
   catalogVideoMetadataById,
   catalogVideos,
   hideSecretMetadata,
-  metadataCountVideos,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
   hideSecretMetadata: boolean;
-  metadataCountVideos: CatalogVideo[];
 }) {
   return {
     visibleTags: visibleMetadataValues({
@@ -276,7 +269,7 @@ function filterPanelMetadata({
     }),
     videoCountByTagId: countVideosByMetadataId({
       catalogVideoMetadataById,
-      catalogVideos: metadataCountVideos,
+      catalogVideos,
       hideSecretMetadata,
       metadataKind: 'tag',
     }),
@@ -289,7 +282,7 @@ function filterPanelMetadata({
     }),
     videoCountByPerformerId: countVideosByMetadataId({
       catalogVideoMetadataById,
-      catalogVideos: metadataCountVideos,
+      catalogVideos,
       hideSecretMetadata,
       metadataKind: 'performer',
     }),
