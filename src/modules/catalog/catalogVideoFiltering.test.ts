@@ -142,13 +142,14 @@ describe("catalogVideoMatchesFilters", () => {
 });
 
 describe("catalogVideoMatchesIndexedFilters", () => {
-  it("returns the same Video IDs as direct Catalog Video filtering", () => {
+  it("preserves the current Catalog Video filtering semantics", () => {
     const catalogVideos = [
       catalogVideo({
         id: 1,
         title: "Paris Day One",
         fileLocationPath: reachableParisVideoPath,
         fileLocations: [reachableFileLocation(reachableParisVideoPath)],
+        isAvailable: true,
         isFavorite: true,
         durationMilliseconds: 30 * 60_000,
       }),
@@ -161,6 +162,7 @@ describe("catalogVideoMatchesIndexedFilters", () => {
             `${availableScanRootPath}/Travel/Berlin/night.mp4`,
           ),
         ],
+        isAvailable: true,
         durationMilliseconds: 90 * 60_000,
       }),
       catalogVideo({
@@ -168,6 +170,7 @@ describe("catalogVideoMatchesIndexedFilters", () => {
         title: "Secret",
         fileLocationPath: `${documentariesBranchPath}/secret.mp4`,
         fileLocations: [reachableFileLocation(`${documentariesBranchPath}/secret.mp4`)],
+        isAvailable: true,
         durationMilliseconds: 45 * 60_000,
       }),
       catalogVideo({
@@ -175,6 +178,7 @@ describe("catalogVideoMatchesIndexedFilters", () => {
         title: "Missing Metadata",
         fileLocationPath: `${documentariesBranchPath}/missing.mp4`,
         fileLocations: [reachableFileLocation(`${documentariesBranchPath}/missing.mp4`)],
+        isAvailable: true,
         durationMilliseconds: 15 * 60_000,
       }),
     ];
@@ -195,50 +199,67 @@ describe("catalogVideoMatchesIndexedFilters", () => {
         performers: [],
       },
     };
-    const filtersToCheck = [
-      catalogVideoFilters({
-        searchText: "day-one",
-        selectedFolderBranches: [selectedFolderBranch(travelBranchPath)],
-      }),
-      catalogVideoFilters({
-        selectedTagIds: [4, 5],
-      }),
-      catalogVideoFilters({
-        selectedPerformerIds: [10],
-      }),
-      catalogVideoFilters({
-        withoutTagsOnly: true,
-        selectedTagIds: [4],
-      }),
-      catalogVideoFilters({
-        hideSecretMetadata: true,
-      }),
-      catalogVideoFilters({
-        favoritesOnly: true,
-        showUnavailableVideos: false,
-        minimumDurationMinutes: 20,
-        maximumDurationMinutes: 60,
-      }),
+    const filterScenarios = [
+      {
+        filters: catalogVideoFilters({
+          searchText: "day-one",
+          selectedFolderBranches: [selectedFolderBranch(travelBranchPath)],
+        }),
+        matchingVideoIds: [1],
+      },
+      {
+        filters: catalogVideoFilters({
+          selectedTagIds: [4, 5],
+        }),
+        matchingVideoIds: [1],
+      },
+      {
+        filters: catalogVideoFilters({
+          selectedPerformerIds: [10],
+        }),
+        matchingVideoIds: [2],
+      },
+      {
+        filters: catalogVideoFilters({
+          withoutTagsOnly: true,
+          selectedTagIds: [4],
+        }),
+        matchingVideoIds: [],
+      },
+      {
+        filters: catalogVideoFilters({
+          hideSecretMetadata: true,
+        }),
+        matchingVideoIds: [1, 2],
+      },
+      {
+        filters: catalogVideoFilters({
+          favoritesOnly: true,
+          showUnavailableVideos: false,
+          minimumDurationMinutes: 20,
+          maximumDurationMinutes: 60,
+        }),
+        matchingVideoIds: [1],
+      },
     ];
     const filterIndex = buildCatalogVideoFilterIndex(
       catalogVideos,
       metadataByVideoId,
     );
 
-    for (const filters of filtersToCheck) {
-      const directVideoIds = matchingDirectVideoIds(
-        catalogVideos,
-        metadataByVideoId,
-        filters,
-        true,
-      );
+    for (const { filters, matchingVideoIds } of filterScenarios) {
       const indexedVideoIds = catalogVideos
         .filter((catalogVideo) =>
-          catalogVideoMatchesIndexedFilters(filterIndex, catalogVideo, filters, true),
+          catalogVideoMatchesIndexedFilters(
+            filterIndex,
+            catalogVideo,
+            filters,
+            true,
+          ),
         )
         .map((catalogVideo) => catalogVideo.id);
 
-      expect(indexedVideoIds).toEqual(directVideoIds);
+      expect(indexedVideoIds, JSON.stringify(filters)).toEqual(matchingVideoIds);
     }
   });
 
@@ -268,24 +289,6 @@ describe("catalogVideoMatchesIndexedFilters", () => {
     );
   });
 });
-
-function matchingDirectVideoIds(
-  catalogVideos: CatalogVideo[],
-  metadataByVideoId: Record<number, CatalogVideoMetadata>,
-  filters: CatalogVideoFilters,
-  secretMetadataExists: boolean,
-) {
-  return catalogVideos
-    .filter((catalogVideo) =>
-      catalogVideoMatchesFilters(
-        catalogVideo,
-        metadataByVideoId[catalogVideo.id],
-        filters,
-        secretMetadataExists,
-      ),
-    )
-    .map((catalogVideo) => catalogVideo.id);
-}
 
 function selectedFolderBranch(path: string) {
   return {
