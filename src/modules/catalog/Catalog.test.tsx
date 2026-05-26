@@ -120,6 +120,26 @@ describe("Catalog module", () => {
     });
   }
 
+  function expandFolderFilterBranch(catalogVideos: HTMLElement, label: string) {
+    fireEvent.click(
+      within(catalogVideos).getByText((_content, element) => {
+        return element?.tagName === "P" && element.textContent === label;
+      }),
+    );
+  }
+
+  function clickFolderFilterCheckbox(catalogVideos: HTMLElement, label: string) {
+    const folderCheckbox = within(catalogVideos)
+      .getAllByLabelText(label)
+      .find((element) => element.getAttribute("role") === "checkbox");
+
+    if (!folderCheckbox) {
+      throw new Error(`Missing folder filter checkbox for ${label}`);
+    }
+
+    fireEvent.click(folderCheckbox);
+  }
+
   function catalogVideoFixture(id: number, title: string) {
     return {
       id,
@@ -1414,7 +1434,8 @@ describe("Catalog module", () => {
         name: "Unselect all visible folder branches",
       }),
     );
-    fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
+    expandFolderFilterBranch(catalogVideos, "/Volumes/Archive/Videos");
+    clickFolderFilterCheckbox(catalogVideos, "Travel");
 
     expect(within(catalogVideos).getAllByText("2 Videos").length).toBeGreaterThan(
       0,
@@ -1436,6 +1457,102 @@ describe("Catalog module", () => {
     expect(
       within(catalogVideos).queryByText("Rome Day Two"),
     ).not.toBeInTheDocument();
+  });
+
+  it("updates metadata filter counts from Videos View results after selecting folder branches", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true,
+        lastScanCompletedAt: null,
+        inferenceRules: defaultInferenceRules,
+      },
+    ]);
+    mockedListTags.mockResolvedValue([
+      { id: 4, isSecret: false, name: "Travel" },
+      { id: 5, isSecret: false, name: "Studio" },
+    ]);
+    mockedListPerformers.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+      { id: 10, isSecret: false, name: "Alex" },
+    ]);
+    mockedTagsForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 1) {
+        return [{ id: 4, isSecret: false, name: "Travel" }];
+      }
+
+      if (videoId === 2) {
+        return [{ id: 5, isSecret: false, name: "Studio" }];
+      }
+
+      return [];
+    });
+    mockedPerformersForVideo.mockImplementation(async (videoId) => {
+      if (videoId === 1) {
+        return [{ id: 9, isSecret: false, name: "Blair" }];
+      }
+
+      if (videoId === 2) {
+        return [{ id: 10, isSecret: false, name: "Alex" }];
+      }
+
+      return [];
+    });
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        ...catalogVideoFixture(1, "Paris Day One"),
+        fileLocationPath: "/Volumes/Archive/Videos/Travel/Paris/day-one.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/Travel/Paris/day-one.mp4",
+            fileSizeBytes: 1000,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+      },
+      {
+        ...catalogVideoFixture(2, "Studio Clip"),
+        fileLocationPath: "/Volumes/Archive/Videos/Studio/studio-clip.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/Studio/studio-clip.mp4",
+            fileSizeBytes: 1000,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await waitFor(() => {
+      expect(mockedTagsForVideo).toHaveBeenCalledWith(2);
+      expect(mockedPerformersForVideo).toHaveBeenCalledWith(2);
+    });
+
+    expect(within(catalogVideos).getByText("Travel (1)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Studio (1)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Blair (1)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Alex (1)")).toBeInTheDocument();
+
+    await showAdvancedSearch(catalogVideos);
+    fireEvent.click(
+      await within(catalogVideos).findByRole("button", {
+        name: "Unselect all visible folder branches",
+      }),
+    );
+    expandFolderFilterBranch(catalogVideos, "/Volumes/Archive/Videos");
+    clickFolderFilterCheckbox(catalogVideos, "Travel");
+
+    expect(within(catalogVideos).getByText("Travel (1)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Blair (1)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Studio (0)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Alex (0)")).toBeInTheDocument();
   });
 
   it("filters Catalog Videos to Videos without Tags", async () => {
