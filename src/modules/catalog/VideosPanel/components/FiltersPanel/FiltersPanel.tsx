@@ -32,7 +32,6 @@ export function FiltersPanel({
   catalogVideoMetadataById,
   catalogVideos,
   filters,
-  metadataCountVideos,
   onFiltersChange,
   scanRoots,
 }: {
@@ -41,7 +40,6 @@ export function FiltersPanel({
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
   filters: CatalogVideoFilters;
-  metadataCountVideos: CatalogVideo[];
   onFiltersChange: (filters: CatalogVideoFilters) => void;
   scanRoots: ScanRoot[];
 }) {
@@ -54,32 +52,28 @@ export function FiltersPanel({
       ? maximumDurationMinutes
       : filters.maximumDurationMinutes,
   ];
-  const visibleTags = visibleMetadataValues({
-    availableValues: availableTags,
-    catalogVideoMetadataById,
-    catalogVideos,
-    hideSecretMetadata: filters.hideSecretMetadata,
-    metadataKind: 'tag',
-  });
-  const videoCountByTagId = countVideosByMetadataId({
-    catalogVideoMetadataById,
-    catalogVideos: metadataCountVideos,
-    hideSecretMetadata: filters.hideSecretMetadata,
-    metadataKind: 'tag',
-  });
-  const visiblePerformers = visibleMetadataValues({
-    availableValues: availablePerformers,
-    catalogVideoMetadataById,
-    catalogVideos,
-    hideSecretMetadata: filters.hideSecretMetadata,
-    metadataKind: 'performer',
-  });
-  const videoCountByPerformerId = countVideosByMetadataId({
-    catalogVideoMetadataById,
-    catalogVideos: metadataCountVideos,
-    hideSecretMetadata: filters.hideSecretMetadata,
-    metadataKind: 'performer',
-  });
+  const {
+    videoCountByPerformerId,
+    videoCountByTagId,
+    visiblePerformers,
+    visibleTags,
+  } = useMemo(
+    () =>
+      filterPanelMetadata({
+        availablePerformers,
+        availableTags,
+        catalogVideoMetadataById,
+        catalogVideos,
+        hideSecretMetadata: filters.hideSecretMetadata,
+      }),
+    [
+      availablePerformers,
+      availableTags,
+      catalogVideoMetadataById,
+      catalogVideos,
+      filters.hideSecretMetadata,
+    ],
+  );
   const folderBranches = useMemo(
     () => folderFilterBranchesForVideos(catalogVideos, scanRoots),
     [catalogVideos, scanRoots],
@@ -95,24 +89,20 @@ export function FiltersPanel({
     };
 
     if (hideSecretMetadata) {
+      const hiddenSecretMetadata = filterPanelMetadata({
+        availablePerformers,
+        availableTags,
+        catalogVideoMetadataById,
+        catalogVideos,
+        hideSecretMetadata,
+      });
+
       updatedFilters.selectedTagIds = selectedVisibleMetadataIds(
-        visibleMetadataValues({
-          availableValues: availableTags,
-          catalogVideoMetadataById,
-          catalogVideos,
-          hideSecretMetadata,
-          metadataKind: 'tag',
-        }),
+        hiddenSecretMetadata.visibleTags,
         filters.selectedTagIds,
       );
       updatedFilters.selectedPerformerIds = selectedVisibleMetadataIds(
-        visibleMetadataValues({
-          availableValues: availablePerformers,
-          catalogVideoMetadataById,
-          catalogVideos,
-          hideSecretMetadata,
-          metadataKind: 'performer',
-        }),
+        hiddenSecretMetadata.visiblePerformers,
         filters.selectedPerformerIds,
       );
     }
@@ -256,6 +246,49 @@ export function FiltersPanel({
   );
 }
 
+function filterPanelMetadata({
+  availablePerformers,
+  availableTags,
+  catalogVideoMetadataById,
+  catalogVideos,
+  hideSecretMetadata,
+}: {
+  availablePerformers: CatalogPerformer[];
+  availableTags: CatalogTag[];
+  catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
+  catalogVideos: CatalogVideo[];
+  hideSecretMetadata: boolean;
+}) {
+  return {
+    visibleTags: visibleMetadataValues({
+      availableValues: availableTags,
+      catalogVideoMetadataById,
+      catalogVideos,
+      hideSecretMetadata,
+      metadataKind: 'tag',
+    }),
+    videoCountByTagId: countVideosByMetadataId({
+      catalogVideoMetadataById,
+      catalogVideos,
+      hideSecretMetadata,
+      metadataKind: 'tag',
+    }),
+    visiblePerformers: visibleMetadataValues({
+      availableValues: availablePerformers,
+      catalogVideoMetadataById,
+      catalogVideos,
+      hideSecretMetadata,
+      metadataKind: 'performer',
+    }),
+    videoCountByPerformerId: countVideosByMetadataId({
+      catalogVideoMetadataById,
+      catalogVideos,
+      hideSecretMetadata,
+      metadataKind: 'performer',
+    }),
+  };
+}
+
 function visibleMetadataValues<TMetadata extends { id: number; isSecret: boolean }>({
   availableValues,
   catalogVideoMetadataById,
@@ -270,6 +303,13 @@ function visibleMetadataValues<TMetadata extends { id: number; isSecret: boolean
   metadataKind: 'tag' | 'performer';
 }) {
   const metadataIdsOnVisibleVideos = new Set<number>();
+  const metadataIdsOnLoadedVideos = hideSecretMetadata
+    ? metadataIdsForLoadedVideos({
+        catalogVideoMetadataById,
+        catalogVideos,
+        metadataKind,
+      })
+    : new Set<number>();
 
   for (const catalogVideo of catalogVideos) {
     const metadata = catalogVideoMetadataById[catalogVideo.id];
@@ -297,12 +337,6 @@ function visibleMetadataValues<TMetadata extends { id: number; isSecret: boolean
     if (!hideSecretMetadata) {
       return true;
     }
-
-    const metadataIdsOnLoadedVideos = metadataIdsForLoadedVideos({
-      catalogVideoMetadataById,
-      catalogVideos,
-      metadataKind,
-    });
 
     if (!metadataIdsOnLoadedVideos.has(metadataValue.id)) {
       return true;

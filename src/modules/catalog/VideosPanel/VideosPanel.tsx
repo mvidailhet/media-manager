@@ -95,7 +95,6 @@ export function VideosPanel({
           availableTags={availableTags}
           catalogVideoMetadataById={catalogVideoMetadataById}
           catalogVideos={allCatalogVideos}
-          metadataCountVideos={catalogVideos}
           filters={catalogVideoFilters}
           onFiltersChange={changeCatalogVideoFilters}
           scanRoots={scanRoots}

@@ -1459,7 +1459,7 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("updates metadata filter counts from Videos View results after selecting folder branches", async () => {
+  it("keeps metadata filter counts based on loaded Videos after selecting folder branches", async () => {
     mockedListScanRoots.mockResolvedValue([
       {
         path: "/Volumes/Archive/Videos",
@@ -1551,8 +1551,8 @@ describe("Catalog module", () => {
 
     expect(within(catalogVideos).getByText("Travel (1)")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("Blair (1)")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Studio (0)")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Alex (0)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Studio (1)")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Alex (1)")).toBeInTheDocument();
   });
 
   it("filters Catalog Videos to Videos without Tags", async () => {
