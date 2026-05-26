@@ -1,6 +1,11 @@
 import type { CatalogVideo } from "../../tauriCommands";
 import { fileSizeNullSortOrder } from "../../shared/formatting/videoFormatting";
-import type { CatalogVideoFilters, CatalogVideoMetadata, CatalogVideoSort } from "./catalogTypes";
+import type {
+  CatalogFolderSearchBranch,
+  CatalogVideoFilters,
+  CatalogVideoMetadata,
+  CatalogVideoSort,
+} from "./catalogTypes";
 
 export function catalogVideoMatchesFilters(
   catalogVideo: CatalogVideo,
@@ -10,6 +15,10 @@ export function catalogVideoMatchesFilters(
 ) {
   return (
     catalogVideoMatchesSearchText(catalogVideo, filters.searchText) &&
+    catalogVideoMatchesOptionalFolderFilter(
+      catalogVideo,
+      filters.selectedFolderBranches,
+    ) &&
     catalogVideoMatchesFavoriteFilter(catalogVideo, filters.favoritesOnly) &&
     catalogVideoMatchesAvailabilityFilter(
       catalogVideo,
@@ -28,6 +37,63 @@ export function catalogVideoMatchesFilters(
     ) &&
     catalogVideoMatchesPerformerFilter(metadata, filters.selectedPerformerIds)
   );
+}
+
+function catalogVideoMatchesOptionalFolderFilter(
+  catalogVideo: CatalogVideo,
+  selectedFolderBranches: CatalogFolderSearchBranch[] | null,
+) {
+  if (selectedFolderBranches === null) {
+    return true;
+  }
+
+  return catalogVideoMatchesFolderFilter(catalogVideo, selectedFolderBranches);
+}
+
+export function catalogVideoMatchesFolderFilter(
+  catalogVideo: CatalogVideo,
+  selectedFolderBranches: CatalogFolderSearchBranch[],
+) {
+  if (selectedFolderBranches.length === 0) {
+    return false;
+  }
+
+  return catalogVideo.fileLocations.some((fileLocation) => {
+    if (!fileLocation.isReachable) {
+      return false;
+    }
+
+    return selectedFolderBranches.some((selectedFolderBranch) => {
+      const fileLocationPath = normalizedFolderSearchPath(fileLocation.path);
+      const selectedBranchPath = normalizedFolderSearchPath(
+        selectedFolderBranch.path,
+      );
+      const availableScanRootPath = normalizedFolderSearchPath(
+        selectedFolderBranch.availableScanRootPath,
+      );
+
+      return (
+        pathIsInsideBranch(selectedBranchPath, availableScanRootPath) &&
+        pathIsInsideBranch(fileLocationPath, availableScanRootPath) &&
+        pathIsInsideBranch(fileLocationPath, selectedBranchPath)
+      );
+    });
+  });
+}
+
+function normalizedFolderSearchPath(path: string) {
+  const pathWithForwardSlashes = path.replace(/\\/g, "/");
+  const pathWithoutTrailingSlashes = pathWithForwardSlashes.replace(/\/+$/g, "");
+
+  return pathWithoutTrailingSlashes.toLocaleLowerCase();
+}
+
+function pathIsInsideBranch(path: string, branchPath: string) {
+  if (branchPath.length === 0) {
+    return false;
+  }
+
+  return path === branchPath || path.startsWith(`${branchPath}/`);
 }
 
 export function catalogVideoMatchesSearchText(
