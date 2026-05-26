@@ -39,26 +39,26 @@ export function useVideosPanelController({
     () => buildCatalogVideoFilterIndex(catalogVideos, catalogVideoMetadataById),
     [catalogVideoMetadataById, catalogVideos],
   );
+  const sortedVideos = useMemo(
+    () => sortedCatalogVideos(catalogVideos, catalogVideoSort),
+    [catalogVideoSort, catalogVideos],
+  );
 
   const matchingCatalogVideos = useMemo(
     () =>
-      sortedCatalogVideos(
-        catalogVideos.filter((catalogVideo) =>
-          catalogVideoMatchesIndexedFilters(
-            catalogVideoFilterIndex,
-            catalogVideo,
-            catalogVideoFilters,
-            secretMetadataExists,
-          ),
+      sortedVideos.filter((catalogVideo) =>
+        catalogVideoMatchesIndexedFilters(
+          catalogVideoFilterIndex,
+          catalogVideo,
+          catalogVideoFilters,
+          secretMetadataExists,
         ),
-        catalogVideoSort,
       ),
     [
       catalogVideoFilterIndex,
       catalogVideoFilters,
-      catalogVideoSort,
-      catalogVideos,
       secretMetadataExists,
+      sortedVideos,
     ],
   );
 
