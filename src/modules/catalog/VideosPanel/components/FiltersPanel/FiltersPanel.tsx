@@ -11,16 +11,18 @@ import {
   TextInput,
 } from '@mantine/core';
 
-import type { CatalogPerformer, CatalogTag } from '../../../../tauriCommands';
-import type { CatalogVideo } from '../../../../tauriCommands';
-import type { CatalogVideoFilters, CatalogVideoMetadata } from '../../catalogTypes';
+import type { CatalogPerformer, CatalogTag, ScanRoot } from '../../../../../tauriCommands';
+import type { CatalogVideo } from '../../../../../tauriCommands';
+import type { CatalogVideoFilters, CatalogVideoMetadata } from '../../../catalogTypes';
+import { folderFilterBranchesForVideos } from '../../folderFilterBranches';
 import {
   durationSliderStepMinutes,
   formatDurationFilterValue,
   formatDurationRange,
   maximumDurationMinutes,
   minimumDurationMinutes,
-} from '../catalogVideoDurationFilters';
+} from '../../catalogVideoDurationFilters';
+import { FolderFilterSection } from './components/FolderFilterSection';
 
 const noTagFilterValue = 'without-tags';
 
@@ -31,6 +33,7 @@ export function FiltersPanel({
   catalogVideos,
   filters,
   onFiltersChange,
+  scanRoots,
 }: {
   availablePerformers: CatalogPerformer[];
   availableTags: CatalogTag[];
@@ -38,6 +41,7 @@ export function FiltersPanel({
   catalogVideos: CatalogVideo[];
   filters: CatalogVideoFilters;
   onFiltersChange: (filters: CatalogVideoFilters) => void;
+  scanRoots: ScanRoot[];
 }) {
   const [advancedSearchOpened, setAdvancedSearchOpened] = useState(false);
   const durationRangeValue: [number, number] = [
@@ -74,6 +78,7 @@ export function FiltersPanel({
     hideSecretMetadata: filters.hideSecretMetadata,
     metadataKind: 'performer',
   });
+  const folderBranches = folderFilterBranchesForVideos(catalogVideos, scanRoots);
 
   function updateFilters(updatedFilters: Partial<CatalogVideoFilters>) {
     onFiltersChange({ ...filters, ...updatedFilters });
@@ -235,6 +240,13 @@ export function FiltersPanel({
           </Group>
         </Checkbox.Group>
       ) : null}
+      <FolderFilterSection
+        folderBranches={folderBranches}
+        selectedFolderBranches={filters.selectedFolderBranches}
+        onSelectedFolderBranchesChange={(selectedFolderBranches) =>
+          updateFilters({ selectedFolderBranches })
+        }
+      />
     </Stack>
   );
 }

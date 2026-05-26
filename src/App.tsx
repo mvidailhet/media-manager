@@ -95,7 +95,7 @@ export default function App() {
           setActiveAppModule={setActiveAppModule}
         />
         {activeAppModule === "catalog" ? (
-          <Catalog {...catalogProps} />
+          <Catalog {...catalogProps} scanRoots={scanProps.scanRoots} />
         ) : null}
         {activeAppModule === "scan" ? <Scan {...scanProps} /> : null}
 

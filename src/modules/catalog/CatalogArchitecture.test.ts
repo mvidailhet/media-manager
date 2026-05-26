@@ -301,7 +301,7 @@ describe("Catalog module boundaries", () => {
     );
     const filtersPanelSource = rawSource(
       videosPanelFiles,
-      "./VideosPanel/components/FiltersPanel.tsx",
+      "./VideosPanel/components/FiltersPanel/FiltersPanel.tsx",
     );
     const sortSelectSource = rawSource(
       videosPanelFiles,
@@ -358,7 +358,7 @@ describe("Catalog module boundaries", () => {
     expect(videosPanelSource).not.toMatch(/function formatDurationRange/);
     expect(videosPanelSource).not.toMatch(/function formatDurationFilterValue/);
     expect(filtersPanelSource).toMatch(
-      /from ['"]\.\.\/catalogVideoDurationFilters['"]/,
+      /from ['"]\.\.\/\.\.\/catalogVideoDurationFilters['"]/,
     );
     expect(primaryPerformerAccordionSource).toMatch(/".\/VideoCard"/);
     expect(primaryPerformerAccordionSource).toMatch(/".\/GroupPreviewStrip"/);
