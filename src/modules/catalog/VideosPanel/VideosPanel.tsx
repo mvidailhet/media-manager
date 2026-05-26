@@ -1,14 +1,14 @@
 import { useRef } from "react";
 import { Box, Stack } from "@mantine/core";
 
-import type { CatalogPerformer, CatalogTag, CatalogVideo } from "../../../tauriCommands";
+import type { CatalogPerformer, CatalogTag, CatalogVideo, ScanRoot } from "../../../tauriCommands";
 import type {
   CatalogVideoFilters,
   CatalogVideoMetadata,
   CatalogVideoSort,
 } from "../catalogTypes";
 import type { VideoSelectionModifiers } from "../useCatalogModuleController";
-import { FiltersPanel } from "./components/FiltersPanel";
+import { FiltersPanel } from "./components/FiltersPanel/FiltersPanel";
 import { SortSelect } from "./components/SortSelect";
 import { StatusMessages } from "./components/StatusMessages";
 import { VideoGrid } from "./components/VideoGrid";
@@ -31,6 +31,7 @@ export function VideosPanel({
   onSetFavorite,
   onSelectVideo,
   selectedDetailVideoId,
+  scanRoots,
   selectedVideoIds,
 }: {
   allCatalogVideos: CatalogVideo[];
@@ -50,6 +51,7 @@ export function VideosPanel({
     modifiers: VideoSelectionModifiers,
   ) => void;
   onSetFavorite: (catalogVideo: CatalogVideo, isFavorite: boolean) => void;
+  scanRoots: ScanRoot[];
   onSelectVideo: (
     catalogVideo: CatalogVideo,
     modifiers: VideoSelectionModifiers,
@@ -95,6 +97,7 @@ export function VideosPanel({
           catalogVideos={allCatalogVideos}
           filters={catalogVideoFilters}
           onFiltersChange={changeCatalogVideoFilters}
+          scanRoots={scanRoots}
         />
 
         <Box className={styles.videoListControls}>

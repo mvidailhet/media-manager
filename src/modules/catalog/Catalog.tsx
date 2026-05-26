@@ -1,5 +1,6 @@
 import type {
   CatalogPerformer,
+  ScanRoot,
   CatalogTag,
   CatalogVideo,
   MetadataSuggestionGroup,
@@ -86,7 +87,7 @@ export type CatalogProps = {
   selectedVideoIds: number[];
 };
 
-export function Catalog(props: CatalogProps) {
+export function Catalog(props: CatalogProps & { scanRoots: ScanRoot[] }) {
   const {
     availablePerformers,
     availableTags,
@@ -110,6 +111,7 @@ export function Catalog(props: CatalogProps) {
     onSelectVideo,
     onSetBatchVideoSelected,
     onSetFavorite,
+    scanRoots,
     selectedVideo,
     selectedVideoIds,
   } = props;
@@ -140,6 +142,7 @@ export function Catalog(props: CatalogProps) {
               onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
               onCatalogVideoSortChange={onCatalogVideoSortChange}
               onSetFavorite={onSetFavorite}
+              scanRoots={scanRoots}
               onClearVideoSelection={onClearVideoSelection}
               onReplaceSelectedVideos={onReplaceSelectedVideos}
               onSelectVideo={onSelectVideo}

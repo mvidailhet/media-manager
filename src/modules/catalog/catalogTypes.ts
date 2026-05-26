@@ -9,8 +9,14 @@ export interface CatalogVideoMetadata {
   performers: CatalogPerformer[];
 }
 
+export interface CatalogFolderSearchBranch {
+  path: string;
+  availableScanRootPath: string;
+}
+
 export interface CatalogVideoFilters {
   searchText: string;
+  selectedFolderBranches: CatalogFolderSearchBranch[] | null;
   selectedTagIds: number[];
   withoutTagsOnly: boolean;
   selectedPerformerIds: number[];
@@ -36,6 +42,7 @@ export type CatalogMetadataSuggestionAcceptanceRequest =
 
 export const defaultCatalogVideoFilters: CatalogVideoFilters = {
   searchText: "",
+  selectedFolderBranches: null,
   selectedTagIds: [],
   withoutTagsOnly: false,
   selectedPerformerIds: [],

@@ -1318,7 +1318,9 @@ describe("Catalog module", () => {
       expect(mockedTagsForVideo).toHaveBeenCalledWith(1);
       expect(mockedPerformersForVideo).toHaveBeenCalledWith(2);
     });
-    expect(within(catalogVideos).getByText("2 Videos")).toBeInTheDocument();
+    expect(within(catalogVideos).getAllByText("2 Videos").length).toBeGreaterThan(
+      0,
+    );
     expect(within(catalogVideos).getByText("Travel (2)")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("Family (1)")).toBeInTheDocument();
     expect(within(catalogVideos).getByText("Blair (1)")).toBeInTheDocument();
@@ -1327,7 +1329,9 @@ describe("Catalog module", () => {
     fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
     fireEvent.click(within(catalogVideos).getByLabelText("Family"));
 
-    expect(within(catalogVideos).getByText("1 Video")).toBeInTheDocument();
+    expect(within(catalogVideos).getAllByText("1 Video").length).toBeGreaterThan(
+      0,
+    );
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByText("Travel Clip"),
@@ -1347,6 +1351,84 @@ describe("Catalog module", () => {
     expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByText("Travel Clip"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("filters Catalog Videos by selected reachable folder branches under available Scan Roots", async () => {
+    mockedListScanRoots.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true,
+        lastScanCompletedAt: null,
+        inferenceRules: defaultInferenceRules,
+      },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        ...catalogVideoFixture(1, "Paris Day One"),
+        fileLocationPath: "/Volumes/Archive/Videos/Travel/Paris/day-one.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/Travel/Paris/day-one.mp4",
+            fileSizeBytes: 1000,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+      },
+      {
+        ...catalogVideoFixture(2, "Rome Day Two"),
+        fileLocationPath: "/Volumes/Archive/Videos/Travel/Rome/day-two.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/Travel/Rome/day-two.mp4",
+            fileSizeBytes: 1000,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+      },
+      {
+        ...catalogVideoFixture(3, "Studio Clip"),
+        fileLocationPath: "/Volumes/Archive/Videos/Studio/studio-clip.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/Studio/studio-clip.mp4",
+            fileSizeBytes: 1000,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+
+    fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
+
+    expect(within(catalogVideos).getAllByText("2 Videos").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(catalogVideos).getByText("Paris Day One")).toBeInTheDocument();
+    expect(within(catalogVideos).getByText("Rome Day Two")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Studio Clip"),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
+      target: { value: "paris" },
+    });
+
+    expect(within(catalogVideos).getAllByText("1 Video").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(catalogVideos).getByText("Paris Day One")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByText("Rome Day Two"),
     ).not.toBeInTheDocument();
   });
 
