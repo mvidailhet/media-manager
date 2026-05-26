@@ -232,6 +232,10 @@ _Avoid_: Metadata suggestions
 A **Search Filter** that narrows **Videos** to those marked **Favorite**.
 _Avoid_: Favorites view, tag view
 
+**Folder Search Filter**:
+A **Search Filter** that narrows **Videos** by reachable **File Locations** under available **Scan Roots**.
+_Avoid_: Folder tag, source filter
+
 **Metadata Merge**:
 An action that combines duplicate **Tags** or duplicate **Performers** into one accepted value.
 _Avoid_: Alias
@@ -263,6 +267,7 @@ _Avoid_: Favorite edit, metadata suggestion
 - An **Unavailable Video** is only a **Missing Video** when no last-known **File Location** remains.
 - A **Primary Performer Group** places a **Video** in only one group even when that **Video** has multiple **Performers**.
 - **Search Filters** narrow the **Videos View** before **Primary Performer Groups** are formed.
+- **Folder Search Filter** applies to the **Videos View**, not **Metadata Suggestions Review**.
 - A **Primary Performer Group** count reflects the current **Videos View** results after **Search Filters**.
 - A **Group Preview Strip** follows the current **Videos View** ordering within its **Primary Performer Group**.
 - **Videos** shown in a **Group Preview Strip** are not repeated in the expanded **Primary Performer Group** body.
@@ -331,6 +336,21 @@ _Avoid_: Favorite edit, metadata suggestion
 - Multiple selected **Performers** require any selected **Performer**.
 - **Duration** can be used as a range **Search Filter** in v1.
 - **Favorite** is a **Search Filter** but not a **Tag**.
+- **Folder Search Filters** use reachable **File Locations** only.
+- A selected **Folder Search Filter** matches **Videos** in that folder or any descendant folder.
+- Multiple selected **Folder Search Filters** match **Videos** in any selected folder branch.
+- Selecting a **Scan Root** as a **Folder Search Filter** matches all **Videos** under that **Scan Root**.
+- **Folder Search Filters** show folders that contain reachable cataloged **Videos** and the ancestor folders needed to reach them.
+- A **Video** with multiple reachable **File Locations** matches a **Folder Search Filter** when any reachable **File Location** is under a selected folder branch.
+- An empty **Folder Search Filter** matches no **Videos**.
+- The default **Folder Search Filter** selects all available **Scan Root** branches.
+- A new folder discovered by **Refresh** inherits its **Folder Search Filter** selection from its nearest existing ancestor.
+- A folder absent from the current **Folder Search Filter** tree has no remembered selection state.
+- An **Unavailable Scan Root** has no visible **Folder Search Filter** branch and no remembered selection state while unavailable.
+- A returning **Scan Root** is selected by default unless the current **Folder Search Filter** state represents an explicit unselect-all choice.
+- The **Folder Search Filter** has one global bulk selection action; selecting a **Scan Root** branch controls that root and its descendants.
+- **Folder Search Filter** branch selection follows normal tree selection semantics, including partially selected branch state.
+- **Folder Search Filter** state lasts for the current app session and is not restored after restart.
 - **Favorite** is the only special **Video** marker in v1.
 - **Open History** tracks last opened time and open count, not playback progress.
 - **Open History** supports sorting in v1.
