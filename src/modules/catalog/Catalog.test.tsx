@@ -1408,6 +1408,12 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
 
+    await showAdvancedSearch(catalogVideos);
+    fireEvent.click(
+      await within(catalogVideos).findByRole("button", {
+        name: "Unselect all visible folder branches",
+      }),
+    );
     fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
 
     expect(within(catalogVideos).getAllByText("2 Videos").length).toBeGreaterThan(

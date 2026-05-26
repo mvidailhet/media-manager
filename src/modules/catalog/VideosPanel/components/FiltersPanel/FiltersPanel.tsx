@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -78,7 +78,10 @@ export function FiltersPanel({
     hideSecretMetadata: filters.hideSecretMetadata,
     metadataKind: 'performer',
   });
-  const folderBranches = folderFilterBranchesForVideos(catalogVideos, scanRoots);
+  const folderBranches = useMemo(
+    () => folderFilterBranchesForVideos(catalogVideos, scanRoots),
+    [catalogVideos, scanRoots],
+  );
 
   function updateFilters(updatedFilters: Partial<CatalogVideoFilters>) {
     onFiltersChange({ ...filters, ...updatedFilters });
@@ -189,6 +192,13 @@ export function FiltersPanel({
               })
             }
           />
+          <FolderFilterSection
+            folderBranches={folderBranches}
+            selectedFolderBranches={filters.selectedFolderBranches}
+            onSelectedFolderBranchesChange={(selectedFolderBranches) =>
+              updateFilters({ selectedFolderBranches })
+            }
+          />
         </Stack>
       </Collapse>
       <Checkbox.Group
@@ -240,13 +250,6 @@ export function FiltersPanel({
           </Group>
         </Checkbox.Group>
       ) : null}
-      <FolderFilterSection
-        folderBranches={folderBranches}
-        selectedFolderBranches={filters.selectedFolderBranches}
-        onSelectedFolderBranchesChange={(selectedFolderBranches) =>
-          updateFilters({ selectedFolderBranches })
-        }
-      />
     </Stack>
   );
 }
