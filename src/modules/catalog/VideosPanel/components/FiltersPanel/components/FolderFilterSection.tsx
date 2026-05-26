@@ -11,6 +11,7 @@ import {
 } from "../../../folderFilterTree";
 
 const folderFilterTreeCaretSize = 12;
+const folderFilterTreeItemSpacing = 4;
 const folderFilterActivationKeys = new Set([" ", "Enter"]);
 
 export function FolderFilterSection({
@@ -35,7 +36,7 @@ export function FolderFilterSection({
   const expandedBranchState = useMemo(
     () =>
       Object.fromEntries(
-        folderBranches.map((folderBranch) => [folderBranch.path, true]),
+        folderBranches.map((folderBranch) => [folderBranch.path, false]),
       ),
     [folderBranches],
   );
@@ -162,7 +163,16 @@ export function FolderFilterSection({
           };
 
           return (
-            <Group gap="xs" align="center" wrap="nowrap" {...elementProps}>
+            <Group
+              gap="xs"
+              align="center"
+              wrap="nowrap"
+              {...elementProps}
+              style={{
+                ...elementProps.style,
+                marginTop: folderFilterTreeItemSpacing,
+              }}
+            >
               {hasChildren ? (
                 <IconCaretDownFilled
                   aria-hidden

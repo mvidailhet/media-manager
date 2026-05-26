@@ -11,6 +11,37 @@ const archiveScanRootPath = "/Volumes/Archive/Videos";
 const backupScanRootPath = "/Volumes/Backup/Videos";
 
 describe("FolderFilterSection", () => {
+  it("adds a small vertical space between folder tree rows", () => {
+    renderFolderFilterSection({
+      folderBranches: [
+        branch(archiveScanRootPath, archiveScanRootPath),
+        branch(`${archiveScanRootPath}/Travel`, archiveScanRootPath),
+      ],
+    });
+
+    expect(screen.getByText(archiveScanRootPath).parentElement).toHaveStyle({
+      marginTop: "4px",
+    });
+  });
+
+  it("collapses folder branches by default", () => {
+    renderFolderFilterSection({
+      folderBranches: [
+        branch(archiveScanRootPath, archiveScanRootPath),
+        branch(`${archiveScanRootPath}/Travel`, archiveScanRootPath),
+      ],
+    });
+
+    expect(screen.queryByLabelText("Travel")).not.toBeInTheDocument();
+
+    expandFolderBranch(archiveScanRootPath);
+
+    expect(screen.getByLabelText("Travel")).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+  });
+
   it("uses one global bulk action to unselect and select all visible folder branches", async () => {
     renderFolderFilterSection({
       folderBranches: [
@@ -23,7 +54,7 @@ describe("FolderFilterSection", () => {
       "aria-checked",
       "true",
     );
-    fireEvent.click(screen.getByRole("treeitem", { name: new RegExp(archiveScanRootPath) }));
+    expandFolderBranch(archiveScanRootPath);
     expect(screen.getByLabelText("Travel")).toHaveAttribute(
       "aria-checked",
       "true",
@@ -73,6 +104,7 @@ describe("FolderFilterSection", () => {
         name: "Unselect all visible folder branches",
       }),
     );
+    expandFolderBranch(archiveScanRootPath);
 
     fireEvent.keyDown(screen.getByLabelText("Travel"), { key: " " });
 
@@ -104,7 +136,7 @@ describe("FolderFilterSection", () => {
         name: "Unselect all visible folder branches",
       }),
     );
-    fireEvent.click(screen.getByRole("treeitem", { name: new RegExp(archiveScanRootPath) }));
+    expandFolderBranch(archiveScanRootPath);
     fireEvent.click(screen.getByLabelText("Travel"));
 
     rerenderFolderFilterSection(rerender, {
@@ -114,11 +146,13 @@ describe("FolderFilterSection", () => {
         branch(`${archiveScanRootPath}/Studio/New`, archiveScanRootPath),
       ],
     });
+    expandFolderBranch(archiveScanRootPath);
 
     expect(screen.getByLabelText("Travel")).toHaveAttribute(
       "aria-checked",
       "true",
     );
+    expandFolderBranch("Travel");
     expect(screen.getByLabelText("Paris")).toHaveAttribute("aria-checked", "true");
   });
 
@@ -157,7 +191,7 @@ describe("FolderFilterSection", () => {
       "aria-checked",
       "false",
     );
-    fireEvent.click(screen.getByRole("treeitem", { name: new RegExp(backupScanRootPath) }));
+    expandFolderBranch(backupScanRootPath);
     expect(screen.getByLabelText("Studio")).toHaveAttribute(
       "aria-checked",
       "false",
@@ -174,6 +208,10 @@ function renderFolderFilterSection({
     <FolderFilterHarness folderBranches={folderBranches} />,
     { wrapper: MantineProvider },
   );
+}
+
+function expandFolderBranch(label: string) {
+  fireEvent.click(screen.getByText(label));
 }
 
 function rerenderFolderFilterSection(
