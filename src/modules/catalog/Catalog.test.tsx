@@ -178,6 +178,23 @@ describe("Catalog module", () => {
     fireEvent.click(accordionButton);
   }
 
+  async function findExpandedVideoCard(
+    catalogVideos: HTMLElement,
+    videoTitle: string,
+  ) {
+    return await waitFor(() => {
+      const videoCard = within(catalogVideos)
+        .getAllByRole("article", { name: videoTitle })
+        .find((element) => element.tagName === "ARTICLE");
+
+      if (!videoCard) {
+        throw new Error(`Missing expanded Video card for ${videoTitle}`);
+      }
+
+      return videoCard;
+    });
+  }
+
   it("reviews Metadata Suggestions inside Catalog with selectable affected Video context", async () => {
     mockedListMetadataSuggestionGroups.mockResolvedValue([
       {
@@ -3077,15 +3094,18 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     await expandPrimaryPerformerAccordion(catalogVideos);
-    const alphaClipCard = await within(catalogVideos).findByRole("article", {
-      name: "Alpha Clip",
-    });
-    const betaClipCard = within(catalogVideos).getByRole("article", {
-      name: "Beta Clip",
-    });
-    const gammaClipCard = within(catalogVideos).getByRole("article", {
-      name: "Gamma Clip",
-    });
+    const alphaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Alpha Clip",
+    );
+    const betaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Beta Clip",
+    );
+    const gammaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Gamma Clip",
+    );
 
     fireEvent.click(alphaClipCard);
     fireEvent.pointerDown(betaClipCard, { metaKey: true });
@@ -3117,15 +3137,18 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     await expandPrimaryPerformerAccordion(catalogVideos);
-    const alphaClipCard = await within(catalogVideos).findByRole("article", {
-      name: "Alpha Clip",
-    });
-    const betaClipCard = within(catalogVideos).getByRole("article", {
-      name: "Beta Clip",
-    });
-    const gammaClipCard = within(catalogVideos).getByRole("article", {
-      name: "Gamma Clip",
-    });
+    const alphaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Alpha Clip",
+    );
+    const betaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Beta Clip",
+    );
+    const gammaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Gamma Clip",
+    );
 
     fireEvent.click(alphaClipCard);
     window.dispatchEvent(
@@ -3164,12 +3187,14 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     await expandPrimaryPerformerAccordion(catalogVideos);
-    const alphaClipCard = await within(catalogVideos).findByRole("article", {
-      name: "Alpha Clip",
-    });
-    const betaClipCard = within(catalogVideos).getByRole("article", {
-      name: "Beta Clip",
-    });
+    const alphaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Alpha Clip",
+    );
+    const betaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Beta Clip",
+    );
 
     fireEvent.click(alphaClipCard);
     const modifiedPointerDown = new PointerEvent("pointerdown", {
@@ -3582,18 +3607,22 @@ describe("Catalog module", () => {
       name: "Catalog Videos",
     });
     await expandPrimaryPerformerAccordion(catalogVideos);
-    const alphaClipCard = await within(catalogVideos).findByRole("article", {
-      name: "Alpha Clip",
-    });
-    const betaClipCard = within(catalogVideos).getByRole("article", {
-      name: "Beta Clip",
-    });
-    const gammaClipCard = within(catalogVideos).getByRole("article", {
-      name: "Gamma Clip",
-    });
-    const omegaClipCard = await within(catalogVideos).findByRole("article", {
-      name: "Omega Clip",
-    });
+    const alphaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Alpha Clip",
+    );
+    const betaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Beta Clip",
+    );
+    const gammaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Gamma Clip",
+    );
+    const omegaClipCard = await findExpandedVideoCard(
+      catalogVideos,
+      "Omega Clip",
+    );
 
     fireEvent.click(alphaClipCard);
     fireEvent.click(gammaClipCard, { shiftKey: true });
