@@ -404,9 +404,88 @@ describe("Selection Panel integration", () => {
     expect(
       await screen.findByRole("region", { name: "Batch Edit Panel" }),
     ).toHaveTextContent("2 selected");
+    const refreshedCatalogVideos = await visibleCatalogVideos();
+    expect(
+      within(refreshedCatalogVideos).getByRole("article", {
+        name: refreshedFamilyTrip.title,
+      }),
+    ).not.toHaveAttribute("aria-selected");
+    expect(
+      within(refreshedCatalogVideos).getByRole("article", {
+        name: refreshedCityWalk.title,
+      }),
+    ).not.toHaveAttribute("aria-selected");
+    expect(
+      within(refreshedCatalogVideos).queryByRole("article", {
+        name: concertNight.title,
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("region", { name: "Video Detail Panel" }),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps a newer Video Detail selection when an older refresh finishes later", async () => {
+    const familyTrip = catalogVideoFixture(1, "Family Trip");
+    const cityWalk = catalogVideoFixture(2, "City Walk");
+    const refreshedFamilyTrip = { ...familyTrip, title: "Family Trip Restored" };
+    const refreshedCityWalk = { ...cityWalk, title: "City Walk Restored" };
+    const refreshedVideos = [refreshedFamilyTrip, refreshedCityWalk];
+    const refreshCatalogVideos = deferredPromise<typeof refreshedVideos>();
+
+    mockedListCatalogVideos
+      .mockResolvedValueOnce([familyTrip, cityWalk])
+      .mockReturnValueOnce(refreshCatalogVideos.promise)
+      .mockResolvedValue(refreshedVideos);
+    mockedListFailedPreviewStrips.mockResolvedValue([
+      {
+        failureReason: "Preview failed",
+        title: "Family Trip",
+        videoId: familyTrip.id,
+      },
+    ]);
+    mockedRetryFailedPreviewStrip.mockResolvedValue(emptyPreviewStripQueueStatus);
+
+    renderApp();
+
+    const catalogVideos = await visibleCatalogVideos();
+    fireEvent.click(
+      await within(catalogVideos).findByRole("article", {
+        name: familyTrip.title,
+      }),
+    );
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent(familyTrip.title);
+
+    await openPreviewGenerationTab();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Retry Failed Preview Strip for Family Trip",
+      }),
+    );
+    await waitFor(() => expect(mockedListCatalogVideos).toHaveBeenCalledTimes(2));
+
+    fireEvent.click(screen.getByRole("button", { name: "Back to Catalog" }));
+    const catalogVideosDuringRefresh = await visibleCatalogVideos();
+    fireEvent.click(
+      await within(catalogVideosDuringRefresh).findByRole("article", {
+        name: cityWalk.title,
+      }),
+    );
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent(cityWalk.title);
+
+    refreshCatalogVideos.resolve(refreshedVideos);
+
+    const detailPanel = await screen.findByRole("region", {
+      name: "Video Detail Panel",
+    });
+    await waitFor(() => {
+      expect(detailPanel).toHaveTextContent(refreshedCityWalk.title);
+    });
+    expect(detailPanel).not.toHaveTextContent(refreshedFamilyTrip.title);
   });
 
   it("switches Batch Edit to the remaining Video Detail Panel after a one-survivor refresh", async () => {

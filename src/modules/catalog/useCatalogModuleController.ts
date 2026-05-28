@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   appendUniqueMetadata,
@@ -282,6 +282,21 @@ export function useCatalogModuleController(): CatalogController {
   const [selectionAnchorVideoId, setSelectionAnchorVideoId] = useState<
     number | null
   >(null);
+  const latestBatchSelectedVideoIds = useRef(batchSelectedVideoIds);
+  const latestSelectedVideo = useRef(selectedVideo);
+  const latestSelectionAnchorVideoId = useRef(selectionAnchorVideoId);
+
+  useEffect(() => {
+    latestBatchSelectedVideoIds.current = batchSelectedVideoIds;
+  }, [batchSelectedVideoIds]);
+
+  useEffect(() => {
+    latestSelectedVideo.current = selectedVideo;
+  }, [selectedVideo]);
+
+  useEffect(() => {
+    latestSelectionAnchorVideoId.current = selectionAnchorVideoId;
+  }, [selectionAnchorVideoId]);
 
   useEffect(() => {
     if (catalogView !== "metadataSuggestions") {
@@ -421,7 +436,7 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function preserveCatalogSelection(refreshedVideos: CatalogVideo[]) {
-    const selectedVideoIds = currentSelectedVideoIds();
+    const selectedVideoIds = latestSelectedVideoIds();
 
     if (selectedVideoIds.length === 0) {
       return;
@@ -456,7 +471,9 @@ export function useCatalogModuleController(): CatalogController {
     setBatchSelectedVideoIds(
       survivingSelectedVideos.map((catalogVideo) => catalogVideo.id),
     );
-    setSelectionAnchorVideoId((currentAnchorVideoId) => {
+    setSelectionAnchorVideoId(() => {
+      const currentAnchorVideoId = latestSelectionAnchorVideoId.current;
+
       if (
         currentAnchorVideoId !== null &&
         refreshedVideosById.has(currentAnchorVideoId)
@@ -572,6 +589,14 @@ export function useCatalogModuleController(): CatalogController {
     }
 
     return selectedVideo ? [selectedVideo.id] : [];
+  }
+
+  function latestSelectedVideoIds() {
+    if (latestBatchSelectedVideoIds.current.length > 0) {
+      return latestBatchSelectedVideoIds.current;
+    }
+
+    return latestSelectedVideo.current ? [latestSelectedVideo.current.id] : [];
   }
 
   function videoSelectionRange(targetVideoId: number) {
