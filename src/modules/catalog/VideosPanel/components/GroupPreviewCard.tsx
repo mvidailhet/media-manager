@@ -104,6 +104,7 @@ export function GroupPreviewCard({
       tabIndex={0}
       withBorder
     >
+      <span className={styles.groupPreviewCardTitle}>{catalogVideo.title}</span>
       <VideoPreview
         catalogVideo={catalogVideo}
         onFavoriteChange={(isFavorite) => onSetFavorite(catalogVideo, isFavorite)}

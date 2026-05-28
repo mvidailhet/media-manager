@@ -91,7 +91,7 @@ export function PrimaryPerformerAccordion({
             selectedVideoIds={selectedVideoIds}
           />
         </Box>
-        <Accordion.Panel>
+        <Accordion.Panel keepMounted={false}>
           <Box className={styles.primaryPerformerAccordionBody}>
             {exposedVideos.map((catalogVideo) => (
               <VideoCard

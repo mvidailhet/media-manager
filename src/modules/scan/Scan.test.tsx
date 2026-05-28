@@ -513,23 +513,38 @@ describe("Scan module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    fireEvent.click(
+      await within(catalogVideos).findByRole("button", {
+        name: "Unassigned Primary Performer Accordion",
+      }),
+    );
 
-    const pendingVideoCard = within(catalogVideos)
-      .getByText("Pending Trip")
-      .closest("article");
-    const failedVideoCard = within(catalogVideos)
-      .getByText("Failed Trip")
-      .closest("article");
+    const pendingVideoCard = await waitFor(() => {
+      const videoCard = within(catalogVideos)
+        .getAllByRole("article", { name: "Pending Trip" })
+        .find((element) => element.tagName === "ARTICLE");
 
-    if (!pendingVideoCard) {
-      throw new Error("Pending Trip Video card was not rendered");
-    }
+      if (!videoCard) {
+        throw new Error("Pending Trip Video card was not rendered");
+      }
+
+      return videoCard;
+    });
+    const failedVideoCard = await waitFor(() => {
+      const videoCard = within(catalogVideos)
+        .getAllByRole("article", { name: "Failed Trip" })
+        .find((element) => element.tagName === "ARTICLE");
+
+      if (!videoCard) {
+        throw new Error("Failed Trip Video card was not rendered");
+      }
+
+      return videoCard;
+    });
+
     expect(
       within(pendingVideoCard).getByText("Pending Preview Strip"),
     ).toBeInTheDocument();
-    if (!failedVideoCard) {
-      throw new Error("Failed Trip Video card was not rendered");
-    }
     expect(
       within(failedVideoCard).getByText("Failed Preview Strip"),
     ).toBeInTheDocument();

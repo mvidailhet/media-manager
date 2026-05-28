@@ -172,10 +172,14 @@ describe("Catalog module", () => {
   ) {
     const accordionButton = await within(catalogVideos).findByRole("button", {
       name: `${performerName} Primary Performer Accordion`,
-      expanded: false,
     });
 
+    if (accordionButton.getAttribute("aria-expanded") === "true") {
+      return;
+    }
+
     fireEvent.click(accordionButton);
+    await waitFor(() => expect(accordionButton).toHaveAttribute("aria-expanded", "true"));
   }
 
   async function findExpandedVideoCard(
@@ -775,11 +779,13 @@ describe("Catalog module", () => {
 
     renderApp();
 
-    await screen.findByText("Studio Clip");
-    const catalogVideos = screen.getByRole("region", {
+    const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    expect(within(catalogVideos).getByText("Studio Clip")).toBeInTheDocument();
+    await expandPrimaryPerformerAccordion(catalogVideos);
+    expect(
+      await findExpandedVideoCard(catalogVideos, "Studio Clip"),
+    ).toBeInTheDocument();
     expect(
       within(catalogVideos).getByPlaceholderText("Search Videos"),
     ).toHaveAccessibleName("Search Videos");
@@ -847,7 +853,7 @@ describe("Catalog module", () => {
     });
 
     expect(
-      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
+      await findExpandedVideoCard(catalogVideos, "Family Trip"),
     ).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByText("Archive Family Cut"),
@@ -863,8 +869,8 @@ describe("Catalog module", () => {
       }),
     );
     expect(
-      within(catalogVideos).getByText("Archive Family Cut"),
-    ).toBeInTheDocument();
+      within(catalogVideos).getAllByText("Archive Family Cut").length,
+    ).toBeGreaterThan(0);
     expect(within(catalogVideos).getAllByText("Unavailable").length).toBeGreaterThan(
       0,
     );
@@ -1221,6 +1227,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    await expandPrimaryPerformerAccordion(catalogVideos);
     expect(
       await within(catalogVideos).findByText("Studio Clip"),
     ).toBeInTheDocument();
@@ -1237,7 +1244,7 @@ describe("Catalog module", () => {
       }),
     ).toBeChecked();
     expect(
-      within(catalogVideos).getByRole("article", { name: "Family Trip" }),
+      await findExpandedVideoCard(catalogVideos, "Family Trip"),
     ).toBeInTheDocument();
     expect(within(catalogVideos).getAllByText("1h 2m").length).toBeGreaterThan(0);
     expect(
@@ -1280,6 +1287,7 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
+    await expandPrimaryPerformerAccordion(catalogVideos);
 
     fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
       target: { value: "archive" },
@@ -1365,11 +1373,14 @@ describe("Catalog module", () => {
 
     fireEvent.click(within(catalogVideos).getByLabelText("Travel"));
     fireEvent.click(within(catalogVideos).getByLabelText("Family"));
+    await expandPrimaryPerformerAccordion(catalogVideos, "Blair");
 
     expect(within(catalogVideos).getAllByText("1 Video").length).toBeGreaterThan(
       0,
     );
-    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getAllByText("Family Trip").length,
+    ).toBeGreaterThan(0);
     expect(
       within(catalogVideos).queryByText("Travel Clip"),
     ).not.toBeInTheDocument();
@@ -1384,8 +1395,11 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(within(catalogVideos).getByLabelText("Blair"));
+    await expandPrimaryPerformerAccordion(catalogVideos, "Blair");
 
-    expect(within(catalogVideos).getByText("Family Trip")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getAllByText("Family Trip").length,
+    ).toBeGreaterThan(0);
     expect(
       within(catalogVideos).queryByText("Travel Clip"),
     ).not.toBeInTheDocument();
@@ -1453,12 +1467,17 @@ describe("Catalog module", () => {
     );
     expandFolderFilterBranch(catalogVideos, "/Volumes/Archive/Videos");
     clickFolderFilterCheckbox(catalogVideos, "Travel");
+    await expandPrimaryPerformerAccordion(catalogVideos);
 
     expect(within(catalogVideos).getAllByText("2 Videos").length).toBeGreaterThan(
       0,
     );
-    expect(within(catalogVideos).getByText("Paris Day One")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Rome Day Two")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getAllByText("Paris Day One").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(catalogVideos).getAllByText("Rome Day Two").length,
+    ).toBeGreaterThan(0);
     expect(
       within(catalogVideos).queryByText("Studio Clip"),
     ).not.toBeInTheDocument();
@@ -1466,11 +1485,14 @@ describe("Catalog module", () => {
     fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
       target: { value: "paris" },
     });
+    await expandPrimaryPerformerAccordion(catalogVideos);
 
     expect(within(catalogVideos).getAllByText("1 Video").length).toBeGreaterThan(
       0,
     );
-    expect(within(catalogVideos).getByText("Paris Day One")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getAllByText("Paris Day One").length,
+    ).toBeGreaterThan(0);
     expect(
       within(catalogVideos).queryByText("Rome Day Two"),
     ).not.toBeInTheDocument();
@@ -1596,6 +1618,7 @@ describe("Catalog module", () => {
     });
 
     fireEvent.click(within(catalogVideos).getByLabelText("No Tag"));
+    await expandPrimaryPerformerAccordion(catalogVideos);
 
     expect(
       within(catalogVideos).queryByText("Tagged Clip"),
@@ -1654,7 +1677,10 @@ describe("Catalog module", () => {
     expect(
       within(catalogVideos).queryByLabelText("Secret Performer"),
     ).not.toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Normal Video")).toBeInTheDocument();
+    await expandPrimaryPerformerAccordion(catalogVideos, "Blair");
+    expect(
+      within(catalogVideos).getAllByText("Normal Video").length,
+    ).toBeGreaterThan(0);
     expect(
       within(catalogVideos).queryByText("Secret Tag Video"),
     ).not.toBeInTheDocument();
@@ -1671,13 +1697,17 @@ describe("Catalog module", () => {
     expect(
       within(catalogVideos).getByLabelText("Secret Performer"),
     ).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Normal Video")).toBeInTheDocument();
+    await expandPrimaryPerformerAccordion(catalogVideos, "Blair");
+    await expandPrimaryPerformerAccordion(catalogVideos, "Secret Performer");
     expect(
-      within(catalogVideos).getByText("Secret Tag Video"),
-    ).toBeInTheDocument();
+      within(catalogVideos).getAllByText("Normal Video").length,
+    ).toBeGreaterThan(0);
     expect(
-      within(catalogVideos).getByText("Secret Performer Video"),
-    ).toBeInTheDocument();
+      within(catalogVideos).getAllByText("Secret Tag Video").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(catalogVideos).getAllByText("Secret Performer Video").length,
+    ).toBeGreaterThan(0);
   });
 
   it("hides public Tag filters when every tagged Video is hidden by secret metadata", async () => {
@@ -1718,6 +1748,7 @@ describe("Catalog module", () => {
     fireEvent.click(hideSecretMetadata);
 
     expect(within(catalogVideos).getByLabelText("Casal Fist")).toBeInTheDocument();
+    await expandPrimaryPerformerAccordion(catalogVideos);
     expect(within(catalogVideos).getByText("Casal Fist Video")).toBeInTheDocument();
   });
 
@@ -1745,7 +1776,8 @@ describe("Catalog module", () => {
     const catalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
     });
-    await within(catalogVideos).findByText("Normal Video");
+    await expandPrimaryPerformerAccordion(catalogVideos, "Blair");
+    await findExpandedVideoCard(catalogVideos, "Normal Video");
 
     expect(
       await findSecretMetadataVisibilityCheckbox(catalogVideos),
@@ -1758,7 +1790,7 @@ describe("Catalog module", () => {
     ).not.toBeInTheDocument();
 
     fireEvent.click(
-      within(catalogVideos).getByRole("article", { name: "Normal Video" }),
+      await findExpandedVideoCard(catalogVideos, "Normal Video"),
     );
 
     const videoDetailPanel = await screen.findByRole("region", {
@@ -1843,6 +1875,7 @@ describe("Catalog module", () => {
     secretTagsForVideo.resolve([{ id: 5, isSecret: true, name: "Secret Tag" }]);
     secretPerformersForVideo.resolve([]);
 
+    await expandPrimaryPerformerAccordion(catalogVideos);
     expect(await within(catalogVideos).findByText("Normal Video")).toBeInTheDocument();
     expect(
       within(catalogVideos).queryByText("Secret Video"),
@@ -1888,6 +1921,7 @@ describe("Catalog module", () => {
     fireEvent.click(hideSecretMetadata);
     fireEvent.click(within(catalogVideos).getByLabelText("Secret Tag"));
     fireEvent.click(within(catalogVideos).getByLabelText("Secret Performer"));
+    await expandPrimaryPerformerAccordion(catalogVideos, "Secret Performer");
 
     expect(
       within(catalogVideos).queryByText("Normal Video"),
@@ -1896,9 +1930,15 @@ describe("Catalog module", () => {
 
     fireEvent.click(hideSecretMetadata);
     fireEvent.click(hideSecretMetadata);
+    await expandPrimaryPerformerAccordion(catalogVideos, "Blair");
+    await expandPrimaryPerformerAccordion(catalogVideos, "Secret Performer");
 
-    expect(within(catalogVideos).getByText("Normal Video")).toBeInTheDocument();
-    expect(within(catalogVideos).getByText("Secret Video")).toBeInTheDocument();
+    expect(
+      within(catalogVideos).getAllByText("Normal Video").length,
+    ).toBeGreaterThan(0);
+    expect(
+      within(catalogVideos).getAllByText("Secret Video").length,
+    ).toBeGreaterThan(0);
     expect(within(catalogVideos).getByLabelText("Secret Tag")).not.toBeChecked();
     expect(
       within(catalogVideos).getByLabelText("Secret Performer"),
@@ -2133,6 +2173,43 @@ describe("Catalog module", () => {
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
     ).toHaveTextContent("Blair Favorite");
+  });
+
+  it("does not mount expanded group Videos while a Primary Performer Accordion is collapsed", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      { ...catalogVideoFixture(1, "Blair First"), isFavorite: false },
+      { ...catalogVideoFixture(2, "Blair Favorite"), isFavorite: true },
+      { ...catalogVideoFixture(3, "Blair Second"), isFavorite: false },
+      { ...catalogVideoFixture(4, "Blair Other Favorite"), isFavorite: true },
+    ]);
+    mockedPerformersForVideo.mockResolvedValue([
+      { id: 9, isSecret: false, name: "Blair" },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await visibleCatalogVideos();
+    const blairAccordion = await within(catalogVideos).findByRole("region", {
+      name: "Blair Primary Performer Accordion",
+    });
+
+    expect(
+      within(blairAccordion).queryByRole("article", {
+        name: "Blair Second",
+      }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(
+      within(blairAccordion).getByRole("button", {
+        name: "Blair Primary Performer Accordion",
+      }),
+    );
+
+    expect(
+      await within(blairAccordion).findByRole("article", {
+        name: "Blair Second",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("shows every group Video in the expanded accordion when the preview strip contains the whole group", async () => {
@@ -5162,21 +5239,9 @@ describe("Catalog module", () => {
         name: "Archive Clip 001",
       }),
     ).toBeInTheDocument();
-    expect(
-      within(catalogVideos).getByRole("article", {
-        name: "Archive Clip 040",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(catalogVideos).getByRole("article", {
-        name: "Archive Clip 041",
-      }),
-    ).toBeInTheDocument();
-    expect(
-      within(catalogVideos).getByRole("article", {
-        name: "Archive Clip 043",
-      }),
-    ).toBeInTheDocument();
+    expect(await findExpandedVideoCard(catalogVideos, "Archive Clip 040")).toBeInTheDocument();
+    expect(await findExpandedVideoCard(catalogVideos, "Archive Clip 041")).toBeInTheDocument();
+    expect(await findExpandedVideoCard(catalogVideos, "Archive Clip 043")).toBeInTheDocument();
   });
 
   it("resets scroll position when Search Filters or sort change", async () => {

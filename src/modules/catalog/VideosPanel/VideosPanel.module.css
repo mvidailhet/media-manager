@@ -49,6 +49,16 @@
   padding-bottom: 6px;
 }
 
+.groupPreviewCardTitle {
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .selectedPreviewCard {
   border-color: #228be6;
   box-shadow: 0 0 0 2px rgba(34, 139, 230, 0.22);

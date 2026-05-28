@@ -374,6 +374,17 @@ describe("Catalog module boundaries", () => {
     expect(Object.keys(legacyCatalogVideosPanelTopLevelFiles)).toHaveLength(0);
   });
 
+  it("keeps expanded Primary Performer Accordion content unmounted by default", () => {
+    const primaryPerformerAccordionSource = rawSource(
+      videosPanelFiles,
+      "./VideosPanel/components/PrimaryPerformerAccordion.tsx",
+    );
+
+    expect(primaryPerformerAccordionSource).toMatch(
+      /<Accordion\.Panel\s+keepMounted={false}>/,
+    );
+  });
+
   it("keeps Batch Edit actions in focused files", () => {
     const batchEditPanelSource = rawSource(
       batchEditPanelFiles,
