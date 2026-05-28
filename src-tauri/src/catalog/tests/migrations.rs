@@ -368,6 +368,7 @@ fn catalog_schema_preserves_the_first_vertical_slice_contract() {
             "is_favorite INTEGER required",
             "last_opened_at TEXT optional",
             "open_count INTEGER required",
+            "missing_file_location_path TEXT optional",
             "created_at TEXT required",
             "updated_at TEXT required",
         ]

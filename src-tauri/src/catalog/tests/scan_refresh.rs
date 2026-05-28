@@ -107,7 +107,13 @@ fn listed_missing_videos_are_explicitly_unavailable() {
             &crate::catalog::VideoExtensionAllowlist::default(),
         )
         .expect("initial scan root refreshes");
-    std::fs::remove_file(&family_trip_path).expect("video file is removed");
+    let family_trip_path = family_trip_path
+        .canonicalize()
+        .expect("video path canonicalizes");
+    let canonical_family_trip_path = family_trip_path
+        .canonicalize()
+        .expect("family trip path canonicalizes");
+    std::fs::remove_file(&canonical_family_trip_path).expect("video file is removed");
     catalog
         .refresh_scan_root(
             &scan_root.path,
@@ -125,7 +131,7 @@ fn listed_missing_videos_are_explicitly_unavailable() {
             title: "family-trip".to_string(),
             duration_milliseconds: 1_000,
             file_size_bytes: None,
-            file_location_path: None,
+            file_location_path: Some(family_trip_path.to_string_lossy().into_owned()),
             file_locations: Vec::new(),
             is_favorite: false,
             last_opened_at: None,
@@ -401,6 +407,7 @@ fn removing_scan_root_can_preserve_affected_videos_as_missing() {
             ("fingerprint-one", 1_i64, "Family Trip", 3723000_i64),
         )
         .expect("video persists");
+    let family_trip_path = movies_root.join("family-trip.mp4");
     catalog_test_database(&catalog_path)
             .execute(
                 "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
@@ -408,7 +415,7 @@ fn removing_scan_root_can_preserve_affected_videos_as_missing() {
                 (
                     1_i64,
                     1_i64,
-                    movies_root.join("family-trip.mp4").to_string_lossy().into_owned(),
+                    family_trip_path.to_string_lossy().into_owned(),
                     80740352_i64,
                     "2026-05-14T16:35:48Z",
                 ),
@@ -432,7 +439,7 @@ fn removing_scan_root_can_preserve_affected_videos_as_missing() {
             title: "Family Trip".to_string(),
             duration_milliseconds: 3723000,
             file_size_bytes: None,
-            file_location_path: None,
+            file_location_path: Some(family_trip_path.to_string_lossy().into_owned()),
             file_locations: Vec::new(),
             is_favorite: false,
             last_opened_at: None,
@@ -961,7 +968,10 @@ fn refreshing_a_scan_root_removes_file_locations_that_are_no_longer_present() {
             &crate::catalog::VideoExtensionAllowlist::default(),
         )
         .expect("initial scan root refreshes");
-    std::fs::remove_file(&family_trip_path).expect("video file is removed");
+    let canonical_family_trip_path = family_trip_path
+        .canonicalize()
+        .expect("family trip path canonicalizes");
+    std::fs::remove_file(&canonical_family_trip_path).expect("video file is removed");
 
     let refresh_summary = catalog
         .refresh_scan_root(
@@ -987,7 +997,7 @@ fn refreshing_a_scan_root_removes_file_locations_that_are_no_longer_present() {
             title: "family-trip".to_string(),
             duration_milliseconds: 1_000,
             file_size_bytes: None,
-            file_location_path: None,
+            file_location_path: Some(canonical_family_trip_path.to_string_lossy().into_owned()),
             file_locations: Vec::new(),
             is_favorite: false,
             last_opened_at: None,
@@ -1048,7 +1058,7 @@ fn refreshing_a_scan_root_replaces_a_previous_file_location_with_an_unprocessabl
             title: "family-trip".to_string(),
             duration_milliseconds: 1_000,
             file_size_bytes: None,
-            file_location_path: None,
+            file_location_path: Some(canonical_family_trip_path.to_string_lossy().into_owned()),
             file_locations: Vec::new(),
             is_favorite: false,
             last_opened_at: None,

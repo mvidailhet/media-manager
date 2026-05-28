@@ -1458,6 +1458,50 @@ describe("Scan module", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("shows the remembered path and Preview Strip for each Missing Video", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: 80740352,
+        fileLocationPath: "/Volumes/Archive/Videos/family-trip.mp4",
+        isAvailable: false,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: {
+          status: "generated",
+          path: "/Users/michelvidailhet/Library/Caches/com.media-manager/preview-strips/family-trip.jpg",
+          frameCount: 12,
+          columnCount: 4,
+          rowCount: 3,
+        },
+      },
+    ]);
+
+    renderApp();
+    await openMissingVideosTab();
+
+    const missingVideosWorkflow = await screen.findByRole("region", {
+      name: "Missing Videos",
+    });
+    expect(
+      await within(missingVideosWorkflow).findByText(
+        "/Volumes/Archive/Videos/family-trip.mp4",
+      ),
+    ).toBeInTheDocument();
+    const previewStrip = within(missingVideosWorkflow).getByRole("img", {
+      name: "Preview Strip for Family Trip",
+    });
+
+    expect(previewStrip).toHaveStyle({
+      backgroundImage:
+        "url(asset:///Users/michelvidailhet/Library/Caches/com.media-manager/preview-strips/family-trip.jpg)",
+    });
+  });
+
   it("shows each Scan Root card's Unprocessable video count and capped relative details", async () => {
     const allArchiveCandidates = Array.from({ length: 21 }, (_, candidateIndex) => ({
       path: `/Volumes/Archive/Videos/broken-${candidateIndex + 1}.mkv`,

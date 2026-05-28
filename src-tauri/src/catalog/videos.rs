@@ -12,7 +12,10 @@ impl Catalog {
                         videos.last_opened_at,
                         videos.open_count,
                         preferred_file_locations.file_size_bytes,
-                        preferred_file_locations.path,
+                        COALESCE(
+                            preferred_file_locations.path,
+                            videos.missing_file_location_path
+                        ),
                         EXISTS (
                             SELECT 1
                             FROM file_locations
@@ -171,6 +174,7 @@ impl Catalog {
             .database
             .unchecked_transaction()
             .map_err(|error| error.to_string())?;
+        preserve_missing_file_location_path(&transaction, video_id, &file_location_path)?;
         let deleted_file_location_count = transaction
             .execute(
                 "DELETE FROM file_locations
@@ -259,4 +263,22 @@ impl Catalog {
 
         file_locations
     }
+}
+
+pub(super) fn preserve_missing_file_location_path(
+    transaction: &Transaction,
+    video_id: i64,
+    file_location_path: &str,
+) -> Result<(), String> {
+    transaction
+        .execute(
+            "UPDATE videos
+             SET missing_file_location_path = ?1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = ?2",
+            params![file_location_path, video_id],
+        )
+        .map_err(|error| error.to_string())?;
+
+    Ok(())
 }

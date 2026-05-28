@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import previewGenerationSource from "./PreviewGenerationView/PreviewGenerationView.tsx?raw";
@@ -10,6 +12,7 @@ import scanSource from "./Scan.tsx?raw";
 import scanStyles from "./Scan.module.css";
 import scanTabsSource from "./scanTabs.ts?raw";
 import missingVideosPanelSource from "./MissingVideosPanel/MissingVideosPanel.tsx?raw";
+import missingVideosPanelStyles from "./MissingVideosPanel/MissingVideosPanel.module.css";
 import missingVideosListSource from "./MissingVideosPanel/components/MissingVideosList.tsx?raw";
 import rootsPanelSource from "./RootsPanel/RootsPanel.tsx?raw";
 import rootsPanelStyles from "./RootsPanel/RootsPanel.module.css";
@@ -24,6 +27,11 @@ import progressBarSource from "./RootsPanel/components/RootCard/components/Progr
 import refreshProgressSource from "./RootsPanel/components/RootCard/components/RefreshProgress.tsx?raw";
 import unprocessableCandidatesSectionSource from "./RootsPanel/components/RootCard/components/UnprocessableCandidatesSection.tsx?raw";
 import inferenceRulesFormSource from "./RootsPanel/components/RootCard/components/InferenceRulesForm.tsx?raw";
+
+const missingVideosPanelStylesSource = readFileSync(
+  "src/modules/scan/MissingVideosPanel/MissingVideosPanel.module.css",
+  "utf8",
+);
 
 describe("Scan module file structure", () => {
   it("keeps the Scan entry tabs in focused child components", () => {
@@ -139,13 +147,20 @@ describe("Scan module file structure", () => {
     expect(previewGenerationSource).not.toContain("index.ts");
   });
 
-  it("keeps Scan tabs and Scan Roots scrollable inside the module slot", () => {
+  it("keeps Scan tabs, Scan Roots, and Missing Videos scrollable inside the module slot", () => {
     expect(scanStyles.scanWorkspace).toBeTruthy();
     expect(scanStyles.scanPanel).toBeTruthy();
     expect(rootsPanelStyles.rootsPanel).toBeTruthy();
+    expect(missingVideosPanelStyles.missingVideosPanel).toBeTruthy();
     expect(scanSource).toContain("className={styles.scanWorkspace}");
     expect(scanSource).toContain("className={styles.scanPanel}");
     expect(rootsPanelSource).toContain("className={styles.rootsPanel}");
+    expect(missingVideosPanelSource).toContain(
+      "className={styles.missingVideosPanel}",
+    );
+    expect(missingVideosPanelStylesSource).toMatch(
+      /\.missingVideosPanel\s*{[^}]*box-sizing:\s*border-box;[^}]*height:\s*100%;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s,
+    );
   });
 });
 

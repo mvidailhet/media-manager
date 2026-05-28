@@ -413,6 +413,15 @@ impl Catalog {
             .map_err(|error| error.to_string())?;
         transaction
             .execute(
+                "UPDATE videos
+                 SET missing_file_location_path = NULL,
+                     updated_at = CURRENT_TIMESTAMP
+                 WHERE id = ?1",
+                params![video_id],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
                 "DELETE FROM unprocessable_video_candidates WHERE path = ?1",
                 params![video_path],
             )
@@ -452,7 +461,28 @@ impl Catalog {
     }
 
     fn remove_file_location(&self, video_path: &str) -> Result<(), String> {
-        self.database
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+        let video_id = transaction
+            .query_row(
+                "SELECT video_id
+                 FROM file_locations
+                 WHERE path = ?1",
+                params![video_path],
+                |row| row.get::<_, i64>(0),
+            )
+            .optional()
+            .map_err(|error| error.to_string())?;
+        if let Some(video_id) = video_id {
+            super::videos::preserve_missing_file_location_path(
+                &transaction,
+                video_id,
+                video_path,
+            )?;
+        }
+        transaction
             .execute(
                 "DELETE FROM file_locations
                  WHERE path = ?1",
@@ -460,7 +490,7 @@ impl Catalog {
             )
             .map_err(|error| error.to_string())?;
 
-        Ok(())
+        transaction.commit().map_err(|error| error.to_string())
     }
 
     fn remove_stale_scan_root_entries(

@@ -41,6 +41,7 @@ const CREATE_VIDEOS_TABLE: &str = "
         is_favorite INTEGER NOT NULL DEFAULT 0,
         last_opened_at TEXT,
         open_count INTEGER NOT NULL DEFAULT 0,
+        missing_file_location_path TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
@@ -256,6 +257,7 @@ pub(super) fn run_migrations(database: &Connection) -> Result<(), String> {
     add_failed_preview_strip_ignored_at_column_if_missing(database)?;
     add_video_favorite_column_if_missing(database)?;
     add_video_open_history_columns_if_missing(database)?;
+    add_video_missing_file_location_path_column_if_missing(database)?;
     add_secret_metadata_columns_if_missing(database)
 }
 
@@ -531,6 +533,24 @@ fn add_video_open_history_columns_if_missing(database: &Connection) -> Result<()
             )
             .map_err(|error| error.to_string())?;
     }
+
+    Ok(())
+}
+
+fn add_video_missing_file_location_path_column_if_missing(
+    database: &Connection,
+) -> Result<(), String> {
+    if catalog_table_has_column(database, "videos", "missing_file_location_path")? {
+        return Ok(());
+    }
+
+    database
+        .execute(
+            "ALTER TABLE videos
+             ADD COLUMN missing_file_location_path TEXT",
+            [],
+        )
+        .map_err(|error| error.to_string())?;
 
     Ok(())
 }

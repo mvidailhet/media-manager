@@ -107,7 +107,32 @@ impl Catalog {
         &self,
         scan_root_path: &str,
     ) -> Result<(), String> {
-        self.database
+        let transaction = self
+            .database
+            .unchecked_transaction()
+            .map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "UPDATE videos
+                 SET missing_file_location_path = (
+                    SELECT MIN(file_locations.path)
+                    FROM file_locations
+                    JOIN scan_roots ON scan_roots.id = file_locations.scan_root_id
+                    WHERE file_locations.video_id = videos.id
+                      AND scan_roots.path = ?1
+                 ),
+                 updated_at = CURRENT_TIMESTAMP
+                 WHERE EXISTS (
+                    SELECT 1
+                    FROM file_locations
+                    JOIN scan_roots ON scan_roots.id = file_locations.scan_root_id
+                    WHERE file_locations.video_id = videos.id
+                      AND scan_roots.path = ?1
+                 )",
+                params![scan_root_path],
+            )
+            .map_err(|error| error.to_string())?;
+        transaction
             .execute(
                 "DELETE FROM scan_roots
                  WHERE path = ?1",
@@ -115,7 +140,7 @@ impl Catalog {
             )
             .map_err(|error| error.to_string())?;
 
-        Ok(())
+        transaction.commit().map_err(|error| error.to_string())
     }
 
     pub fn remove_scan_root_forgetting_catalog_videos(

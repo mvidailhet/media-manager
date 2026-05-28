@@ -1,0 +1,15 @@
+.missingVideoItem {
+  width: 100%;
+}
+
+.missingVideoHeader {
+  min-width: 0;
+}
+
+.missingVideoPath {
+  overflow-wrap: anywhere;
+}
+
+.missingVideoActions {
+  align-self: flex-start;
+}
