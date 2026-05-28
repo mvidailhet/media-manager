@@ -1712,7 +1712,7 @@ describe("Videos Panel integration", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("clears Video selection when filters or sort change", async () => {
+  it("preserves Video Detail Panel selection when Search Filters or sort change", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Family Trip"),
       catalogVideoFixture(2, "City Walk"),
@@ -1730,34 +1730,75 @@ describe("Videos Panel integration", () => {
     );
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
-    ).toBeInTheDocument();
+    ).toHaveTextContent("Family Trip");
 
     fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
       target: { value: "City" },
     });
 
-    expect(await screen.findByText("No video selected")).toBeVisible();
-    expect(
-      screen.queryByRole("region", { name: "Video Detail Panel" }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(
-      await within(catalogVideos).findByRole("article", {
-        name: "City Walk",
-      }),
-    );
     expect(
       await screen.findByRole("region", { name: "Video Detail Panel" }),
-    ).toBeInTheDocument();
+    ).toHaveTextContent("Family Trip");
+    expect(
+      within(catalogVideos).queryByRole("article", { name: "Family Trip" }),
+    ).not.toBeInTheDocument();
 
     fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
       target: { value: "fileSizeAscending" },
     });
 
-    expect(await screen.findByText("No video selected")).toBeVisible();
     expect(
-      screen.queryByRole("region", { name: "Video Detail Panel" }),
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("Family Trip");
+  });
+
+  it("preserves Batch Edit selection when Search Filters or sort change", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+      catalogVideoFixture(2, "City Walk"),
+      catalogVideoFixture(3, "Studio Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const familyTripCard = await within(catalogVideos).findByRole("article", {
+      name: "Family Trip",
+    });
+    const cityWalkCard = within(catalogVideos).getByRole("article", {
+      name: "City Walk",
+    });
+
+    fireEvent.click(familyTripCard);
+    fireEvent.pointerDown(cityWalkCard, { metaKey: true });
+    fireEvent.click(cityWalkCard);
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Search Videos"), {
+      target: { value: "Studio" },
+    });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+    expect(
+      within(catalogVideos).queryByRole("article", { name: "Family Trip" }),
     ).not.toBeInTheDocument();
+    expect(
+      within(catalogVideos).queryByRole("article", { name: "City Walk" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "fileSizeAscending" },
+    });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
   });
 
   it("selects Videos touched by a drag rectangle", async () => {
@@ -2200,7 +2241,7 @@ describe("Videos Panel integration", () => {
     expect(await findExpandedVideoCard(catalogVideos, "Archive Clip 043")).toBeInTheDocument();
   });
 
-  it("resets scroll position when Search Filters or sort change", async () => {
+  it("preserves scroll position when Search Filters or sort change", async () => {
     const matchingVideos = catalogVideoBatch(43);
     mockedListCatalogVideos.mockResolvedValue(matchingVideos);
 
@@ -2218,7 +2259,7 @@ describe("Videos Panel integration", () => {
       target: { value: "Archive" },
     });
 
-    expect(catalogVideos.scrollTop).toBe(0);
+    expect(catalogVideos.scrollTop).toBe(760);
 
     Object.defineProperty(catalogVideos, "scrollTop", {
       configurable: true,
@@ -2229,7 +2270,7 @@ describe("Videos Panel integration", () => {
       target: { value: "fileSizeAscending" },
     });
 
-    expect(catalogVideos.scrollTop).toBe(0);
+    expect(catalogVideos.scrollTop).toBe(760);
   });
 
   it("shows an empty state when the Catalog has no Videos", async () => {

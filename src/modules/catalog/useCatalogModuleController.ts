@@ -538,7 +538,6 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function changeCatalogVideoFilters(filters: typeof catalogVideoFilters) {
-    resetCatalogSelection();
     setCatalogVideoFilters(filters);
   }
 
@@ -561,7 +560,6 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function changeCatalogVideoSort(sort: typeof catalogVideoSort) {
-    resetCatalogSelection();
     setCatalogVideoSort(sort);
   }
 
