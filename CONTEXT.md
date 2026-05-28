@@ -267,6 +267,12 @@ _Avoid_: Favorite edit, metadata suggestion
 - An **Unavailable Video** is only a **Missing Video** when no last-known **File Location** remains.
 - A **Primary Performer Group** places a **Video** in only one group even when that **Video** has multiple **Performers**.
 - **Search Filters** narrow the **Videos View** before **Primary Performer Groups** are formed.
+- **Search Filters** do not change the current **Video Detail Panel** or **Batch Edit** selection, even when the selected **Videos** no longer appear in the **Videos View**.
+- Selected **Videos** can disappear from the **Videos View** when they no longer match **Search Filters**, without clearing the current **Video Detail Panel** or **Batch Edit** selection.
+- Changing the **Videos View** sort does not change the current **Video Detail Panel** or **Batch Edit** selection.
+- The **Videos View** has no manual clear-selection gesture in v1; selection changes by selecting other **Videos** or leaving the current **Catalog** workflow.
+- A **Catalog** refresh preserves the current **Video Detail Panel** or **Batch Edit** selection when the selected **Videos** still exist in the **Catalog**.
+- If a **Catalog** refresh leaves only one selected **Video** in the **Catalog**, **Batch Edit** becomes that **Video**'s **Video Detail Panel**; if no selected **Videos** remain, no **Video** is selected.
 - **Folder Search Filter** applies to the **Videos View**, not **Metadata Suggestions Review**.
 - A **Primary Performer Group** count reflects the current **Videos View** results after **Search Filters**.
 - A **Group Preview Strip** follows the current **Videos View** ordering within its **Primary Performer Group**.
