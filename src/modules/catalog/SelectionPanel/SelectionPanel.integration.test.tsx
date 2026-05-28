@@ -848,4 +848,23 @@ describe("Selection Panel integration", () => {
     });
     expect(mockedMoveCatalogVideoFileLocationToTrash).not.toHaveBeenCalled();
   });
+
+  it("shows an always-present Selection Panel with an empty state", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Family Trip"),
+    ]);
+
+    renderApp();
+
+    const selectionPanel = await screen.findByRole("complementary", {
+      name: "Selection Panel",
+    });
+
+    expect(within(selectionPanel).getByText("No video selected")).toBeVisible();
+    expect(
+      within(selectionPanel).getByText(
+        "Select one video for details or select multiple videos for batch editing.",
+      ),
+    ).toBeVisible();
+  });
 });

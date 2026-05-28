@@ -27,11 +27,6 @@ const videosPanelStylesSource = readFileSync(
   "src/modules/catalog/VideosPanel/VideosPanel.module.css",
   "utf8",
 );
-const catalogTestSource = readFileSync(
-  "src/modules/catalog/Catalog.test.tsx",
-  "utf8",
-);
-
 const videosPanelFiles = import.meta.glob("./VideosPanel/**/*.{ts,tsx,css}", {
   eager: true,
   query: "?raw",
@@ -159,6 +154,14 @@ function fileExists(filePath: string) {
   }
 }
 
+function readOptionalSource(filePath: string) {
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
 function rawSource(
   files: Record<string, unknown>,
   path: string,
@@ -179,7 +182,13 @@ describe("Catalog module boundaries", () => {
       expect(fileExists(ownedIntegrationTest)).toBe(true);
     }
 
-    expect(catalogTestSource.split("\n").length).toBeLessThan(500);
+    const catalogTestSource = readOptionalSource(
+      "src/modules/catalog/Catalog.test.tsx",
+    );
+
+    if (catalogTestSource !== null) {
+      expect(catalogTestSource.split("\n").length).toBeLessThan(350);
+    }
   });
 
   it("keeps Catalog data hooks behind the Catalog module boundary", () => {

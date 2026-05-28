@@ -2274,4 +2274,116 @@ describe("Videos Panel integration", () => {
       "dark",
     );
   });
+
+  it("does not show a Recently Opened tab because Last Opened is a sort option", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Older Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/older-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: "2026-05-14 18:00:00",
+        openCount: 5,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 2,
+        title: "Fresh Clip",
+        durationMilliseconds: 120000,
+        fileSizeBytes: null,
+        fileLocationPath: "/Volumes/Archive/Videos/fresh-clip.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: "2026-05-15 18:00:00",
+        openCount: 1,
+        previewStrip: pendingPreviewStrip,
+      },
+      {
+        id: 3,
+        title: "Never Opened",
+        durationMilliseconds: 120000,
+        fileSizeBytes: 12000000,
+        fileLocationPath: "/Volumes/Archive/Videos/never-opened.mp4",
+        isAvailable: true,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    expect(
+      screen.queryByRole("tab", { name: "Recently Opened" }),
+    ).not.toBeInTheDocument();
+    expect(
+      await within(catalogVideos).findByText("Never Opened"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(within(catalogVideos).getByLabelText("Sort Videos"), {
+      target: { value: "lastOpenedDescending" },
+    });
+
+    const videoTitles = within(catalogVideos).getAllByRole("article", {
+      name: /^(Older Clip|Fresh Clip|Never Opened)$/,
+    });
+
+    expect(
+      videoTitles.map((videoCard) => videoCard.getAttribute("aria-label")),
+    ).toEqual(["Fresh Clip", "Older Clip", "Never Opened"]);
+  });
+
+  it("can show Missing Videos as unavailable in the normal Videos list", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        id: 1,
+        title: "Family Trip",
+        durationMilliseconds: 3723000,
+        fileSizeBytes: null,
+        fileLocationPath: null,
+        isAvailable: false,
+        fileLocations: [],
+        isFavorite: false,
+        lastOpenedAt: null,
+        openCount: 0,
+        previewStrip: pendingPreviewStrip,
+      },
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    fireEvent.click(
+      within(catalogVideos).getByRole("button", {
+        name: "Advanced search",
+      }),
+    );
+    fireEvent.click(
+      await within(catalogVideos).findByRole("checkbox", {
+        name: "Show unavailable videos",
+      }),
+    );
+
+    expect(
+      await within(catalogVideos).findByText("Family Trip"),
+    ).toBeInTheDocument();
+    expect(within(catalogVideos).getAllByText("Unavailable").length).toBeGreaterThan(
+      0,
+    );
+    expect(within(catalogVideos).getAllByText("Unknown").length).toBeGreaterThan(
+      0,
+    );
+  });
 });
