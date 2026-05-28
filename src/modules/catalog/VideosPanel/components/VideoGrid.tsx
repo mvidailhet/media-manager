@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { KeyboardEvent, PointerEvent } from "react";
+import type { PointerEvent } from "react";
 import { Accordion, Box } from "@mantine/core";
 
 import type { CatalogVideo } from "../../../../tauriCommands";
@@ -34,7 +34,6 @@ const emptySelectionModifiers: VideoSelectionModifiers = {
 export function VideoGrid({
   catalogVideoMetadataById,
   catalogVideos,
-  onClearVideoSelection,
   onReplaceSelectedVideos,
   onSelectVideo,
   onSetFavorite,
@@ -43,7 +42,6 @@ export function VideoGrid({
 }: {
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
-  onClearVideoSelection: () => void;
   onReplaceSelectedVideos: (
     videoIds: number[],
     modifiers: VideoSelectionModifiers,
@@ -192,10 +190,6 @@ export function VideoGrid({
 
       if (selectedModifiedVideoCard) {
         return;
-      }
-
-      if (event.target === event.currentTarget) {
-        onClearVideoSelection();
       }
 
       return;
@@ -361,15 +355,6 @@ export function VideoGrid({
     };
   }
 
-  function clearSelectionFromKeyboard(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key !== "Escape") {
-      return;
-    }
-
-    event.preventDefault();
-    onClearVideoSelection();
-  }
-
   function selectedVideoIdsFromDragRectangle(
     startPoint: PointerDragPoint,
     endPoint: PointerDragPoint,
@@ -527,7 +512,6 @@ export function VideoGrid({
     <Box
       aria-label="Video grid"
       className={styles.grid}
-      onKeyDown={clearSelectionFromKeyboard}
       onPointerDown={startDragSelection}
       onPointerMove={trackDragSelection}
       onPointerCancel={cancelDragSelection}

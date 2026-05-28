@@ -50,7 +50,6 @@ export type CatalogProps = {
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onCatalogViewChange: (catalogView: CatalogView) => void;
-  onClearVideoSelection: () => void;
   onCreateOrAppendPerformer: (performerName: string) => void;
   onCreateOrAppendTag: (tagName: string) => void;
   onCreateOrAttachPerformer: (performerName: string) => void;
@@ -104,7 +103,6 @@ export function Catalog(props: CatalogProps & { scanRoots: ScanRoot[] }) {
     onCatalogVideoFiltersChange,
     onCatalogVideoSortChange,
     onCatalogViewChange,
-    onClearVideoSelection,
     onRejectMetadataSuggestionSource,
     onReplaceSelectedVideos,
     onReviewVideo,
@@ -143,7 +141,6 @@ export function Catalog(props: CatalogProps & { scanRoots: ScanRoot[] }) {
               onCatalogVideoSortChange={onCatalogVideoSortChange}
               onSetFavorite={onSetFavorite}
               scanRoots={scanRoots}
-              onClearVideoSelection={onClearVideoSelection}
               onReplaceSelectedVideos={onReplaceSelectedVideos}
               onSelectVideo={onSelectVideo}
               selectedDetailVideoId={selectedDetailVideoId}

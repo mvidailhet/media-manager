@@ -25,7 +25,6 @@ export function VideosPanel({
   catalogVideosStatusMessage,
   onCatalogVideoFiltersChange,
   onCatalogVideoSortChange,
-  onClearVideoSelection,
   onReplaceSelectedVideos,
   onSetFavorite,
   onSelectVideo,
@@ -44,7 +43,6 @@ export function VideosPanel({
   catalogVideosStatusMessage: string;
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
-  onClearVideoSelection: () => void;
   onReplaceSelectedVideos: (
     videoIds: number[],
     modifiers: VideoSelectionModifiers,
@@ -99,7 +97,6 @@ export function VideosPanel({
         <VideoGrid
           catalogVideoMetadataById={catalogVideoMetadataById}
           catalogVideos={catalogVideos}
-          onClearVideoSelection={onClearVideoSelection}
           onSelectVideo={onSelectVideo}
           onSetFavorite={onSetFavorite}
           onReplaceSelectedVideos={onReplaceSelectedVideos}

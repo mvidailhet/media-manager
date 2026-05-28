@@ -485,10 +485,6 @@ export function useCatalogModuleController(): CatalogController {
     });
   }
 
-  function clearCatalogSelection() {
-    resetCatalogSelection();
-  }
-
   function selectVideoForDetailOnly(catalogVideo: CatalogVideo) {
     resetBatchSelection();
     setSelectionAnchorVideoId(catalogVideo.id);
@@ -1378,7 +1374,6 @@ export function useCatalogModuleController(): CatalogController {
       onRemoveTag: removeTagFromBatchSelectedVideos,
       onReviewVideo: reviewMetadataSuggestionVideo,
       onSaveTitle: saveSelectedVideoTitle,
-      onClearVideoSelection: clearCatalogSelection,
       onReplaceSelectedVideos: replaceSelectedVideosFromDrag,
       onSelectVideo: selectVideoFromVideosView,
       onSetBatchFavorite: setBatchSelectedVideosFavorite,
