@@ -630,7 +630,6 @@ export function useCatalogModuleController(): CatalogController {
   async function openVideoFromCatalog(video: CatalogVideo, startAtSeconds: number) {
     try {
       await openVideo(video.id, startAtSeconds);
-      await refreshCatalogVideos();
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
@@ -649,7 +648,6 @@ export function useCatalogModuleController(): CatalogController {
   async function playVideoInAppFromCatalog(video: CatalogVideo) {
     try {
       await playVideoInApp(video.id);
-      await refreshCatalogVideos();
       setCatalogVideoActionStatusMessage("");
     } catch (error) {
       setCatalogVideoActionStatusMessage(errorMessage(error));
