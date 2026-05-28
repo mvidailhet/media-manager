@@ -52,22 +52,6 @@ interface NormalizedSelectedFolderBranch {
   isInsideAvailableScanRoot: boolean;
 }
 
-const catalogFilterTimingDebugPrefix = "[DEBUG-catalog-filter-timing]";
-let catalogVideoMatchBreakdown: CatalogVideoMatchBreakdown | null = null;
-
-type CatalogVideoMatchBreakdownKey =
-  | "indexLookup"
-  | "search"
-  | "folder"
-  | "favorite"
-  | "availability"
-  | "duration"
-  | "secretMetadata"
-  | "tag"
-  | "performer";
-
-type CatalogVideoMatchBreakdown = Record<CatalogVideoMatchBreakdownKey, number>;
-
 interface CatalogVideoMetadataFilterData {
   tagIds: Set<number>;
   performerIds: Set<number>;
@@ -125,156 +109,76 @@ export function catalogVideoMatchesPreparedIndexedFilters(
   secretMetadataExists = false,
 ): boolean {
   const { filters } = indexedFilters;
-  const indexLookupTimingStart = performance.now();
   const filterData =
     filterIndex.videoFilterDataById.get(catalogVideo.id) ??
     indexedCatalogVideoFilterData(catalogVideo, undefined);
-  addCatalogVideoMatchBreakdownDuration(
-    "indexLookup",
-    indexLookupTimingStart,
-  );
 
   if (
-    !timedCatalogVideoPredicate("search", () =>
-      indexedCatalogVideoMatchesSearchText(filterData, filters.searchText),
+    !indexedCatalogVideoMatchesSearchText(filterData, filters.searchText)
+  ) {
+    return false;
+  }
+
+  if (
+    !indexedCatalogVideoMatchesTagFilter(
+      filterData,
+      filters.selectedTagIds,
+      filters.withoutTagsOnly,
     )
   ) {
     return false;
   }
 
   if (
-    !timedCatalogVideoPredicate("tag", () =>
-      indexedCatalogVideoMatchesTagFilter(
-        filterData,
-        filters.selectedTagIds,
-        filters.withoutTagsOnly,
-      ),
+    !indexedCatalogVideoMatchesPerformerFilter(
+      filterData,
+      filters.selectedPerformerIds,
     )
   ) {
     return false;
   }
 
   if (
-    !timedCatalogVideoPredicate("performer", () =>
-      indexedCatalogVideoMatchesPerformerFilter(
-        filterData,
-        filters.selectedPerformerIds,
-      ),
+    !indexedCatalogVideoMatchesOptionalFolderFilter(
+      filterData,
+      indexedFilters.normalizedSelectedFolderBranches,
     )
   ) {
     return false;
   }
 
   if (
-    !timedCatalogVideoPredicate("folder", () =>
-      indexedCatalogVideoMatchesOptionalFolderFilter(
-        filterData,
-        indexedFilters.normalizedSelectedFolderBranches,
-      ),
+    !catalogVideoMatchesFavoriteFilter(catalogVideo, filters.favoritesOnly)
+  ) {
+    return false;
+  }
+
+  if (
+    !catalogVideoMatchesAvailabilityFilter(
+      catalogVideo,
+      filters.showUnavailableVideos,
     )
   ) {
     return false;
   }
 
   if (
-    !timedCatalogVideoPredicate("favorite", () =>
-      catalogVideoMatchesFavoriteFilter(catalogVideo, filters.favoritesOnly),
-    )
+    !indexedCatalogVideoMatchesDurationFilter(filterData, filters)
   ) {
     return false;
   }
 
   if (
-    !timedCatalogVideoPredicate("availability", () =>
-      catalogVideoMatchesAvailabilityFilter(
-        catalogVideo,
-        filters.showUnavailableVideos,
-      ),
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    !timedCatalogVideoPredicate("duration", () =>
-      indexedCatalogVideoMatchesDurationFilter(filterData, filters),
-    )
-  ) {
-    return false;
-  }
-
-  if (
-    !timedCatalogVideoPredicate("secretMetadata", () =>
-      indexedCatalogVideoMatchesSecretMetadataFilter(
-        filterData,
-        filters.hideSecretMetadata,
-        secretMetadataExists,
-      ),
+    !indexedCatalogVideoMatchesSecretMetadataFilter(
+      filterData,
+      filters.hideSecretMetadata,
+      secretMetadataExists,
     )
   ) {
     return false;
   }
 
   return true;
-}
-
-export function beginCatalogVideoMatchBreakdown() {
-  catalogVideoMatchBreakdown = {
-    indexLookup: 0,
-    search: 0,
-    folder: 0,
-    favorite: 0,
-    availability: 0,
-    duration: 0,
-    secretMetadata: 0,
-    tag: 0,
-    performer: 0,
-  };
-}
-
-export function endCatalogVideoMatchBreakdown(
-  details: Record<string, unknown> = {},
-) {
-  if (!catalogVideoMatchBreakdown) {
-    return;
-  }
-
-  console.info(
-    `${catalogFilterTimingDebugPrefix} ${JSON.stringify({
-      label: "matchingCatalogVideos breakdown",
-      ...Object.fromEntries(
-        Object.entries(catalogVideoMatchBreakdown).map(([key, duration]) => [
-          key,
-          Number(duration.toFixed(2)),
-        ]),
-      ),
-      ...details,
-    })}`,
-  );
-  catalogVideoMatchBreakdown = null;
-}
-
-function timedCatalogVideoPredicate(
-  key: CatalogVideoMatchBreakdownKey,
-  predicate: () => boolean,
-) {
-  const timingStart = performance.now();
-  const result = predicate();
-
-  addCatalogVideoMatchBreakdownDuration(key, timingStart);
-
-  return result;
-}
-
-function addCatalogVideoMatchBreakdownDuration(
-  key: CatalogVideoMatchBreakdownKey,
-  timingStart: number,
-) {
-  if (!catalogVideoMatchBreakdown) {
-    return;
-  }
-
-  catalogVideoMatchBreakdown[key] += performance.now() - timingStart;
 }
 
 function indexedCatalogVideoFilterData(

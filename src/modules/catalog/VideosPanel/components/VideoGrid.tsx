@@ -13,7 +13,6 @@ import {
 } from "./PrimaryPerformerAccordion";
 
 const dragSelectionStartThresholdPixels = 4;
-const catalogFilterTimingDebugPrefix = "[DEBUG-catalog-filter-timing]";
 
 type DragPoint = {
   x: number;
@@ -70,12 +69,6 @@ export function VideoGrid({
     useState<PointerDragPoint | null>(null);
   const [dragSelectedVideoIds, setDragSelectedVideoIds] = useState<number[]>([]);
   const [openPerformerGroups, setOpenPerformerGroups] = useState<string[]>([]);
-
-  useEffect(() => {
-    logCatalogFilterTiming("VideoGrid committed", {
-      renderedVideoCount: catalogVideos.length,
-    });
-  });
 
   useEffect(() => {
     function trackPressedModifierKey(event: globalThis.KeyboardEvent) {
@@ -515,43 +508,20 @@ export function VideoGrid({
   }
 
   const selectionRectangleStyle = dragSelectionRectangleStyle();
-  const fullPerformerGroupsTimingStart = performance.now();
   const fullPerformerGroups = groupCatalogVideosByFirstPerformer({
     catalogVideoMetadataById,
     catalogVideos,
   });
-  logCatalogFilterTiming("fullPerformerGroups", {
-    durationMs: Number(
-      (performance.now() - fullPerformerGroupsTimingStart).toFixed(2),
-    ),
-    groupCount: fullPerformerGroups.length,
-    videoCount: catalogVideos.length,
-  });
-  const exposedPerformerGroupsTimingStart = performance.now();
   const exposedPerformerGroups = groupCatalogVideosByFirstPerformer({
     catalogVideoMetadataById,
     catalogVideos,
   });
-  logCatalogFilterTiming("exposedPerformerGroups", {
-    durationMs: Number(
-      (performance.now() - exposedPerformerGroupsTimingStart).toFixed(2),
-    ),
-    groupCount: exposedPerformerGroups.length,
-    videoCount: catalogVideos.length,
-  });
-  const exposedVideosByPerformerGroupTimingStart = performance.now();
   const exposedVideosByPerformerGroup = new Map(
     exposedPerformerGroups.map((performerGroup) => [
       primaryPerformerAccordionValue(performerGroup),
       performerGroup.videos,
     ]),
   );
-  logCatalogFilterTiming("exposedVideosByPerformerGroup", {
-    durationMs: Number(
-      (performance.now() - exposedVideosByPerformerGroupTimingStart).toFixed(2),
-    ),
-    groupCount: exposedVideosByPerformerGroup.size,
-  });
 
   return (
     <Box
@@ -597,14 +567,5 @@ export function VideoGrid({
         })}
       </Accordion>
     </Box>
-  );
-}
-
-function logCatalogFilterTiming(
-  label: string,
-  details: Record<string, unknown> = {},
-) {
-  console.info(
-    `${catalogFilterTimingDebugPrefix} ${JSON.stringify({ label, ...details })}`,
   );
 }
