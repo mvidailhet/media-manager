@@ -106,6 +106,29 @@ export function catalogVideoMatchesIndexedFilters(
   }
 
   if (
+    !timedCatalogVideoPredicate("tag", () =>
+      indexedCatalogVideoMatchesTagFilter(
+        filterData,
+        filters.selectedTagIds,
+        filters.withoutTagsOnly,
+      ),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !timedCatalogVideoPredicate("performer", () =>
+      indexedCatalogVideoMatchesPerformerFilter(
+        filterData,
+        filters.selectedPerformerIds,
+      ),
+    )
+  ) {
+    return false;
+  }
+
+  if (
     !timedCatalogVideoPredicate("folder", () =>
       indexedCatalogVideoMatchesOptionalFolderFilter(
         filterData,
@@ -155,24 +178,7 @@ export function catalogVideoMatchesIndexedFilters(
     return false;
   }
 
-  if (
-    !timedCatalogVideoPredicate("tag", () =>
-      indexedCatalogVideoMatchesTagFilter(
-        filterData,
-        filters.selectedTagIds,
-        filters.withoutTagsOnly,
-      ),
-    )
-  ) {
-    return false;
-  }
-
-  return timedCatalogVideoPredicate("performer", () =>
-    indexedCatalogVideoMatchesPerformerFilter(
-      filterData,
-      filters.selectedPerformerIds,
-    ),
-  );
+  return true;
 }
 
 export function beginCatalogVideoMatchBreakdown() {

@@ -1,13 +1,15 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { CatalogVideo } from "../../tauriCommands";
 import type { CatalogVideoFilters, CatalogVideoMetadata } from "./catalogTypes";
 import {
   buildCatalogVideoFilterIndex,
+  beginCatalogVideoMatchBreakdown,
   catalogVideoMatchesFilters,
   catalogVideoMatchesFolderFilter,
   catalogVideoMatchesIndexedFilters,
   catalogVideoMatchesTagFilter,
+  endCatalogVideoMatchBreakdown,
 } from "./catalogVideoFiltering";
 
 const taggedMetadata: CatalogVideoMetadata = {
@@ -31,6 +33,10 @@ const downloadsFolderPath = "/Users/michel/Downloads";
 const downloadsVideoPath = `${downloadsFolderPath}/day-one.mp4`;
 const catalogVideoFileSizeBytes = 1000;
 const catalogVideoDurationMilliseconds = 60_000;
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("catalogVideoMatchesTagFilter", () => {
   it("matches only untagged Videos when the No Tag filter is selected", () => {
@@ -288,7 +294,97 @@ describe("catalogVideoMatchesIndexedFilters", () => {
       indexedCatalogVideo,
     );
   });
+
+  it("skips Folder filtering when an indexed Tag filter already rejects the Video", () => {
+    const matchingVideo = catalogVideoWithFileLocations([
+      reachableFileLocation(reachableParisVideoPath),
+    ]);
+    const filterIndex = buildCatalogVideoFilterIndex(
+      [matchingVideo],
+      { [matchingVideo.id]: taggedMetadata },
+    );
+    const consoleInfo = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+
+    beginCatalogVideoMatchBreakdown();
+    const matches = catalogVideoMatchesIndexedFilters(
+      filterIndex,
+      matchingVideo,
+      catalogVideoFilters({
+        selectedFolderBranches: [selectedFolderBranch(travelBranchPath)],
+        selectedTagIds: [34],
+      }),
+    );
+    endCatalogVideoMatchBreakdown();
+
+    expect(matches).toBe(false);
+    expectCatalogFilterTiming(consoleInfo, {
+      tagHasRun: true,
+      folderHasNotRun: true,
+    });
+  });
+
+  it("skips Folder filtering when an indexed Performer filter already rejects the Video", () => {
+    const matchingVideo = catalogVideoWithFileLocations([
+      reachableFileLocation(reachableParisVideoPath),
+    ]);
+    const filterIndex = buildCatalogVideoFilterIndex(
+      [matchingVideo],
+      { [matchingVideo.id]: taggedMetadata },
+    );
+    const consoleInfo = vi
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+
+    beginCatalogVideoMatchBreakdown();
+    const matches = catalogVideoMatchesIndexedFilters(
+      filterIndex,
+      matchingVideo,
+      catalogVideoFilters({
+        selectedFolderBranches: [selectedFolderBranch(travelBranchPath)],
+        selectedPerformerIds: [9],
+      }),
+    );
+    endCatalogVideoMatchBreakdown();
+
+    expect(matches).toBe(false);
+    expectCatalogFilterTiming(consoleInfo, {
+      performerHasRun: true,
+      folderHasNotRun: true,
+    });
+  });
 });
+
+function expectCatalogFilterTiming(
+  consoleInfo: ReturnType<typeof vi.spyOn>,
+  expectedTiming: Partial<{
+    tagHasRun: boolean;
+    performerHasRun: boolean;
+    folderHasNotRun: boolean;
+  }>,
+) {
+  expect(consoleInfo).toHaveBeenCalledTimes(1);
+
+  const [timingLog] = consoleInfo.mock.calls[0] ?? [];
+  const timingJson = String(timingLog).replace(
+    "[DEBUG-catalog-filter-timing] ",
+    "",
+  );
+  const timing = JSON.parse(timingJson) as Record<string, number>;
+
+  if (expectedTiming.tagHasRun) {
+    expect(timing.tag).toBeGreaterThanOrEqual(0);
+  }
+
+  if (expectedTiming.performerHasRun) {
+    expect(timing.performer).toBeGreaterThanOrEqual(0);
+  }
+
+  if (expectedTiming.folderHasNotRun) {
+    expect(timing.folder).toBe(0);
+  }
+}
 
 function selectedFolderBranch(path: string) {
   return {
