@@ -9,10 +9,14 @@ import type {
 } from "../catalogTypes";
 import { defaultCatalogVideoFilters } from "../catalogTypes";
 import {
+  beginCatalogVideoMatchBreakdown,
   buildCatalogVideoFilterIndex,
   catalogVideoMatchesIndexedFilters,
+  endCatalogVideoMatchBreakdown,
   sortedCatalogVideos,
 } from "../catalogVideoFiltering";
+
+const catalogFilterTimingDebugPrefix = "[DEBUG-catalog-filter-timing]";
 
 export function useVideosPanelController({
   catalogVideoMetadataById,
@@ -36,24 +40,64 @@ export function useVideosPanelController({
     [availablePerformers, availableTags],
   );
   const catalogVideoFilterIndex = useMemo(
-    () => buildCatalogVideoFilterIndex(catalogVideos, catalogVideoMetadataById),
+    () => {
+      const timingStart = performance.now();
+      const filterIndex = buildCatalogVideoFilterIndex(
+        catalogVideos,
+        catalogVideoMetadataById,
+      );
+
+      logCatalogFilterTiming("buildCatalogVideoFilterIndex", timingStart, {
+        videoCount: catalogVideos.length,
+      });
+
+      return filterIndex;
+    },
     [catalogVideoMetadataById, catalogVideos],
   );
   const sortedVideos = useMemo(
-    () => sortedCatalogVideos(catalogVideos, catalogVideoSort),
+    () => {
+      const timingStart = performance.now();
+      const videos = sortedCatalogVideos(catalogVideos, catalogVideoSort);
+
+      logCatalogFilterTiming("sortedCatalogVideos", timingStart, {
+        sort: catalogVideoSort,
+        videoCount: catalogVideos.length,
+      });
+
+      return videos;
+    },
     [catalogVideoSort, catalogVideos],
   );
 
   const matchingCatalogVideos = useMemo(
-    () =>
-      sortedVideos.filter((catalogVideo) =>
+    () => {
+      const timingStart = performance.now();
+      beginCatalogVideoMatchBreakdown();
+      const videos = sortedVideos.filter((catalogVideo) =>
         catalogVideoMatchesIndexedFilters(
           catalogVideoFilterIndex,
           catalogVideo,
           catalogVideoFilters,
           secretMetadataExists,
         ),
-      ),
+      );
+      endCatalogVideoMatchBreakdown({
+        matchedVideoCount: videos.length,
+        selectedTagIds: catalogVideoFilters.selectedTagIds,
+        sortedVideoCount: sortedVideos.length,
+        withoutTagsOnly: catalogVideoFilters.withoutTagsOnly,
+      });
+
+      logCatalogFilterTiming("matchingCatalogVideos", timingStart, {
+        matchedVideoCount: videos.length,
+        selectedTagIds: catalogVideoFilters.selectedTagIds,
+        sortedVideoCount: sortedVideos.length,
+        withoutTagsOnly: catalogVideoFilters.withoutTagsOnly,
+      });
+
+      return videos;
+    },
     [
       catalogVideoFilterIndex,
       catalogVideoFilters,
@@ -69,4 +113,18 @@ export function useVideosPanelController({
     setCatalogVideoFilters,
     setCatalogVideoSort,
   };
+}
+
+function logCatalogFilterTiming(
+  label: string,
+  timingStart: number,
+  details: Record<string, unknown> = {},
+) {
+  console.info(
+    `${catalogFilterTimingDebugPrefix} ${JSON.stringify({
+      label,
+      durationMs: Number((performance.now() - timingStart).toFixed(2)),
+      ...details,
+    })}`,
+  );
 }

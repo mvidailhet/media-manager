@@ -41,6 +41,22 @@ export interface CatalogVideoFilterData {
   hasLoadedMetadata: boolean;
 }
 
+const catalogFilterTimingDebugPrefix = "[DEBUG-catalog-filter-timing]";
+let catalogVideoMatchBreakdown: CatalogVideoMatchBreakdown | null = null;
+
+type CatalogVideoMatchBreakdownKey =
+  | "indexLookup"
+  | "search"
+  | "folder"
+  | "favorite"
+  | "availability"
+  | "duration"
+  | "secretMetadata"
+  | "tag"
+  | "performer";
+
+type CatalogVideoMatchBreakdown = Record<CatalogVideoMatchBreakdownKey, number>;
+
 interface CatalogVideoMetadataFilterData {
   tagIds: Set<number>;
   performerIds: Set<number>;
@@ -72,37 +88,150 @@ export function catalogVideoMatchesIndexedFilters(
   filters: CatalogVideoFilters,
   secretMetadataExists = false,
 ): boolean {
+  const indexLookupTimingStart = performance.now();
   const filterData =
     filterIndex.videoFilterDataById.get(catalogVideo.id) ??
     indexedCatalogVideoFilterData(catalogVideo, undefined);
+  addCatalogVideoMatchBreakdownDuration(
+    "indexLookup",
+    indexLookupTimingStart,
+  );
 
-  return (
-    indexedCatalogVideoMatchesSearchText(filterData, filters.searchText) &&
-    indexedCatalogVideoMatchesOptionalFolderFilter(
-      filterData,
-      filters.selectedFolderBranches,
-    ) &&
-    catalogVideoMatchesFavoriteFilter(catalogVideo, filters.favoritesOnly) &&
-    catalogVideoMatchesAvailabilityFilter(
-      catalogVideo,
-      filters.showUnavailableVideos,
-    ) &&
-    indexedCatalogVideoMatchesDurationFilter(filterData, filters) &&
-    indexedCatalogVideoMatchesSecretMetadataFilter(
-      filterData,
-      filters.hideSecretMetadata,
-      secretMetadataExists,
-    ) &&
-    indexedCatalogVideoMatchesTagFilter(
-      filterData,
-      filters.selectedTagIds,
-      filters.withoutTagsOnly,
-    ) &&
+  if (
+    !timedCatalogVideoPredicate("search", () =>
+      indexedCatalogVideoMatchesSearchText(filterData, filters.searchText),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !timedCatalogVideoPredicate("folder", () =>
+      indexedCatalogVideoMatchesOptionalFolderFilter(
+        filterData,
+        filters.selectedFolderBranches,
+      ),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !timedCatalogVideoPredicate("favorite", () =>
+      catalogVideoMatchesFavoriteFilter(catalogVideo, filters.favoritesOnly),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !timedCatalogVideoPredicate("availability", () =>
+      catalogVideoMatchesAvailabilityFilter(
+        catalogVideo,
+        filters.showUnavailableVideos,
+      ),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !timedCatalogVideoPredicate("duration", () =>
+      indexedCatalogVideoMatchesDurationFilter(filterData, filters),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !timedCatalogVideoPredicate("secretMetadata", () =>
+      indexedCatalogVideoMatchesSecretMetadataFilter(
+        filterData,
+        filters.hideSecretMetadata,
+        secretMetadataExists,
+      ),
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    !timedCatalogVideoPredicate("tag", () =>
+      indexedCatalogVideoMatchesTagFilter(
+        filterData,
+        filters.selectedTagIds,
+        filters.withoutTagsOnly,
+      ),
+    )
+  ) {
+    return false;
+  }
+
+  return timedCatalogVideoPredicate("performer", () =>
     indexedCatalogVideoMatchesPerformerFilter(
       filterData,
       filters.selectedPerformerIds,
-    )
+    ),
   );
+}
+
+export function beginCatalogVideoMatchBreakdown() {
+  catalogVideoMatchBreakdown = {
+    indexLookup: 0,
+    search: 0,
+    folder: 0,
+    favorite: 0,
+    availability: 0,
+    duration: 0,
+    secretMetadata: 0,
+    tag: 0,
+    performer: 0,
+  };
+}
+
+export function endCatalogVideoMatchBreakdown(
+  details: Record<string, unknown> = {},
+) {
+  if (!catalogVideoMatchBreakdown) {
+    return;
+  }
+
+  console.info(
+    `${catalogFilterTimingDebugPrefix} ${JSON.stringify({
+      label: "matchingCatalogVideos breakdown",
+      ...Object.fromEntries(
+        Object.entries(catalogVideoMatchBreakdown).map(([key, duration]) => [
+          key,
+          Number(duration.toFixed(2)),
+        ]),
+      ),
+      ...details,
+    })}`,
+  );
+  catalogVideoMatchBreakdown = null;
+}
+
+function timedCatalogVideoPredicate(
+  key: CatalogVideoMatchBreakdownKey,
+  predicate: () => boolean,
+) {
+  const timingStart = performance.now();
+  const result = predicate();
+
+  addCatalogVideoMatchBreakdownDuration(key, timingStart);
+
+  return result;
+}
+
+function addCatalogVideoMatchBreakdownDuration(
+  key: CatalogVideoMatchBreakdownKey,
+  timingStart: number,
+) {
+  if (!catalogVideoMatchBreakdown) {
+    return;
+  }
+
+  catalogVideoMatchBreakdown[key] += performance.now() - timingStart;
 }
 
 function indexedCatalogVideoFilterData(

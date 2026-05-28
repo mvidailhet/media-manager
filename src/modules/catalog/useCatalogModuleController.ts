@@ -31,6 +31,7 @@ const emptyMetadataInputMessage = "Enter a name first.";
 const moveToTrashDetailFailurePrefix =
   "Could not move this File Location to Trash";
 const moveToTrashBatchResultPrefix = "Move to Trash finished";
+const catalogFilterTimingDebugPrefix = "[DEBUG-catalog-filter-timing]";
 
 type CatalogController = {
   catalogProps: CatalogProps;
@@ -538,8 +539,19 @@ export function useCatalogModuleController(): CatalogController {
   }
 
   function changeCatalogVideoFilters(filters: typeof catalogVideoFilters) {
+    const timingStart = performance.now();
+    logCatalogFilterTiming("changeCatalogVideoFilters start", {
+      selectedTagIds: filters.selectedTagIds,
+      withoutTagsOnly: filters.withoutTagsOnly,
+    });
     resetCatalogSelection();
+    logCatalogFilterTiming("resetCatalogSelection", {
+      durationMs: Number((performance.now() - timingStart).toFixed(2)),
+    });
     setCatalogVideoFilters(filters);
+    logCatalogFilterTiming("changeCatalogVideoFilters handler", {
+      durationMs: Number((performance.now() - timingStart).toFixed(2)),
+    });
   }
 
   function removeTagFromCatalogVideoFilters(tag: CatalogTag) {
@@ -1321,6 +1333,15 @@ export function useCatalogModuleController(): CatalogController {
     refreshCatalogVideos,
     refreshMetadataSuggestionGroups,
   };
+}
+
+function logCatalogFilterTiming(
+  label: string,
+  details: Record<string, unknown> = {},
+) {
+  console.info(
+    `${catalogFilterTimingDebugPrefix} ${JSON.stringify({ label, ...details })}`,
+  );
 }
 
 function emptyCatalogVideoMetadata(

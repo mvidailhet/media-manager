@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -25,6 +25,7 @@ import {
 import { FolderFilterSection } from './components/FolderFilterSection';
 
 const noTagFilterValue = 'without-tags';
+const catalogFilterTimingDebugPrefix = '[DEBUG-catalog-filter-timing]';
 
 export function FiltersPanel({
   availablePerformers,
@@ -58,14 +59,25 @@ export function FiltersPanel({
     visiblePerformers,
     visibleTags,
   } = useMemo(
-    () =>
-      filterPanelMetadata({
+    () => {
+      const timingLabel = 'FiltersPanel filterPanelMetadata';
+      const timingStart = performance.now();
+      const metadata = filterPanelMetadata({
         availablePerformers,
         availableTags,
         catalogVideoMetadataById,
         catalogVideos,
         hideSecretMetadata: filters.hideSecretMetadata,
-      }),
+      });
+
+      logCatalogFilterTiming(timingLabel, timingStart, {
+        performerCount: metadata.visiblePerformers.length,
+        tagCount: metadata.visibleTags.length,
+        videoCount: catalogVideos.length,
+      });
+
+      return metadata;
+    },
     [
       availablePerformers,
       availableTags,
@@ -75,9 +87,27 @@ export function FiltersPanel({
     ],
   );
   const folderBranches = useMemo(
-    () => folderFilterBranchesForVideos(catalogVideos, scanRoots),
+    () => {
+      const timingLabel = 'FiltersPanel folderFilterBranchesForVideos';
+      const timingStart = performance.now();
+      const branches = folderFilterBranchesForVideos(catalogVideos, scanRoots);
+
+      logCatalogFilterTiming(timingLabel, timingStart, {
+        branchCount: branches.length,
+        videoCount: catalogVideos.length,
+      });
+
+      return branches;
+    },
     [catalogVideos, scanRoots],
   );
+
+  useEffect(() => {
+    logCatalogFilterMessage('FiltersPanel committed selected tags', {
+      selectedTagIds: filters.selectedTagIds,
+      withoutTagsOnly: filters.withoutTagsOnly,
+    });
+  }, [filters.selectedTagIds, filters.withoutTagsOnly]);
 
   function updateFilters(updatedFilters: Partial<CatalogVideoFilters>) {
     onFiltersChange({ ...filters, ...updatedFilters });
@@ -200,6 +230,10 @@ export function FiltersPanel({
           ...filters.selectedTagIds.map(String),
         ]}
         onChange={(selectedValues) => {
+          const timingStart = performance.now();
+          logCatalogFilterMessage('Tag Checkbox.Group onChange start', {
+            selectedValues,
+          });
           const selectedTagIds = selectedValues
             .filter((selectedValue) => selectedValue !== noTagFilterValue)
             .map(Number);
@@ -207,6 +241,14 @@ export function FiltersPanel({
           updateFilters({
             selectedTagIds,
             withoutTagsOnly: selectedValues.includes(noTagFilterValue),
+          });
+          logCatalogFilterTiming('Tag Checkbox.Group onChange handler', timingStart, {
+            selectedTagIds,
+          });
+          window.requestAnimationFrame(() => {
+            logCatalogFilterTiming('Tag Checkbox.Group next animation frame', timingStart, {
+              selectedTagIds,
+            });
           });
         }}
       >
@@ -259,34 +301,92 @@ function filterPanelMetadata({
   catalogVideos: CatalogVideo[];
   hideSecretMetadata: boolean;
 }) {
+  const visibleTagsTimingStart = performance.now();
+  const visibleTags = visibleMetadataValues({
+    availableValues: availableTags,
+    catalogVideoMetadataById,
+    catalogVideos,
+    hideSecretMetadata,
+    metadataKind: 'tag',
+  });
+  logCatalogFilterTiming('visibleMetadataValues tag', visibleTagsTimingStart, {
+    availableCount: availableTags.length,
+    visibleCount: visibleTags.length,
+    videoCount: catalogVideos.length,
+  });
+
+  const tagCountsTimingStart = performance.now();
+  const videoCountByTagId = countVideosByMetadataId({
+    catalogVideoMetadataById,
+    catalogVideos,
+    hideSecretMetadata,
+    metadataKind: 'tag',
+  });
+  logCatalogFilterTiming('countVideosByMetadataId tag', tagCountsTimingStart, {
+    countedMetadataCount: videoCountByTagId.size,
+    videoCount: catalogVideos.length,
+  });
+
+  const visiblePerformersTimingStart = performance.now();
+  const visiblePerformers = visibleMetadataValues({
+    availableValues: availablePerformers,
+    catalogVideoMetadataById,
+    catalogVideos,
+    hideSecretMetadata,
+    metadataKind: 'performer',
+  });
+  logCatalogFilterTiming(
+    'visibleMetadataValues performer',
+    visiblePerformersTimingStart,
+    {
+      availableCount: availablePerformers.length,
+      visibleCount: visiblePerformers.length,
+      videoCount: catalogVideos.length,
+    },
+  );
+
+  const performerCountsTimingStart = performance.now();
+  const videoCountByPerformerId = countVideosByMetadataId({
+    catalogVideoMetadataById,
+    catalogVideos,
+    hideSecretMetadata,
+    metadataKind: 'performer',
+  });
+  logCatalogFilterTiming(
+    'countVideosByMetadataId performer',
+    performerCountsTimingStart,
+    {
+      countedMetadataCount: videoCountByPerformerId.size,
+      videoCount: catalogVideos.length,
+    },
+  );
+
   return {
-    visibleTags: visibleMetadataValues({
-      availableValues: availableTags,
-      catalogVideoMetadataById,
-      catalogVideos,
-      hideSecretMetadata,
-      metadataKind: 'tag',
-    }),
-    videoCountByTagId: countVideosByMetadataId({
-      catalogVideoMetadataById,
-      catalogVideos,
-      hideSecretMetadata,
-      metadataKind: 'tag',
-    }),
-    visiblePerformers: visibleMetadataValues({
-      availableValues: availablePerformers,
-      catalogVideoMetadataById,
-      catalogVideos,
-      hideSecretMetadata,
-      metadataKind: 'performer',
-    }),
-    videoCountByPerformerId: countVideosByMetadataId({
-      catalogVideoMetadataById,
-      catalogVideos,
-      hideSecretMetadata,
-      metadataKind: 'performer',
-    }),
+    visibleTags,
+    videoCountByTagId,
+    visiblePerformers,
+    videoCountByPerformerId,
   };
+}
+
+function logCatalogFilterTiming(
+  label: string,
+  timingStart: number,
+  details: Record<string, unknown> = {},
+) {
+  logCatalogFilterMessage(label, {
+    durationMs: Number((performance.now() - timingStart).toFixed(2)),
+    ...details,
+  });
+}
+
+function logCatalogFilterMessage(
+  label: string,
+  details: Record<string, unknown> = {},
+) {
+  console.info(
+    `${catalogFilterTimingDebugPrefix} ${JSON.stringify({ label, ...details })}`,
+  );
 }
 
 function visibleMetadataValues<TMetadata extends { id: number; isSecret: boolean }>({
