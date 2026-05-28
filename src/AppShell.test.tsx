@@ -213,7 +213,7 @@ describe("App shell", () => {
     ).toBeInTheDocument();
   });
 
-  it("clears Batch Edit when applying the Favorites", async () => {
+  it("preserves Batch Edit when applying the Favorites Search Filter", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       {
         id: 1,
@@ -272,7 +272,10 @@ describe("App shell", () => {
     );
 
     expect(
-      screen.queryByRole("region", { name: "Batch Edit Panel" }),
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+    expect(
+      within(catalogVideos).queryByRole("article", { name: "City Walk" }),
     ).not.toBeInTheDocument();
   });
 

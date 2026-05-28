@@ -1,4 +1,3 @@
-import { useRef } from "react";
 import { Box, Stack } from "@mantine/core";
 
 import type { CatalogPerformer, CatalogTag, CatalogVideo, ScanRoot } from "../../../tauriCommands";
@@ -59,27 +58,8 @@ export function VideosPanel({
   selectedDetailVideoId: number | null;
   selectedVideoIds: number[];
 }) {
-  const videosViewElement = useRef<HTMLElement | null>(null);
   const videoCountLabel =
     catalogVideos.length === 1 ? "1 Video" : `${catalogVideos.length} Videos`;
-
-  function changeCatalogVideoFilters(filters: CatalogVideoFilters) {
-    scrollVideosViewToTop();
-    onCatalogVideoFiltersChange(filters);
-  }
-
-  function changeCatalogVideoSort(sort: CatalogVideoSort) {
-    scrollVideosViewToTop();
-    onCatalogVideoSortChange(sort);
-  }
-
-  function scrollVideosViewToTop() {
-    if (!videosViewElement.current) {
-      return;
-    }
-
-    videosViewElement.current.scrollTop = 0;
-  }
 
   return (
     <Box
@@ -87,7 +67,6 @@ export function VideosPanel({
       aria-label="Catalog Videos"
       className={styles.videosView}
       p="md"
-      ref={videosViewElement}
     >
       <Stack gap="md">
         <FiltersPanel
@@ -96,7 +75,7 @@ export function VideosPanel({
           catalogVideoMetadataById={catalogVideoMetadataById}
           catalogVideos={allCatalogVideos}
           filters={catalogVideoFilters}
-          onFiltersChange={changeCatalogVideoFilters}
+          onFiltersChange={onCatalogVideoFiltersChange}
           scanRoots={scanRoots}
         />
 
@@ -107,7 +86,7 @@ export function VideosPanel({
 
           <SortSelect
             catalogVideoSort={catalogVideoSort}
-            onCatalogVideoSortChange={changeCatalogVideoSort}
+            onCatalogVideoSortChange={onCatalogVideoSortChange}
           />
         </Box>
 
