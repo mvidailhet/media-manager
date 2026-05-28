@@ -204,7 +204,7 @@ export function useCatalogModuleController(): CatalogController {
     openVideo,
     openVideoContainingFolder,
     playVideoInApp,
-    refreshCatalogVideos,
+    refreshCatalogVideos: loadCatalogVideos,
     renameVideo,
     setCatalogVideoActionStatusMessage,
     setCatalogVideos,
@@ -410,6 +410,62 @@ export function useCatalogModuleController(): CatalogController {
     setSelectionAnchorVideoId(null);
     resetSelectedVideo();
     resetBatchSelection();
+  }
+
+  async function refreshCatalogVideos() {
+    const refreshedVideos = await loadCatalogVideos();
+
+    preserveCatalogSelection(refreshedVideos);
+
+    return refreshedVideos;
+  }
+
+  function preserveCatalogSelection(refreshedVideos: CatalogVideo[]) {
+    const selectedVideoIds = currentSelectedVideoIds();
+
+    if (selectedVideoIds.length === 0) {
+      return;
+    }
+
+    const refreshedVideosById = new Map(
+      refreshedVideos.map((catalogVideo) => [catalogVideo.id, catalogVideo]),
+    );
+    const survivingSelectedVideos = selectedVideoIds.flatMap((videoId) => {
+      const refreshedVideo = refreshedVideosById.get(videoId);
+
+      return refreshedVideo ? [refreshedVideo] : [];
+    });
+
+    if (survivingSelectedVideos.length === 0) {
+      resetCatalogSelection();
+      return;
+    }
+
+    if (survivingSelectedVideos.length === 1) {
+      selectVideoForDetailOnly(survivingSelectedVideos[0]);
+      return;
+    }
+
+    setSelectedVideo((currentSelectedVideo) => {
+      if (!currentSelectedVideo) {
+        return currentSelectedVideo;
+      }
+
+      return refreshedVideosById.get(currentSelectedVideo.id) ?? null;
+    });
+    setBatchSelectedVideoIds(
+      survivingSelectedVideos.map((catalogVideo) => catalogVideo.id),
+    );
+    setSelectionAnchorVideoId((currentAnchorVideoId) => {
+      if (
+        currentAnchorVideoId !== null &&
+        refreshedVideosById.has(currentAnchorVideoId)
+      ) {
+        return currentAnchorVideoId;
+      }
+
+      return survivingSelectedVideos[survivingSelectedVideos.length - 1].id;
+    });
   }
 
   function clearCatalogSelection() {
