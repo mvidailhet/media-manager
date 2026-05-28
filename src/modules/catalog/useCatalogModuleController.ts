@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   appendUniqueMetadata,
@@ -204,7 +204,7 @@ export function useCatalogModuleController(): CatalogController {
     openVideo,
     openVideoContainingFolder,
     playVideoInApp,
-    refreshCatalogVideos,
+    refreshCatalogVideos: loadCatalogVideos,
     renameVideo,
     setCatalogVideoActionStatusMessage,
     setCatalogVideos,
@@ -282,6 +282,21 @@ export function useCatalogModuleController(): CatalogController {
   const [selectionAnchorVideoId, setSelectionAnchorVideoId] = useState<
     number | null
   >(null);
+  const latestBatchSelectedVideoIds = useRef(batchSelectedVideoIds);
+  const latestSelectedVideo = useRef(selectedVideo);
+  const latestSelectionAnchorVideoId = useRef(selectionAnchorVideoId);
+
+  useEffect(() => {
+    latestBatchSelectedVideoIds.current = batchSelectedVideoIds;
+  }, [batchSelectedVideoIds]);
+
+  useEffect(() => {
+    latestSelectedVideo.current = selectedVideo;
+  }, [selectedVideo]);
+
+  useEffect(() => {
+    latestSelectionAnchorVideoId.current = selectionAnchorVideoId;
+  }, [selectionAnchorVideoId]);
 
   useEffect(() => {
     if (catalogView !== "metadataSuggestions") {
@@ -412,6 +427,64 @@ export function useCatalogModuleController(): CatalogController {
     resetBatchSelection();
   }
 
+  async function refreshCatalogVideos() {
+    const refreshedVideos = await loadCatalogVideos();
+
+    preserveCatalogSelection(refreshedVideos);
+
+    return refreshedVideos;
+  }
+
+  function preserveCatalogSelection(refreshedVideos: CatalogVideo[]) {
+    const selectedVideoIds = latestSelectedVideoIds();
+
+    if (selectedVideoIds.length === 0) {
+      return;
+    }
+
+    const refreshedVideosById = new Map(
+      refreshedVideos.map((catalogVideo) => [catalogVideo.id, catalogVideo]),
+    );
+    const survivingSelectedVideos = selectedVideoIds.flatMap((videoId) => {
+      const refreshedVideo = refreshedVideosById.get(videoId);
+
+      return refreshedVideo ? [refreshedVideo] : [];
+    });
+
+    if (survivingSelectedVideos.length === 0) {
+      resetCatalogSelection();
+      return;
+    }
+
+    if (survivingSelectedVideos.length === 1) {
+      selectVideoForDetailOnly(survivingSelectedVideos[0]);
+      return;
+    }
+
+    setSelectedVideo((currentSelectedVideo) => {
+      if (!currentSelectedVideo) {
+        return currentSelectedVideo;
+      }
+
+      return refreshedVideosById.get(currentSelectedVideo.id) ?? null;
+    });
+    setBatchSelectedVideoIds(
+      survivingSelectedVideos.map((catalogVideo) => catalogVideo.id),
+    );
+    setSelectionAnchorVideoId(() => {
+      const currentAnchorVideoId = latestSelectionAnchorVideoId.current;
+
+      if (
+        currentAnchorVideoId !== null &&
+        refreshedVideosById.has(currentAnchorVideoId)
+      ) {
+        return currentAnchorVideoId;
+      }
+
+      return survivingSelectedVideos[survivingSelectedVideos.length - 1].id;
+    });
+  }
+
   function clearCatalogSelection() {
     resetCatalogSelection();
   }
@@ -516,6 +589,14 @@ export function useCatalogModuleController(): CatalogController {
     }
 
     return selectedVideo ? [selectedVideo.id] : [];
+  }
+
+  function latestSelectedVideoIds() {
+    if (latestBatchSelectedVideoIds.current.length > 0) {
+      return latestBatchSelectedVideoIds.current;
+    }
+
+    return latestSelectedVideo.current ? [latestSelectedVideo.current.id] : [];
   }
 
   function videoSelectionRange(targetVideoId: number) {

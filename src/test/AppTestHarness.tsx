@@ -258,7 +258,7 @@ export function renderApp() {
 }
 
 export async function openScanModule() {
-  fireEvent.click(await screen.findByRole("button", { name: "Scan" }));
+  fireEvent.click(await screen.findByRole("button", { name: /^Scan/ }));
 }
 
 export async function openSettingsModule() {
