@@ -50,7 +50,6 @@ export type CatalogProps = {
   onCatalogVideoFiltersChange: (filters: CatalogVideoFilters) => void;
   onCatalogVideoSortChange: (sort: CatalogVideoSort) => void;
   onCatalogViewChange: (catalogView: CatalogView) => void;
-  onClearVideoSelection: () => void;
   onCreateOrAppendPerformer: (performerName: string) => void;
   onCreateOrAppendTag: (tagName: string) => void;
   onCreateOrAttachPerformer: (performerName: string) => void;
