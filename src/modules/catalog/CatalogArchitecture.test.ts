@@ -27,7 +27,6 @@ const videosPanelStylesSource = readFileSync(
   "src/modules/catalog/VideosPanel/VideosPanel.module.css",
   "utf8",
 );
-
 const videosPanelFiles = import.meta.glob("./VideosPanel/**/*.{ts,tsx,css}", {
   eager: true,
   query: "?raw",
@@ -146,6 +145,23 @@ const videoPreviewFiles = import.meta.glob(
   },
 );
 
+function fileExists(filePath: string) {
+  try {
+    readFileSync(filePath, "utf8");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readOptionalSource(filePath: string) {
+  try {
+    return readFileSync(filePath, "utf8");
+  } catch {
+    return null;
+  }
+}
+
 function rawSource(
   files: Record<string, unknown>,
   path: string,
@@ -154,6 +170,27 @@ function rawSource(
 }
 
 describe("Catalog module boundaries", () => {
+  it("keeps Catalog integration tests split by owning panel", () => {
+    const expectedOwnedIntegrationTests = [
+      "src/modules/catalog/VideosPanel/VideosPanel.integration.test.tsx",
+      "src/modules/catalog/SelectionPanel/SelectionPanel.integration.test.tsx",
+      "src/modules/catalog/SelectionPanel/VideoDetailPanel/VideoDetailPanel.integration.test.tsx",
+      "src/modules/catalog/MetadataSuggestionsPanel/MetadataSuggestionsPanel.integration.test.tsx",
+    ];
+
+    for (const ownedIntegrationTest of expectedOwnedIntegrationTests) {
+      expect(fileExists(ownedIntegrationTest)).toBe(true);
+    }
+
+    const catalogTestSource = readOptionalSource(
+      "src/modules/catalog/Catalog.test.tsx",
+    );
+
+    if (catalogTestSource !== null) {
+      expect(catalogTestSource.split("\n").length).toBeLessThan(350);
+    }
+  });
+
   it("keeps Catalog data hooks behind the Catalog module boundary", () => {
     expect(appSource).not.toMatch(/useCatalogVideos/);
     expect(appSource).not.toMatch(/useCatalogMetadata/);
