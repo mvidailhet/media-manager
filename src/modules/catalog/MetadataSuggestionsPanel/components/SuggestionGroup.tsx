@@ -39,15 +39,22 @@ export function SuggestionGroup({
   const [acceptedSuggestionKind, setAcceptedSuggestionKind] = useState(
     suggestionGroup.suggestionKind,
   );
+  const [acceptedSuggestionValue, setAcceptedSuggestionValue] = useState(
+    suggestionGroup.suggestedValue,
+  );
   const badgeColor = metadataBadgeColorForKind(
     acceptedSuggestionKind as MetadataBadgeKind,
   );
   const changeAcceptedSuggestionKind = useCallback((suggestionKind: string) => {
     setAcceptedSuggestionKind(suggestionKind);
   }, []);
+  const changeAcceptedSuggestionValue = useCallback((suggestionValue: string) => {
+    setAcceptedSuggestionValue(suggestionValue);
+  }, []);
 
   useEffect(() => {
     setAcceptedSuggestionKind(suggestionGroup.suggestionKind);
+    setAcceptedSuggestionValue(suggestionGroup.suggestedValue);
   }, [suggestionGroup.suggestionKind, suggestionGroup.suggestedValue]);
 
   return (
@@ -64,7 +71,7 @@ export function SuggestionGroup({
         mt="lg"
         mb="md"
       >
-        {suggestionGroup.suggestedValue}
+        {acceptedSuggestionValue}
       </Badge>
       <Stack gap="xl">
         {suggestionGroup.sources.map((sourceGroup) => (
@@ -77,6 +84,7 @@ export function SuggestionGroup({
             suggestionKind={suggestionGroup.suggestionKind}
             suggestedValue={suggestionGroup.suggestedValue}
             onAcceptedSuggestionKindChange={changeAcceptedSuggestionKind}
+            onAcceptedSuggestionValueChange={changeAcceptedSuggestionValue}
             onAcceptMetadataSuggestionVideos={onAcceptMetadataSuggestionVideos}
             onRejectMetadataSuggestionSource={onRejectMetadataSuggestionSource}
             onReviewVideo={onReviewVideo}

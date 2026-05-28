@@ -49,6 +49,7 @@ export function SuggestionSource({
   onRejectMetadataSuggestionSource,
   onReviewVideo,
   onAcceptedSuggestionKindChange,
+  onAcceptedSuggestionValueChange,
   sourceGroup,
   suggestionKind,
   suggestedValue,
@@ -60,6 +61,7 @@ export function SuggestionSource({
   onRejectMetadataSuggestionSource: RejectMetadataSuggestionSource;
   onReviewVideo?: (videoId: number) => void;
   onAcceptedSuggestionKindChange: (suggestionKind: string) => void;
+  onAcceptedSuggestionValueChange: (suggestionValue: string) => void;
   sourceGroup: MetadataSuggestionGroup["sources"][number];
   suggestionKind: string;
   suggestedValue: string;
@@ -107,10 +109,16 @@ export function SuggestionSource({
 
   useEffect(() => {
     onAcceptedSuggestionKindChange(suggestionKind);
+    onAcceptedSuggestionValueChange(suggestedValue);
     setAcceptedValue(suggestedValue);
     setAdditionalTagNames([]);
     setIsAddingTags(false);
-  }, [suggestedValue, suggestionKind, onAcceptedSuggestionKindChange]);
+  }, [
+    suggestedValue,
+    suggestionKind,
+    onAcceptedSuggestionKindChange,
+    onAcceptedSuggestionValueChange,
+  ]);
 
   return (
     <Stack gap="md">
@@ -133,7 +141,10 @@ export function SuggestionSource({
           miw={240}
           data={availableMetadataNames}
           value={acceptedValue}
-          onChange={setAcceptedValue}
+          onChange={(newAcceptedValue) => {
+            setAcceptedValue(newAcceptedValue);
+            onAcceptedSuggestionValueChange(newAcceptedValue);
+          }}
         />
       </Group>
       {isAddingTags ? (

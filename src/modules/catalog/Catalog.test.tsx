@@ -5995,7 +5995,6 @@ describe("Catalog module", () => {
     fireEvent.change(acceptedMetadataNameInput, {
       target: { value: "Secret Performer" },
     });
-    fireEvent.click(await screen.findByText("Secret Performer"));
     fireEvent.click(
       within(metadataSuggestions).getByRole("button", {
         name: "Accept",
@@ -6062,6 +6061,52 @@ describe("Catalog module", () => {
     expect(suggestionBadge).toHaveStyle({
       "--badge-bg": "var(--mantine-color-grape-light)",
     });
+  });
+
+  it("updates the Metadata Suggestion badge text when editing the accepted metadata name", async () => {
+    mockedListMetadataSuggestionGroups.mockResolvedValue([
+      {
+        suggestedValue: "Family",
+        suggestionKind: "tag",
+        sources: [
+          {
+            scanRootPath: "/Volumes/Archive/Videos",
+            sourcePathSegment: "Family",
+            videos: [
+              {
+                videoId: 7,
+                title: "Family Trip",
+                fileLocationPath:
+                  "/Volumes/Archive/Videos/Family/family-trip.mp4",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+
+    renderApp();
+    await openMetadataSuggestionsView();
+
+    const metadataSuggestions = await screen.findByRole("region", {
+      name: "Metadata Suggestions",
+    });
+
+    expect(
+      getMetadataSuggestionBadge(metadataSuggestions, "Family"),
+    ).toBeInTheDocument();
+
+    fireEvent.change(
+      await within(metadataSuggestions).findByLabelText("Accepted metadata name"),
+      { target: { value: "Family Archive" } },
+    );
+
+    expect(
+      getMetadataSuggestionBadge(metadataSuggestions, "Family Archive"),
+    ).toBeInTheDocument();
+    expect(
+      within(metadataSuggestions).queryByText("Family"),
+    ).not.toBeInTheDocument();
   });
 
   it("accepts Metadata Suggestions with additional new Tags for the selected Videos", async () => {
