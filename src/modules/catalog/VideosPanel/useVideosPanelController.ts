@@ -11,8 +11,9 @@ import { defaultCatalogVideoFilters } from "../catalogTypes";
 import {
   beginCatalogVideoMatchBreakdown,
   buildCatalogVideoFilterIndex,
-  catalogVideoMatchesIndexedFilters,
+  catalogVideoMatchesPreparedIndexedFilters,
   endCatalogVideoMatchBreakdown,
+  indexedCatalogVideoFilters,
   sortedCatalogVideos,
 } from "../catalogVideoFiltering";
 
@@ -74,11 +75,12 @@ export function useVideosPanelController({
     () => {
       const timingStart = performance.now();
       beginCatalogVideoMatchBreakdown();
+      const indexedFilters = indexedCatalogVideoFilters(catalogVideoFilters);
       const videos = sortedVideos.filter((catalogVideo) =>
-        catalogVideoMatchesIndexedFilters(
+        catalogVideoMatchesPreparedIndexedFilters(
           catalogVideoFilterIndex,
           catalogVideo,
-          catalogVideoFilters,
+          indexedFilters,
           secretMetadataExists,
         ),
       );

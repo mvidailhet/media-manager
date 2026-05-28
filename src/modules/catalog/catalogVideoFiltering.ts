@@ -41,6 +41,17 @@ export interface CatalogVideoFilterData {
   hasLoadedMetadata: boolean;
 }
 
+export interface IndexedCatalogVideoFilters {
+  filters: CatalogVideoFilters;
+  normalizedSelectedFolderBranches: NormalizedSelectedFolderBranch[] | null;
+}
+
+interface NormalizedSelectedFolderBranch {
+  normalizedPath: string;
+  normalizedAvailableScanRootPath: string;
+  isInsideAvailableScanRoot: boolean;
+}
+
 const catalogFilterTimingDebugPrefix = "[DEBUG-catalog-filter-timing]";
 let catalogVideoMatchBreakdown: CatalogVideoMatchBreakdown | null = null;
 
@@ -88,6 +99,32 @@ export function catalogVideoMatchesIndexedFilters(
   filters: CatalogVideoFilters,
   secretMetadataExists = false,
 ): boolean {
+  return catalogVideoMatchesPreparedIndexedFilters(
+    filterIndex,
+    catalogVideo,
+    indexedCatalogVideoFilters(filters),
+    secretMetadataExists,
+  );
+}
+
+export function indexedCatalogVideoFilters(
+  filters: CatalogVideoFilters,
+): IndexedCatalogVideoFilters {
+  return {
+    filters,
+    normalizedSelectedFolderBranches: normalizedSelectedFolderBranches(
+      filters.selectedFolderBranches,
+    ),
+  };
+}
+
+export function catalogVideoMatchesPreparedIndexedFilters(
+  filterIndex: CatalogVideoFilterIndex,
+  catalogVideo: CatalogVideo,
+  indexedFilters: IndexedCatalogVideoFilters,
+  secretMetadataExists = false,
+): boolean {
+  const { filters } = indexedFilters;
   const indexLookupTimingStart = performance.now();
   const filterData =
     filterIndex.videoFilterDataById.get(catalogVideo.id) ??
@@ -132,7 +169,7 @@ export function catalogVideoMatchesIndexedFilters(
     !timedCatalogVideoPredicate("folder", () =>
       indexedCatalogVideoMatchesOptionalFolderFilter(
         filterData,
-        filters.selectedFolderBranches,
+        indexedFilters.normalizedSelectedFolderBranches,
       ),
     )
   ) {
@@ -281,7 +318,7 @@ function indexedCatalogVideoMetadataFilterData(
 
 function indexedCatalogVideoMatchesOptionalFolderFilter(
   filterData: CatalogVideoFilterData,
-  selectedFolderBranches: CatalogFolderSearchBranch[] | null,
+  selectedFolderBranches: NormalizedSelectedFolderBranch[] | null,
 ) {
   if (selectedFolderBranches === null) {
     return true;
@@ -299,13 +336,13 @@ export function catalogVideoMatchesFolderFilter(
 ) {
   return indexedCatalogVideoMatchesFolderFilter(
     indexedCatalogVideoFilterData(catalogVideo, undefined),
-    selectedFolderBranches,
+    normalizedSelectedFolderBranches(selectedFolderBranches) ?? [],
   );
 }
 
 function indexedCatalogVideoMatchesFolderFilter(
   filterData: CatalogVideoFilterData,
-  selectedFolderBranches: CatalogFolderSearchBranch[],
+  selectedFolderBranches: NormalizedSelectedFolderBranch[],
 ) {
   if (selectedFolderBranches.length === 0) {
     return false;
@@ -314,20 +351,45 @@ function indexedCatalogVideoMatchesFolderFilter(
   return filterData.normalizedReachableFileLocationPaths.some(
     (fileLocationPath) =>
       selectedFolderBranches.some((selectedFolderBranch) => {
-      const selectedBranchPath = normalizedFolderSearchPath(
-        selectedFolderBranch.path,
-      );
-      const availableScanRootPath = normalizedFolderSearchPath(
-        selectedFolderBranch.availableScanRootPath,
-      );
-
-      return (
-        pathIsInsideBranch(selectedBranchPath, availableScanRootPath) &&
-        pathIsInsideBranch(fileLocationPath, availableScanRootPath) &&
-        pathIsInsideBranch(fileLocationPath, selectedBranchPath)
-      );
+        return (
+          selectedFolderBranch.isInsideAvailableScanRoot &&
+          pathIsInsideBranch(
+            fileLocationPath,
+            selectedFolderBranch.normalizedAvailableScanRootPath,
+          ) &&
+          pathIsInsideBranch(
+            fileLocationPath,
+            selectedFolderBranch.normalizedPath,
+          )
+        );
       }),
   );
+}
+
+function normalizedSelectedFolderBranches(
+  selectedFolderBranches: CatalogFolderSearchBranch[] | null,
+) {
+  if (selectedFolderBranches === null) {
+    return null;
+  }
+
+  return selectedFolderBranches.map((selectedFolderBranch) => {
+    const normalizedPath = normalizedFolderSearchPath(
+      selectedFolderBranch.path,
+    );
+    const normalizedAvailableScanRootPath = normalizedFolderSearchPath(
+      selectedFolderBranch.availableScanRootPath,
+    );
+
+    return {
+      normalizedPath,
+      normalizedAvailableScanRootPath,
+      isInsideAvailableScanRoot: pathIsInsideBranch(
+        normalizedPath,
+        normalizedAvailableScanRootPath,
+      ),
+    };
+  });
 }
 
 function normalizedFolderSearchPath(path: string) {

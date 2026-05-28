@@ -8,8 +8,10 @@ import {
   catalogVideoMatchesFilters,
   catalogVideoMatchesFolderFilter,
   catalogVideoMatchesIndexedFilters,
+  catalogVideoMatchesPreparedIndexedFilters,
   catalogVideoMatchesTagFilter,
   endCatalogVideoMatchBreakdown,
+  indexedCatalogVideoFilters,
 } from "./catalogVideoFiltering";
 
 const taggedMetadata: CatalogVideoMetadata = {
@@ -126,6 +128,68 @@ describe("catalogVideoMatchesFolderFilter", () => {
     ]);
 
     expect(catalogVideoMatchesFolderFilter(catalogVideo, [])).toBe(false);
+  });
+});
+
+describe("catalogVideoMatchesPreparedIndexedFilters folder filtering", () => {
+  it("matches reachable File Locations under selected branches", () => {
+    const catalogVideo = catalogVideoWithFileLocations([
+      reachableFileLocation(reachableParisVideoPath),
+    ]);
+
+    expect(
+      catalogVideoMatchesPreparedFolderFilter(catalogVideo, [
+        selectedFolderBranch(travelBranchPath),
+      ]),
+    ).toBe(true);
+  });
+
+  it("ignores unreachable File Locations", () => {
+    const catalogVideo = catalogVideoWithFileLocations([
+      unreachableFileLocation(reachableParisVideoPath),
+    ]);
+
+    expect(
+      catalogVideoMatchesPreparedFolderFilter(catalogVideo, [
+        selectedFolderBranch(travelBranchPath),
+      ]),
+    ).toBe(false);
+  });
+
+  it("rejects selected branches outside available Scan Roots", () => {
+    const catalogVideo = catalogVideoWithFileLocations([
+      reachableFileLocation(`${offlineTravelBranchPath}/Paris/day-one.mp4`),
+    ]);
+
+    expect(
+      catalogVideoMatchesPreparedFolderFilter(catalogVideo, [
+        selectedFolderBranch(offlineTravelBranchPath),
+      ]),
+    ).toBe(false);
+  });
+
+  it("matches no Videos when the selected branch list is empty", () => {
+    const catalogVideo = catalogVideoWithFileLocations([
+      reachableFileLocation(reachableParisVideoPath),
+    ]);
+
+    expect(catalogVideoMatchesPreparedFolderFilter(catalogVideo, [])).toBe(
+      false,
+    );
+  });
+
+  it("matches any valid branch when multiple selected branches are present", () => {
+    const catalogVideo = catalogVideoWithFileLocations([
+      reachableFileLocation(reachableParisVideoPath),
+    ]);
+
+    expect(
+      catalogVideoMatchesPreparedFolderFilter(catalogVideo, [
+        selectedFolderBranch(documentariesBranchPath),
+        selectedFolderBranch(offlineTravelBranchPath),
+        selectedFolderBranch(travelBranchPath),
+      ]),
+    ).toBe(true);
   });
 });
 
@@ -384,6 +448,25 @@ function expectCatalogFilterTiming(
   if (expectedTiming.folderHasNotRun) {
     expect(timing.folder).toBe(0);
   }
+}
+
+function catalogVideoMatchesPreparedFolderFilter(
+  catalogVideo: CatalogVideo,
+  selectedFolderBranches: ReturnType<typeof selectedFolderBranch>[],
+) {
+  const filterIndex = buildCatalogVideoFilterIndex(
+    [catalogVideo],
+    { [catalogVideo.id]: undefined },
+  );
+  const indexedFilters = indexedCatalogVideoFilters(
+    catalogVideoFilters({ selectedFolderBranches }),
+  );
+
+  return catalogVideoMatchesPreparedIndexedFilters(
+    filterIndex,
+    catalogVideo,
+    indexedFilters,
+  );
 }
 
 function selectedFolderBranch(path: string) {

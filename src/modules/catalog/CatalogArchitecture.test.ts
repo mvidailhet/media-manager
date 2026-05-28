@@ -167,7 +167,7 @@ describe("Catalog module boundaries", () => {
   it("keeps Catalog controller workflows near the feature panels that use them", () => {
     expect(videosPanelControllerSource).toMatch(/useVideosPanelController/);
     expect(videosPanelControllerSource).toMatch(
-      /catalogVideoMatchesIndexedFilters/,
+      /catalogVideoMatchesPreparedIndexedFilters/,
     );
     expect(videosPanelControllerSource).toMatch(/sortedCatalogVideos/);
     expect(catalogControllerSource).not.toMatch(/catalogVideoMatchesFilters/);
