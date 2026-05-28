@@ -1672,7 +1672,7 @@ describe("Videos Panel integration", () => {
     ).toHaveTextContent("3 selected");
   });
 
-  it("supports keyboard selection and Escape clearing in the Videos View", async () => {
+  it("supports keyboard selection in the Videos View", async () => {
     mockedListCatalogVideos.mockResolvedValue([
       catalogVideoFixture(1, "Alpha Clip"),
       catalogVideoFixture(2, "Beta Clip"),
@@ -1700,13 +1700,56 @@ describe("Videos Panel integration", () => {
     expect(
       await screen.findByRole("region", { name: "Batch Edit Panel" }),
     ).toHaveTextContent("3 selected");
+  });
 
+  it("keeps Videos View selection when empty space is clicked or Escape is pressed", async () => {
+    mockedListCatalogVideos.mockResolvedValue([
+      catalogVideoFixture(1, "Alpha Clip"),
+      catalogVideoFixture(2, "Beta Clip"),
+      catalogVideoFixture(3, "Gamma Clip"),
+    ]);
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    const videoGrid = within(catalogVideos).getByLabelText("Video grid");
+    const alphaClipCard = await within(catalogVideos).findByRole("article", {
+      name: "Alpha Clip",
+    });
+    const betaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Beta Clip",
+    });
+    const gammaClipCard = within(catalogVideos).getByRole("article", {
+      name: "Gamma Clip",
+    });
+
+    fireEvent.click(alphaClipCard);
+    expect(
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("Alpha Clip");
+
+    fireEvent.pointerDown(videoGrid, { button: 0 });
+    fireEvent.pointerUp(videoGrid);
     fireEvent.keyDown(gammaClipCard, { key: "Escape" });
 
-    await screen.findByText("No video selected");
     expect(
-      screen.queryByRole("region", { name: "Batch Edit Panel" }),
-    ).not.toBeInTheDocument();
+      await screen.findByRole("region", { name: "Video Detail Panel" }),
+    ).toHaveTextContent("Alpha Clip");
+
+    fireEvent.click(betaClipCard, { metaKey: true });
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
+
+    fireEvent.pointerDown(videoGrid, { button: 0 });
+    fireEvent.pointerUp(videoGrid);
+    fireEvent.keyDown(gammaClipCard, { key: "Escape" });
+
+    expect(
+      await screen.findByRole("region", { name: "Batch Edit Panel" }),
+    ).toHaveTextContent("2 selected");
     expect(
       screen.queryByRole("region", { name: "Video Detail Panel" }),
     ).not.toBeInTheDocument();
