@@ -270,7 +270,7 @@ _Avoid_: Favorite edit, metadata suggestion
 - **Search Filters** do not change the current **Video Detail Panel** or **Batch Edit** selection, even when the selected **Videos** no longer appear in the **Videos View**.
 - Selected **Videos** can disappear from the **Videos View** when they no longer match **Search Filters**, without clearing the current **Video Detail Panel** or **Batch Edit** selection.
 - Changing the **Videos View** sort does not change the current **Video Detail Panel** or **Batch Edit** selection.
-- The **Videos View** has no manual clear-selection gesture in v1; selection changes by selecting other **Videos** or leaving the current **Catalog** workflow.
+- Clicking empty space in the **Videos View** clears the current **Video Detail Panel** or **Batch Edit** selection.
 - A **Catalog** refresh preserves the current **Video Detail Panel** or **Batch Edit** selection when the selected **Videos** still exist in the **Catalog**.
 - If a **Catalog** refresh leaves only one selected **Video** in the **Catalog**, **Batch Edit** becomes that **Video**'s **Video Detail Panel**; if no selected **Videos** remain, no **Video** is selected.
 - **Folder Search Filter** applies to the **Videos View**, not **Metadata Suggestions Review**.

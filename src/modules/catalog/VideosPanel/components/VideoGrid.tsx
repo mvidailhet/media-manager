@@ -34,6 +34,7 @@ const emptySelectionModifiers: VideoSelectionModifiers = {
 export function VideoGrid({
   catalogVideoMetadataById,
   catalogVideos,
+  onClearVideoSelection,
   onReplaceSelectedVideos,
   onSelectVideo,
   onSetFavorite,
@@ -42,6 +43,7 @@ export function VideoGrid({
 }: {
   catalogVideoMetadataById: Record<number, CatalogVideoMetadata>;
   catalogVideos: CatalogVideo[];
+  onClearVideoSelection: () => void;
   onReplaceSelectedVideos: (
     videoIds: number[],
     modifiers: VideoSelectionModifiers,
@@ -190,6 +192,10 @@ export function VideoGrid({
 
       if (selectedModifiedVideoCard) {
         return;
+      }
+
+      if (event.target === event.currentTarget) {
+        onClearVideoSelection();
       }
 
       return;

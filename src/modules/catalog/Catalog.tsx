@@ -103,6 +103,7 @@ export function Catalog(props: CatalogProps & { scanRoots: ScanRoot[] }) {
     onCatalogVideoFiltersChange,
     onCatalogVideoSortChange,
     onCatalogViewChange,
+    onClearVideoSelection,
     onRejectMetadataSuggestionSource,
     onReplaceSelectedVideos,
     onReviewVideo,
@@ -139,6 +140,7 @@ export function Catalog(props: CatalogProps & { scanRoots: ScanRoot[] }) {
               catalogVideosStatusMessage={catalogVideosStatusMessage}
               onCatalogVideoFiltersChange={onCatalogVideoFiltersChange}
               onCatalogVideoSortChange={onCatalogVideoSortChange}
+              onClearVideoSelection={onClearVideoSelection}
               onSetFavorite={onSetFavorite}
               scanRoots={scanRoots}
               onReplaceSelectedVideos={onReplaceSelectedVideos}

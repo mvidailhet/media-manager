@@ -1374,6 +1374,7 @@ export function useCatalogModuleController(): CatalogController {
       onRemoveTag: removeTagFromBatchSelectedVideos,
       onReviewVideo: reviewMetadataSuggestionVideo,
       onSaveTitle: saveSelectedVideoTitle,
+      onClearVideoSelection: resetCatalogSelection,
       onReplaceSelectedVideos: replaceSelectedVideosFromDrag,
       onSelectVideo: selectVideoFromVideosView,
       onSetBatchFavorite: setBatchSelectedVideosFavorite,
