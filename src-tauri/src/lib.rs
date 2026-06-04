@@ -13,8 +13,9 @@ use std::{
 use catalog::{
     Catalog, CatalogPerformer, CatalogTag, CatalogVideo, FailedPreviewStrip,
     FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, MetadataSuggestionGroup,
-    PreviewStripRetryReason, ScanRoot, ScanRootInferenceRules, ScanRootRefreshProgress,
-    ScanRootRefreshStatus, UnprocessableVideoCandidateGroup, VideoExtensionAllowlist,
+    PreviewGenerationScopeBranch, PreviewStripRetryReason, ScanRoot, ScanRootInferenceRules,
+    ScanRootRefreshProgress, ScanRootRefreshStatus, UnprocessableVideoCandidateGroup,
+    VideoExtensionAllowlist,
 };
 use preview_generation::{
     generate_preview_strip_request, store_preview_strip_completion, PreviewGenerationRuntime,
@@ -905,12 +906,13 @@ fn pause_preview_strip_queue_state(
 fn preview_strip_queue_status(
     catalog_state: &CatalogState,
     preview_generation_runtime: &PreviewGenerationRuntime,
+    selected_scope_branches: Option<&[PreviewGenerationScopeBranch]>,
 ) -> Result<PreviewGenerationStatus, String> {
     let catalog = catalog_state
         .catalog
         .lock()
         .map_err(|error| error.to_string())?;
-    let queue_counts = catalog.preview_strip_queue_counts()?;
+    let queue_counts = catalog.preview_strip_queue_counts(selected_scope_branches)?;
 
     preview_generation_runtime.status(queue_counts)
 }
@@ -1144,7 +1146,7 @@ fn retry_failed_preview_strip(
         catalog.retry_failed_preview_strip(video_id, PreviewStripRetryReason::Manual)?;
     }
 
-    preview_strip_queue_status(&catalog_state, &preview_generation_runtime)
+    preview_strip_queue_status(&catalog_state, &preview_generation_runtime, None)
 }
 
 #[tauri::command]
@@ -1161,15 +1163,20 @@ fn ignore_failed_preview_strip(
         catalog.ignore_failed_preview_strip(video_id)?;
     }
 
-    preview_strip_queue_status(&catalog_state, &preview_generation_runtime)
+    preview_strip_queue_status(&catalog_state, &preview_generation_runtime, None)
 }
 
 #[tauri::command]
 fn get_preview_strip_queue_status(
     catalog_state: tauri::State<'_, CatalogState>,
     preview_generation_runtime: tauri::State<'_, PreviewGenerationRuntime>,
+    selected_scope_branches: Option<Vec<PreviewGenerationScopeBranch>>,
 ) -> Result<PreviewGenerationStatus, String> {
-    preview_strip_queue_status(&catalog_state, &preview_generation_runtime)
+    preview_strip_queue_status(
+        &catalog_state,
+        &preview_generation_runtime,
+        selected_scope_branches.as_deref(),
+    )
 }
 
 #[tauri::command]
@@ -1179,7 +1186,7 @@ fn pause_preview_strip_queue(
 ) -> Result<PreviewGenerationStatus, String> {
     pause_preview_strip_queue_state(&preview_generation_runtime)?;
 
-    preview_strip_queue_status(&catalog_state, &preview_generation_runtime)
+    preview_strip_queue_status(&catalog_state, &preview_generation_runtime, None)
 }
 
 #[tauri::command]
@@ -1189,7 +1196,7 @@ fn resume_preview_strip_queue(
 ) -> Result<PreviewGenerationStatus, String> {
     preview_generation_runtime.resume()?;
 
-    preview_strip_queue_status(&catalog_state, &preview_generation_runtime)
+    preview_strip_queue_status(&catalog_state, &preview_generation_runtime, None)
 }
 
 #[tauri::command]
@@ -1197,10 +1204,15 @@ fn process_next_preview_strip_queue_item(
     app: tauri::AppHandle,
     catalog_state: tauri::State<'_, CatalogState>,
     preview_generation_runtime: tauri::State<'_, PreviewGenerationRuntime>,
+    selected_scope_branches: Option<Vec<PreviewGenerationScopeBranch>>,
 ) -> Result<PreviewGenerationStatus, String> {
     match preview_generation_runtime.try_start()? {
         PreviewGenerationStart::Paused | PreviewGenerationStart::AlreadyRunning => {
-            return preview_strip_queue_status(&catalog_state, &preview_generation_runtime);
+            return preview_strip_queue_status(
+                &catalog_state,
+                &preview_generation_runtime,
+                selected_scope_branches.as_deref(),
+            );
         }
         PreviewGenerationStart::Started => {}
     }
@@ -1213,7 +1225,10 @@ fn process_next_preview_strip_queue_item(
                 .catalog
                 .lock()
                 .map_err(|error| error.to_string())?;
-            catalog.next_preview_strip_request(&preview_cache_path)?
+            catalog.next_preview_strip_request(
+                &preview_cache_path,
+                selected_scope_branches.as_deref(),
+            )?
         };
 
         Ok((ffmpeg_path, request))
@@ -1227,7 +1242,11 @@ fn process_next_preview_strip_queue_item(
     };
     let Some(request) = request else {
         preview_generation_runtime.finish_running_video();
-        return preview_strip_queue_status(&catalog_state, &preview_generation_runtime);
+        return preview_strip_queue_status(
+            &catalog_state,
+            &preview_generation_runtime,
+            selected_scope_branches.as_deref(),
+        );
     };
 
     preview_generation_runtime.mark_running_video(request.video_id)?;
@@ -1262,7 +1281,11 @@ fn process_next_preview_strip_queue_item(
         }
     });
 
-    preview_strip_queue_status(&catalog_state, &preview_generation_runtime)
+    preview_strip_queue_status(
+        &catalog_state,
+        &preview_generation_runtime,
+        selected_scope_branches.as_deref(),
+    )
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]

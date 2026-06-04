@@ -33,11 +33,12 @@ impl Catalog {
     pub fn pending_preview_strip_requests(
         &self,
         preview_cache_path: &Path,
+        selected_scope_branches: Option<&[PreviewGenerationScopeBranch]>,
     ) -> Result<Vec<PreviewStripRequest>, String> {
         fs::create_dir_all(preview_cache_path).map_err(|error| error.to_string())?;
         self.remove_preview_strip_rows_without_cache_files()?;
 
-        self.pending_preview_strips()?
+        self.pending_preview_strips(selected_scope_branches)?
             .into_iter()
             .map(|pending_preview_strip| {
                 Ok(PreviewStripRequest {
@@ -57,18 +58,22 @@ impl Catalog {
     pub fn next_preview_strip_request(
         &self,
         preview_cache_path: &Path,
+        selected_scope_branches: Option<&[PreviewGenerationScopeBranch]>,
     ) -> Result<Option<PreviewStripRequest>, String> {
         Ok(self
-            .pending_preview_strip_requests(preview_cache_path)?
+            .pending_preview_strip_requests(preview_cache_path, selected_scope_branches)?
             .into_iter()
             .next())
     }
 
-    pub fn preview_strip_queue_counts(&self) -> Result<PreviewStripQueueCounts, String> {
+    pub fn preview_strip_queue_counts(
+        &self,
+        selected_scope_branches: Option<&[PreviewGenerationScopeBranch]>,
+    ) -> Result<PreviewStripQueueCounts, String> {
         self.remove_preview_strip_rows_without_cache_files()?;
 
         Ok(PreviewStripQueueCounts {
-            pending_count: self.pending_preview_strips()?.len() as i64,
+            pending_count: self.pending_preview_strips(selected_scope_branches)?.len() as i64,
             failed_count: self.failed_preview_strip_count()?,
         })
     }
@@ -135,35 +140,61 @@ impl Catalog {
         Ok(())
     }
 
-    fn pending_preview_strips(&self) -> Result<Vec<PendingPreviewStrip>, String> {
+    fn pending_preview_strips(
+        &self,
+        selected_scope_branches: Option<&[PreviewGenerationScopeBranch]>,
+    ) -> Result<Vec<PendingPreviewStrip>, String> {
+        if selected_scope_branches == Some(&[]) {
+            return Ok(Vec::new());
+        }
+
         let mut statement = self
             .database
             .prepare(
                 "SELECT videos.id,
                         videos.duration_milliseconds,
-                        MIN(file_locations.path)
+                        file_locations.path,
+                        scan_roots.path
                  FROM videos
                  JOIN file_locations ON file_locations.video_id = videos.id
+                 JOIN scan_roots ON scan_roots.id = file_locations.scan_root_id
                  LEFT JOIN preview_strips ON preview_strips.video_id = videos.id
                  LEFT JOIN failed_preview_strips ON failed_preview_strips.video_id = videos.id
                  WHERE preview_strips.id IS NULL
                    AND failed_preview_strips.id IS NULL
-                 GROUP BY videos.id, videos.duration_milliseconds
-                 ORDER BY videos.id",
+                   AND scan_roots.is_available = 1
+                 ORDER BY videos.id, file_locations.path",
             )
             .map_err(|error| error.to_string())?;
 
-        let pending_preview_strips = statement
+        let eligible_file_locations = statement
             .query_map([], |row| {
                 Ok(PendingPreviewStrip {
                     video_id: row.get(0)?,
                     duration_milliseconds: row.get(1)?,
                     video_path: row.get(2)?,
+                    available_scan_root_path: row.get(3)?,
                 })
             })
             .map_err(|error| error.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| error.to_string())?;
+
+        let mut pending_preview_strips = Vec::new();
+        let mut pending_video_ids = HashSet::new();
+
+        for eligible_file_location in eligible_file_locations {
+            if !preview_strip_is_inside_generation_scope(
+                &eligible_file_location,
+                selected_scope_branches,
+            ) {
+                continue;
+            }
+
+            if pending_video_ids.insert(eligible_file_location.video_id) {
+                pending_preview_strips.push(eligible_file_location);
+            }
+        }
 
         Ok(pending_preview_strips)
     }
@@ -248,4 +279,30 @@ impl Catalog {
 
         Ok(())
     }
+}
+
+fn preview_strip_is_inside_generation_scope(
+    pending_preview_strip: &PendingPreviewStrip,
+    selected_scope_branches: Option<&[PreviewGenerationScopeBranch]>,
+) -> bool {
+    let Some(selected_scope_branches) = selected_scope_branches else {
+        return true;
+    };
+
+    selected_scope_branches.iter().any(|scope_branch| {
+        pending_preview_strip.available_scan_root_path == scope_branch.available_scan_root_path
+            && path_is_inside_branch(&pending_preview_strip.video_path, &scope_branch.path)
+    })
+}
+
+fn path_is_inside_branch(path: &str, branch_path: &str) -> bool {
+    let normalized_path = normalized_folder_path(path);
+    let normalized_branch_path = normalized_folder_path(branch_path);
+
+    normalized_path == normalized_branch_path
+        || normalized_path.starts_with(&format!("{normalized_branch_path}/"))
+}
+
+fn normalized_folder_path(path: &str) -> String {
+    path.replace('\\', "/").trim_end_matches('/').to_string()
 }
