@@ -43,6 +43,7 @@ export function PreviewGenerationScopeTree({
   const [hasLoadedScopeTree, setHasLoadedScopeTree] = useState(false);
   const onSelectedScopeBranchesChangeRef = useRef(onSelectedScopeBranchesChange);
   const isUserChangingCheckedState = useRef(false);
+  const hasInitializedExpandedBranchState = useRef(false);
   const previousRunningPreviewStripCount = useRef(0);
   const visibleScopeBranches = useMemo(
     () => flattenScopeTreeNodes(scopeTreeNodes),
@@ -126,8 +127,16 @@ export function PreviewGenerationScopeTree({
   }, [loadScopeTree, previewStripQueueStatus?.runningCount]);
 
   useEffect(() => {
+    if (
+      hasInitializedExpandedBranchState.current ||
+      visibleScopeBranches.length === 0
+    ) {
+      return;
+    }
+
+    hasInitializedExpandedBranchState.current = true;
     tree.setExpandedState(expandedBranchState);
-  }, [expandedBranchState]);
+  }, [expandedBranchState, visibleScopeBranches.length]);
 
   useEffect(() => {
     if (!hasLoadedScopeTree) {

@@ -584,6 +584,114 @@ describe("Scan module", () => {
     }
   });
 
+  it("keeps collapsed Preview Generation folders collapsed as Preview Strips complete", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockedListPendingPreviewStripScopeTree
+      .mockResolvedValueOnce([
+        {
+          path: "/Volumes/Archive/Videos",
+          availableScanRootPath: "/Volumes/Archive/Videos",
+          pendingCount: 2,
+          children: [
+            {
+              path: "/Volumes/Archive/Videos/Travel",
+              availableScanRootPath: "/Volumes/Archive/Videos",
+              pendingCount: 2,
+              children: [
+                {
+                  path: "/Volumes/Archive/Videos/Travel/Paris",
+                  availableScanRootPath: "/Volumes/Archive/Videos",
+                  pendingCount: 1,
+                  children: [],
+                },
+                {
+                  path: "/Volumes/Archive/Videos/Travel/Rome",
+                  availableScanRootPath: "/Volumes/Archive/Videos",
+                  pendingCount: 1,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          path: "/Volumes/Archive/Videos",
+          availableScanRootPath: "/Volumes/Archive/Videos",
+          pendingCount: 1,
+          children: [
+            {
+              path: "/Volumes/Archive/Videos/Travel",
+              availableScanRootPath: "/Volumes/Archive/Videos",
+              pendingCount: 1,
+              children: [
+                {
+                  path: "/Volumes/Archive/Videos/Travel/Rome",
+                  availableScanRootPath: "/Volumes/Archive/Videos",
+                  pendingCount: 1,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+    mockedGetPreviewStripQueueStatus
+      .mockResolvedValueOnce({
+        pendingCount: 2,
+        runningCount: 0,
+        runningVideoId: null,
+        failedCount: 0,
+        isPaused: false,
+      })
+      .mockResolvedValue({
+        pendingCount: 1,
+        runningCount: 0,
+        runningVideoId: null,
+        failedCount: 0,
+        isPaused: false,
+      });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 1,
+      runningVideoId: 1,
+      failedCount: 0,
+      isPaused: false,
+    });
+
+    try {
+      renderApp();
+      await openPreviewGenerationTab();
+
+      expect(
+        await screen.findByRole("checkbox", { name: "Paris (1 pending)" }),
+      ).toBeChecked();
+
+      fireEvent.click(screen.getByText("Travel (2 pending)"));
+      expect(
+        screen.queryByRole("checkbox", { name: "Paris (1 pending)" }),
+      ).not.toBeInTheDocument();
+
+      await waitFor(() =>
+        expect(mockedProcessNextPreviewStripQueueItem).toHaveBeenCalled(),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(250);
+      });
+      vi.useRealTimers();
+
+      await waitFor(() =>
+        expect(mockedListPendingPreviewStripScopeTree).toHaveBeenCalledTimes(2),
+      );
+      expect(
+        screen.queryByRole("checkbox", { name: "Rome (1 pending)" }),
+      ).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("does not show a separate batch generation command", async () => {
     renderApp();
 
