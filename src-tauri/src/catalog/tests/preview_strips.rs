@@ -402,6 +402,183 @@ fn preview_generation_scope_filters_pending_preview_strip_counts() {
 }
 
 #[test]
+fn preview_generation_scope_counts_all_pending_videos_under_a_selected_scan_root() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let backups_root = temporary_folder.path().join("Backups");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    std::fs::create_dir_all(&backups_root).expect("backups root exists");
+    let movies_scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let backups_scan_root = catalog
+        .add_scan_root(&backups_root)
+        .expect("backups scan root adds");
+    let movies_scan_root_path = Path::new(&movies_scan_root.path);
+    let backups_scan_root_path = Path::new(&backups_scan_root.path);
+    let database = catalog_test_database(&catalog_path);
+    store_pending_preview_video(
+        &database,
+        1,
+        "paris-fingerprint",
+        "Paris Trip",
+        1,
+        &movies_scan_root_path.join("Travel/Paris/paris-trip.mp4"),
+    );
+    store_pending_preview_video(
+        &database,
+        2,
+        "studio-fingerprint",
+        "Studio Clip",
+        1,
+        &movies_scan_root_path.join("Studio/studio-clip.mp4"),
+    );
+    store_pending_preview_video(
+        &database,
+        3,
+        "backup-fingerprint",
+        "Backup Trip",
+        2,
+        &backups_scan_root_path.join("Travel/backup-trip.mp4"),
+    );
+    let selected_scope = vec![crate::catalog::PreviewGenerationScopeBranch {
+        path: movies_scan_root.path.clone(),
+        available_scan_root_path: movies_scan_root.path,
+    }];
+
+    assert_eq!(
+        catalog
+            .preview_strip_queue_counts(Some(&selected_scope))
+            .expect("selected Scan Root counts load")
+            .pending_count,
+        2
+    );
+}
+
+#[test]
+fn preview_generation_scope_excludes_unchecked_child_folder_subtrees() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let movies_scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let movies_scan_root_path = Path::new(&movies_scan_root.path);
+    let database = catalog_test_database(&catalog_path);
+    store_pending_preview_video(
+        &database,
+        1,
+        "paris-fingerprint",
+        "Paris Trip",
+        1,
+        &movies_scan_root_path.join("Travel/Paris/paris-trip.mp4"),
+    );
+    store_pending_preview_video(
+        &database,
+        2,
+        "rome-fingerprint",
+        "Rome Trip",
+        1,
+        &movies_scan_root_path.join("Travel/Rome/rome-trip.mp4"),
+    );
+    let selected_scope = vec![crate::catalog::PreviewGenerationScopeBranch {
+        path: movies_scan_root_path
+            .join("Travel/Paris")
+            .to_string_lossy()
+            .into_owned(),
+        available_scan_root_path: movies_scan_root.path,
+    }];
+
+    assert_eq!(
+        catalog
+            .preview_strip_queue_counts(Some(&selected_scope))
+            .expect("child folder scope counts load")
+            .pending_count,
+        1
+    );
+}
+
+#[test]
+fn preview_generation_scope_uses_the_selected_file_location_for_videos_with_multiple_locations() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let preview_cache_path = temporary_folder.path().join("Preview Cache");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let backups_root = temporary_folder.path().join("Backups");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    std::fs::create_dir_all(&backups_root).expect("backups root exists");
+    let movies_scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let backups_scan_root = catalog
+        .add_scan_root(&backups_root)
+        .expect("backups scan root adds");
+    let movies_scan_root_path = Path::new(&movies_scan_root.path);
+    let backups_scan_root_path = Path::new(&backups_scan_root.path);
+    let database = catalog_test_database(&catalog_path);
+    database
+        .execute(
+            "INSERT INTO videos (id, fingerprint, fingerprint_version, title, duration_milliseconds)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (1_i64, "duplicate-fingerprint", 1_i64, "Duplicate Trip", 21_000_i64),
+        )
+        .expect("video persists");
+    database
+        .execute(
+            "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                1_i64,
+                2_i64,
+                backups_scan_root_path
+                    .join("Duplicate/duplicate-trip.mp4")
+                    .to_string_lossy()
+                    .into_owned(),
+                17_i64,
+                "2026-05-14T16:35:48Z",
+            ),
+        )
+        .expect("backup file location persists");
+    database
+        .execute(
+            "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                1_i64,
+                1_i64,
+                movies_scan_root_path
+                    .join("Selected/duplicate-trip.mp4")
+                    .to_string_lossy()
+                    .into_owned(),
+                17_i64,
+                "2026-05-14T16:35:48Z",
+            ),
+        )
+        .expect("selected file location persists");
+    let selected_scope = vec![crate::catalog::PreviewGenerationScopeBranch {
+        path: movies_scan_root_path
+            .join("Selected")
+            .to_string_lossy()
+            .into_owned(),
+        available_scan_root_path: movies_scan_root.path.clone(),
+    }];
+
+    let preview_strip_request = catalog
+        .next_preview_strip_request(&preview_cache_path, Some(&selected_scope))
+        .expect("preview request loads")
+        .expect("preview request exists");
+
+    assert!(preview_strip_request
+        .video_path
+        .starts_with(movies_scan_root_path.join("Selected")));
+}
+
+#[test]
 fn preview_strip_generation_uses_one_file_location_for_duplicate_locations_of_the_same_video() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");

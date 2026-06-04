@@ -61,6 +61,12 @@ import {
   firstPreviewStripFrameIndex,
   previewStripFramePosition,
 } from "../catalog/components/VideoPreview/previewStripFrame";
+import {
+  catalogVideoFixture,
+  clickFolderFilterCheckbox,
+  expandFolderFilterBranch,
+  showAdvancedSearch,
+} from "../catalog/test/catalogTestHelpers";
 
 describe("Scan module", () => {
   beforeEach(resetAppTestHarness);
@@ -96,6 +102,89 @@ describe("Scan module", () => {
       screen.getByRole("button", { name: "Resume Preview Queue" }),
     ).toBeInTheDocument();
     expect(mockedProcessNextPreviewStripQueueItem).not.toHaveBeenCalled();
+  });
+
+  it("processes Preview Strips inside the selected Catalog child folder branch", async () => {
+    const selectedScopeBranches = [
+      {
+        path: "/Volumes/Archive/Videos/Travel/Paris",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+      },
+    ];
+    mockedListScanRoots.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos",
+        isAvailable: true,
+        lastScanCompletedAt: null,
+        inferenceRules: defaultInferenceRules,
+      },
+    ]);
+    mockedListCatalogVideos.mockResolvedValue([
+      {
+        ...catalogVideoFixture(1, "Paris Day One"),
+        fileLocationPath: "/Volumes/Archive/Videos/Travel/Paris/day-one.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/Travel/Paris/day-one.mp4",
+            fileSizeBytes: 1000,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+      },
+      {
+        ...catalogVideoFixture(2, "Studio Clip"),
+        fileLocationPath: "/Volumes/Archive/Videos/Studio/studio-clip.mp4",
+        fileLocations: [
+          {
+            path: "/Volumes/Archive/Videos/Studio/studio-clip.mp4",
+            fileSizeBytes: 1000,
+            isPreferred: true,
+            isReachable: true,
+          },
+        ],
+      },
+    ]);
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      runningVideoId: null,
+      failedCount: 0,
+      isPaused: false,
+    });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 0,
+      runningCount: 1,
+      runningVideoId: 1,
+      failedCount: 0,
+      isPaused: false,
+    });
+
+    renderApp();
+
+    const catalogVideos = await screen.findByRole("region", {
+      name: "Catalog Videos",
+    });
+    await showAdvancedSearch(catalogVideos);
+    fireEvent.click(
+      await within(catalogVideos).findByRole("button", {
+        name: "Unselect all visible folder branches",
+      }),
+    );
+    expandFolderFilterBranch(catalogVideos, "/Volumes/Archive/Videos");
+    clickFolderFilterCheckbox(catalogVideos, "Travel");
+    await openPreviewGenerationTab();
+
+    await waitFor(() =>
+      expect(mockedGetPreviewStripQueueStatus).toHaveBeenCalledWith(
+        selectedScopeBranches,
+      ),
+    );
+    await waitFor(() =>
+      expect(mockedProcessNextPreviewStripQueueItem).toHaveBeenCalledWith(
+        selectedScopeBranches,
+      ),
+    );
   });
 
   it("does not show a separate batch generation command", async () => {

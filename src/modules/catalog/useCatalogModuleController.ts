@@ -14,6 +14,7 @@ import type {
 import { useCatalogMetadata } from "./useCatalogMetadata";
 import { useCatalogVideos } from "./useCatalogVideos";
 import type {
+  CatalogFolderSearchBranch,
   CatalogMetadataSuggestionAcceptanceRequest,
   CatalogVideoMetadata,
   CatalogView,
@@ -41,6 +42,7 @@ type CatalogController = {
   recordTagSecretStatusChange: (tag: CatalogTag) => void;
   refreshCatalogVideos: () => Promise<CatalogVideo[]>;
   refreshMetadataSuggestionGroups: () => Promise<void>;
+  selectedPreviewGenerationScopeBranches: CatalogFolderSearchBranch[] | null;
 };
 
 export type VideoSelectionModifiers = {
@@ -1393,6 +1395,8 @@ export function useCatalogModuleController(): CatalogController {
     recordTagSecretStatusChange,
     refreshCatalogVideos,
     refreshMetadataSuggestionGroups,
+    selectedPreviewGenerationScopeBranches:
+      catalogVideoFilters.selectedFolderBranches,
   };
 }
 
