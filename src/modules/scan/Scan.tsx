@@ -5,6 +5,7 @@ import type {
   CatalogTag,
   CatalogVideo,
   FailedPreviewStrip,
+  PreviewGenerationScopeBranch,
   PreviewStripQueueStatus,
   ScanRootRefreshJobProgress,
   UnprocessableVideoCandidateGroup,
@@ -44,10 +45,14 @@ export type ScanProps = {
     inferenceRules: ScanRoot["inferenceRules"],
   ) => void;
   onScanTabChange: (scanTab: string | null) => void;
+  onSelectedPreviewGenerationScopeBranchesChange: (
+    selectedScopeBranches: PreviewGenerationScopeBranch[] | null,
+  ) => void;
   onSecretPerformerStatusChange: (performer: CatalogPerformer) => void;
   onSecretTagStatusChange: (tag: CatalogTag) => void;
   previewGenerationAttentionCount: number;
   previewStripQueueStatus: PreviewStripQueueStatus | null;
+  selectedPreviewGenerationScopeBranches: PreviewGenerationScopeBranch[] | null;
   missingVideosAttentionCount: number;
   scanRootsAttentionCount: number;
   missingVideosStatusMessage: string;
@@ -77,10 +82,12 @@ export function Scan({
   onRetryFailedPreview,
   onSaveScanRootInferenceRules,
   onScanTabChange,
+  onSelectedPreviewGenerationScopeBranchesChange,
   onSecretPerformerStatusChange,
   onSecretTagStatusChange,
   previewGenerationAttentionCount,
   previewStripQueueStatus,
+  selectedPreviewGenerationScopeBranches,
   missingVideosAttentionCount,
   scanRootsAttentionCount,
   missingVideosStatusMessage,
@@ -140,7 +147,13 @@ export function Scan({
           onPausePreviewStripQueue={onPausePreviewStripQueue}
           onResumePreviewStripQueue={onResumePreviewStripQueue}
           onRetryFailedPreview={onRetryFailedPreview}
+          onSelectedPreviewGenerationScopeBranchesChange={
+            onSelectedPreviewGenerationScopeBranchesChange
+          }
           previewStripQueueStatus={previewStripQueueStatus}
+          selectedPreviewGenerationScopeBranches={
+            selectedPreviewGenerationScopeBranches
+          }
         />
       </Tabs.Panel>
     </Tabs>
