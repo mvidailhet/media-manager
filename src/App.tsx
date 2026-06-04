@@ -36,6 +36,7 @@ export default function App() {
     recordTagSecretStatusChange,
     refreshCatalogVideos,
     refreshMetadataSuggestionGroups,
+    selectedPreviewGenerationScopeBranches,
   } = catalog;
   const scan = useScanModuleController({
     catalogVideos,
@@ -46,6 +47,7 @@ export default function App() {
     recordTagSecretStatusChange,
     refreshCatalogVideos,
     refreshMetadataSuggestionGroups,
+    selectedPreviewGenerationScopeBranches,
   });
   const settings = useSettingsModuleController({
     refreshMissingVideos: async () => scan.refreshMissingVideos(false),

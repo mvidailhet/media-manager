@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import type {
   FailedPreviewStrip,
+  PreviewGenerationScopeBranch,
   PreviewStripQueueStatus,
 } from "../../tauriCommands";
 import {
@@ -20,8 +21,10 @@ const previewStripQueuePollingIntervalMilliseconds = 250;
 
 export function usePreviewGeneration({
   refreshCatalogVideos,
+  selectedScopeBranches,
 }: {
   refreshCatalogVideos: () => Promise<unknown>;
+  selectedScopeBranches: PreviewGenerationScopeBranch[] | null;
 }) {
   const [failedPreviewStrips, setFailedPreviewStrips] = useState<
     FailedPreviewStrip[]
@@ -31,6 +34,8 @@ export function usePreviewGeneration({
   const [previewStripQueueStatus, setPreviewStripQueueStatus] =
     useState<PreviewStripQueueStatus | null>(null);
   const latestRefreshCatalogVideos = useRef(refreshCatalogVideos);
+  const previewGenerationScopeCommandArgument =
+    selectedScopeBranches ?? undefined;
 
   useEffect(() => {
     latestRefreshCatalogVideos.current = refreshCatalogVideos;
@@ -42,7 +47,9 @@ export function usePreviewGeneration({
 
   async function refreshPreviewStripQueueStatus() {
     try {
-      const queueStatus = await getPreviewStripQueueStatus();
+      const queueStatus = await getPreviewStripQueueStatus(
+        previewGenerationScopeCommandArgument,
+      );
 
       setPreviewStripQueueStatus(queueStatus);
     } catch {
@@ -79,6 +86,32 @@ export function usePreviewGeneration({
   }, []);
 
   useEffect(() => {
+    let canUpdatePreviewStripQueue = true;
+
+    async function loadSelectedScopeQueueStatus() {
+      try {
+        const queueStatus = await getPreviewStripQueueStatus(
+          previewGenerationScopeCommandArgument,
+        );
+
+        if (canUpdatePreviewStripQueue) {
+          setPreviewStripQueueStatus(queueStatus);
+        }
+      } catch {
+        if (canUpdatePreviewStripQueue) {
+          setPreviewStripStatusMessage(previewStripQueueErrorMessage);
+        }
+      }
+    }
+
+    void loadSelectedScopeQueueStatus();
+
+    return () => {
+      canUpdatePreviewStripQueue = false;
+    };
+  }, [previewGenerationScopeCommandArgument]);
+
+  useEffect(() => {
     let canProcessQueue = true;
 
     async function processPreviewStripQueue() {
@@ -92,7 +125,9 @@ export function usePreviewGeneration({
       }
 
       try {
-        const queueStatus = await processNextPreviewStripQueueItem();
+        const queueStatus = await processNextPreviewStripQueueItem(
+          previewGenerationScopeCommandArgument,
+        );
 
         if (canProcessQueue) {
           setPreviewStripQueueStatus(queueStatus);
@@ -109,7 +144,7 @@ export function usePreviewGeneration({
     return () => {
       canProcessQueue = false;
     };
-  }, [previewStripQueueStatus]);
+  }, [previewGenerationScopeCommandArgument, previewStripQueueStatus]);
 
   useEffect(() => {
     if (
@@ -122,7 +157,9 @@ export function usePreviewGeneration({
     let canUpdatePreviewStripQueue = true;
     const timeoutId = window.setTimeout(async () => {
       try {
-        const queueStatus = await getPreviewStripQueueStatus();
+        const queueStatus = await getPreviewStripQueueStatus(
+          previewGenerationScopeCommandArgument,
+        );
 
         if (!canUpdatePreviewStripQueue) {
           return;
@@ -144,7 +181,7 @@ export function usePreviewGeneration({
       canUpdatePreviewStripQueue = false;
       window.clearTimeout(timeoutId);
     };
-  }, [previewStripQueueStatus]);
+  }, [previewGenerationScopeCommandArgument, previewStripQueueStatus]);
 
   async function pausePreviewStripQueueAction() {
     try {
