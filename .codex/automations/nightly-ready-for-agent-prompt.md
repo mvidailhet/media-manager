@@ -38,7 +38,7 @@ Review:
 - commit the review fixes separately with a clear commit message
 
 PR:
-- open a draft PR for the branch
+- open a PR for the branch
 - include:
   - issue reference
   - summary of what was implemented
