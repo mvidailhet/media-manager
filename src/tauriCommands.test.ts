@@ -7,6 +7,7 @@ import {
   checkScanRootAvailability,
   forgetCatalogVideo,
   getPreviewStripQueueStatus,
+  listPendingPreviewStripScopeTree,
   getCurrentPlaybackWindowVideo,
   getFfmpegToolsStatus,
   getLocalDesktopAppStatus,
@@ -513,6 +514,45 @@ describe("Tauri commands", () => {
       isPaused: false,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("get_preview_strip_queue_status");
+  });
+
+  it("calls the typed Rust command for Pending Preview Strip scope tree data", async () => {
+    mockedInvoke.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+        pendingCount: 3,
+        children: [
+          {
+            path: "/Volumes/Archive/Videos/Travel",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 2,
+            children: [],
+          },
+        ],
+      },
+    ]);
+
+    const scopeTree = await listPendingPreviewStripScopeTree();
+
+    expect(scopeTree).toEqual([
+      {
+        path: "/Volumes/Archive/Videos",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+        pendingCount: 3,
+        children: [
+          {
+            path: "/Volumes/Archive/Videos/Travel",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 2,
+            children: [],
+          },
+        ],
+      },
+    ]);
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "list_pending_preview_strip_scope_tree",
+    );
   });
 
   it("passes the Preview Generation Scope to Preview Strip queue commands", async () => {

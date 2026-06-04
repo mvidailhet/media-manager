@@ -579,6 +579,192 @@ fn preview_generation_scope_uses_the_selected_file_location_for_videos_with_mult
 }
 
 #[test]
+fn pending_preview_strip_scope_tree_counts_pending_videos_for_each_subtree() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    let movies_scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let movies_scan_root_path = Path::new(&movies_scan_root.path);
+    let database = catalog_test_database(&catalog_path);
+    store_pending_preview_video(
+        &database,
+        1,
+        "travel-fingerprint",
+        "Travel Trip",
+        1,
+        &movies_scan_root_path.join("Travel/Paris/travel-trip.mp4"),
+    );
+    store_pending_preview_video(
+        &database,
+        2,
+        "family-fingerprint",
+        "Family Trip",
+        1,
+        &movies_scan_root_path.join("Family/family-trip.mp4"),
+    );
+
+    let scope_tree = catalog
+        .pending_preview_strip_scope_tree()
+        .expect("scope tree loads");
+
+    assert_eq!(
+        scope_tree,
+        vec![crate::catalog::PendingPreviewStripScopeTreeNode {
+            path: movies_scan_root.path.clone(),
+            available_scan_root_path: movies_scan_root.path.clone(),
+            pending_count: 2,
+            children: vec![
+                crate::catalog::PendingPreviewStripScopeTreeNode {
+                    path: movies_scan_root_path
+                        .join("Family")
+                        .to_string_lossy()
+                        .into_owned(),
+                    available_scan_root_path: movies_scan_root.path.clone(),
+                    pending_count: 1,
+                    children: Vec::new(),
+                },
+                crate::catalog::PendingPreviewStripScopeTreeNode {
+                    path: movies_scan_root_path
+                        .join("Travel")
+                        .to_string_lossy()
+                        .into_owned(),
+                    available_scan_root_path: movies_scan_root.path.clone(),
+                    pending_count: 1,
+                    children: vec![crate::catalog::PendingPreviewStripScopeTreeNode {
+                        path: movies_scan_root_path
+                            .join("Travel/Paris")
+                            .to_string_lossy()
+                            .into_owned(),
+                        available_scan_root_path: movies_scan_root.path.clone(),
+                        pending_count: 1,
+                        children: Vec::new(),
+                    }],
+                },
+            ],
+        }]
+    );
+}
+
+#[test]
+fn pending_preview_strip_scope_tree_excludes_unavailable_roots_failed_previews_and_duplicates() {
+    let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
+    let catalog_path = temporary_folder.path().join("catalog.sqlite3");
+    let catalog = Catalog::open(&catalog_path).expect("catalog opens");
+    let movies_root = temporary_folder.path().join("Movies");
+    let backup_root = temporary_folder.path().join("Backup");
+    let unavailable_root = temporary_folder.path().join("Unavailable");
+    std::fs::create_dir_all(&movies_root).expect("movies root exists");
+    std::fs::create_dir_all(&backup_root).expect("backup root exists");
+    std::fs::create_dir_all(&unavailable_root).expect("unavailable root exists");
+    let movies_scan_root = catalog
+        .add_scan_root(&movies_root)
+        .expect("movies scan root adds");
+    let backup_scan_root = catalog
+        .add_scan_root(&backup_root)
+        .expect("backup scan root adds");
+    let unavailable_scan_root = catalog
+        .add_scan_root(&unavailable_root)
+        .expect("unavailable scan root adds");
+    let movies_scan_root_path = Path::new(&movies_scan_root.path);
+    let backup_scan_root_path = Path::new(&backup_scan_root.path);
+    let unavailable_scan_root_path = Path::new(&unavailable_scan_root.path);
+    let database = catalog_test_database(&catalog_path);
+    database
+        .execute(
+            "UPDATE scan_roots
+             SET is_available = 0
+             WHERE path = ?1",
+            [&unavailable_scan_root.path],
+        )
+        .expect("scan root is unavailable");
+    store_pending_preview_video(
+        &database,
+        1,
+        "duplicate-fingerprint",
+        "Duplicate Trip",
+        1,
+        &movies_scan_root_path.join("Trips/duplicate-trip.mp4"),
+    );
+    database
+        .execute(
+            "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                1_i64,
+                2_i64,
+                backup_scan_root_path
+                    .join("Trips/duplicate-trip.mp4")
+                    .to_string_lossy()
+                    .into_owned(),
+                17_i64,
+                "2026-05-14T16:35:48Z",
+            ),
+        )
+        .expect("duplicate file location persists");
+    store_pending_preview_video(
+        &database,
+        2,
+        "unavailable-fingerprint",
+        "Unavailable Trip",
+        3,
+        &unavailable_scan_root_path.join("Trips/unavailable-trip.mp4"),
+    );
+    store_pending_preview_video(
+        &database,
+        3,
+        "failed-fingerprint",
+        "Failed Trip",
+        1,
+        &movies_scan_root_path.join("Trips/failed-trip.mp4"),
+    );
+    catalog
+        .store_failed_preview_strip(3, "ffmpeg failed")
+        .expect("failed preview strip stores");
+
+    let scope_tree = catalog
+        .pending_preview_strip_scope_tree()
+        .expect("scope tree loads");
+
+    assert_eq!(
+        scope_tree,
+        vec![
+            crate::catalog::PendingPreviewStripScopeTreeNode {
+                path: backup_scan_root.path.clone(),
+                available_scan_root_path: backup_scan_root.path.clone(),
+                pending_count: 1,
+                children: vec![crate::catalog::PendingPreviewStripScopeTreeNode {
+                    path: backup_scan_root_path
+                        .join("Trips")
+                        .to_string_lossy()
+                        .into_owned(),
+                    available_scan_root_path: backup_scan_root.path.clone(),
+                    pending_count: 1,
+                    children: Vec::new(),
+                }],
+            },
+            crate::catalog::PendingPreviewStripScopeTreeNode {
+                path: movies_scan_root.path.clone(),
+                available_scan_root_path: movies_scan_root.path.clone(),
+                pending_count: 1,
+                children: vec![crate::catalog::PendingPreviewStripScopeTreeNode {
+                    path: movies_scan_root_path
+                        .join("Trips")
+                        .to_string_lossy()
+                        .into_owned(),
+                    available_scan_root_path: movies_scan_root.path.clone(),
+                    pending_count: 1,
+                    children: Vec::new(),
+                }],
+            },
+        ]
+    );
+}
+
+#[test]
 fn preview_strip_generation_uses_one_file_location_for_duplicate_locations_of_the_same_video() {
     let temporary_folder = tempfile::tempdir().expect("temporary folder exists");
     let catalog_path = temporary_folder.path().join("catalog.sqlite3");

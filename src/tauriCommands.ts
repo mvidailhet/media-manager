@@ -48,6 +48,8 @@ const rejectMetadataSuggestionSourceCommand =
 const retryFailedPreviewStripCommand = "retry_failed_preview_strip";
 const ignoreFailedPreviewStripCommand = "ignore_failed_preview_strip";
 const getPreviewStripQueueStatusCommand = "get_preview_strip_queue_status";
+const listPendingPreviewStripScopeTreeCommand =
+  "list_pending_preview_strip_scope_tree";
 const pausePreviewStripQueueCommand = "pause_preview_strip_queue";
 const resumePreviewStripQueueCommand = "resume_preview_strip_queue";
 const processNextPreviewStripQueueItemCommand =
@@ -109,6 +111,12 @@ export interface ScanRootInferenceRules {
 export interface PreviewGenerationScopeBranch {
   path: string;
   availableScanRootPath: string;
+}
+
+export interface PendingPreviewStripScopeTreeNode
+  extends PreviewGenerationScopeBranch {
+  pendingCount: number;
+  children: PendingPreviewStripScopeTreeNode[];
 }
 
 export interface ExactYearRange {
@@ -512,6 +520,14 @@ export async function getPreviewStripQueueStatus(
   return invoke<PreviewStripQueueStatus>(getPreviewStripQueueStatusCommand, {
     selectedScopeBranches,
   });
+}
+
+export async function listPendingPreviewStripScopeTree(): Promise<
+  PendingPreviewStripScopeTreeNode[]
+> {
+  return invoke<PendingPreviewStripScopeTreeNode[]>(
+    listPendingPreviewStripScopeTreeCommand,
+  );
 }
 
 export async function pausePreviewStripQueue(): Promise<PreviewStripQueueStatus> {

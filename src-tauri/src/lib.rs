@@ -13,9 +13,9 @@ use std::{
 use catalog::{
     Catalog, CatalogPerformer, CatalogTag, CatalogVideo, FailedPreviewStrip,
     FfmpegPreviewStripGenerator, FfprobeVideoFileProbe, MetadataSuggestionGroup,
-    PreviewGenerationScopeBranch, PreviewStripRetryReason, ScanRoot, ScanRootInferenceRules,
-    ScanRootRefreshProgress, ScanRootRefreshStatus, UnprocessableVideoCandidateGroup,
-    VideoExtensionAllowlist,
+    PendingPreviewStripScopeTreeNode, PreviewGenerationScopeBranch, PreviewStripRetryReason,
+    ScanRoot, ScanRootInferenceRules, ScanRootRefreshProgress, ScanRootRefreshStatus,
+    UnprocessableVideoCandidateGroup, VideoExtensionAllowlist,
 };
 use preview_generation::{
     generate_preview_strip_request, store_preview_strip_completion, PreviewGenerationRuntime,
@@ -1180,6 +1180,18 @@ fn get_preview_strip_queue_status(
 }
 
 #[tauri::command]
+fn list_pending_preview_strip_scope_tree(
+    catalog_state: tauri::State<'_, CatalogState>,
+) -> Result<Vec<PendingPreviewStripScopeTreeNode>, String> {
+    let catalog = catalog_state
+        .catalog
+        .lock()
+        .map_err(|error| error.to_string())?;
+
+    catalog.pending_preview_strip_scope_tree()
+}
+
+#[tauri::command]
 fn pause_preview_strip_queue(
     catalog_state: tauri::State<'_, CatalogState>,
     preview_generation_runtime: tauri::State<'_, PreviewGenerationRuntime>,
@@ -1349,6 +1361,7 @@ pub fn run() {
             retry_failed_preview_strip,
             ignore_failed_preview_strip,
             get_preview_strip_queue_status,
+            list_pending_preview_strip_scope_tree,
             pause_preview_strip_queue,
             resume_preview_strip_queue,
             process_next_preview_strip_queue_item
