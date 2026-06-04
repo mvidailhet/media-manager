@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import previewGenerationSource from "./PreviewGenerationView/PreviewGenerationView.tsx?raw";
-import previewStripQueueActivityLabelSource from "./PreviewGenerationView/previewStripQueueActivityLabel.ts?raw";
 import failedPreviewStripsPanelSource from "./PreviewGenerationView/components/FailedPreviewStripsPanel.tsx?raw";
 import previewStripQueuePanelSource from "./PreviewGenerationView/components/PreviewStripQueuePanel.tsx?raw";
 import attentionTabLabelSource from "./components/AttentionTabLabel.tsx?raw";
@@ -61,7 +60,9 @@ describe("Scan module file structure", () => {
   it("keeps Missing Videos focused on Missing Videos", () => {
     expect(missingVideosPanelSource).toContain("function MissingVideosPanel");
     expect(missingVideosListSource).toContain("function MissingVideosList");
-    expect(missingVideosPanelSource).toContain('./components/MissingVideosList"');
+    expect(missingVideosPanelSource).toContain(
+      './components/MissingVideosList"',
+    );
     expect(missingVideosPanelSource).not.toContain("UnavailableScanRootsPanel");
     expect(missingVideosPanelSource).not.toContain(
       './components/UnprocessableCandidatesPanel"',
@@ -74,9 +75,6 @@ describe("Scan module file structure", () => {
     );
     expect(failedPreviewStripsPanelSource).toContain(
       "function FailedPreviewStripsPanel",
-    );
-    expect(previewStripQueueActivityLabelSource).toContain(
-      "function previewStripQueueActivityLabel",
     );
     expect(missingVideosPanelSource).not.toContain("FailedPreviewStripsPanel");
     expect(previewGenerationSource).toContain(
@@ -123,7 +121,9 @@ describe("Scan module file structure", () => {
     expect(rootCardSource).not.toMatch(/function ScanRoot/);
     expect(headerSource).not.toMatch(/function ScanRoot/);
     expect(refreshProgressSource).not.toMatch(/function ScanRoot/);
-    expect(unprocessableCandidatesSectionSource).not.toMatch(/function ScanRoot/);
+    expect(unprocessableCandidatesSectionSource).not.toMatch(
+      /function ScanRoot/,
+    );
     expect(inferenceRulesFormSource).not.toMatch(/function ScanRoot/);
     expectComponentFileToOwnOnly(rootsPanelSource, "RootsPanel");
     expectComponentFileToOwnOnly(
@@ -142,7 +142,10 @@ describe("Scan module file structure", () => {
       unprocessableCandidatesSectionSource,
       "UnprocessableCandidatesSection",
     );
-    expectComponentFileToOwnOnly(inferenceRulesFormSource, "InferenceRulesForm");
+    expectComponentFileToOwnOnly(
+      inferenceRulesFormSource,
+      "InferenceRulesForm",
+    );
     expect(missingVideosPanelSource).not.toContain("index.ts");
     expect(previewGenerationSource).not.toContain("index.ts");
   });

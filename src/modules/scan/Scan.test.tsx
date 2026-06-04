@@ -1,4 +1,10 @@
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -99,9 +105,11 @@ describe("Scan module", () => {
     await openPreviewGenerationTab();
 
     expect(await screen.findByText("1 pending")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+    expect(screen.queryByText("Failed Preview Strips")).not.toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: "Resume Preview Queue" }),
-    ).toBeInTheDocument();
+      screen.queryByText("No Failed Preview Strips."),
+    ).not.toBeInTheDocument();
     expect(mockedProcessNextPreviewStripQueueItem).not.toHaveBeenCalled();
   });
 
@@ -229,13 +237,15 @@ describe("Scan module", () => {
         ],
       },
     ]);
-    mockedGetPreviewStripQueueStatus.mockImplementation(async (scopeBranches) => ({
-      pendingCount: scopeBranches?.length === 0 ? 0 : 1,
-      runningCount: 0,
-      runningVideoId: null,
-      failedCount: 0,
-      isPaused: false,
-    }));
+    mockedGetPreviewStripQueueStatus.mockImplementation(
+      async (scopeBranches) => ({
+        pendingCount: scopeBranches?.length === 0 ? 0 : 1,
+        runningCount: 0,
+        runningVideoId: null,
+        failedCount: 0,
+        isPaused: false,
+      }),
+    );
     mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
       pendingCount: 0,
       runningCount: 1,
@@ -269,7 +279,9 @@ describe("Scan module", () => {
       processQueueCallCountBeforeEmptySelection,
     );
 
-    fireEvent.click(screen.getByRole("checkbox", { name: "Paris (1 pending)" }));
+    fireEvent.click(
+      screen.getByRole("checkbox", { name: "Paris (1 pending)" }),
+    );
 
     await waitFor(() =>
       expect(mockedGetPreviewStripQueueStatus).toHaveBeenCalledWith(
@@ -420,7 +432,9 @@ describe("Scan module", () => {
         name: "Hide secret tags and performers",
       }),
     ).toBeChecked();
-    expect(await within(catalogVideos).findByText("Travel Clip")).toBeInTheDocument();
+    expect(
+      await within(catalogVideos).findByText("Travel Clip"),
+    ).toBeInTheDocument();
     await openScanModule();
 
     const secretMetadataSection = await screen.findByRole("region", {
@@ -486,7 +500,9 @@ describe("Scan module", () => {
     expect(mockedCreateTag).not.toHaveBeenCalled();
     expect(mockedCreatePerformer).not.toHaveBeenCalled();
 
-    fireEvent.click(await screen.findByRole("button", { name: "Back to Catalog" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Back to Catalog" }),
+    );
 
     const updatedCatalogVideos = await screen.findByRole("region", {
       name: "Catalog Videos",
@@ -539,7 +555,9 @@ describe("Scan module", () => {
     mockedListPerformers.mockResolvedValue([
       { id: 9, isSecret: true, name: "Blair" },
     ]);
-    mockedUpdatePerformer.mockRejectedValue(new Error("Performer update failed"));
+    mockedUpdatePerformer.mockRejectedValue(
+      new Error("Performer update failed"),
+    );
 
     renderApp();
     await openScanModule();
@@ -569,7 +587,7 @@ describe("Scan module", () => {
     ).toBeChecked();
   });
 
-  it("shows Preview Strip queue status and supports global pause and resume", async () => {
+  it("shows Preview Strip queue progress and supports global stop and start", async () => {
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
       pendingCount: 3,
       runningCount: 1,
@@ -589,22 +607,27 @@ describe("Scan module", () => {
     await openPreviewGenerationTab();
 
     expect(await screen.findByText("3 pending")).toBeInTheDocument();
-    expect(screen.getByText("1 running")).toBeInTheDocument();
     expect(screen.getByText("1 failed")).toBeInTheDocument();
+    expect(
+      screen.getByRole("progressbar", {
+        name: "Preview Strip generation progress",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("1 running")).not.toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Pause Preview Queue" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Stop" }));
 
     expect(mockedPausePreviewStripQueue).toHaveBeenCalled();
-    expect(await screen.findByText("Paused")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Start" }),
+    ).toBeInTheDocument();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "Resume Preview Queue" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Start" }));
 
     expect(mockedResumePreviewStripQueue).toHaveBeenCalled();
-    expect(await screen.findByText("Running")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: "Stop" }),
+    ).toBeInTheDocument();
   });
 
   it("shows the Video whose Preview Strip is generating", async () => {
@@ -967,7 +990,9 @@ describe("Scan module", () => {
       await screen.findByRole("tab", { name: "Scan Roots 1" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Scan 4" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Missing Videos 1" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("tab", { name: "Missing Videos 1" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("tab", { name: "Preview Generation 1" }),
     ).toBeInTheDocument();
@@ -977,12 +1002,16 @@ describe("Scan module", () => {
     const missingVideosWorkflow = await screen.findByRole("tabpanel", {
       name: "Missing Videos 1",
     });
-    expect(within(missingVideosWorkflow).getByText("Missing Trip")).toBeInTheDocument();
+    expect(
+      within(missingVideosWorkflow).getByText("Missing Trip"),
+    ).toBeInTheDocument();
     expect(
       within(missingVideosWorkflow).queryByText("/Volumes/Archive/Videos"),
     ).not.toBeInTheDocument();
     expect(
-      within(missingVideosWorkflow).queryByText("/Volumes/Archive/Videos/broken.mov"),
+      within(missingVideosWorkflow).queryByText(
+        "/Volumes/Archive/Videos/broken.mov",
+      ),
     ).not.toBeInTheDocument();
     expect(
       within(missingVideosWorkflow).queryByText("Broken Preview"),
@@ -996,19 +1025,18 @@ describe("Scan module", () => {
     expect(
       within(previewGeneration).getByText("Broken Preview"),
     ).toBeInTheDocument();
-    expect(within(previewGeneration).getByText("1 generated")).toBeInTheDocument();
     expect(
       within(previewGeneration).getByText(
         "Generating Preview Strip: Generating Trip",
       ),
     ).toBeInTheDocument();
     expect(
-      within(previewGeneration).getByText("1 generated"),
-    ).toBeInTheDocument();
+      within(previewGeneration).queryByText("1 generated"),
+    ).not.toBeInTheDocument();
     expect(
-      within(previewGeneration).getByText(
-        "Generating Preview Strip: Generating Trip",
-      ),
+      within(previewGeneration).getByRole("progressbar", {
+        name: "Preview Strip generation progress",
+      }),
     ).toBeInTheDocument();
     expect(
       within(previewGeneration).getByRole("button", {
@@ -1048,7 +1076,9 @@ describe("Scan module", () => {
     expect(
       within(scanRoots).getByLabelText("Suggest tags from filename brackets"),
     ).toBeChecked();
-    expect(within(scanRoots).getByLabelText("Ignored folder names")).toHaveValue(
+    expect(
+      within(scanRoots).getByLabelText("Ignored folder names"),
+    ).toHaveValue(
       "Misc, Unsorted, To Sort, To Review, New, Temp, Archive, Archives, Downloads, Videos",
     );
     expect(within(scanRoots).getByLabelText("Ignored year start")).toHaveValue(
@@ -1095,7 +1125,9 @@ describe("Scan module", () => {
       target: { value: "1980" },
     });
     fireEvent.click(screen.getByLabelText("Suggest tags from folder names"));
-    fireEvent.click(screen.getByLabelText("Suggest tags from filename brackets"));
+    fireEvent.click(
+      screen.getByLabelText("Suggest tags from filename brackets"),
+    );
     fireEvent.click(
       screen.getByRole("button", { name: "Save Inference Rules" }),
     );
@@ -1223,7 +1255,9 @@ describe("Scan module", () => {
     });
 
     expect(metadataSuggestionsButton).toBeInTheDocument();
-    expect(within(metadataSuggestionsButton).getByText("1")).toBeInTheDocument();
+    expect(
+      within(metadataSuggestionsButton).getByText("1"),
+    ).toBeInTheDocument();
   });
 
   it("shows live Scan Root refresh progress and disables conflicting actions", async () => {
@@ -1275,10 +1309,16 @@ describe("Scan module", () => {
         "/Volumes/Archive/Videos",
       );
     });
-    expect(screen.getByRole("button", { name: "Choose folder" })).toBeDisabled();
-    expect(screen.getAllByRole("button", { name: /Refresh Scan Root/ })[1]).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Choose folder" }),
+    ).toBeDisabled();
+    expect(
+      screen.getAllByRole("button", { name: /Refresh Scan Root/ })[1],
+    ).toBeDisabled();
     expect(screen.getAllByRole("button", { name: "Remove" })[0]).toBeDisabled();
-    expect(screen.getByRole("button", { name: "Save Inference Rules" })).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: "Save Inference Rules" }),
+    ).toBeDisabled();
 
     scanRootRefreshEvent?.({
       payload: {
@@ -1292,10 +1332,9 @@ describe("Scan module", () => {
     });
 
     expect(await screen.findByText("Scanning")).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Scan Root progress" })).toHaveAttribute(
-      "aria-valuenow",
-      "33",
-    );
+    expect(
+      screen.getByRole("progressbar", { name: "Scan Root progress" }),
+    ).toHaveAttribute("aria-valuenow", "33");
     expect(screen.getByText("1 / 3")).toBeInTheDocument();
     expect(
       screen.queryByText("1 of 3 video candidates processed"),
@@ -1499,14 +1538,13 @@ describe("Scan module", () => {
   });
 
   it("does not show Refresh all Scan Roots", async () => {
-    mockedListScanRoots
-      .mockResolvedValue([
-        {
-          inferenceRules: defaultInferenceRules,
-          isAvailable: true,
-          path: "/Volumes/Archive/Videos",
-        },
-      ]);
+    mockedListScanRoots.mockResolvedValue([
+      {
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Archive/Videos",
+      },
+    ]);
 
     renderApp();
 
@@ -1564,10 +1602,10 @@ describe("Scan module", () => {
         path: "/Volumes/Offline/Videos",
       })
       .mockResolvedValueOnce({
-      inferenceRules: defaultInferenceRules,
-      isAvailable: true,
-      path: "/Volumes/Offline/Videos",
-    });
+        inferenceRules: defaultInferenceRules,
+        isAvailable: true,
+        path: "/Volumes/Offline/Videos",
+      });
 
     renderApp();
     await openScanModule();
@@ -1693,7 +1731,9 @@ describe("Scan module", () => {
       name: "Missing Videos",
     });
     expect(
-      within(missingVideosWorkflow).getByRole("heading", { name: "Missing Videos" }),
+      within(missingVideosWorkflow).getByRole("heading", {
+        name: "Missing Videos",
+      }),
     ).toBeInTheDocument();
     expect(
       await within(missingVideosWorkflow).findByText("Family Trip"),
@@ -1711,10 +1751,14 @@ describe("Scan module", () => {
       within(missingVideosWorkflow).queryByText("Unavailable Scan Roots"),
     ).not.toBeInTheDocument();
     expect(
-      within(missingVideosWorkflow).queryByText("Unprocessable Video Candidates"),
+      within(missingVideosWorkflow).queryByText(
+        "Unprocessable Video Candidates",
+      ),
     ).not.toBeInTheDocument();
     expect(
-      within(missingVideosWorkflow).queryByText("/Volumes/Archive/Videos/broken.mkv"),
+      within(missingVideosWorkflow).queryByText(
+        "/Volumes/Archive/Videos/broken.mkv",
+      ),
     ).not.toBeInTheDocument();
     expect(
       within(missingVideosWorkflow).queryByText("missing moov atom"),
@@ -1766,11 +1810,14 @@ describe("Scan module", () => {
   });
 
   it("shows each Scan Root card's Unprocessable video count and capped relative details", async () => {
-    const allArchiveCandidates = Array.from({ length: 21 }, (_, candidateIndex) => ({
-      path: `/Volumes/Archive/Videos/broken-${candidateIndex + 1}.mkv`,
-      reason: "missing moov atom",
-      fileSizeBytes: 1_000_000 * (candidateIndex + 1),
-    }));
+    const allArchiveCandidates = Array.from(
+      { length: 21 },
+      (_, candidateIndex) => ({
+        path: `/Volumes/Archive/Videos/broken-${candidateIndex + 1}.mkv`,
+        reason: "missing moov atom",
+        fileSizeBytes: 1_000_000 * (candidateIndex + 1),
+      }),
+    );
 
     mockedListScanRoots.mockResolvedValue([
       {
@@ -1835,14 +1882,18 @@ describe("Scan module", () => {
     expect(
       within(scanRoots).queryByText("/Volumes/Archive/Videos/broken-1.mkv"),
     ).not.toBeInTheDocument();
-    expect(within(scanRoots).getAllByText("missing moov atom")[0]).toBeInTheDocument();
+    expect(
+      within(scanRoots).getAllByText("missing moov atom")[0],
+    ).toBeInTheDocument();
     expect(within(scanRoots).getByText("1.0 MB")).toBeInTheDocument();
     expect(
       within(scanRoots).queryByText("broken-21.mkv"),
     ).not.toBeInTheDocument();
     expect(within(scanRoots).getByText("Showing 20 of 21")).toBeInTheDocument();
 
-    fireEvent.click(within(scanRoots).getByRole("button", { name: "Show all" }));
+    fireEvent.click(
+      within(scanRoots).getByRole("button", { name: "Show all" }),
+    );
 
     expect(within(scanRoots).getByText("broken-21.mkv")).toBeInTheDocument();
     expect(within(scanRoots).getByText("Showing 21 of 21")).toBeInTheDocument();
@@ -1925,7 +1976,9 @@ describe("Scan module", () => {
     );
     expect(within(scanRoots).queryByText("broken.mov")).not.toBeInTheDocument();
     expect(within(scanRoots).getByText("corrupt.mkv")).toBeInTheDocument();
-    expect(within(scanRoots).getByText("1 Unprocessable video")).toBeInTheDocument();
+    expect(
+      within(scanRoots).getByText("1 Unprocessable video"),
+    ).toBeInTheDocument();
   });
 
   it("keeps an Unprocessable Video Candidate visible with a path-specific Move to Trash failure", async () => {
@@ -1985,7 +2038,9 @@ describe("Scan module", () => {
       ),
     ).toBeInTheDocument();
     expect(within(scanRoots).getByText("broken.mov")).toBeInTheDocument();
-    expect(within(scanRoots).getByText("1 Unprocessable video")).toBeInTheDocument();
+    expect(
+      within(scanRoots).getByText("1 Unprocessable video"),
+    ).toBeInTheDocument();
   });
 
   it("lists Failed Preview Strips in Preview Generation with retry and ignore actions", async () => {

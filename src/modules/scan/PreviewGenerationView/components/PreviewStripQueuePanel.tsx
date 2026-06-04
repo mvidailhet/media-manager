@@ -1,7 +1,9 @@
-import { Badge, Button, Group } from "@mantine/core";
+import { Badge, Button, Group, Progress, Stack, Text } from "@mantine/core";
 
 import type { PreviewStripQueueStatus } from "../../../../tauriCommands";
-import { previewStripQueueActivityLabel } from "../previewStripQueueActivityLabel";
+
+const completedPreviewStripProgress = 100;
+const emptyPreviewStripProgress = 0;
 
 export function PreviewStripQueuePanel({
   generatedPreviewStripCount,
@@ -19,51 +21,64 @@ export function PreviewStripQueuePanel({
   if (!previewStripQueueStatus) {
     return null;
   }
-  const queueActivityLabel = previewStripQueueActivityLabel(
+  const previewStripProgressValue = previewStripQueueProgressValue(
     previewStripQueueStatus,
+    generatedPreviewStripCount,
   );
+  const isPreviewStripQueueStopped = previewStripQueueStatus.isPaused;
 
   return (
-    <Group gap="xs" align="center">
-      <Badge color={previewStripQueueStatus.isPaused ? "yellow" : "teal"}>
-        {queueActivityLabel}
-      </Badge>
-      <Badge variant="light">
-        {previewStripQueueStatus.pendingCount} pending
-      </Badge>
-      {generatedPreviewStripCount !== undefined ? (
-        <Badge variant="light">{generatedPreviewStripCount} generated</Badge>
-      ) : null}
-      <Badge variant="light">
-        {previewStripQueueStatus.runningCount} running
-      </Badge>
+    <Stack gap="xs">
+      <Group gap="xs" align="center">
+        <Button
+          type="button"
+          size="xs"
+          color={isPreviewStripQueueStopped ? "blue" : "red"}
+          onClick={() =>
+            void (isPreviewStripQueueStopped
+              ? onResumePreviewStripQueue()
+              : onPausePreviewStripQueue())
+          }
+        >
+          {isPreviewStripQueueStopped ? "Start" : "Stop"}
+        </Button>
+        <Text size="sm">{previewStripQueueStatus.pendingCount} pending</Text>
+        {previewStripQueueStatus.failedCount > 0 ? (
+          <Badge color="red" variant="light">
+            {previewStripQueueStatus.failedCount} failed
+          </Badge>
+        ) : null}
+      </Group>
       {generatingPreviewStripTitle ? (
-        <Badge variant="light">
+        <Text size="sm" c="dimmed">
           Generating Preview Strip: {generatingPreviewStripTitle}
-        </Badge>
+        </Text>
       ) : null}
-      <Badge color="red" variant="light">
-        {previewStripQueueStatus.failedCount} failed
-      </Badge>
-      {previewStripQueueStatus.isPaused ? (
-        <Button
-          type="button"
-          size="xs"
-          variant="default"
-          onClick={() => void onResumePreviewStripQueue()}
-        >
-          Resume Preview Queue
-        </Button>
-      ) : (
-        <Button
-          type="button"
-          size="xs"
-          variant="default"
-          onClick={() => void onPausePreviewStripQueue()}
-        >
-          Pause Preview Queue
-        </Button>
-      )}
-    </Group>
+      <Progress
+        aria-label="Preview Strip generation progress"
+        value={previewStripProgressValue}
+      />
+    </Stack>
   );
+}
+
+function previewStripQueueProgressValue(
+  previewStripQueueStatus: PreviewStripQueueStatus,
+  generatedPreviewStripCount = 0,
+) {
+  const previewStripQueueTotal =
+    generatedPreviewStripCount +
+    previewStripQueueStatus.pendingCount +
+    previewStripQueueStatus.runningCount +
+    previewStripQueueStatus.failedCount;
+
+  if (previewStripQueueTotal === 0) {
+    return emptyPreviewStripProgress;
+  }
+
+  if (generatedPreviewStripCount === previewStripQueueTotal) {
+    return completedPreviewStripProgress;
+  }
+
+  return (generatedPreviewStripCount / previewStripQueueTotal) * 100;
 }
