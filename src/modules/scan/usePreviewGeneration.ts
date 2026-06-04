@@ -60,15 +60,11 @@ export function usePreviewGeneration({
   useEffect(() => {
     let canUpdatePreviewStripQueue = true;
 
-    async function loadInitialPreviewStripQueueStatus() {
+    async function loadInitialFailedPreviewStrips() {
       try {
-        const [queueStatus, storedFailedPreviewStrips] = await Promise.all([
-          getPreviewStripQueueStatus(),
-          listFailedPreviewStrips(),
-        ]);
+        const storedFailedPreviewStrips = await listFailedPreviewStrips();
 
         if (canUpdatePreviewStripQueue) {
-          setPreviewStripQueueStatus(queueStatus);
           setFailedPreviewStrips(storedFailedPreviewStrips);
         }
       } catch {
@@ -78,7 +74,7 @@ export function usePreviewGeneration({
       }
     }
 
-    void loadInitialPreviewStripQueueStatus();
+    void loadInitialFailedPreviewStrips();
 
     return () => {
       canUpdatePreviewStripQueue = false;
