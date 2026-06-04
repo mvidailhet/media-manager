@@ -116,6 +116,10 @@ _Avoid_: Performer page, performer folder
 A **Preview Strip** that has not been generated yet.
 _Avoid_: Missing video
 
+**Preview Generation Scope**:
+The session-only set of available **Scan Roots** or folders selected for generating **Pending Preview Strips**.
+_Avoid_: Saved generation filter, root scan selection
+
 **Generating Preview Strip**:
 A **Preview Strip** whose generation attempt is currently running.
 _Avoid_: Pending preview strip
