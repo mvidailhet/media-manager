@@ -1,13 +1,19 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Button, Checkbox, Group, Text, Tree, useTree } from "@mantine/core";
 import { IconCaretDownFilled } from "@tabler/icons-react";
 
 import type {
   PendingPreviewStripScopeTreeNode,
   PreviewGenerationScopeBranch,
+  PreviewStripQueueStatus,
 } from "../../../../tauriCommands";
 import { listPendingPreviewStripScopeTree } from "../../../../tauriCommands";
 import { errorMessage } from "../../../../shared/errors/errorMessage";
+import {
+  reconcilePreviewGenerationScopeSelection,
+  samePreviewGenerationScopeBranches,
+  selectedBranchesForCheckedPaths,
+} from "./previewGenerationScopeSelection";
 
 const previewGenerationScopeTreeCaretSize = 12;
 const previewGenerationScopeTreeItemSpacing = 4;
@@ -15,10 +21,16 @@ const previewGenerationScopeActivationKeys = new Set([" ", "Enter"]);
 const previewGenerationScopeUnavailableMessage =
   "Preview Generation Scope unavailable";
 
+interface LoadScopeTreeOptions {
+  canUpdateScopeTree: () => boolean;
+}
+
 export function PreviewGenerationScopeTree({
+  previewStripQueueStatus,
   selectedScopeBranches,
   onSelectedScopeBranchesChange,
 }: {
+  previewStripQueueStatus: PreviewStripQueueStatus | null;
   selectedScopeBranches: PreviewGenerationScopeBranch[] | null;
   onSelectedScopeBranchesChange: (
     selectedScopeBranches: PreviewGenerationScopeBranch[] | null,
@@ -29,6 +41,7 @@ export function PreviewGenerationScopeTree({
   >([]);
   const [scopeTreeStatusMessage, setScopeTreeStatusMessage] = useState("");
   const onSelectedScopeBranchesChangeRef = useRef(onSelectedScopeBranchesChange);
+  const previousRunningPreviewStripCount = useRef(0);
   const visibleScopeBranches = useMemo(
     () => flattenScopeTreeNodes(scopeTreeNodes),
     [scopeTreeNodes],
@@ -42,7 +55,10 @@ export function PreviewGenerationScopeTree({
     [visibleScopeBranches],
   );
   const [checkedBranchPaths, setCheckedBranchPaths] = useState(() =>
-    selectedScopeBranchPaths(selectedScopeBranches, visibleScopeBranches),
+    reconcilePreviewGenerationScopeSelection({
+      selectedScopeBranches,
+      visibleScopeBranches,
+    }).checkedBranchPaths,
   );
   const tree = useTree({
     checkedState: checkedBranchPaths,
@@ -57,45 +73,79 @@ export function PreviewGenerationScopeTree({
     onSelectedScopeBranchesChangeRef.current = onSelectedScopeBranchesChange;
   }, [onSelectedScopeBranchesChange]);
 
+  const loadScopeTree = useCallback(async ({ canUpdateScopeTree }: LoadScopeTreeOptions) => {
+    try {
+      const pendingScopeTree = await listPendingPreviewStripScopeTree();
+
+      if (canUpdateScopeTree()) {
+        setScopeTreeNodes(pendingScopeTree);
+        setScopeTreeStatusMessage("");
+      }
+    } catch (error) {
+      if (canUpdateScopeTree()) {
+        setScopeTreeStatusMessage(
+          errorMessage(error) || previewGenerationScopeUnavailableMessage,
+        );
+      }
+    }
+  }, []);
+
   useEffect(() => {
     let canUpdateScopeTree = true;
 
-    async function loadScopeTree() {
-      try {
-        const pendingScopeTree = await listPendingPreviewStripScopeTree();
-
-        if (canUpdateScopeTree) {
-          setScopeTreeNodes(pendingScopeTree);
-          setScopeTreeStatusMessage("");
-        }
-      } catch (error) {
-        if (canUpdateScopeTree) {
-          setScopeTreeStatusMessage(
-            errorMessage(error) || previewGenerationScopeUnavailableMessage,
-          );
-        }
-      }
-    }
-
-    void loadScopeTree();
+    void loadScopeTree({ canUpdateScopeTree: () => canUpdateScopeTree });
 
     return () => {
       canUpdateScopeTree = false;
     };
-  }, []);
+  }, [loadScopeTree]);
+
+  useEffect(() => {
+    const currentRunningPreviewStripCount =
+      previewStripQueueStatus?.runningCount ?? 0;
+    const previewGenerationFinished =
+      previousRunningPreviewStripCount.current > 0 &&
+      currentRunningPreviewStripCount === 0;
+
+    previousRunningPreviewStripCount.current = currentRunningPreviewStripCount;
+
+    if (!previewGenerationFinished) {
+      return;
+    }
+
+    let canUpdateScopeTree = true;
+
+    void loadScopeTree({ canUpdateScopeTree: () => canUpdateScopeTree });
+
+    return () => {
+      canUpdateScopeTree = false;
+    };
+  }, [loadScopeTree, previewStripQueueStatus?.runningCount]);
 
   useEffect(() => {
     tree.setExpandedState(expandedBranchState);
   }, [expandedBranchState]);
 
   useEffect(() => {
-    const nextCheckedBranchPaths = selectedScopeBranchPaths(
+    const reconciledSelection = reconcilePreviewGenerationScopeSelection({
       selectedScopeBranches,
       visibleScopeBranches,
-    );
+    });
+    const nextCheckedBranchPaths = reconciledSelection.checkedBranchPaths;
 
     if (!sameBranchPaths(checkedBranchPaths, nextCheckedBranchPaths)) {
       tree.setCheckedState(nextCheckedBranchPaths);
+    }
+
+    if (
+      !samePreviewGenerationScopeBranches(
+        selectedScopeBranches,
+        reconciledSelection.selectedScopeBranches,
+      )
+    ) {
+      onSelectedScopeBranchesChangeRef.current(
+        reconciledSelection.selectedScopeBranches,
+      );
     }
   }, [checkedBranchPaths, selectedScopeBranches, visibleScopeBranches]);
 
@@ -255,35 +305,6 @@ function scopeTreeNodeName(scopeTreeNode: PendingPreviewStripScopeTreeNode) {
 
   const pathSegments = scopeTreeNode.path.split("/").filter(Boolean);
   return pathSegments[pathSegments.length - 1] ?? scopeTreeNode.path;
-}
-
-function selectedScopeBranchPaths(
-  selectedScopeBranches: PreviewGenerationScopeBranch[] | null,
-  visibleScopeBranches: PreviewGenerationScopeBranch[],
-) {
-  if (selectedScopeBranches === null) {
-    return visibleScopeBranches.map((scopeBranch) => scopeBranch.path);
-  }
-
-  return selectedScopeBranches.map((scopeBranch) => scopeBranch.path);
-}
-
-function selectedBranchesForCheckedPaths(
-  checkedBranchPaths: string[],
-  visibleScopeBranches: PreviewGenerationScopeBranch[],
-) {
-  const checkedBranchPathSet = new Set(checkedBranchPaths);
-
-  if (checkedBranchPathSet.size === visibleScopeBranches.length) {
-    return null;
-  }
-
-  return visibleScopeBranches
-    .filter((scopeBranch) => checkedBranchPathSet.has(scopeBranch.path))
-    .map(({ availableScanRootPath, path }) => ({
-      availableScanRootPath,
-      path,
-    }));
 }
 
 function sameBranchPaths(firstBranchPaths: string[], secondBranchPaths: string[]) {

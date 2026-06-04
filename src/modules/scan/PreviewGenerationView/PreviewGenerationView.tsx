@@ -40,6 +40,7 @@ export function PreviewGenerationView({
       <Stack gap="md">
         <SectionHeader label="Preview strips" title="Preview Generation" />
         <PreviewGenerationScopeTree
+          previewStripQueueStatus={previewStripQueueStatus}
           selectedScopeBranches={selectedPreviewGenerationScopeBranches}
           onSelectedScopeBranchesChange={
             onSelectedPreviewGenerationScopeBranchesChange
