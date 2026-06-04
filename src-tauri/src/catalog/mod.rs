@@ -1,5 +1,5 @@
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{BTreeMap, HashMap, HashSet},
     fs,
     io::{Read, Seek, SeekFrom},
     path::{Path, PathBuf},
@@ -188,6 +188,15 @@ pub struct PreviewStripGenerationSummary {
 pub struct PreviewStripQueueCounts {
     pub pending_count: i64,
     pub failed_count: i64,
+}
+
+#[derive(Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PendingPreviewStripScopeTreeNode {
+    pub path: String,
+    pub available_scan_root_path: String,
+    pub pending_count: i64,
+    pub children: Vec<PendingPreviewStripScopeTreeNode>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]

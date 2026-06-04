@@ -78,6 +78,36 @@ impl Catalog {
         })
     }
 
+    pub fn pending_preview_strip_scope_tree(
+        &self,
+    ) -> Result<Vec<PendingPreviewStripScopeTreeNode>, String> {
+        self.remove_preview_strip_rows_without_cache_files()?;
+
+        let mut nodes_by_path = BTreeMap::<String, PendingPreviewStripScopeTreeDraft>::new();
+
+        for pending_preview_strip in self.eligible_pending_preview_strip_file_locations()? {
+            for scope_branch_path in scope_branch_paths_for_file_location(
+                &pending_preview_strip.video_path,
+                &pending_preview_strip.available_scan_root_path,
+            ) {
+                let scope_branch = nodes_by_path.entry(scope_branch_path.clone()).or_insert(
+                    PendingPreviewStripScopeTreeDraft {
+                        path: scope_branch_path,
+                        available_scan_root_path: pending_preview_strip
+                            .available_scan_root_path
+                            .clone(),
+                        pending_video_ids: HashSet::new(),
+                    },
+                );
+                scope_branch
+                    .pending_video_ids
+                    .insert(pending_preview_strip.video_id);
+            }
+        }
+
+        Ok(scope_tree_nodes_for_parent(None, &nodes_by_path))
+    }
+
     pub fn store_generated_preview_strip(
         &self,
         video_id: i64,
@@ -148,6 +178,28 @@ impl Catalog {
             return Ok(Vec::new());
         }
 
+        let mut pending_preview_strips = Vec::new();
+        let mut pending_video_ids = HashSet::new();
+
+        for eligible_file_location in self.eligible_pending_preview_strip_file_locations()? {
+            if !preview_strip_is_inside_generation_scope(
+                &eligible_file_location,
+                selected_scope_branches,
+            ) {
+                continue;
+            }
+
+            if pending_video_ids.insert(eligible_file_location.video_id) {
+                pending_preview_strips.push(eligible_file_location);
+            }
+        }
+
+        Ok(pending_preview_strips)
+    }
+
+    fn eligible_pending_preview_strip_file_locations(
+        &self,
+    ) -> Result<Vec<PendingPreviewStrip>, String> {
         let mut statement = self
             .database
             .prepare(
@@ -167,7 +219,7 @@ impl Catalog {
             )
             .map_err(|error| error.to_string())?;
 
-        let eligible_file_locations = statement
+        let pending_preview_strips = statement
             .query_map([], |row| {
                 Ok(PendingPreviewStrip {
                     video_id: row.get(0)?,
@@ -179,22 +231,6 @@ impl Catalog {
             .map_err(|error| error.to_string())?
             .collect::<Result<Vec<_>, _>>()
             .map_err(|error| error.to_string())?;
-
-        let mut pending_preview_strips = Vec::new();
-        let mut pending_video_ids = HashSet::new();
-
-        for eligible_file_location in eligible_file_locations {
-            if !preview_strip_is_inside_generation_scope(
-                &eligible_file_location,
-                selected_scope_branches,
-            ) {
-                continue;
-            }
-
-            if pending_video_ids.insert(eligible_file_location.video_id) {
-                pending_preview_strips.push(eligible_file_location);
-            }
-        }
 
         Ok(pending_preview_strips)
     }
@@ -281,6 +317,12 @@ impl Catalog {
     }
 }
 
+struct PendingPreviewStripScopeTreeDraft {
+    path: String,
+    available_scan_root_path: String,
+    pending_video_ids: HashSet<i64>,
+}
+
 fn preview_strip_is_inside_generation_scope(
     pending_preview_strip: &PendingPreviewStrip,
     selected_scope_branches: Option<&[PreviewGenerationScopeBranch]>,
@@ -303,6 +345,91 @@ fn path_is_inside_branch(path: &str, branch_path: &str) -> bool {
         || normalized_path.starts_with(&format!("{normalized_branch_path}/"))
 }
 
+fn scope_branch_paths_for_file_location(
+    file_location_path: &str,
+    available_scan_root_path: &str,
+) -> Vec<String> {
+    let file_folder_path = parent_folder_path(file_location_path);
+    let normalized_scan_root_path = normalized_folder_path(available_scan_root_path);
+    let normalized_file_folder_path = normalized_folder_path(&file_folder_path);
+
+    if !path_is_inside_branch(&normalized_file_folder_path, &normalized_scan_root_path) {
+        return Vec::new();
+    }
+
+    let relative_folder_path = normalized_file_folder_path[normalized_scan_root_path.len()..]
+        .trim_start_matches('/')
+        .to_string();
+
+    let mut branch_paths = vec![normalized_scan_root_path];
+    for relative_path_segment in relative_folder_path
+        .split('/')
+        .filter(|path_segment| !path_segment.is_empty())
+    {
+        let parent_branch_path = branch_paths.last().expect("root branch exists");
+        branch_paths.push(format!("{parent_branch_path}/{relative_path_segment}"));
+    }
+
+    branch_paths
+}
+
+fn parent_folder_path(path: &str) -> String {
+    let normalized_path = normalized_folder_path(path);
+    let Some(last_separator_index) = normalized_path.rfind('/') else {
+        return normalized_path;
+    };
+
+    if last_separator_index == 0 {
+        return normalized_path;
+    }
+
+    normalized_path[..last_separator_index].to_string()
+}
+
 fn normalized_folder_path(path: &str) -> String {
     path.replace('\\', "/").trim_end_matches('/').to_string()
+}
+
+fn scope_tree_nodes_for_parent(
+    parent_path: Option<&str>,
+    nodes_by_path: &BTreeMap<String, PendingPreviewStripScopeTreeDraft>,
+) -> Vec<PendingPreviewStripScopeTreeNode> {
+    nodes_by_path
+        .values()
+        .filter(|scope_branch| {
+            parent_path_for_scope_branch(scope_branch, nodes_by_path) == parent_path
+        })
+        .map(|scope_branch| PendingPreviewStripScopeTreeNode {
+            path: scope_branch.path.clone(),
+            available_scan_root_path: scope_branch.available_scan_root_path.clone(),
+            pending_count: scope_branch.pending_video_ids.len() as i64,
+            children: scope_tree_nodes_for_parent(Some(&scope_branch.path), nodes_by_path),
+        })
+        .collect()
+}
+
+fn parent_path_for_scope_branch<'a>(
+    scope_branch: &'a PendingPreviewStripScopeTreeDraft,
+    nodes_by_path: &'a BTreeMap<String, PendingPreviewStripScopeTreeDraft>,
+) -> Option<&'a str> {
+    if scope_branch.path == scope_branch.available_scan_root_path {
+        return None;
+    }
+
+    let mut ancestor_path = parent_folder_path(&scope_branch.path);
+    while !ancestor_path.is_empty() {
+        if nodes_by_path.contains_key(&ancestor_path) {
+            return nodes_by_path
+                .get_key_value(&ancestor_path)
+                .map(|(stored_path, _)| stored_path.as_str());
+        }
+
+        let next_ancestor_path = parent_folder_path(&ancestor_path);
+        if next_ancestor_path == ancestor_path {
+            break;
+        }
+        ancestor_path = next_ancestor_path;
+    }
+
+    None
 }
