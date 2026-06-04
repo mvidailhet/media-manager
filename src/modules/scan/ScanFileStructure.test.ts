@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import previewGenerationSource from "./PreviewGenerationView/PreviewGenerationView.tsx?raw";
+import previewGenerationStyles from "./PreviewGenerationView/PreviewGenerationView.module.css";
 import failedPreviewStripsPanelSource from "./PreviewGenerationView/components/FailedPreviewStripsPanel.tsx?raw";
 import previewStripQueuePanelSource from "./PreviewGenerationView/components/PreviewStripQueuePanel.tsx?raw";
 import attentionTabLabelSource from "./components/AttentionTabLabel.tsx?raw";
@@ -29,6 +30,10 @@ import inferenceRulesFormSource from "./RootsPanel/components/RootCard/component
 
 const missingVideosPanelStylesSource = readFileSync(
   "src/modules/scan/MissingVideosPanel/MissingVideosPanel.module.css",
+  "utf8",
+);
+const previewGenerationStylesSource = readFileSync(
+  "src/modules/scan/PreviewGenerationView/PreviewGenerationView.module.css",
   "utf8",
 );
 
@@ -150,19 +155,26 @@ describe("Scan module file structure", () => {
     expect(previewGenerationSource).not.toContain("index.ts");
   });
 
-  it("keeps Scan tabs, Scan Roots, and Missing Videos scrollable inside the module slot", () => {
+  it("keeps Scan tabs and workflow panels scrollable inside the module slot", () => {
     expect(scanStyles.scanWorkspace).toBeTruthy();
     expect(scanStyles.scanPanel).toBeTruthy();
     expect(rootsPanelStyles.rootsPanel).toBeTruthy();
     expect(missingVideosPanelStyles.missingVideosPanel).toBeTruthy();
+    expect(previewGenerationStyles.previewGenerationView).toBeTruthy();
     expect(scanSource).toContain("className={styles.scanWorkspace}");
     expect(scanSource).toContain("className={styles.scanPanel}");
     expect(rootsPanelSource).toContain("className={styles.rootsPanel}");
     expect(missingVideosPanelSource).toContain(
       "className={styles.missingVideosPanel}",
     );
+    expect(previewGenerationSource).toContain(
+      "className={styles.previewGenerationView}",
+    );
     expect(missingVideosPanelStylesSource).toMatch(
       /\.missingVideosPanel\s*{[^}]*box-sizing:\s*border-box;[^}]*height:\s*100%;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s,
+    );
+    expect(previewGenerationStylesSource).toMatch(
+      /\.previewGenerationView\s*{[^}]*box-sizing:\s*border-box;[^}]*height:\s*100%;[^}]*min-height:\s*0;[^}]*overflow-y:\s*auto;/s,
     );
   });
 });

@@ -9,6 +9,7 @@ import { SectionHeader } from "../../../shared/components/SectionHeader";
 import { FailedPreviewStripsPanel } from "./components/FailedPreviewStripsPanel";
 import { PreviewGenerationScopeTree } from "./components/PreviewGenerationScopeTree";
 import { PreviewStripQueuePanel } from "./components/PreviewStripQueuePanel";
+import styles from "./PreviewGenerationView.module.css";
 
 export function PreviewGenerationView({
   failedPreviewStrips,
@@ -34,7 +35,13 @@ export function PreviewGenerationView({
   selectedPreviewGenerationScopeBranches: PreviewGenerationScopeBranch[] | null;
 }) {
   return (
-    <Box component="section" aria-label="Preview Generation" p="md" maw={760}>
+    <Box
+      component="section"
+      aria-label="Preview Generation"
+      className={styles.previewGenerationView}
+      p="md"
+      maw={760}
+    >
       <Stack gap="md">
         <SectionHeader label="Preview strips" title="Preview Generation" />
         <PreviewGenerationScopeTree
