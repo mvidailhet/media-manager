@@ -28,6 +28,7 @@ import {
   getLocalDesktopAppStatus,
   ignoreFailedPreviewStrip,
   listFailedPreviewStrips,
+  listPendingPreviewStripScopeTree,
   listMetadataSuggestionGroups,
   listPerformers,
   listTags,
@@ -87,6 +88,7 @@ vi.mock("../tauriCommands", () => ({
   getLocalDesktopAppStatus: vi.fn(),
   ignoreFailedPreviewStrip: vi.fn(),
   listFailedPreviewStrips: vi.fn(),
+  listPendingPreviewStripScopeTree: vi.fn(),
   listMetadataSuggestionGroups: vi.fn(),
   listPerformers: vi.fn(),
   listTags: vi.fn(),
@@ -123,6 +125,9 @@ export const mockedGetLocalDesktopAppStatus = vi.mocked(getLocalDesktopAppStatus
 export const mockedGetFfmpegToolsStatus = vi.mocked(getFfmpegToolsStatus);
 export const mockedSaveFfmpegConfiguration = vi.mocked(saveFfmpegConfiguration);
 export const mockedListFailedPreviewStrips = vi.mocked(listFailedPreviewStrips);
+export const mockedListPendingPreviewStripScopeTree = vi.mocked(
+  listPendingPreviewStripScopeTree,
+);
 export const mockedListMetadataSuggestionGroups = vi.mocked(
   listMetadataSuggestionGroups,
 );
@@ -289,6 +294,7 @@ export function resetAppTestHarness() {
     mockedGetFfmpegToolsStatus.mockResolvedValue(availableFfmpegToolsStatus);
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
     mockedListFailedPreviewStrips.mockResolvedValue([]);
+    mockedListPendingPreviewStripScopeTree.mockResolvedValue([]);
     mockedListMetadataSuggestionGroups.mockResolvedValue([]);
     mockedAcceptMetadataSuggestionForVideos.mockResolvedValue(undefined);
     mockedRejectMetadataSuggestionSource.mockResolvedValue(undefined);

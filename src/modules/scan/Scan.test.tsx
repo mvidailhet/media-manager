@@ -8,6 +8,7 @@ import {
   mockedGetFfmpegToolsStatus,
   mockedSaveFfmpegConfiguration,
   mockedListFailedPreviewStrips,
+  mockedListPendingPreviewStripScopeTree,
   mockedListMetadataSuggestionGroups,
   mockedAcceptMetadataSuggestionForVideos,
   mockedRejectMetadataSuggestionSource,
@@ -185,6 +186,104 @@ describe("Scan module", () => {
         selectedScopeBranches,
       ),
     );
+  });
+
+  it("chooses Preview Strip generation scope from the Preview Generation folder tree", async () => {
+    const selectedScopeBranches = [
+      {
+        path: "/Volumes/Archive/Videos/Travel/Paris",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+      },
+    ];
+    mockedListPendingPreviewStripScopeTree.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+        pendingCount: 3,
+        children: [
+          {
+            path: "/Volumes/Archive/Videos/Travel",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 2,
+            children: [
+              {
+                path: "/Volumes/Archive/Videos/Travel/Paris",
+                availableScanRootPath: "/Volumes/Archive/Videos",
+                pendingCount: 1,
+                children: [],
+              },
+              {
+                path: "/Volumes/Archive/Videos/Travel/Rome",
+                availableScanRootPath: "/Volumes/Archive/Videos",
+                pendingCount: 1,
+                children: [],
+              },
+            ],
+          },
+          {
+            path: "/Volumes/Archive/Videos/Studio",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 1,
+            children: [],
+          },
+        ],
+      },
+    ]);
+    mockedGetPreviewStripQueueStatus.mockImplementation(async (scopeBranches) => ({
+      pendingCount: scopeBranches?.length === 0 ? 0 : 1,
+      runningCount: 0,
+      runningVideoId: null,
+      failedCount: 0,
+      isPaused: false,
+    }));
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 0,
+      runningCount: 1,
+      runningVideoId: 1,
+      failedCount: 0,
+      isPaused: false,
+    });
+
+    renderApp();
+    await openPreviewGenerationTab();
+
+    const scanRootScopeCheckbox = await screen.findByRole("checkbox", {
+      name: "/Volumes/Archive/Videos (3 pending)",
+    });
+    await waitFor(() => expect(scanRootScopeCheckbox).toBeChecked());
+    expect(
+      screen.getByRole("checkbox", { name: "Travel (2 pending)" }),
+    ).toBeChecked();
+
+    const processQueueCallCountBeforeEmptySelection =
+      mockedProcessNextPreviewStripQueueItem.mock.calls.length;
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Unselect all visible Preview Generation Scope branches",
+      }),
+    );
+
+    expect(await screen.findByText("0 pending")).toBeInTheDocument();
+    expect(mockedProcessNextPreviewStripQueueItem).toHaveBeenCalledTimes(
+      processQueueCallCountBeforeEmptySelection,
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Paris (1 pending)" }));
+
+    await waitFor(() =>
+      expect(mockedGetPreviewStripQueueStatus).toHaveBeenCalledWith(
+        selectedScopeBranches,
+      ),
+    );
+    await waitFor(() =>
+      expect(mockedProcessNextPreviewStripQueueItem).toHaveBeenCalledWith(
+        selectedScopeBranches,
+      ),
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "Travel (2 pending)" }),
+    ).toHaveAttribute("aria-checked", "mixed");
   });
 
   it("does not show a separate batch generation command", async () => {

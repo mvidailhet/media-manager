@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   PreviewGenerationScopeBranch,
@@ -47,12 +47,22 @@ export function useScanModuleController({
   selectedPreviewGenerationScopeBranches: PreviewGenerationScopeBranch[] | null;
 }): ScanController {
   const [scanTab, setScanTab] = useState<string | null>(scanRootsTab);
+  const [
+    scanSelectedPreviewGenerationScopeBranches,
+    setSelectedPreviewGenerationScopeBranches,
+  ] = useState<PreviewGenerationScopeBranch[] | null>(
+    selectedPreviewGenerationScopeBranches,
+  );
+  const [
+    hasPreviewGenerationScopeTreeSelection,
+    setHasPreviewGenerationScopeTreeSelection,
+  ] = useState(false);
   const missingVideosWorkflow = useMissingVideos({
     refreshCatalogVideos,
   });
   const previewGeneration = usePreviewGeneration({
     refreshCatalogVideos,
-    selectedScopeBranches: selectedPreviewGenerationScopeBranches,
+    selectedScopeBranches: scanSelectedPreviewGenerationScopeBranches,
   });
   const scanRootsState = useScanRoots({
     refreshCatalogVideos,
@@ -60,6 +70,26 @@ export function useScanModuleController({
     refreshPreviewStripQueueStatus:
       previewGeneration.refreshPreviewStripQueueStatus,
   });
+
+  useEffect(() => {
+    if (hasPreviewGenerationScopeTreeSelection) {
+      return;
+    }
+
+    setSelectedPreviewGenerationScopeBranches(
+      selectedPreviewGenerationScopeBranches,
+    );
+  }, [
+    hasPreviewGenerationScopeTreeSelection,
+    selectedPreviewGenerationScopeBranches,
+  ]);
+
+  function changeSelectedPreviewGenerationScopeBranches(
+    selectedScopeBranches: PreviewGenerationScopeBranch[] | null,
+  ) {
+    setHasPreviewGenerationScopeTreeSelection(true);
+    setSelectedPreviewGenerationScopeBranches(selectedScopeBranches);
+  }
 
   const unavailableScanRoots = scanRootsState.scanRoots.filter(
     (scanRoot) => !scanRoot.isAvailable,
@@ -115,8 +145,12 @@ export function useScanModuleController({
       onRetryFailedPreview: previewGeneration.retryFailedPreview,
       onSaveScanRootInferenceRules: scanRootsState.saveScanRootInferenceRules,
       onScanTabChange: setScanTab,
+      onSelectedPreviewGenerationScopeBranchesChange:
+        changeSelectedPreviewGenerationScopeBranches,
       previewGenerationAttentionCount,
       previewStripQueueStatus: previewGeneration.previewStripQueueStatus,
+      selectedPreviewGenerationScopeBranches:
+        scanSelectedPreviewGenerationScopeBranches,
       missingVideosAttentionCount,
       scanRootsAttentionCount,
       missingVideosStatusMessage: missingVideosWorkflow.missingVideosStatusMessage,
