@@ -587,7 +587,7 @@ describe("Scan module", () => {
     ).toBeChecked();
   });
 
-  it("shows Preview Strip queue progress and supports global stop and start", async () => {
+  it("shows Preview Strip queue counts and supports global stop and start", async () => {
     mockedGetPreviewStripQueueStatus.mockResolvedValue({
       pendingCount: 3,
       runningCount: 1,
@@ -609,10 +609,10 @@ describe("Scan module", () => {
     expect(await screen.findByText("3 pending")).toBeInTheDocument();
     expect(screen.getByText("1 failed")).toBeInTheDocument();
     expect(
-      screen.getByRole("progressbar", {
+      screen.queryByRole("progressbar", {
         name: "Preview Strip generation progress",
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(screen.queryByText("1 running")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Stop" }));
@@ -1034,10 +1034,10 @@ describe("Scan module", () => {
       within(previewGeneration).queryByText("1 generated"),
     ).not.toBeInTheDocument();
     expect(
-      within(previewGeneration).getByRole("progressbar", {
+      within(previewGeneration).queryByRole("progressbar", {
         name: "Preview Strip generation progress",
       }),
-    ).toBeInTheDocument();
+    ).not.toBeInTheDocument();
     expect(
       within(previewGeneration).getByRole("button", {
         name: "Retry Failed Preview Strip for Broken Preview",

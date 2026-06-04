@@ -12,7 +12,6 @@ import { PreviewStripQueuePanel } from "./components/PreviewStripQueuePanel";
 
 export function PreviewGenerationView({
   failedPreviewStrips,
-  generatedPreviewStripCount,
   generatingPreviewStripTitle,
   onIgnoreFailedPreview,
   onPausePreviewStripQueue,
@@ -23,7 +22,6 @@ export function PreviewGenerationView({
   selectedPreviewGenerationScopeBranches,
 }: {
   failedPreviewStrips: FailedPreviewStrip[];
-  generatedPreviewStripCount: number;
   generatingPreviewStripTitle?: string;
   onIgnoreFailedPreview: (failedPreviewStrip: FailedPreviewStrip) => void;
   onPausePreviewStripQueue: () => void;
@@ -47,7 +45,6 @@ export function PreviewGenerationView({
           }
         />
         <PreviewStripQueuePanel
-          generatedPreviewStripCount={generatedPreviewStripCount}
           generatingPreviewStripTitle={generatingPreviewStripTitle}
           onPausePreviewStripQueue={onPausePreviewStripQueue}
           onResumePreviewStripQueue={onResumePreviewStripQueue}

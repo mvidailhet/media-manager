@@ -104,9 +104,6 @@ export function useScanModuleController({
   const missingVideosAttentionCount = missingVideos.length;
   const previewGenerationAttentionCount =
     previewGeneration.failedPreviewStrips.length;
-  const generatedPreviewStripCount = catalogVideos.filter(
-    (catalogVideo) => catalogVideo.previewStrip.status === "generated",
-  ).length;
   const generatingPreviewStripVideo = catalogVideos.find(
     (catalogVideo) =>
       catalogVideo.id === previewGeneration.previewStripQueueStatus?.runningVideoId,
@@ -123,7 +120,6 @@ export function useScanModuleController({
     scanAttentionCount,
     scanProps: {
       failedPreviewStrips: previewGeneration.failedPreviewStrips,
-      generatedPreviewStripCount,
       generatingPreviewStripTitle: generatingPreviewStripVideo?.title,
       missingVideos,
       activeScanRootRefresh: scanRootsState.activeScanRootRefresh,

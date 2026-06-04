@@ -24,7 +24,6 @@ import styles from "./Scan.module.css";
 
 export type ScanProps = {
   failedPreviewStrips: FailedPreviewStrip[];
-  generatedPreviewStripCount: number;
   generatingPreviewStripTitle?: string;
   missingVideos: CatalogVideo[];
   activeScanRootRefresh: ScanRootRefreshJobProgress | null;
@@ -64,7 +63,6 @@ export type ScanProps = {
 
 export function Scan({
   failedPreviewStrips,
-  generatedPreviewStripCount,
   generatingPreviewStripTitle,
   missingVideos,
   activeScanRootRefresh,
@@ -141,7 +139,6 @@ export function Scan({
       <Tabs.Panel value={previewGenerationTab} className={styles.scanPanel}>
         <PreviewGenerationView
           failedPreviewStrips={failedPreviewStrips}
-          generatedPreviewStripCount={generatedPreviewStripCount}
           generatingPreviewStripTitle={generatingPreviewStripTitle}
           onIgnoreFailedPreview={onIgnoreFailedPreview}
           onPausePreviewStripQueue={onPausePreviewStripQueue}
