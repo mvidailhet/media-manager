@@ -211,7 +211,7 @@ impl<'a, G: PreviewStripGenerator> PreviewGenerationWork<'a, G> {
 
         for request in self
             .catalog
-            .pending_preview_strip_requests(self.preview_cache_path)?
+            .pending_preview_strip_requests(self.preview_cache_path, None)?
         {
             let item_summary = process_preview_strip_request(
                 self.catalog,
@@ -230,7 +230,7 @@ impl<'a, G: PreviewStripGenerator> PreviewGenerationWork<'a, G> {
     pub fn process_next_preview_strip(&self) -> Result<PreviewStripGenerationSummary, String> {
         let Some(request) = self
             .catalog
-            .pending_preview_strip_requests(self.preview_cache_path)?
+            .pending_preview_strip_requests(self.preview_cache_path, None)?
             .into_iter()
             .next()
         else {
@@ -343,7 +343,7 @@ mod tests {
         );
         assert_eq!(
             catalog
-                .preview_strip_queue_counts()
+                .preview_strip_queue_counts(None)
                 .expect("preview queue counts load"),
             PreviewStripQueueCounts {
                 pending_count: 1,

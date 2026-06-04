@@ -106,6 +106,11 @@ export interface ScanRootInferenceRules {
   ignoredExactYearRange: ExactYearRange;
 }
 
+export interface PreviewGenerationScopeBranch {
+  path: string;
+  availableScanRootPath: string;
+}
+
 export interface ExactYearRange {
   startYear: number;
   endYear: number;
@@ -497,8 +502,16 @@ export async function ignoreFailedPreviewStrip(
   });
 }
 
-export async function getPreviewStripQueueStatus(): Promise<PreviewStripQueueStatus> {
-  return invoke<PreviewStripQueueStatus>(getPreviewStripQueueStatusCommand);
+export async function getPreviewStripQueueStatus(
+  selectedScopeBranches?: PreviewGenerationScopeBranch[],
+): Promise<PreviewStripQueueStatus> {
+  if (selectedScopeBranches === undefined) {
+    return invoke<PreviewStripQueueStatus>(getPreviewStripQueueStatusCommand);
+  }
+
+  return invoke<PreviewStripQueueStatus>(getPreviewStripQueueStatusCommand, {
+    selectedScopeBranches,
+  });
 }
 
 export async function pausePreviewStripQueue(): Promise<PreviewStripQueueStatus> {
@@ -509,9 +522,18 @@ export async function resumePreviewStripQueue(): Promise<PreviewStripQueueStatus
   return invoke<PreviewStripQueueStatus>(resumePreviewStripQueueCommand);
 }
 
-export async function processNextPreviewStripQueueItem(): Promise<PreviewStripQueueStatus> {
+export async function processNextPreviewStripQueueItem(
+  selectedScopeBranches?: PreviewGenerationScopeBranch[],
+): Promise<PreviewStripQueueStatus> {
+  if (selectedScopeBranches === undefined) {
+    return invoke<PreviewStripQueueStatus>(
+      processNextPreviewStripQueueItemCommand,
+    );
+  }
+
   return invoke<PreviewStripQueueStatus>(
     processNextPreviewStripQueueItemCommand,
+    { selectedScopeBranches },
   );
 }
 

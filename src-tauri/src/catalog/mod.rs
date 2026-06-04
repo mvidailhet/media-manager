@@ -190,6 +190,13 @@ pub struct PreviewStripQueueCounts {
     pub failed_count: i64,
 }
 
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PreviewGenerationScopeBranch {
+    pub path: String,
+    pub available_scan_root_path: String,
+}
+
 #[derive(Debug, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FailedPreviewStrip {
@@ -440,6 +447,7 @@ struct PendingPreviewStrip {
     video_id: i64,
     duration_milliseconds: i64,
     video_path: String,
+    available_scan_root_path: String,
 }
 
 struct NormalizedMetadataName {

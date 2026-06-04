@@ -75,6 +75,36 @@ fn store_test_video(database: &Connection, fingerprint: &str, title: &str) {
         .expect("video persists");
 }
 
+fn store_pending_preview_video(
+    database: &Connection,
+    video_id: i64,
+    fingerprint: &str,
+    title: &str,
+    scan_root_id: i64,
+    file_location_path: &Path,
+) {
+    database
+        .execute(
+            "INSERT INTO videos (id, fingerprint, fingerprint_version, title, duration_milliseconds)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+            (video_id, fingerprint, 1_i64, title, 21_000_i64),
+        )
+        .expect("video persists");
+    database
+        .execute(
+            "INSERT INTO file_locations (video_id, scan_root_id, path, file_size_bytes, last_seen_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5)",
+            (
+                video_id,
+                scan_root_id,
+                file_location_path.to_string_lossy().into_owned(),
+                17_i64,
+                "2026-05-14T16:35:48Z",
+            ),
+        )
+        .expect("file location persists");
+}
+
 fn video_id_for_title(database: &Connection, title: &str) -> i64 {
     database
         .query_row("SELECT id FROM videos WHERE title = ?1", [title], |row| {

@@ -30,6 +30,7 @@ import {
   listScanRoots,
   openUnprocessableVideoCandidateInFinder,
   pausePreviewStripQueue,
+  processNextPreviewStripQueueItem,
   removeScanRoot,
   cancelScanRootRefreshJob,
   startScanRootRefreshJob,
@@ -512,6 +513,26 @@ describe("Tauri commands", () => {
       isPaused: false,
     });
     expect(mockedInvoke).toHaveBeenCalledWith("get_preview_strip_queue_status");
+  });
+
+  it("passes the Preview Generation Scope to Preview Strip queue commands", async () => {
+    const selectedScopeBranches = [
+      {
+        path: "/Volumes/Archive/Videos/Travel",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+      },
+    ];
+
+    await getPreviewStripQueueStatus(selectedScopeBranches);
+    await processNextPreviewStripQueueItem(selectedScopeBranches);
+
+    expect(mockedInvoke).toHaveBeenCalledWith("get_preview_strip_queue_status", {
+      selectedScopeBranches,
+    });
+    expect(mockedInvoke).toHaveBeenCalledWith(
+      "process_next_preview_strip_queue_item",
+      { selectedScopeBranches },
+    );
   });
 
   it("pauses and resumes the Preview Strip queue through Rust commands", async () => {

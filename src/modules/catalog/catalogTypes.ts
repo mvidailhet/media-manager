@@ -2,6 +2,7 @@ import type {
   AcceptMetadataSuggestionForVideosRequest,
   CatalogPerformer,
   CatalogTag,
+  PreviewGenerationScopeBranch,
 } from "../../tauriCommands";
 
 export interface CatalogVideoMetadata {
@@ -9,10 +10,7 @@ export interface CatalogVideoMetadata {
   performers: CatalogPerformer[];
 }
 
-export interface CatalogFolderSearchBranch {
-  path: string;
-  availableScanRootPath: string;
-}
+export type CatalogFolderSearchBranch = PreviewGenerationScopeBranch;
 
 export interface CatalogVideoFilters {
   searchText: string;
