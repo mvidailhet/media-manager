@@ -287,6 +287,7 @@ describe("Scan module", () => {
   });
 
   it("refreshes the Preview Generation Scope tree as Preview Strips complete", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
     mockedListPendingPreviewStripScopeTree
       .mockResolvedValueOnce([
         {
@@ -345,7 +346,6 @@ describe("Scan module", () => {
       await waitFor(() =>
         expect(mockedProcessNextPreviewStripQueueItem).toHaveBeenCalled(),
       );
-      vi.useFakeTimers();
       await act(async () => {
         await vi.advanceTimersByTimeAsync(250);
       });
