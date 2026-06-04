@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import type {
+  PreviewGenerationScopeBranch,
   CatalogPerformer,
   CatalogTag,
 } from "../../tauriCommands";
@@ -33,6 +34,7 @@ export function useScanModuleController({
   onRequestScanRootRemoval,
   recordPerformerSecretStatusChange,
   recordTagSecretStatusChange,
+  selectedPreviewGenerationScopeBranches,
 }: {
   catalogVideos: CatalogVideo[];
   missingVideos: CatalogVideo[];
@@ -42,6 +44,7 @@ export function useScanModuleController({
   onRequestScanRootRemoval: (scanRoot: ScanRoot) => void;
   recordPerformerSecretStatusChange: (performer: CatalogPerformer) => void;
   recordTagSecretStatusChange: (tag: CatalogTag) => void;
+  selectedPreviewGenerationScopeBranches: PreviewGenerationScopeBranch[] | null;
 }): ScanController {
   const [scanTab, setScanTab] = useState<string | null>(scanRootsTab);
   const missingVideosWorkflow = useMissingVideos({
@@ -49,6 +52,7 @@ export function useScanModuleController({
   });
   const previewGeneration = usePreviewGeneration({
     refreshCatalogVideos,
+    selectedScopeBranches: selectedPreviewGenerationScopeBranches,
   });
   const scanRootsState = useScanRoots({
     refreshCatalogVideos,
