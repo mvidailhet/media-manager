@@ -298,6 +298,217 @@ describe("Scan module", () => {
     ).toHaveAttribute("aria-checked", "mixed");
   });
 
+  it("remembers the selected Preview Generation folders after returning from Catalog", async () => {
+    const selectedScopeBranches = [
+      {
+        path: "/Volumes/Archive/Videos/Travel/Paris",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+      },
+    ];
+    mockedListPendingPreviewStripScopeTree.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+        pendingCount: 3,
+        children: [
+          {
+            path: "/Volumes/Archive/Videos/Travel",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 2,
+            children: [
+              {
+                path: "/Volumes/Archive/Videos/Travel/Paris",
+                availableScanRootPath: "/Volumes/Archive/Videos",
+                pendingCount: 1,
+                children: [],
+              },
+              {
+                path: "/Volumes/Archive/Videos/Travel/Rome",
+                availableScanRootPath: "/Volumes/Archive/Videos",
+                pendingCount: 1,
+                children: [],
+              },
+            ],
+          },
+          {
+            path: "/Volumes/Archive/Videos/Studio",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 1,
+            children: [],
+          },
+        ],
+      },
+    ]);
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      runningVideoId: null,
+      failedCount: 0,
+      isPaused: false,
+    });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 0,
+      runningCount: 1,
+      runningVideoId: 1,
+      failedCount: 0,
+      isPaused: false,
+    });
+
+    renderApp();
+    await openPreviewGenerationTab();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Unselect all visible Preview Generation Scope branches",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "Paris (1 pending)" }),
+    );
+
+    await waitFor(() =>
+      expect(mockedProcessNextPreviewStripQueueItem).toHaveBeenCalledWith(
+        selectedScopeBranches,
+      ),
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Back to Catalog" }));
+    await screen.findByRole("region", { name: "Catalog Videos" });
+    await openPreviewGenerationTab();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("checkbox", { name: "Paris (1 pending)" }),
+      ).toBeChecked(),
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "Rome (1 pending)" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Studio (1 pending)" }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByRole("checkbox", { name: "Travel (2 pending)" }),
+    ).toHaveAttribute("aria-checked", "mixed");
+  });
+
+  it("remembers selected Preview Generation folders after returning from Catalog before generation starts", async () => {
+    mockedListPendingPreviewStripScopeTree.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+        pendingCount: 2,
+        children: [
+          {
+            path: "/Volumes/Archive/Videos/Travel",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 1,
+            children: [],
+          },
+          {
+            path: "/Volumes/Archive/Videos/Studio",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 1,
+            children: [],
+          },
+        ],
+      },
+    ]);
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      runningVideoId: null,
+      failedCount: 0,
+      isPaused: true,
+    });
+
+    renderApp();
+    await openPreviewGenerationTab();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Unselect all visible Preview Generation Scope branches",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "Travel (1 pending)" }),
+    );
+
+    expect(
+      screen.getByRole("checkbox", { name: "Travel (1 pending)" }),
+    ).toBeChecked();
+    expect(mockedProcessNextPreviewStripQueueItem).not.toHaveBeenCalled();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Back to Catalog" }));
+    await screen.findByRole("region", { name: "Catalog Videos" });
+    await openPreviewGenerationTab();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("checkbox", { name: "Travel (1 pending)" }),
+      ).toBeChecked(),
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "Studio (1 pending)" }),
+    ).not.toBeChecked();
+  });
+
+  it("remembers selected Preview Generation folders when the app view is recreated", async () => {
+    mockedListPendingPreviewStripScopeTree.mockResolvedValue([
+      {
+        path: "/Volumes/Archive/Videos",
+        availableScanRootPath: "/Volumes/Archive/Videos",
+        pendingCount: 2,
+        children: [
+          {
+            path: "/Volumes/Archive/Videos/Travel",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 1,
+            children: [],
+          },
+          {
+            path: "/Volumes/Archive/Videos/Studio",
+            availableScanRootPath: "/Volumes/Archive/Videos",
+            pendingCount: 1,
+            children: [],
+          },
+        ],
+      },
+    ]);
+    mockedGetPreviewStripQueueStatus.mockResolvedValue({
+      pendingCount: 1,
+      runningCount: 0,
+      runningVideoId: null,
+      failedCount: 0,
+      isPaused: true,
+    });
+
+    const renderedApp = renderApp();
+    await openPreviewGenerationTab();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Unselect all visible Preview Generation Scope branches",
+      }),
+    );
+    fireEvent.click(
+      await screen.findByRole("checkbox", { name: "Travel (1 pending)" }),
+    );
+    renderedApp.unmount();
+
+    renderApp();
+    await openPreviewGenerationTab();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("checkbox", { name: "Travel (1 pending)" }),
+      ).toBeChecked(),
+    );
+    expect(
+      screen.getByRole("checkbox", { name: "Studio (1 pending)" }),
+    ).not.toBeChecked();
+  });
+
   it("refreshes the Preview Generation Scope tree as Preview Strips complete", async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mockedListPendingPreviewStripScopeTree

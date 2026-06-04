@@ -40,7 +40,9 @@ export function PreviewGenerationScopeTree({
     PendingPreviewStripScopeTreeNode[]
   >([]);
   const [scopeTreeStatusMessage, setScopeTreeStatusMessage] = useState("");
+  const [hasLoadedScopeTree, setHasLoadedScopeTree] = useState(false);
   const onSelectedScopeBranchesChangeRef = useRef(onSelectedScopeBranchesChange);
+  const isUserChangingCheckedState = useRef(false);
   const previousRunningPreviewStripCount = useRef(0);
   const visibleScopeBranches = useMemo(
     () => flattenScopeTreeNodes(scopeTreeNodes),
@@ -79,6 +81,7 @@ export function PreviewGenerationScopeTree({
 
       if (canUpdateScopeTree()) {
         setScopeTreeNodes(pendingScopeTree);
+        setHasLoadedScopeTree(true);
         setScopeTreeStatusMessage("");
       }
     } catch (error) {
@@ -127,6 +130,10 @@ export function PreviewGenerationScopeTree({
   }, [expandedBranchState]);
 
   useEffect(() => {
+    if (!hasLoadedScopeTree) {
+      return;
+    }
+
     const reconciledSelection = reconcilePreviewGenerationScopeSelection({
       selectedScopeBranches,
       visibleScopeBranches,
@@ -134,6 +141,7 @@ export function PreviewGenerationScopeTree({
     const nextCheckedBranchPaths = reconciledSelection.checkedBranchPaths;
 
     if (!sameBranchPaths(checkedBranchPaths, nextCheckedBranchPaths)) {
+      setCheckedBranchPaths(nextCheckedBranchPaths);
       tree.setCheckedState(nextCheckedBranchPaths);
     }
 
@@ -147,10 +155,21 @@ export function PreviewGenerationScopeTree({
         reconciledSelection.selectedScopeBranches,
       );
     }
-  }, [checkedBranchPaths, selectedScopeBranches, visibleScopeBranches]);
+  }, [
+    checkedBranchPaths,
+    hasLoadedScopeTree,
+    selectedScopeBranches,
+    visibleScopeBranches,
+  ]);
 
   function changeCheckedBranchPaths(nextCheckedBranchPaths: string[]) {
     setCheckedBranchPaths(nextCheckedBranchPaths);
+
+    if (!isUserChangingCheckedState.current) {
+      return;
+    }
+
+    isUserChangingCheckedState.current = false;
     onSelectedScopeBranchesChangeRef.current(
       selectedBranchesForCheckedPaths(nextCheckedBranchPaths, visibleScopeBranches),
     );
@@ -161,11 +180,13 @@ export function PreviewGenerationScopeTree({
       (scopeBranch) => scopeBranch.path,
     );
 
+    setCheckedBranchPaths(nextCheckedBranchPaths);
     tree.setCheckedState(nextCheckedBranchPaths);
     onSelectedScopeBranchesChangeRef.current(null);
   }
 
   function unselectAllVisibleBranches() {
+    setCheckedBranchPaths([]);
     tree.setCheckedState([]);
     onSelectedScopeBranchesChangeRef.current([]);
   }
@@ -215,6 +236,8 @@ export function PreviewGenerationScopeTree({
           const isNodeChecked = nodeTree.isNodeChecked(node.value);
           const isNodeIndeterminate = nodeTree.isNodeIndeterminate(node.value);
           const toggleNode = () => {
+            isUserChangingCheckedState.current = true;
+
             if (isNodeChecked || isNodeIndeterminate) {
               nodeTree.uncheckNode(node.value);
             } else {

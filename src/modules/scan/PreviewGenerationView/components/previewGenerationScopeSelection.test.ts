@@ -52,7 +52,7 @@ describe("reconcilePreviewGenerationScopeSelection", () => {
     expect(reconciledSelection.selectedScopeBranches).toEqual([]);
   });
 
-  it("keeps selected ancestors selected for newly visible pending child folders", () => {
+  it("checks newly visible pending child folders under a selected ancestor", () => {
     const visibleScopeBranches = [
       scopeBranch(scanRootPath),
       scopeBranch(travelPath),
@@ -73,12 +73,10 @@ describe("reconcilePreviewGenerationScopeSelection", () => {
     ]);
     expect(reconciledSelection.selectedScopeBranches).toEqual([
       scopeBranch(travelPath),
-      scopeBranch(parisPath),
-      scopeBranch(romePath),
     ]);
   });
 
-  it("drops completed folders from partial selection without selecting unchecked branches", () => {
+  it("keeps completed folders in explicit selection while checking only visible selected branches", () => {
     const visibleScopeBranches = [
       scopeBranch(scanRootPath),
       scopeBranch(travelPath),
@@ -93,6 +91,7 @@ describe("reconcilePreviewGenerationScopeSelection", () => {
 
     expect(reconciledSelection.checkedBranchPaths).toEqual([studioPath]);
     expect(reconciledSelection.selectedScopeBranches).toEqual([
+      scopeBranch(parisPath),
       scopeBranch(studioPath),
     ]);
   });

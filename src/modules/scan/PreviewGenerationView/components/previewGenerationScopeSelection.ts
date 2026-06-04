@@ -21,10 +21,7 @@ export function reconcilePreviewGenerationScopeSelection({
 
   return {
     checkedBranchPaths,
-    selectedScopeBranches: selectedBranchesForCheckedPaths(
-      checkedBranchPaths,
-      visibleScopeBranches,
-    ),
+    selectedScopeBranches,
   };
 }
 

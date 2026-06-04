@@ -25,6 +25,15 @@ type ScanController = {
   >["setMissingVideosStatusMessage"];
 };
 
+let rememberedPreviewGenerationScopeBranches:
+  | PreviewGenerationScopeBranch[]
+  | null
+  | undefined;
+
+export function resetRememberedPreviewGenerationScopeBranchesForTests() {
+  rememberedPreviewGenerationScopeBranches = undefined;
+}
+
 export function useScanModuleController({
   catalogVideos,
   missingVideos,
@@ -51,7 +60,8 @@ export function useScanModuleController({
     scanSelectedPreviewGenerationScopeBranches,
     setSelectedPreviewGenerationScopeBranches,
   ] = useState<PreviewGenerationScopeBranch[] | null>(
-    selectedPreviewGenerationScopeBranches,
+    rememberedPreviewGenerationScopeBranches ??
+      selectedPreviewGenerationScopeBranches,
   );
   const [
     hasPreviewGenerationScopeTreeSelection,
@@ -72,7 +82,10 @@ export function useScanModuleController({
   });
 
   useEffect(() => {
-    if (hasPreviewGenerationScopeTreeSelection) {
+    if (
+      hasPreviewGenerationScopeTreeSelection ||
+      rememberedPreviewGenerationScopeBranches !== undefined
+    ) {
       return;
     }
 
@@ -87,6 +100,7 @@ export function useScanModuleController({
   function changeSelectedPreviewGenerationScopeBranches(
     selectedScopeBranches: PreviewGenerationScopeBranch[] | null,
   ) {
+    rememberedPreviewGenerationScopeBranches = selectedScopeBranches;
     setHasPreviewGenerationScopeTreeSelection(true);
     setSelectedPreviewGenerationScopeBranches(selectedScopeBranches);
   }

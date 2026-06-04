@@ -10,6 +10,7 @@ import { vi } from "vitest";
 
 import App from "../App";
 import { AppProviders } from "../AppProviders";
+import { resetRememberedPreviewGenerationScopeBranchesForTests } from "../modules/scan/useScanModuleController";
 import {
   acceptMetadataSuggestionForVideos,
   addScanRoot,
@@ -290,6 +291,7 @@ export async function openPreviewGenerationTab() {
 
 export function resetAppTestHarness() {
     vi.clearAllMocks();
+    resetRememberedPreviewGenerationScopeBranchesForTests();
     mockedGetLocalDesktopAppStatus.mockResolvedValue("Rust command online");
     mockedGetFfmpegToolsStatus.mockResolvedValue(availableFfmpegToolsStatus);
     mockedSaveFfmpegConfiguration.mockResolvedValue(availableFfmpegToolsStatus);
