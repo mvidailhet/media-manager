@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -284,6 +284,81 @@ describe("Scan module", () => {
     expect(
       screen.getByRole("checkbox", { name: "Travel (2 pending)" }),
     ).toHaveAttribute("aria-checked", "mixed");
+  });
+
+  it("refreshes the Preview Generation Scope tree as Preview Strips complete", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    mockedListPendingPreviewStripScopeTree
+      .mockResolvedValueOnce([
+        {
+          path: "/Volumes/Archive/Videos",
+          availableScanRootPath: "/Volumes/Archive/Videos",
+          pendingCount: 1,
+          children: [
+            {
+              path: "/Volumes/Archive/Videos/Travel",
+              availableScanRootPath: "/Volumes/Archive/Videos",
+              pendingCount: 1,
+              children: [
+                {
+                  path: "/Volumes/Archive/Videos/Travel/Paris",
+                  availableScanRootPath: "/Volumes/Archive/Videos",
+                  pendingCount: 1,
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ])
+      .mockResolvedValueOnce([]);
+    mockedGetPreviewStripQueueStatus
+      .mockResolvedValueOnce({
+        pendingCount: 1,
+        runningCount: 0,
+        runningVideoId: null,
+        failedCount: 0,
+        isPaused: false,
+      })
+      .mockResolvedValue({
+        pendingCount: 0,
+        runningCount: 0,
+        runningVideoId: null,
+        failedCount: 0,
+        isPaused: false,
+      });
+    mockedProcessNextPreviewStripQueueItem.mockResolvedValue({
+      pendingCount: 0,
+      runningCount: 1,
+      runningVideoId: 1,
+      failedCount: 0,
+      isPaused: false,
+    });
+
+    try {
+      renderApp();
+      await openPreviewGenerationTab();
+
+      expect(
+        await screen.findByRole("checkbox", { name: "Paris (1 pending)" }),
+      ).toBeChecked();
+
+      await waitFor(() =>
+        expect(mockedProcessNextPreviewStripQueueItem).toHaveBeenCalled(),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(250);
+      });
+      vi.useRealTimers();
+
+      await waitFor(() =>
+        expect(mockedListPendingPreviewStripScopeTree).toHaveBeenCalledTimes(2),
+      );
+      expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+      expect(await screen.findByText("0 pending")).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("does not show a separate batch generation command", async () => {
